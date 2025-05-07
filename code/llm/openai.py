@@ -37,11 +37,15 @@ def get_openai_api_key() -> str:
     # Get the API key from the preferred provider config
     preferred_provider = CONFIG.preferred_provider
     provider_config = CONFIG.providers[preferred_provider]
-    api_key_env_var = provider_config.api_key_env
-    
-    key = os.getenv(api_key_env_var)
+
+    key = None
+    if provider_config and provider_config.api_key:
+        api_key = provider_config.api_key
+        if api_key:
+            api_key = api_key.strip('"')  # Remove quotes if present
+            key = api_key
     if not key:
-        raise ConfigurationError(f"{api_key_env_var} is not set")
+        raise ConfigurationError(f"API key is not set")
     return key
 
 _client_lock = threading.Lock()
@@ -137,7 +141,7 @@ async def get_openai_embeddings(
     if model is None:
         preferred_provider = CONFIG.preferred_provider
         provider_config = CONFIG.providers[preferred_provider]
-        embedding_model_env_var = provider_config.embedding_model_env
+        embedding_model_env_var = provider_config.embedding_model
         
         if embedding_model_env_var:
             model = os.getenv(embedding_model_env_var)

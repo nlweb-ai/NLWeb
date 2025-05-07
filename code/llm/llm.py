@@ -137,7 +137,7 @@ async def get_embedding(
         if provider == "openai":
             logger.debug("Getting OpenAI embeddings")
             from llm.openai import get_openai_embeddings as openai_embed
-            result = await openai_embed(text, model=model_id)
+            result = await openai_embed(text)
             logger.debug(f"OpenAI embeddings received, dimension: {len(result)}")
             return result
 
