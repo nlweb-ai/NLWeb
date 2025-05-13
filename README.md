@@ -59,8 +59,7 @@ pip install -r requirements.txt
 
 6. Run a quick connectivity check:
 ```
-python azure-connectivity.py     # If you'd like to use Azure as the LLM/retrieval provider.
-python snowflake-connectivity.py # If you'd like to use Snowflake as the LLM/retrieval provider.
+python check_connectivity.py
 ```
 
 7. If you are participating in the private preview, modify your local copy of the [config_nlweb.yaml](code\config\config_nlweb.yaml) to scope the `sites` to search over your website only.

@@ -19,7 +19,7 @@ except ImportError as e:
     print("Please run: pip install -r requirements.txt")
     sys.exit(1)
 
-async def check_search_api():
+async def check_azure_search_api():
     """Check Azure AI Search connectivity"""
     print("\nChecking Azure AI Search connectivity...")
     
@@ -121,7 +121,7 @@ async def check_azure_openai_api():
         print(f"❌ Error connecting to Azure OpenAI API: {e}")
         return False
 
-async def check_embedding_api():
+async def check_azure_embedding_api():
     """Check Azure Embedding API connectivity"""
     print("\nChecking Azure Embedding API connectivity...")
     
@@ -182,10 +182,10 @@ async def main():
     
     # Create and run all checks simultaneously
     tasks = [
-        check_search_api(),
+        check_azure_search_api(),
         check_openai_api(),
         check_azure_openai_api(),
-        check_embedding_api()
+        check_azure_embedding_api()
     ]
     
     results = await asyncio.gather(*tasks, return_exceptions=True)
