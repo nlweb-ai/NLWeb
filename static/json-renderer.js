@@ -115,7 +115,7 @@ export class JsonRenderer {
 
     // Title/link
     const titleLink = document.createElement('a');
-    // Ensure only trusted URLs are used
+    // FIX: Use sanitizeUrl instead of just escapeHtml for URLs
     titleLink.href = item.url ? this.sanitizeUrl(item.url) : '#';
     const itemName = this.getItemName(item);
     // Safe text insertion
@@ -387,27 +387,11 @@ export class JsonRenderer {
     
     // Check for javascript: protocol or other dangerous protocols
     const protocolPattern = /^(javascript|data|vbscript|file):/i;
-    if (protocolPattern.test(trimmedUrl) || !this.isTrustedUrl(trimmedUrl)) {
+    if (protocolPattern.test(trimmedUrl)) {
       return '#';
     }
     
     return trimmedUrl;
-  }
-  
-  /**
-   * Validates if a URL is trusted based on a whitelist
-   * 
-   * @param {string} url - The URL to validate
-   * @returns {boolean} - True if the URL is trusted, false otherwise
-   */
-  isTrustedUrl(url) {
-    const trustedDomains = ['example.com', 'trusted.com']; // Add trusted domains here
-    try {
-      const parsedUrl = new URL(url, window.location.origin);
-      return trustedDomains.some(domain => parsedUrl.hostname.endsWith(domain));
-    } catch (e) {
-      return false;
-    }
   }
   
   /**
