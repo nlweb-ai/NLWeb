@@ -2,7 +2,7 @@ preferred_provider: azure_openai
 
 providers:
   openai:
-    api_key_env: OPENAI_API_KEY 
+    api_key_env: OPENAI_API_KEY
     api_endpoint_env: OPENAI_ENDPOINT
     model: text-embedding-3-small
 
@@ -25,13 +25,3 @@ providers:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     api_version_env: "2024-10-01"
     model: snowflake-arctic-embed-m-v1.5
-
-  azure_deepseek:
-    api_key_env: AZURE_DEEPSEEK_API_KEY
-    api_endpoint_env: AZURE_DEEPSEEK_ENDPOINT
-    api_version_env: "2024-01-01"
-    model: deepseek-coder-33b
-
-  inceptionlabs:
-    api_key_env: INCEPTIONLABS_API_KEY
-    model: mercury-coder-small
