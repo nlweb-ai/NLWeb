@@ -374,9 +374,19 @@ class ChatInterface {
     }
     
     htmlUnescape(str) {
-    const div = document.createElement("div");
-    div.innerHTML = str;
-    return div.textContent || div.innerText;
+      // Return empty string for null/undefined values
+      if (!str) return '';
+      
+      // Check if input is a string
+      if (typeof str !== 'string') {
+        return String(str);
+      }
+
+      // Use the browser's built-in text decoder functionality
+      // This safely decodes HTML entities without execution risks
+      const textarea = document.createElement('textarea');
+      textarea.textContent = str;
+      return textarea.value;
     }
   
     addMessage(content, sender) {
