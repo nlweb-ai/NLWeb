@@ -19,7 +19,7 @@ from utils.logger import LogLevel
 # Import client classes
 from retrieval.azure_search_client import AzureSearchClient
 from retrieval.milvus_client import MilvusVectorClient
-from retrieval.qdrant_client import QdrantVectorClient
+from retrieval.qdrant import QdrantVectorClient
 from retrieval.snowflake_client import SnowflakeCortexSearchClient
 
 logger = get_configured_logger("retriever")

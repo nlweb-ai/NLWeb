@@ -3,6 +3,7 @@ azure-core>=1.30.0
 azure-search-documents>=11.4.0
 azure-identity>=1.15.0
 anthropic>=0.18.1
+chardet>=5.2.0
 openai>=1.12.0
 google-generativeai>=0.3.2
 google-cloud-aiplatform>=1.38.0
@@ -14,4 +15,3 @@ aiohttp>=3.9.1
 pyyaml>=6.0.1
 feedparser>=6.0.1
 httpx>=0.28.1
-

@@ -21,7 +21,7 @@ class RelevanceDetection(PromptRunner):
         self.handler.state.start_precheck_step(self.STEP_NAME)
 
     async def do(self):
-        if (self.handler.site == 'all' or self.handler.site == 'nlws'):
+        if (self.handler.site == 'all' or self.handler.site == 'nlws' or 'true'):
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return
         response = await self.run_prompt(self.RELEVANCE_PROMPT_NAME, level="high")

@@ -75,8 +75,6 @@ class HandleRequest():
 
     async def do_GET(self):
         request_id = f"req_{int(time.time()*1000)}"
-        print(f"Generate mode: {self.generate_mode}")
-        print(f"[{request_id}] Received GET request for path: {self.path}")
         try:
             await self._start_sse_response()
             

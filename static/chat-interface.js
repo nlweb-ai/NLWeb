@@ -286,7 +286,7 @@ export class ChatInterface {
       const queryString = queryParams.toString();
       const url = `/ask?${queryString}`;
       console.log("url", url);
-      
+      this.noResponse = true;
       this.eventSource = new ManagedEventSource(url);
       this.eventSource.query_id = queryId;
       this.eventSource.connect(this);
@@ -423,29 +423,6 @@ export class ChatInterface {
     }
   }
 
-  /**
-   * Annotates the user query with decontextualized query
-   * 
-   * @param {string} decontextualizedQuery - The decontextualized query
-   */
-  possiblyAnnotateUserQuery(decontextualizedQuery) {
-    const msgDiv = this.lastUserMessageDiv;
-    if (msgDiv && decontextualizedQuery) {
-      // Optional: Uncomment to show decontextualized query
-      // Use a safer approach if uncommenting
-      // const originalContent = this.currentMessage;
-      // msgDiv.textContent = '';
-      // 
-      // const textNode = document.createTextNode(originalContent);
-      // msgDiv.appendChild(textNode);
-      // msgDiv.appendChild(document.createElement('br'));
-      // 
-      // const decontextSpan = document.createElement('span');
-      // decontextSpan.className = 'decontextualized-query';
-      // decontextSpan.textContent = decontextualizedQuery;
-      // msgDiv.appendChild(decontextSpan);
-    }
-  }
   
   /**
    * Resorts the results by score

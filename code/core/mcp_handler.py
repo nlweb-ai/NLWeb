@@ -14,9 +14,60 @@ from core.baseHandler import NLWebHandler
 from webserver.StreamingWrapper import HandleRequest, SendChunkWrapper
 import asyncio
 from utils.logger import get_logger, LogLevel
+from config.config import CONFIG  # Import CONFIG for site validation
 
 # Assuming logger is available
 logger = get_logger(__name__)
+
+def handle_site_parameter(query_params):
+    """
+    Handle site parameter with configuration validation.
+    
+    Args:
+        query_params (dict): Query parameters from request
+        
+    Returns:
+        dict: Modified query parameters with valid site parameter(s)
+    """
+    # Create a copy of query_params to avoid modifying the original
+    result_params = query_params.copy()
+    logger.debug(f"Query params: {query_params}")
+    
+    # Get allowed sites from config
+    allowed_sites = CONFIG.get_allowed_sites()
+    sites = []
+    if "site" in query_params and len(query_params["site"]) > 0:
+        sites = query_params["site"]
+        logger.debug(f"Sites: {sites}")
+        
+    # Check if site parameter exists in query params
+    if len(sites) > 0:
+        if isinstance(sites, list):
+            # Validate each site
+            valid_sites = []
+            for site in sites:
+                if CONFIG.is_site_allowed(site):
+                    valid_sites.append(site)
+                else:
+                    logger.warning(f"Site '{site}' is not in allowed sites list")
+            
+            if valid_sites:
+                result_params["site"] = valid_sites
+            else:
+                # No valid sites provided, use default from config
+                result_params["site"] = allowed_sites
+        else:
+            # Single site
+            if CONFIG.is_site_allowed(sites):
+                result_params["site"] = [sites]
+            else:
+                logger.warning(f"Site '{sites}' is not in allowed sites list")
+                result_params["site"] = allowed_sites
+    else:
+        # No site parameter provided, use all allowed sites from config
+        result_params["site"] = allowed_sites
+    
+    return result_params
 
 async def handle_mcp_request(query_params, body, send_response, send_chunk, streaming=False):
     """
@@ -91,10 +142,13 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                 # Check if streaming was specified in the arguments
                 if "streaming" in arguments:
                     streaming = arguments["streaming"] in [True, "true", "True", "1", 1]
+                    
+                # Validate site parameters
+                validated_query_params = handle_site_parameter(query_params)
                 
                 if not streaming:
                     # Non-streaming response - process request and return complete response
-                    result = await NLWebHandler(query_params, None).runQuery()
+                    result = await NLWebHandler(validated_query_params, None).runQuery()
                     
                     # Format the response according to MCP protocol
                     mcp_response = {
@@ -117,51 +171,60 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                     
                     # Send SSE headers
                     await send_response(200, response_headers)
-                    
-                    # Send initial keep-alive comment to establish connection
                     await send_chunk(": keep-alive\n\n", end_response=False)
                     
-                    # Create wrapper for chunk sending
-                    send_chunk_wrapper = SendChunkWrapper(send_chunk)
-                    
-                    # Add streaming parameter to query_params
-                    query_params["streaming"] = ["True"]
-                    
-                    # Create a custom handler for streaming MCP responses
-                    class MCPStreamHandler:
-                        def __init__(self, send_chunk_wrapper):
-                            self.send_chunk_wrapper = send_chunk_wrapper
+                    # Create a custom formatter for MCP streaming responses
+                    class MCPFormatter:
+                        def __init__(self, send_chunk):
+                            self.send_chunk = send_chunk
                             self.closed = False
                             self._write_lock = asyncio.Lock()  # Add lock for thread-safe operations
                         
-                        async def write(self, chunk, end_response=False):
+                        async def write_stream(self, message, end_response=False):
                             if self.closed:
                                 return
                             
                             async with self._write_lock:  # Ensure thread-safe writes
                                 try:
-                                    # Format as MCP stream event with partial response
-                                    if isinstance(chunk, dict):
-                                        # If it's already a dictionary, wrap it in MCP format
+                                    # Format according to MCP protocol based on message type
+                                    if isinstance(message, dict):
+                                        message_type = message.get("message_type")
+                                        
+                                        if message_type == "result_batch" and "results" in message:
+                                            # For result batches, format them as a partial response that
+                                            # the MCP client can display
+                                            results_json = json.dumps(message["results"], indent=2)
+                                            mcp_event = {
+                                                "type": "function_stream_event",
+                                                "content": {
+                                                    "partial_response": f"Results: {results_json}\n\n"
+                                                }
+                                            }
+                                        else:
+                                            # Convert any other dictionary message to a JSON string for display
+                                            msg_json = json.dumps(message, indent=2)
+                                            mcp_event = {
+                                                "type": "function_stream_event",
+                                                "content": {
+                                                    "partial_response": f"{msg_json}\n\n"
+                                                }
+                                            }
+                                    elif isinstance(message, str):
+                                        # Already a string, format as partial_response
                                         mcp_event = {
                                             "type": "function_stream_event",
-                                            "content": chunk
-                                        }
-                                    elif isinstance(chunk, str):
-                                        # If it's a string, treat as partial content
-                                        mcp_event = {
-                                            "type": "function_stream_event",
-                                            "content": {"partial_response": chunk}
+                                            "content": {"partial_response": message}
                                         }
                                     else:
-                                        # For any other type, convert to string
+                                        # Convert any other type to string
                                         mcp_event = {
                                             "type": "function_stream_event",
-                                            "content": {"partial_response": str(chunk)}
+                                            "content": {"partial_response": str(message)}
                                         }
                                     
                                     # Send the event
-                                    await self.send_chunk_wrapper.write_stream(mcp_event, end_response=False)
+                                    data_message = f"data: {json.dumps(mcp_event)}\n\n"
+                                    await self.send_chunk(data_message, end_response=False)
                                     
                                     if end_response:
                                         # Send final completion event
@@ -169,41 +232,37 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                                             "type": "function_stream_end",
                                             "status": "success"
                                         }
-                                        await self.send_chunk_wrapper.write_stream(final_event, end_response=True)
+                                        final_message = f"data: {json.dumps(final_event)}\n\n"
+                                        await self.send_chunk(final_message, end_response=True)
                                         self.closed = True
                                         
                                 except Exception as e:
-                                    logger.error(f"Error in MCPStreamHandler.write: {str(e)}")
+                                    logger.error(f"Error in MCPFormatter.write_stream: {str(e)}")
+                                    print(f"Error in MCPFormatter.write_stream: {str(e)}")
                                     self.closed = True
-                        
-                        async def write_stream(self, message, end_response=False):
-                            # This method can be used to pass through stream messages directly
-                            await self.write(message, end_response)
                     
-                    # Create the MCP stream handler
-                    mcp_stream_handler = MCPStreamHandler(send_chunk_wrapper)
+                    # Mark query_params as streaming
+                    validated_query_params["streaming"] = ["True"]
+                    
+                    # Create formatter and directly call NLWebHandler
+                    mcp_formatter = MCPFormatter(send_chunk)
                     
                     try:
-                        # Call HandleRequest to process the streaming request
-                        method = "GET"  # Default to GET
-                        path = "/ask"   # Path for the handler
-                        headers = {}    # No special headers needed
-                        
-                        hr = HandleRequest(method, path, headers, query_params, 
-                                       body, send_response, mcp_stream_handler, "none")
-                        await hr.do_GET()
+                        # Call NLWebHandler directly with the formatter
+                        await NLWebHandler(validated_query_params, mcp_formatter).runQuery()
                     except Exception as e:
                         logger.error(f"Error in streaming request: {str(e)}")
                         print(f"Error in streaming request: {str(e)}\n{traceback.format_exc()}")
                         
                         # Try to send an error response if possible
-                        if not mcp_stream_handler.closed:
+                        if not mcp_formatter.closed:
                             error_event = {
                                 "type": "function_stream_end",
                                 "status": "error",
                                 "error": f"Error processing streaming request: {str(e)}"
                             }
-                            await send_chunk_wrapper.write_stream(error_event, end_response=True)
+                            error_message = f"data: {json.dumps(error_event)}\n\n"
+                            await send_chunk(error_message, end_response=True)
                 
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON in MCP request: {e}")
