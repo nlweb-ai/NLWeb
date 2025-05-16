@@ -27,7 +27,7 @@ source myenv/bin/activate    # Or on Windows: myenv\Scripts\activate
 3. Go to the 'code' folder in NLWeb to install the dependencies. Note that this will also install the local vector database requirements so you don't need to install them separately.
 ```
 cd code
-run pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
 4. Copy the .env.template file to a new .env file and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.
