@@ -12,7 +12,7 @@ To set up the `nlweb` command-line interface, you need to source the setup scrip
 source setup.sh
 ```
 
-This will temporarily add the `nlweb` command to your PATH and create an alias for easier use. 
+This will temporarily add the `nlweb` command to your PATH and create an alias for easier use.
 
 ### The NL Web CLI offers several advantages:
 
@@ -33,9 +33,11 @@ The `nlweb` CLI provides the following commands:
 | Command | Description |
 |---------|-------------|
 | `init`  | Configure the LLM provider and retrieval endpoint |
+| `init-python` | Set up Python virtual environment and install dependencies |
 | `check` | Verify connectivity for selected configuration and environment variables |
 | `app`   | Run the web application |
 | `run`   | End-to-end flow: Runs `init`, `check`, and `app` sequentially |
+| `data-load` | Load data from an RSS feed URL with a specified site name |
 
 ### Common Flags
 
@@ -141,6 +143,46 @@ nlweb run -d
 ```
 
 This provides detailed logging information that can help identify configuration problems.
+
+### Python Virtual Environment Setup
+
+To set up the Python virtual environment:
+
+```bash
+nlweb init-python
+```
+
+This will:
+1. Create a Python virtual environment in the `venv` directory
+2. Install all required dependencies from `requirements.txt`
+
+**Note**: When running `init-python` from the CLI, the virtual environment will be activated only within the script's execution context. After the command completes, your shell won't remain in the activated virtual environment.
+
+To activate the virtual environment in your current shell session, you need to source the activation script:
+
+```bash
+source venv/bin/activate
+```
+
+Alternatively, if you need to set up and use the environment in one step, you can use:
+
+```bash
+nlweb init-python && source venv/bin/activate
+```
+
+This will both set up the Python environment and activate it in your current shell session.
+
+### Data Loading
+
+To load data from an RSS feed:
+
+```bash
+nlweb data-load
+```
+
+This command will prompt you for:
+- An RSS URL to load data from
+- A site name for the loaded data
 
 ## Conclusion
 

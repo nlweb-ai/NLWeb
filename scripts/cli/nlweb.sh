@@ -17,11 +17,34 @@ declare me=$(basename "$0")
 function init(){
   configure_llm_provider
   configure_retrieval_endpoint
+  }
+
+function dataload(){
+  local rss_url
+  _prompt_input "Please enter an RSS url" rss_url
+
+  local site_name
+  _prompt_input "Please enter a site name" site_name
+
+  _debug "Loading data from $rss_url site name: $site_name"
+  python -m tools.db_load "$rss_url" "$site_name"
+}
+
+function init_python(){
+  python -m venv venv
+  source venv/bin/activate
+
+  pushd "$REPO_DIR/code" > /dev/null || exit 1
+    pip install -r requirements.txt
+  popd || exit 1
+
+  _info "Run 'source venv/bin/activate' to activate the virtual environment"
 }
 
 function run(){
   init
   check
+  dataload
   app
 }
 
@@ -41,6 +64,10 @@ function app(){
 function parse_args() {
   while (("$#")); do
     case "${1}" in
+    data-load)
+        shift 1
+        export command="dataload"
+        ;;       
     check)
         shift 1
         export command="check"
@@ -57,6 +84,10 @@ function parse_args() {
         shift 1
         export command="init"
         ;;
+    init-python)
+        shift 1
+        export command="initpython"
+        ;;        
     -h | --help)
         shift 1
         export command="help"
@@ -89,6 +120,12 @@ process_command() {
     ;;    
   check)
     check
+    ;;
+  dataload)
+    dataload
+    ;;
+  initpython)
+    init_python
     ;;
   view)
     view
