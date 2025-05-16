@@ -32,7 +32,6 @@ class NLWebHandler:
 
     def __init__(self, query_params, http_handler): 
         logger.info("Initializing NLWebHandler")
-        print(f"http_handler: {http_handler}")
         self.http_handler = http_handler
         self.query_params = query_params
 
