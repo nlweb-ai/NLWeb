@@ -316,44 +316,6 @@ export class ChatInterface {
   }
 
 
-    // Title/link
-    const titleLink = document.createElement('a');
-    // Fix: Validate URL protocol before setting href
-    if (item.url) {
-      const sanitizedUrl = escapeHtml(item.url);
-      // Only allow http: and https: protocols
-      if (sanitizedUrl.startsWith('http://') || sanitizedUrl.startsWith('https://')) {
-        titleLink.href = sanitizedUrl;
-      } else {
-        titleLink.href = '#'; // Default to # for invalid URLs
-        console.warn('Blocked potentially unsafe URL:', sanitizedUrl);
-      }
-    } else {
-      titleLink.href = '#';
-    }
-    
-    const itemName = this.getItemName(item);
-    // Safe text insertion
-    titleLink.textContent = itemName;
-    titleLink.className = 'item-title-link';
-    titleRow.appendChild(titleLink);
-
-    // Info icon
-    const infoIcon = document.createElement('span');
-    // Use a safer way to create the icon
-    const imgElement = document.createElement('img');
-    imgElement.src = 'images/info.png';
-    imgElement.alt = 'Info';
-    infoIcon.appendChild(imgElement);
-    
-    infoIcon.className = 'item-info-icon';
-    // Sanitize tooltip content
-    infoIcon.title = `${escapeHtml(item.explanation || '')} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
-    titleRow.appendChild(infoIcon);
-
-    contentDiv.appendChild(titleRow);
-  }
-  
   /**
    * Adds a visible URL to the content div
    * 
