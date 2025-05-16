@@ -523,8 +523,15 @@ class ChatInterface {
   
       // Title/link
       const titleLink = document.createElement('a');
-      // FIX: Use sanitizeUrl for URL attributes
-      titleLink.href = item.url ? this.sanitizeUrl(item.url) : '#';
+      // FIX: Use sanitizeUrl for URL attributes and add additional security measures
+      const sanitizedUrl = item.url ? this.sanitizeUrl(item.url) : '#';
+      titleLink.href = sanitizedUrl;
+      // Add rel="noopener noreferrer" for external links
+      if (sanitizedUrl !== '#' && !sanitizedUrl.startsWith(window.location.origin)) {
+          titleLink.rel = "noopener noreferrer";
+          // Optional: Open external links in new tab
+          titleLink.target = "_blank";
+      }
       const itemName = this.getItemName(item);
       titleLink.textContent = this.htmlUnescape(`${itemName}`);
       titleLink.style.fontWeight = '600';
@@ -559,9 +566,16 @@ class ChatInterface {
           // visible url
           const visibleUrl = document.createElement("div");
           const visibleUrlLink = document.createElement("a");
-          // FIX: Use sanitizeUrl for URL attributes
-          visibleUrlLink.href = item.siteUrl ? this.sanitizeUrl(item.siteUrl) : '#';
-          visibleUrlLink.textContent = item.site || '';
+          // FIX: Use sanitizeUrl for URL attributes and add security attributes
+          const sanitizedSiteUrl = item.siteUrl ? this.sanitizeUrl(item.siteUrl) : '#';
+          visibleUrlLink.href = sanitizedSiteUrl;
+          // Add rel="noopener noreferrer" for external links
+          if (sanitizedSiteUrl !== '#' && !sanitizedSiteUrl.startsWith(window.location.origin)) {
+              visibleUrlLink.rel = "noopener noreferrer";
+              visibleUrlLink.target = "_blank";
+          }
+          // Sanitize the site text content to prevent XSS
+          visibleUrlLink.textContent = this.htmlUnescape(item.site || '');
           visibleUrlLink.style.fontSize = "0.9em";
           visibleUrlLink.style.textDecoration = "none";
           visibleUrlLink.style.color = "#2962ff";
@@ -604,14 +618,21 @@ class ChatInterface {
           if (imgURL) {
               const imageDiv = document.createElement('div');
               const img = document.createElement('img');
-              // FIX: Use sanitizeUrl for URL attributes
-              img.src = this.sanitizeUrl(imgURL);
-              img.width = 80;
-              img.height = 80;
-              img.style.objectFit = 'cover';
-              img.alt = 'Item image';
-              imageDiv.appendChild(img);
-              container.appendChild(imageDiv);
+              // FIX: Sanitize URL and verify it's an acceptable image URL
+              const sanitizedUrl = this.sanitizeUrl(imgURL);
+              if (sanitizedUrl !== '#') {
+                  img.src = sanitizedUrl;
+                  img.width = 80;
+                  img.height = 80;
+                  img.style.objectFit = 'cover';
+                  img.alt = 'Item image';
+                  // Add onerror handler to handle broken images
+                  img.onerror = function() {
+                      this.style.display = 'none';
+                  };
+                  imageDiv.appendChild(img);
+                  container.appendChild(imageDiv);
+              }
           }
       }
   
