@@ -552,7 +552,7 @@ class ChatInterface {
       // info icon
       const infoIcon = document.createElement('span');
       const imgElement = document.createElement('img');
-      imgElement.src = this.sanitizeUrl('/html/info.png');
+      imgElement.src = this.sanitizeUrl('static/images/info.png');
       imgElement.width = 16;
       imgElement.height = 16;
       imgElement.alt = 'Info';
@@ -919,3 +919,5 @@ class ChatInterface {
           return `<pre class="json-ld error">Error: ${error.message}</pre>`;
       }
   }
+
+export { ChatInterface, ManagedEventSource };
