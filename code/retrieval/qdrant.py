@@ -330,97 +330,45 @@ class QdrantVectorClient:
             await self.create_collection(collection_name, vector_size)
             return False
     
-    async def delete_documents_by_site(self, site: str, 
-                                     collection_name: Optional[str] = None) -> int:
+    async def delete_documents_by_site(
+        self, site: str, collection_name: Optional[str] = None
+    ) -> int:
         """
         Delete all documents from a collection that match a specific site value.
-        
+
         Args:
             site: The site value to filter by
             collection_name: Optional collection name (defaults to configured name)
-            
+
         Returns:
             int: Number of documents deleted
         """
         collection_name = collection_name or self.default_collection_name
         client = await self._get_qdrant_client()
-        
-        try:
-            # Ensure collection exists first
-            if not await client.collection_exists(collection_name):
-                logger.warning(f"Collection '{collection_name}' does not exist. No points to delete.")
-                return 0
-            
-            # Get points with the specified site
-            filter_condition = models.Filter(
-                must=[models.FieldCondition(key="site", match=models.MatchValue(value=site))]
+
+        if not await client.collection_exists(collection_name):
+            logger.warning(
+                f"Collection '{collection_name}' does not exist. No points to delete."
             )
-            
-            # Scroll through all points matching the filter
-            points, scroll_id = await client.scroll(
-                collection_name=collection_name,
-                scroll_filter=filter_condition,
-                limit=1000,  # Batch size
-                with_payload=False,
-                with_vectors=False
+            return 0
+
+        filter_condition = models.Filter(
+            must=[
+                models.FieldCondition(key="site", match=models.MatchValue(value=site))
+            ]
+        )
+        count = (
+            await client.count(
+                collection_name=collection_name, count_filter=filter_condition
             )
-            
-            # Collect all point IDs to delete
-            all_point_ids = []
-            
-            while points:
-                # Add current batch of point IDs
-                current_batch_ids = [point.id for point in points]
-                all_point_ids.extend(current_batch_ids)
-                
-                # If we've received fewer points than the limit, we're done
-                if len(points) < 1000:
-                    break
-                
-                # Get next batch
-                points, scroll_id = await client.scroll(
-                    collection_name=collection_name,
-                    scroll_filter=filter_condition,
-                    limit=1000,
-                    with_payload=False,
-                    with_vectors=False,
-                    scroll_id=scroll_id
-                )
-            
-            total_points = len(all_point_ids)
-            
-            if total_points > 0:
-                logger.info(f"Found {total_points} points with site = '{site}'")
-                
-                # Delete points in batches
-                batch_size = 1000
-                deleted_count = 0
-                
-                for i in range(0, total_points, batch_size):
-                    batch = all_point_ids[i:i+batch_size]
-                    
-                    # Delete batch
-                    await client.delete(
-                        collection_name=collection_name,
-                        points_selector=batch
-                    )
-                    
-                    deleted_count += len(batch)
-                    logger.info(f"Deleted batch of {len(batch)} points")
-                
-                logger.info(f"Successfully deleted {deleted_count} points with site = '{site}'")
-                return deleted_count
-            else:
-                logger.info(f"No points found with site = '{site}'")
-                return 0
-                
-        except Exception as e:
-            logger.exception(f"Error deleting points for site '{site}': {str(e)}")
-            if "Collection not found" in str(e):
-                logger.warning(f"Collection '{collection_name}' does not exist. No points to delete.")
-                return 0
-            raise
-    
+        ).count
+        await client.delete(
+            collection_name=collection_name, points_selector=filter_condition
+        )
+        logger.info(f"Deleted {count} points")
+
+        return count
+
     async def upload_documents(self, documents: List[Dict[str, Any]], 
                              collection_name: Optional[str] = None) -> int:
         """

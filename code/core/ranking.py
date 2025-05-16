@@ -235,7 +235,6 @@ The user's question is: {request.query}. The item's description is {item.descrip
         results = [r for r in self.rankedAnswers if r['sent'] == False]
         if (self.num_results_sent > self.NUM_RESULTS_TO_SEND):
             logger.info(f"Already sent {self.num_results_sent} results, returning without sending more")
-            log("returning without looking at remaining results")
             return
        
         # Sort by score in descending order

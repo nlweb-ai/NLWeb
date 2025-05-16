@@ -1,6 +1,8 @@
 /**
  * DropdownInterface Class
  * Handles the dropdown UI elements for site selection and options
+ * for the debug interface.
+ * 
  */
 
 import { escapeHtml } from './utils.js';
@@ -136,8 +138,8 @@ export class DropdownInterface {
     });
     
     // Set initial value to preferred endpoint from config
-    dbSelect.value = "azure_ai_search_1";
-    this.chatInterface.database = "azure_ai_search_1";
+    dbSelect.value = "azure_ai_search";
+    this.chatInterface.database = "azure_ai_search";
     
     // Make dbSelect accessible to chatInterface
     this.chatInterface.dbSelect = dbSelect;
@@ -225,13 +227,13 @@ export class DropdownInterface {
    * Gets the available sites for the selector
    * 
    * @returns {Array} - Array of site names
+   * If you would like a site to show up in the dropdown, please add it here.
+   * For now, we will leave it with just the launch partners who
+   * are making their data available
    */
   getSites() {
     return [
-      'scifi_movies','imdb', 'nytimes', 'verge','delish','alltrails', 'allbirds', 'seriouseats', 'oreilly',
-      'npr podcasts', 'backcountry', 'bc_product', 'neurips', 'zillow', 'eventbrite',
-      'tripadvisor', 'woksoflife', 'cheftariq', 'hebbarskitchen',
-      'latam_recipes', 'spruce', 'med podcast', 'allbirdsdd', 'all'
+      'scifi_movies', 'verge','oreilly', 'eventbrite','all'
     ];
   }
 
@@ -251,12 +253,8 @@ export class DropdownInterface {
    */
   getDatabases() {
     return [
-      { id: 'azure_ai_search_1', name: 'NLWeb_Crawl' },
-      { id: 'azure_ai_search_2', name: 'Bing_Crawl' },
-
-      { id: 'azure_ai_search_test', name: 'NLWeb_Upload_Test' },
+      { id: 'azure_ai_search', name: 'NLWeb_Crawl' },
       { id: 'milvus_1', name: 'Milvus' },
-
       { id: 'qdrant_local', name: 'Qdrant Local' },
       { id: 'qdrant_url', name: 'Qdrant URL' },
       { id: 'snowflake_cortex_search_1', name: 'Snowflake_Cortex_Search' }

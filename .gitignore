@@ -425,3 +425,5 @@ code/.env
 app.zip
 
 /static/p
+\#README.md\#
+myenv

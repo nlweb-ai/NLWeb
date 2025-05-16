@@ -38,6 +38,7 @@ def trim_json_hard(obj):
         return trim_recipe_hard(obj)
     if ("Movie" in objType or "TVSeries" in objType):
         return trim_movie(obj, hard=True)
+    return obj
    
 
 def trim_recipe(obj):
