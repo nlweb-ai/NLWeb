@@ -22,7 +22,7 @@ class Memory(PromptRunner):
         self.handler.state.start_precheck_step(self.STEP_NAME)
 
     async def do(self):
-        response = await self.run_prompt(self.MEMORY_PROMPT_NAME, level="low")
+        response = await self.run_prompt(self.MEMORY_PROMPT_NAME, level="high")
         if (not response):
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return

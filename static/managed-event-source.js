@@ -125,6 +125,7 @@ export class ManagedEventSource {
       case "remember":
         // Ensure message is a string
         if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
           chatInterface.memoryMessage(data.message, chatInterface);
         }
         break;
@@ -138,12 +139,14 @@ export class ManagedEventSource {
       case "site_is_irrelevant_to_query":
         // Ensure message is a string
         if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
           chatInterface.siteIsIrrelevantToQuery(data.message, chatInterface);
         }
         break;
       case "ask_user":
         // Ensure message is a string
         if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
           chatInterface.askUserMessage(data.message, chatInterface);
         }
         break;
@@ -154,28 +157,32 @@ export class ManagedEventSource {
         }
         break;
       case "result_batch":
+        chatInterface.noResponse = false;
         this.handleResultBatch(data, chatInterface);
         break;
       case "intermediate_message":
         // Ensure message is a string
         if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
           chatInterface.bubble.appendChild(chatInterface.createIntermediateMessageHtml(data.message));
         }
         break;
       case "summary":
         // Ensure message is a string
         if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
           chatInterface.thisRoundSummary = chatInterface.createIntermediateMessageHtml(data.message);
           chatInterface.resortResults();
         }
         break;
       case "nlws":
+        chatInterface.noResponse = false;
         this.handleNLWS(data, chatInterface);
         break;
       case "complete":
         chatInterface.resortResults();
         // Add this check to display a message when no results found
-        if (chatInterface.currentItems.length === 0) {
+        if (chatInterface.noResponse) {
           const noResultsMessage = chatInterface.createIntermediateMessageHtml("No results were found");
           chatInterface.bubble.appendChild(noResultsMessage);
         }

@@ -5,34 +5,15 @@ import chardet
 # for indexing or ranking. Further, many pages are just collections that we don't 
 # want to index at all. We can also skip things like Breadcrumbs
 
-skip_types = ["ListItem", "ItemList", "Organization", "BreadcrumbList", "Breadcrumb", "WebSite", "Article", 
+skip_types = ["ListItem", "ItemList", "Organization", "BreadcrumbList", "Breadcrumb", "WebSite", 
               "SearchAction", "SiteNavigationElement", "WebPageElement", "WebPage", "NewsMediaOrganization",
-              "MerchantReturnPolicy", "ReturnPolicy", "CollectionPage", "Brand", "Corporation", "NewsArticle",
-              "SiteNavigationElement", "ReadAction", "ImageObject", "Person"]
+              "MerchantReturnPolicy", "ReturnPolicy", "CollectionPage", "Brand", "Corporation", 
+              "SiteNavigationElement", "ReadAction"]
 
 skip_properties = ["publisher", "mainEntityOfPage"]
 
-site_item_type = {
-    "allsites": ["Recipe", "Review", "Book", "NewsArticle", "Article", "LocalBusiness", "LodgingBusiness", "Restaurant", "Hotel", "Place", "Event", "Product", "Offer", "ProductGroup", "Question", "Answer", "ProfilePage"],
-    "delish" : ["Person"],
-   # "eatthis" : ["Person"],
-    "instacart" : ["Product", "Offer", "ProductGroup", "Question", "Answer"],
-    "nytimes" : ["Person"],
-    "rottentomatoes" : ["Movie", "TVSeries", "TVSeason", "TVEpisode"],
-}
-
 def should_skip_item(site, item):
-    stypes = site_item_type.get(site, [])
-    types = stypes + site_item_type.get("allsites", [])
-    # Check if @type is a list and if any value in the list is in site_item_type for this site
-    if "@type" in item and isinstance(item["@type"], list):
-        for type_value in item["@type"]:
-            if type_value in types:
-                return False
-        return True
-    elif "@type" in item and item["@type"] in types:
-        return False
-    elif "@type" in item and item["@type"] in skip_types:
+    if "@type" in item and item["@type"] in skip_types:
         return True
     # Check if @type is a list and if any value in the list is in skip_types
     elif "@type" in item and isinstance(item["@type"], list):
@@ -41,9 +22,9 @@ def should_skip_item(site, item):
                 return True
     elif "@type" not in item:
         return True
-        #print(f"@type not found in {item}")
     return False
 
+# trim the markup without loosing too much of the information that the LLM can use
 # go through each property in the schema_json and apply the following rules to construct
 # a new json object with only the properties that are useful for indexing and ranking.
 # 1. If the property is in skip_properties, remove it from the schema_json. 
@@ -60,7 +41,7 @@ def trim_schema_json_list(schema_json, site):
         trimmed_item = trim_schema_json(item, site)
         if trimmed_item is not None:
             trimmed_items.append(trimmed_item)
-    return trimmed_items
+    return trimmed_items or None
 
 def trim_schema_json(schema_json, site):
     if isinstance(schema_json, list):

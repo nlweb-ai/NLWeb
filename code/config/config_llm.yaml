@@ -1,6 +1,12 @@
 preferred_provider: azure_openai
 
 providers:
+  inception:
+    api_key_env: INCEPTION_API_KEY
+    models:
+      high: mercury-small
+      low: mercury-small
+
   openai:
     api_key_env: OPENAI_API_KEY
     api_endpoint_env: OPENAI_ENDPOINT

@@ -29,7 +29,7 @@ class RequiredInfo(PromptRunner):
 
     async def do(self):
         logger.info(f"Running required info check with prompt: {self.REQUIRED_INFO_PROMPT_NAME}")
-        response = await self.run_prompt(self.REQUIRED_INFO_PROMPT_NAME, level="low")
+        response = await self.run_prompt(self.REQUIRED_INFO_PROMPT_NAME, level="high")
         
         if response:
             logger.debug(f"Required info prompt response received: {response}")

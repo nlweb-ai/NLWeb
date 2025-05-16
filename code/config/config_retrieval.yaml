@@ -1,26 +1,12 @@
-preferred_endpoint: azure_ai_search_1
+preferred_endpoint: azure_ai_search
 
 endpoints:
-  azure_ai_search_1:
+  azure_ai_search:
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536
     db_type: azure_ai_search
     name: NLWeb_Crawl
-
-  azure_ai_search_2:
-    api_key_env: AZURE_VECTOR_SEARCH_API_KEY_2
-    api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT_2
-    index_name: embeddings1536
-    db_type: azure_ai_search
-    name: Bing_Crawl
-      
-  azure_ai_search_test:
-    api_key_env: AZURE_VECTOR_SEARCH_API_KEY_TEST
-    api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT_TEST
-    index_name: embeddings1536
-    db_type: azure_ai_search
-    name: NLWeb_Upload_Test
 
   milvus_1:
     database_path: ../milvus/milvus_prod.db

@@ -394,13 +394,13 @@ class AppConfig:
     
     def get_allowed_sites(self) -> List[str]:
         """Get the list of allowed sites from NLWeb configuration."""
-        return self.nlweb.sites if hasattr(self, 'nlweb') else []
+        return self.nlweb.sites if hasattr(self, 'all') else []
     
     def is_site_allowed(self, site: str) -> bool:
         """Check if a site is in the allowed sites list."""
         allowed_sites = self.get_allowed_sites()
         # If no sites are configured, allow all sites
-        if not allowed_sites:
+        if not allowed_sites or allowed_sites == ['all']:
             return True
         return site in allowed_sites
     

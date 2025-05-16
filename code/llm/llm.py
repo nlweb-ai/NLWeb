@@ -22,7 +22,7 @@ from llm.openai import provider as openai_provider
 from llm.gemini import provider as gemini_provider
 from llm.azure_llama import provider as llama_provider
 from llm.azure_deepseek import provider as deepseek_provider
-from llm.inceptionlabs import provider as inceptionlabs_provider
+from llm.inception import provider as inception_provider
 from llm.snowflake import provider as snowflake_provider
 
 from utils.logging_config_helper import get_configured_logger, LogLevel
@@ -36,7 +36,7 @@ _providers = {
     "azure_openai": azure_openai_provider,
     "llama_azure": llama_provider,
     "deepseek_azure": deepseek_provider,
-    "inceptionlabs": inceptionlabs_provider,
+    "inception": inception_provider,
     "snowflake": snowflake_provider
 }
 
