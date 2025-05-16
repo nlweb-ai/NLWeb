@@ -6,7 +6,7 @@ Getting your NLWeb Server up and running locally.
 
 This will get you up and running, using a local vector database and RSS feeds we have provided some links to below. You can replace this later with your own database.
 
-## Prerequsites
+## Prerequisites
 
 These instructions assume that you have Python 3.10+ installed locally.
 
