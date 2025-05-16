@@ -425,5 +425,10 @@ code/.env
 app.zip
 
 /static/p
+
+.DS_Store
+code/.DS_Store
+static/.DS_Store
+
 \#README.md\#
-myenv
+myenv/
