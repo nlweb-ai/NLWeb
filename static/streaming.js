@@ -641,18 +641,34 @@ class ChatInterface {
   
     // Add sanitizeUrl function if it doesn't exist
     sanitizeUrl(url) {
+      // Return a safe default if input is null, undefined, or not a string
       if (!url || typeof url !== 'string') return '#';
       
       // Remove leading and trailing whitespace
       const trimmedUrl = url.trim();
       
-      // Check for javascript: protocol or other dangerous protocols
-      const protocolPattern = /^(javascript|data|vbscript|file):/i;
-      if (protocolPattern.test(trimmedUrl)) {
+      try {
+        // Check for dangerous protocols using a more comprehensive approach
+        const dangerousProtocols = /^(javascript|data|vbscript|file):/i;
+        if (dangerousProtocols.test(trimmedUrl)) {
+          return '#';
+        }
+        
+        // Try to parse the URL - this will throw for malformed URLs
+        const parsedUrl = new URL(trimmedUrl, window.location.origin);
+        
+        // Only allow specific protocols
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+          return '#';
+        }
+        
+        // Return the sanitized URL
+        return parsedUrl.toString();
+      } catch (e) {
+        // If URL parsing fails or any other error occurs, return a safe default
+        console.warn("Invalid URL detected and sanitized:", url);
         return '#';
       }
-      
-      return trimmedUrl;
     }
 
     quickHash(string) {
