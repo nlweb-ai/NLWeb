@@ -1,8 +1,9 @@
 # NLWeb Configuration
 # This file contains settings specific to the NLWeb functionality
 
-# Comma-separated list of allowed sites
-sites: "imdb,nytimes,verge,delish,alltrails,allbirds,seriouseats,oreilly,npr podcasts,backcountry,neurips,zillow,eventbrite,tripadvisor,woksoflife,cheftariq,hebbarskitchen,scifi_movies,latam_recipes,spruce,commonsensemedia"
+# Comma-separated list of allowed sites, if you have multiple sites
+# in your store and want to restrict search to some sites. Defaults 
+# to all, for now.
 #sites: "yoursite"
 
 

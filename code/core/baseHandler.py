@@ -32,6 +32,7 @@ class NLWebHandler:
 
     def __init__(self, query_params, http_handler): 
         logger.info("Initializing NLWebHandler")
+        print(f"http_handler: {http_handler}")
         self.http_handler = http_handler
         self.query_params = query_params
 
@@ -139,7 +140,6 @@ class NLWebHandler:
 
     async def send_message(self, message):
         logger.debug(f"Sending message of type: {message.get('message_type', 'unknown')}")
-        print(f"Sending message of type: {message.get('message_type', 'unknown')}")
         async with self._send_lock:  # Protect send operation with lock
             # Check connection before sending
             if not self.connection_alive_event.is_set():
@@ -150,7 +150,8 @@ class NLWebHandler:
                 message["query_id"] = self.query_id
                 if not self.versionNumberSent:
                     self.versionNumberSent = True
-                    await self.send_message({"message_type": "version_number", "version_number": {VERSION_NUMBER}})
+                    version_number_message = {"message_type": "version_number", "version_number": {VERSION_NUMBER}}
+                  #  await self.http_handler.write_stream(version_number_message)
                     
                 try:
                     await self.http_handler.write_stream(message)

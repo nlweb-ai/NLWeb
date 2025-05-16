@@ -70,7 +70,6 @@ class HandleRequest():
         self.connection = None  # Added to maintain compatibility with error handlers
         self.connection_alive = True  # Flag to track connection state
         self.generate_mode = generate_mode
-
         
 
     async def do_GET(self):

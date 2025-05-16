@@ -13,7 +13,7 @@ skip_types = ["ListItem", "ItemList", "Organization", "BreadcrumbList", "Breadcr
 skip_properties = ["publisher", "mainEntityOfPage"]
 
 def should_skip_item(site, item):
-   if "@type" in item and item["@type"] in skip_types:
+    if "@type" in item and item["@type"] in skip_types:
         return True
     # Check if @type is a list and if any value in the list is in skip_types
     elif "@type" in item and isinstance(item["@type"], list):

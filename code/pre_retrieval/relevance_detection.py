@@ -9,7 +9,12 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 from prompts.prompt_runner import PromptRunner
-import asyncio
+
+
+# NOTE : RelevanceDetection is turned off as a default, for now. 
+# Turn it on by changing the value of the following variable.
+
+RELEVANCE_DETECTION_ENABLED = False
 
 class RelevanceDetection(PromptRunner):
 
@@ -21,6 +26,10 @@ class RelevanceDetection(PromptRunner):
         self.handler.state.start_precheck_step(self.STEP_NAME)
 
     async def do(self):
+        if not RELEVANCE_DETECTION_ENABLED:
+            await self.handler.state.precheck_step_done(self.STEP_NAME)
+            return
+
         if (self.handler.site == 'all' or self.handler.site == 'nlws' or 'true'):
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return
