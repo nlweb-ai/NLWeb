@@ -8,8 +8,6 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-
-
 import asyncio
 import os
 from webserver.WebServer import fulfill_request, start_server

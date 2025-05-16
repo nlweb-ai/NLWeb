@@ -22,6 +22,10 @@ from core.generate_answer import GenerateAnswer
 from webserver.static_file_handler import send_static_file
 from config.config import CONFIG
 from core.baseHandler import NLWebHandler
+from utils.logging_config_helper import get_configured_logger
+
+# Initialize module logger
+logger = get_configured_logger("webserver")
 
 async def handle_client(reader, writer, fulfill_request):
     """Handle a client connection by parsing the HTTP request and passing it to fulfill_request."""
@@ -39,12 +43,14 @@ async def handle_client(reader, writer, fulfill_request):
         words = request_line.split()
         if len(words) < 2:
             # Bad request
+            logger.warning(f"[{request_id}] Bad request: {request_line}")
             writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
             await writer.drain()
             connection_alive = False
             return
             
         method, path = words[0], words[1]
+        logger.debug(f"[{request_id}] {method} {path}")
         
         # Parse headers
         headers = {}
@@ -129,11 +135,11 @@ async def handle_client(reader, writer, fulfill_request):
                 return
                 
             if not hasattr(send_response, 'headers_sent') or not send_response.headers_sent:
-                print(f"[{request_id}] Headers must be sent before content")
+                logger.warning(f"[{request_id}] Headers must be sent before content")
                 return
                 
             if hasattr(send_response, 'ended') and send_response.ended:
-                print(f"[{request_id}] Response has already been ended")
+                logger.warning(f"[{request_id}] Response has already been ended")
                 return
                 
             try:
@@ -150,10 +156,10 @@ async def handle_client(reader, writer, fulfill_request):
                 
                 send_response.ended = end_response
             except (ConnectionResetError, BrokenPipeError) as e:
-                print(f"[{request_id}] Connection lost while sending chunk: {str(e)}")
+                logger.warning(f"[{request_id}] Connection lost while sending chunk: {str(e)}")
                 connection_alive = False
             except Exception as e:
-                print(f"[{request_id}] Error sending chunk: {str(e)}")
+                logger.warning(f"[{request_id}] Error sending chunk: {str(e)}")
                 connection_alive = False
         
         # Call the user-provided fulfill_request function with streaming capabilities
@@ -169,8 +175,7 @@ async def handle_client(reader, writer, fulfill_request):
                     send_chunk=send_chunk
                 )
             except Exception as e:
-                print(f"[{request_id}] Error in fulfill_request: {str(e)}")
-                print(f"[{request_id}] Error traceback:", exc_info=True)
+                logger.error(f"[{request_id}] Error in fulfill_request: {str(e)}", exc_info=True)
                 
                 if connection_alive and not (hasattr(send_response, 'headers_sent') and send_response.headers_sent):
                     try:
@@ -185,17 +190,16 @@ async def handle_client(reader, writer, fulfill_request):
                         pass
         
     except Exception as e:
-        print(f"[{request_id}] Critical error handling request: {str(e)}")
-        print(f"[{request_id}] Error traceback:", exc_info=True)
+        logger.error(f"[{request_id}] Critical error handling request: {str(e)}", exc_info=True)
     finally:
         # Close the connection in a controlled manner
         try:
             await writer.drain()
             writer.close()
             await writer.wait_closed()
-            print(f"[{request_id}] Connection closed")
+            logger.debug(f"[{request_id}] Connection closed")
         except Exception as e:
-            print(f"[{request_id}] Error closing connection: {str(e)}")
+            logger.warning(f"[{request_id}] Error closing connection: {str(e)}")
 
 def handle_site_parameter(query_params):
     """
@@ -209,13 +213,13 @@ def handle_site_parameter(query_params):
     """
     # Create a copy of query_params to avoid modifying the original
     result_params = query_params.copy()
-    print(f"Query params: {query_params}")
+    logger.debug(f"Query params: {query_params}")
     # Get allowed sites from config
     allowed_sites = CONFIG.get_allowed_sites()
     sites = []
     if "site" in query_params and len(query_params["site"]) > 0:
         sites = query_params["site"]
-        print(f"Sites: {sites}")
+        logger.debug(f"Sites: {sites}")
     # Check if site parameter exists in query params
     if  len(sites) > 0:
         if isinstance(sites, list):
@@ -225,7 +229,7 @@ def handle_site_parameter(query_params):
                 if CONFIG.is_site_allowed(site):
                     valid_sites.append(site)
                 else:
-                    print(f"Warning: Site '{site}' is not in allowed sites list")
+                    logger.warning(f"Site '{site}' is not in allowed sites list")
             
             if valid_sites:
                 result_params["site"] = valid_sites
@@ -237,7 +241,7 @@ def handle_site_parameter(query_params):
             if CONFIG.is_site_allowed(sites):
                 result_params["site"] = [sites]
             else:
-                print(f"Warning: Site '{sites}' is not in allowed sites list")
+                logger.warning(f"Site '{sites}' is not in allowed sites list")
                 result_params["site"] = allowed_sites
     else:
         # No site parameter provided, use all allowed sites from config
@@ -347,7 +351,7 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
                 use_streaming = strval not in ["False", "false", "0"]
                 
             # Handle MCP requests with streaming parameter
-            print(f"Routing to MCP handler (streaming={use_streaming})")
+            logger.info(f"Routing to MCP handler (streaming={use_streaming})")
             await handle_mcp_request(query_params, body, send_response, send_chunk, streaming=use_streaming)
             return
         elif (path.find("ask") != -1):
@@ -386,11 +390,11 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
                 await hr.do_GET()
         else:
             # Default handler for unknown paths
-            print(f"No handler found for path: {path}")
+            logger.warning(f"No handler found for path: {path}")
             await send_response(404, {'Content-Type': 'text/plain'})
             await send_chunk(f"No handler found for path: {path}".encode('utf-8'), end_response=True)
     except Exception as e:
-        print(f"Error in fulfill_request: {e}\n{traceback.format_exc()}")
+        logger.error(f"Error in fulfill_request: {e}\n{traceback.format_exc()}")
         raise
 
 def close_logs():
