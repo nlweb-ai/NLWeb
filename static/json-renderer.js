@@ -115,7 +115,8 @@ export class JsonRenderer {
 
     // Title/link
     const titleLink = document.createElement('a');
-    titleLink.href = item.url ? this.escapeHtml(item.url) : '#'; // Sanitize URL
+    // FIX: Use sanitizeUrl instead of just escapeHtml for URLs
+    titleLink.href = item.url ? this.sanitizeUrl(item.url) : '#';
     const itemName = this.getItemName(item);
     // Safe text insertion
     titleLink.textContent = itemName;
@@ -126,7 +127,8 @@ export class JsonRenderer {
     const infoIcon = document.createElement('span');
     // Use a safer way to create the icon
     const imgElement = document.createElement('img');
-    imgElement.src = 'images/info.png';
+    // FIX: Ensure the image source is safe
+    imgElement.src = this.sanitizeUrl('images/info.png');
     imgElement.alt = 'Info';
     infoIcon.appendChild(imgElement);
     
@@ -146,8 +148,8 @@ export class JsonRenderer {
    */
   addVisibleUrl(item, contentDiv) {
     const visibleUrlLink = document.createElement("a");
-    // Sanitize URL
-    visibleUrlLink.href = item.siteUrl ? this.escapeHtml(item.siteUrl) : '#';
+    // FIX: Use sanitizeUrl for URL attributes
+    visibleUrlLink.href = item.siteUrl ? this.sanitizeUrl(item.siteUrl) : '#';
     // Use textContent for safe insertion
     visibleUrlLink.textContent = item.site || '';
     visibleUrlLink.className = 'item-site-link';
@@ -184,8 +186,8 @@ export class JsonRenderer {
       if (imgURL) {
         const imageDiv = document.createElement('div');
         const img = document.createElement('img');
-        // Sanitize URL
-        img.src = this.escapeHtml(imgURL);
+        // FIX: Use sanitizeUrl for image src
+        img.src = this.sanitizeUrl(imgURL);
         img.alt = 'Item image';
         img.className = 'item-image';
         imageDiv.appendChild(img);
@@ -369,6 +371,27 @@ export class JsonRenderer {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+  }
+  
+  /**
+   * Sanitizes a URL to prevent javascript: protocol and other potentially dangerous URLs
+   * 
+   * @param {string} url - The URL to sanitize
+   * @returns {string} - The sanitized URL
+   */
+  sanitizeUrl(url) {
+    if (!url || typeof url !== 'string') return '#';
+    
+    // Remove leading and trailing whitespace
+    const trimmedUrl = url.trim();
+    
+    // Check for javascript: protocol or other dangerous protocols
+    const protocolPattern = /^(javascript|data|vbscript|file):/i;
+    if (protocolPattern.test(trimmedUrl)) {
+      return '#';
+    }
+    
+    return trimmedUrl;
   }
   
   /**

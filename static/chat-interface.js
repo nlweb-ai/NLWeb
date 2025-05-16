@@ -591,20 +591,25 @@ export class ChatInterface {
   createDebugString() {
     return jsonLdToHtml(this.currentItems);
   }
+
   /**
-   * Validates if a URL belongs to a trusted domain
+   * Sanitizes a URL to prevent javascript: protocol and other potentially dangerous URLs
    * 
-   * @param {string} url - The URL to validate
-   * @returns {boolean} - True if the URL is trusted, false otherwise
+   * @param {string} url - The URL to sanitize
+   * @returns {string} - The sanitized URL
    */
-  isTrustedUrl(url) {
-    try {
-      const trustedDomains = ['example.com', 'trustedsite.org']; // Add trusted domains here
-      const parsedUrl = new URL(url);
-      return trustedDomains.includes(parsedUrl.hostname);
-    } catch (e) {
-      console.error('Invalid URL:', e);
-      return false;
+  sanitizeUrl(url) {
+    if (!url || typeof url !== 'string') return '#';
+    
+    // Remove leading and trailing whitespace
+    const trimmedUrl = url.trim();
+    
+    // Check for javascript: protocol or other dangerous protocols
+    const protocolPattern = /^(javascript|data|vbscript|file):/i;
+    if (protocolPattern.test(trimmedUrl)) {
+      return '#';
     }
+    
+    return trimmedUrl;
   }
 }
