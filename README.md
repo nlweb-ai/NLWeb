@@ -1,45 +1,61 @@
 # What is NLWeb
 
-NLWeb aims to make it simple to provide conversational interfaces to
-websites (or more generally, collections of content) which can be abstracted
-as 'lists of items'. Items maybe recipes, events, products, books, movies, etc.
-NLWeb leverages the fact that most such database driven websites already make their data
-available in a structured form, in a common vocabulary, namely that provided
-by Schema.org. We leverage this to make it easy to create conversational interfaces.
 
-Given a database of items, represented in a semi-structured form, NLWeb 
-provides a RESTful conversational natural language interface to this data.
-In its basic mode, NLWeb will return a subset of the list of items in the
-database. Consequently strong assurances can be made that it will not 'make up'
-items that don't exist, an essential requirement for many applications.
+Building conversational interfaces for websites is hard. NLWeb seeks to make it easy. 
+Built on MCP, it offers protocols and tools that enable websites to create agent endpoints, 
+fostering a web of interoperating agents. NLWeb's main focus is establishing a foundational 
+protocol layer for the AI Web — much like HTML revolutionized document sharing and RSS 
+transformed content syndication. We're creating standardized protocols and formats that 
+unlock new functionality and interoperability, fostering more dynamic and equitable digital 
+ecosystems. Building on Schema.org's success as the web's de facto semantic layer (adopted 
+by over 100 million sites), NLWeb creates an additional semantic layer specifically 
+designed for AI agent interactions via MCP. NLWeb benefits both humans and machines: 
+it gives website users conversational interfaces while enabling agents to interact 
+naturally with each other, creating a web of connected agents.
 
+To make this vision reality, NLWeb provides practical implementation code—not as the 
+definitive solution, but as proof-of-concept demonstrations showing one possible 
+approach. We expect and encourage the community to develop diverse, innovative 
+implementations that surpass our examples. This mirrors the web's own evolution, 
+from the humble 'htdocs' folder in NCSA's http server to today's massive data center 
+infrastructures—all unified by shared protocols that enable seamless communication.
 
+AI has the potential to enhance every web interaction, but realizing this vision 
+requires a collaborative effort reminiscent of the web's early "barn raising" spirit. 
+Success demands shared protocols, sample implementations, and community participation. 
+NLWeb combines protocols, Schema.org formats, and sample code to help sites rapidly 
+create these endpoints, benefiting both humans through conversational interfaces and 
+machines through natural agent-to-agent interaction. Join us in building this connected web of agents.
 
-# NLWeb and platforms.
-NLWeb is deeply agnostic:
-- About the platform. We have tested it running on Windows, MacOS, Linux, Azure ...
-- About the vector stores used --- Qdrant, Snowflake, Milvus, Azure AI Search, ...
-- About the LLM --- OAI, Deepseek, Gemini, Anthropic, Inception, ...
-- It is intended to be both lightweight and scalable, running on everything from clusters 
-  in the cloud to laptops and soon phones.
 
 # How it Works
- At a high level, NLWeb follows the pattern used in modern search engines --- a retrieval
- process involving relatively cheap ranking (in our case, with embeddings in vector
- databases) followed by 'deeper' ranking (in our case, with LLMs). It does not use
- 'traditional' RAG which can sometime hallucinate. More on how it works is here.
+ There are two distinct components to NLWeb.
+ 1. A protocol, very simple to begin with, to interface with a site in natural 
+     language for asking a site's and a format, leveraging json and schema.org 
+     for the returned answer. See the documentation on the REST API for more details.
 
- A simple 'list of items' as an answer is just a very early very small step. We hope that
-this will evolve answers with richer structures, much like how the Web evolved
-from pages that did not even have inline images to the much richer structures
-of today.
+ 2. A straightforward implementation of (1) that leverages existing markup, for
+      sites that can be abstracted as lists of items (products, recipes, attractions,
+      reviews, etc.). Together with a set of user interface widgets, sites can 
+      easily provide conversational interfaces to their content. See the documentation
+      on [Life of a chat query](docs/LifeOfAChatQuery.md) for more details on how this works.
 
 
 # NLWeb and MCP
  MCP (Model Context Protocol) is an emerging protocol for Chatbots and AI assistants
  to interact with tools. Every NLWeb instance is also an MCP server, which supports one method,
  <code>ask</code>, which is used to ask a website a question in natural language. The returned response
- is in schema.org, a widely-used vocabulary for describing web data.
+ leverages schema.org, a widely-used vocabulary for describing web data. Loosely speaking, 
+ MCP is NLWeb as Http is to HTML.
+
+
+# NLWeb and platforms
+NLWeb is deeply agnostic:
+- About the platform. We have tested it running on Windows, MacOS, Linux, ...
+- About the vector stores used: Qdrant, Snowflake, Milvus, Azure AI Search, ...
+- About the LLM: OAI, Deepseek, Gemini, Anthropic, Inception, ...
+- It is intended to be both lightweight and scalable, running on everything from clusters 
+  in the cloud to laptops and soon phones.
 
 
 # Repository
@@ -61,17 +77,17 @@ the contents over, which inevitably introduces freshness issues.
 # Documentation
 
 ## Getting Started
-- Hello world on your laptop
-- Running it on Azure
+- [Hello world on your laptop](HelloWorld.md)
+- [Running it on Azure](docs/Azure.md)
 - Running it on GCP ... coming soon
 - Running it AWS ... coming soon
 
 ## NLWeb
-- Life of a Chat Query
-- Modifying behaviour by changing prompts
-- Modifying control flow
+- [Life of a Chat Query](docs/LifeOfAChatQuery.md)
+- [Modifying behaviour by changing prompts](docs/Prompts.md)
+- [Modifying control flow](docs/ControlFlow.md)
 - Modifying the user interface
-- REST interface
+- [REST interface](docs/RestAPI.md)
 
 
 

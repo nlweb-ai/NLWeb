@@ -134,7 +134,14 @@ export class JsonRenderer {
     
     infoIcon.className = 'item-info-icon';
     // Sanitize tooltip content
-    infoIcon.title = `${this.escapeHtml(item.explanation || '')} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
+    //infoIcon.title = `${this.escapeHtml(item.explanation || '')} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
+    
+    // Decode any HTML entities so apostrophes etc. render correctly
+    const explanationText = item.explanation 
+     ? this.htmlUnescape(item.explanation) 
+     : '';
+    infoIcon.title = 
+     `${explanationText} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
     titleRow.appendChild(infoIcon);
 
     contentDiv.appendChild(titleRow);
