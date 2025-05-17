@@ -16,7 +16,7 @@ endpoints:
   # Option 1: Local file-based Qdrant storage
   qdrant_local:
     # Use local file-based storage with a specific path
-    database_path: "../data/db"
+    database_path: "..\\data\\github"
     # Set the collection name to use
     index_name: nlweb_collection
     # Specify the database type

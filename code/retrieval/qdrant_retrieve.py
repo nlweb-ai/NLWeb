@@ -18,6 +18,7 @@ from utils.logging_config_helper import get_configured_logger
 from utils.logger import LogLevel
 
 logger = get_configured_logger("qdrant_retrieve")
+#logger.set_level(LogLevel.DEBUG)
 
 _client_lock = threading.Lock()
 qdrant_clients: Dict[str, AsyncQdrantClient] = {}
