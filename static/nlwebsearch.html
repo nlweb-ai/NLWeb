@@ -7,8 +7,13 @@
     font-family: sans-serif;
   }
 </style>
-</style>
-<script type="application/javascript" src="streaming.js"></script>
+<script type="module">
+  // Import the ChatInterface from the module
+  import { ChatInterface } from './streaming.js';
+  
+  // Make it available globally
+  window.ChatInterface = ChatInterface;
+</script>
 
 <body>
   <div id="ai-search-container" style="position: relative; width: 100%; max-width: 800px; margin: 20px auto;">

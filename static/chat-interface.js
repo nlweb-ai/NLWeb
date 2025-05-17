@@ -315,7 +315,13 @@ export class ChatInterface {
     return this.jsonRenderer.createJsonItemHtml(item);
   }
 
-
+  /**
+   * Creates title and link for an item
+   * 
+   * @param {Object} item - The item data
+   * @param {HTMLElement} titleRow - The title row element
+   */
+  createTitleAndLink(item, titleRow) {
     // Title/link
     const titleLink = document.createElement('a');
     // Fix: Validate URL protocol before setting href
@@ -342,7 +348,7 @@ export class ChatInterface {
     const infoIcon = document.createElement('span');
     // Use a safer way to create the icon
     const imgElement = document.createElement('img');
-    imgElement.src = 'images/info.png';
+    imgElement.src = '/info.png';
     imgElement.alt = 'Info';
     infoIcon.appendChild(imgElement);
     
