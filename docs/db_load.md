@@ -67,7 +67,7 @@ python -m tools.db_load --delete-site Behind-the-Tech -->
 
 - ** Using a different database than set in your config: **  Append `--database <preferred endpoint>' Here, 'preferred endpoint' refers to the database set in code/config_retrieval.yaml. For example, if you had your preferred endpoint sent to 'qdrant-local', you could override this and write to another configured (but not preferred) retrieval provider like 'azure-ai-search' with the following:
 ```
-python -m tools.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech --azure-ai-search
+python -m tools.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech --database azure-ai-search
 ```
 
 - ** Many URLs to load: **  A faster method in this case is to make a list of these URLs in a file to do batch processing into a single site.  For example, if you had 10 RSS feeds you wanted to load, you could create a .txt file with 1 URL per line. Append '--url-list' to the command to do this.
