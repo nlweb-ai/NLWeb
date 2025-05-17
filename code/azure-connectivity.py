@@ -59,6 +59,31 @@ async def check_search_api():
         print(f"❌ Error connecting to Azure AI Search: {e}")
         return False
 
+async def check_inception_api():
+    """Check Inception API connectivity"""
+    print("\nChecking Inception API connectivity...")
+    
+    # Check if Inception is configured
+    if "inception" not in CONFIG.llm_providers:
+        print("❌ Inception provider not configured")
+        return False
+    
+    inception_config = CONFIG.llm_providers["inception"]
+    api_key = inception_config.api_key
+    
+    if not api_key:
+        print("❌ API key for Inception not configured")
+        return False
+    
+    try:
+        client = OpenAI(api_key=api_key, base_url="https://api.inceptionlabs.ai/v1")
+        models = client.models.list()
+        print(f"✅ Successfully connected to Inception API")
+        return True
+    except Exception as e:
+        print(f"❌ Error connecting to Inception API: {e}")
+        return False
+
 async def check_openai_api():
     """Check OpenAI API connectivity"""
     print("\nChecking OpenAI API connectivity...")
@@ -183,6 +208,7 @@ async def main():
     # Create and run all checks simultaneously
     tasks = [
         check_search_api(),
+        check_inception_api(),
         check_openai_api(),
         check_azure_openai_api(),
         check_embedding_api()

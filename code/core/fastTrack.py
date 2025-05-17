@@ -43,7 +43,6 @@ class FastTrack:
             return
         
         logger.info("Starting fast track processing")
-        print("in fast track")
         
         self.handler.retrieval_done_event.set()  # Use event instead of flag
         
