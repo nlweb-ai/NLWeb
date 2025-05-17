@@ -13,7 +13,7 @@ code/
 ├── mllm.py                 # ML/LLM integration (modified for Azure)
 ├── retrieval/              # Static files directory
 |   ├── retriever.py        # Data retrieval
-|   ├── milvus_retrieve.py  # Milvus vector database integration
+|   ├── milvus_retrieve.py  # Milvus vector database integration (UNDER DEVELOPMENT)
 |   ├── azure_retrieve.py   # Azure AI Search integration
 |   └── qdrant_retrieve.py  # Qdrant vector database integration
 ├── analyze_query.py        # Query analysis
@@ -175,6 +175,7 @@ azure_ai_search_1:
   db_type: azure_ai_search
 ```
 
+<!-- Milvus still under development and not yet supported
 ### Milvus
 
 ```yaml
@@ -182,7 +183,7 @@ milvus_1:
   database_path: ../milvus/milvus_prod.db
   index_name: prod_collection
   db_type: milvus
-```
+``` -->
 
 ### Qdrant
 
