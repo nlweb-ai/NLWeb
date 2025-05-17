@@ -15,6 +15,7 @@ import sys
 import time
 import traceback
 import urllib.parse
+from core.whoHandler import WhoHandler
 from core.mcp_handler import handle_mcp_request
 from utils.utils import get_param
 from webserver.StreamingWrapper import HandleRequest, SendChunkWrapper
@@ -339,11 +340,17 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
             await send_static_file(path, send_response, send_chunk)
             return
         elif (path.find("who") != -1):
-            retval =  await whoHandler(query_params, None).runQuery()
+            retval =  await WhoHandler(query_params, None).runQuery()
             await send_response(200, {'Content-Type': 'application/json'})
             await send_chunk(json.dumps(retval), end_response=True)
             return
         elif (path.find("mcp") != -1):
+            # Handle MCP health check
+            if path == "/mcp/health" or path == "/mcp/healthz":
+                await send_response(200, {'Content-Type': 'application/json'})
+                await send_chunk(json.dumps({"status": "ok"}), end_response=True)
+                return
+
             # Check if streaming should be used from query parameters
             use_streaming = False
             if ("streaming" in query_params):
