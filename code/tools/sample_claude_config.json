@@ -1,16 +1,15 @@
 {
   "mcpServers": {
     "ask_nlw": {
-      "command": "/Users/guha/mahi/v1/bin/python",
+	"command": "<path to python>",
       "args": [
-        "-c", 
-        "import sys; import os; sys.path.insert(0, os.getcwd()); from tools.chatbot_interface import serve; import asyncio; asyncio.run(serve())",
+        "/Users/guha/NLWeb/code/chatbot_interface.py",
         "--server",
         "http://localhost:8000",
         "--endpoint",
         "/mcp"
       ],
-      "cwd": "/Users/guha/NLWeb/code"
+      "cwd": "<path to your code root>"
     }
   }
 }
