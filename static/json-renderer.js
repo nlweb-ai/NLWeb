@@ -402,14 +402,17 @@ export class JsonRenderer {
   }
   
   /**
-   * Unescapes HTML entities in a string
+   * Unescapes HTML entities in a string, safely converting entities like &amp; to &
+   * without executing any HTML/scripts.
    * 
-   * @param {string} str - The string to unescape
-   * @returns {string} - The unescaped string
+   * @param {string} str - The string with HTML entities to unescape
+   * @returns {string} - The unescaped string with only text content
    */
   htmlUnescape(str) {
     if (!str || typeof str !== 'string') return '';
     
+    // This is a safe way to unescape HTML entities
+    // It parses the HTML but only returns the text content, not any executable HTML/scripts
     const parser = new DOMParser();
     const doc = parser.parseFromString(`<!DOCTYPE html><body>${str}`, 'text/html');
     return doc.body.textContent || '';
