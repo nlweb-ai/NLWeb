@@ -69,6 +69,24 @@ def handle_site_parameter(query_params):
     
     return result_params
 
+def add_chatbot_instructions(response):
+    """
+    Add instructions for the chatbot on how to format the response
+    
+    Args:
+        response (dict): The response dictionary
+    
+    Returns:
+        dict: The response with added chatbot instructions
+    """
+    if isinstance(response, dict) and "results" in response:
+        # Get instructions from config
+        instructions = CONFIG.get_chatbot_instructions("search_results")
+        
+        # Create a new field for chatbot instructions
+        response["chatbot_instructions"] = instructions
+    return response
+
 class MCPFormatter:
     """Formatter for MCP streaming responses"""
     
@@ -88,9 +106,12 @@ class MCPFormatter:
                     message_type = message.get("message_type")
                     
                     if message_type == "result_batch" and "results" in message:
-                        # For result batches, format them as a partial response that
+                        # For result batches, add chatbot instructions
+                        message_with_instructions = message.copy()
+                        message_with_instructions["chatbot_instructions"] = CONFIG.get_chatbot_instructions("search_results")
+                        # Format them as a partial response that
                         # the MCP client can display
-                        results_json = json.dumps(message["results"], indent=2)
+                        results_json = json.dumps(message_with_instructions, indent=2)
                         mcp_event = {
                             "type": "function_stream_event",
                             "content": {
@@ -282,6 +303,9 @@ async def handle_ask_function(function_call, query_params, send_response, send_c
         if not streaming:
             # Non-streaming response - process request and return complete response
             result = await NLWebHandler(validated_query_params, None).runQuery()
+            
+            # Add chatbot instructions to the result
+            result = add_chatbot_instructions(result)
             
             # Format the response according to MCP protocol
             mcp_response = {

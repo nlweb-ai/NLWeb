@@ -10,7 +10,7 @@ Backwards compatibility is not guaranteed at this time.
 
 import os
 import yaml
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dotenv import load_dotenv
 from typing import Dict, Optional, Any, List
 
@@ -73,7 +73,7 @@ class NLWebConfig:
     sites: List[str]  # List of allowed sites
     json_data_folder: str = "./data/json"  # Default folder for JSON data
     json_with_embeddings_folder: str = "./data/json_with_embeddings"  # Default folder for JSON with embeddings
-
+    chatbot_instructions: Dict[str, str] = field(default_factory=dict)  # Dictionary of chatbot instructions
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
                    "config_webserver.yaml", "config_nlweb.yaml"]
@@ -326,13 +326,16 @@ class AppConfig:
                 "data_folders": {
                     "json_data": "./data/json",
                     "json_with_embeddings": "./data/json_with_embeddings"
+                },
+                "chatbot_instructions": {
+                    "search_results": "IMPORTANT: When presenting these results to the user, always include the original URL as a clickable link for each item."
                 }
             }
         
         # Parse the comma-separated sites string into a list
         sites_str = self._get_config_value(data.get("sites"), "")
         sites_list = [site.strip() for site in sites_str.split(",") if site.strip()]
-        
+
         # Get data folder paths from config
         json_data_folder = "./data/json"
         json_with_embeddings_folder = "./data/json_with_embeddings"
@@ -346,7 +349,10 @@ class AppConfig:
                 data["data_folders"].get("json_with_embeddings"), 
                 json_with_embeddings_folder
             )
-    
+
+        # Load chatbot instructions from config
+        chatbot_instructions = data.get("chatbot_instructions", {})
+        
         # Convert relative paths to use NLWEB_OUTPUT_DIR if available
         base_output_dir = self.base_output_directory
         if base_output_dir:
@@ -354,7 +360,7 @@ class AppConfig:
                 json_data_folder = os.path.join(base_output_dir, "data", "json")
             if not os.path.isabs(json_with_embeddings_folder):
                 json_with_embeddings_folder = os.path.join(base_output_dir, "data", "json_with_embeddings")
-        
+    
         # Ensure directories exist
         os.makedirs(json_data_folder, exist_ok=True)
         os.makedirs(json_with_embeddings_folder, exist_ok=True)
@@ -362,8 +368,27 @@ class AppConfig:
         self.nlweb = NLWebConfig(
             sites=sites_list,
             json_data_folder=json_data_folder,
-            json_with_embeddings_folder=json_with_embeddings_folder
+            json_with_embeddings_folder=json_with_embeddings_folder,
+            chatbot_instructions=chatbot_instructions
         )
+    
+    def get_chatbot_instructions(self, instruction_type: str = "search_results") -> str:
+        """Get the chatbot instructions for a specific type."""
+        if (hasattr(self, 'nlweb') and 
+            self.nlweb.chatbot_instructions and 
+            instruction_type in self.nlweb.chatbot_instructions):
+            return self.nlweb.chatbot_instructions[instruction_type]
+        
+        # Default instructions if not found in config
+        default_instructions = {
+            "search_results": (
+                "IMPORTANT: When presenting these results to the user, always include "
+                "the original URL as a clickable link for each item. Format each item's name "
+                "as a hyperlink using its URL."
+            )
+        }
+        
+        return default_instructions.get(instruction_type, "")
     
     def get_ssl_cert_path(self) -> Optional[str]:
         """Get the SSL certificate file path."""
@@ -394,7 +419,7 @@ class AppConfig:
     
     def get_allowed_sites(self) -> List[str]:
         """Get the list of allowed sites from NLWeb configuration."""
-        return self.nlweb.sites if hasattr(self, 'all') else []
+        return self.nlweb.sites if hasattr(self, 'nlweb') else []
     
     def is_site_allowed(self, site: str) -> bool:
         """Check if a site is in the allowed sites list."""
