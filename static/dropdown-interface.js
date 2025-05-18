@@ -13,10 +13,16 @@ export class DropdownInterface {
    * 
    * @param {Object} chatInterface - The main chat interface instance
    * @param {HTMLElement} container - The container element to append to
+   * @param {Object} options - Configuration options
+   * @param {boolean} [options.useTextInputForSite=false] - Whether to use a text input instead of dropdown for site selection
    */
-  constructor(chatInterface, container) {
+  constructor(chatInterface, container, options = {}) {
     this.chatInterface = chatInterface;
     this.container = container;
+    this.options = {
+      useTextInputForSite: false,
+      ...options
+    };
     
     // Create the dropdown interface
     this.createSelectors();
@@ -31,8 +37,12 @@ export class DropdownInterface {
     this.selector = selector;
     selector.className = 'site-selector';
 
-    // Create site selector
-    this.createSiteSelector();
+    // Create site selector (dropdown or text input based on options)
+    if (this.options.useTextInputForSite) {
+      this.createSiteTextInput();
+    } else {
+      this.createSiteDropdown();
+    }
     
     // Create generate mode selector
     this.createGenerateModeSelector();
@@ -58,7 +68,7 @@ export class DropdownInterface {
   /**
    * Creates the site selector dropdown
    */
-  createSiteSelector() {
+  createSiteDropdown() {
     const siteSelect = document.createElement('select');
     this.siteSelect = siteSelect;
     
@@ -84,6 +94,50 @@ export class DropdownInterface {
     
     // Make siteSelect accessible to chatInterface
     this.chatInterface.siteSelect = siteSelect;
+  }
+
+  /**
+   * Creates the site text input
+   */
+  createSiteTextInput() {
+    const siteInput = document.createElement('input');
+    this.siteInput = siteInput;
+    siteInput.type = 'text';
+    siteInput.placeholder = 'Enter site name (defaults to "all")';
+    siteInput.className = 'site-input';
+    
+    // Make the input taller
+    siteInput.style.height = '28px';
+    siteInput.style.lineHeight = '28px';
+    siteInput.style.fontSize = '14px';
+    siteInput.style.padding = '0 8px';
+    
+    this.selector.appendChild(this.makeSelectorLabel("Site"));
+    this.selector.appendChild(siteInput);
+    
+    siteInput.addEventListener('change', () => {
+      // If input is empty, default to 'all'
+      this.chatInterface.site = siteInput.value.trim() || 'all';
+      this.chatInterface.resetChatState();
+    });
+    
+    // Add blur event for when user clicks away
+    siteInput.addEventListener('blur', () => {
+      // If input is empty, default to 'all'
+      this.chatInterface.site = siteInput.value.trim() || 'all';
+      this.chatInterface.resetChatState();
+    });
+    
+    // Set initial value if chatInterface has a site
+    if (this.chatInterface.site) {
+      siteInput.value = this.chatInterface.site;
+    } else {
+      // Default to 'all' if no site is specified
+      this.chatInterface.site = 'all';
+    }
+    
+    // Make siteInput accessible to chatInterface
+    this.chatInterface.siteInput = siteInput;
   }
   
   /**
