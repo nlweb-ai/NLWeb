@@ -71,4 +71,4 @@ python app-file.py
 
 ![alt text](../images/Claude-ask_nlw-Option.png)
 
-5.  Voila! When you ask a question and want to query NLWeb, just type 'ask_nlw' in your prompt to Claude.  Remember you have to have your local NLWeb server started to use this option.
+5.  Voilà! When you ask a question and want to query NLWeb, just type 'ask_nlw' in your prompt to Claude.  You'll notice that you also get the full JSON script for your results. Remember, you have to have your local NLWeb server started to use this option.
