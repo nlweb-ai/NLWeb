@@ -1,18 +1,18 @@
 # What is NLWeb
 
 
-Building conversational interfaces for websites is hard. NLWeb seeks to make it easy. 
-Built on MCP, it offers protocols and tools that enable websites to create agent endpoints, 
-fostering a web of interoperating agents. NLWeb's main focus is establishing a foundational 
-protocol layer for the AI Web — much like HTML revolutionized document sharing and RSS 
-transformed content syndication. We're creating standardized protocols and formats that 
-unlock new functionality and interoperability, fostering more dynamic and equitable digital 
-ecosystems. Building on Schema.org's success as the web's de facto semantic layer (adopted 
-by over 100 million sites), NLWeb creates an additional semantic layer specifically 
-designed for AI agent interactions via MCP. NLWeb benefits both humans and machines: 
-it gives website users conversational interfaces while enabling agents to interact 
-naturally with each other, creating a web of connected agents.
+Building conversational interfaces for websites is hard. NLWeb seeks to
+make it easy for websites to do this. And since NLWeb natively speaks MCP,
+the same natural language APIs can be used both by humans and agents.
 
+Schema.org and related semi-structured formats like RSS.
+in use by over 100m websites, have become not just the defacto
+syndication mechanism but also the semantic layer for the web. NLWeb leverages
+these to make it much easier to create natural language interfaces. 
+
+NLWeb is a collection of open protocols and associated
+open source tools. Its main focus is establishing a foundational 
+layer for the AI Web — much like HTML revolutionized document sharing.
 To make this vision reality, NLWeb provides practical implementation code—not as the 
 definitive solution, but as proof-of-concept demonstrations showing one possible 
 approach. We expect and encourage the community to develop diverse, innovative 
@@ -21,18 +21,20 @@ from the humble 'htdocs' folder in NCSA's http server to today's massive data ce
 infrastructures—all unified by shared protocols that enable seamless communication.
 
 AI has the potential to enhance every web interaction, but realizing this vision 
-requires a collaborative effort reminiscent of the web's early "barn raising" spirit. 
+requires a collaborative effort reminiscent of the Web's early "barn raising" spirit. 
 Success demands shared protocols, sample implementations, and community participation. 
 NLWeb combines protocols, Schema.org formats, and sample code to help sites rapidly 
 create these endpoints, benefiting both humans through conversational interfaces and 
-machines through natural agent-to-agent interaction. Join us in building this connected web of agents.
+machines through natural agent-to-agent interaction. 
+
+Join us in building this connected web of agents.
 
 
 # How it Works
  There are two distinct components to NLWeb.
  1. A protocol, very simple to begin with, to interface with a site in natural 
-     language for asking a site's and a format, leveraging json and schema.org 
-     for the returned answer. See the documentation on the REST API for more details.
+     language and a format, leveraging json and schema.org for the returned answer. 
+     See the documentation on the REST API for more details.
 
  2. A straightforward implementation of (1) that leverages existing markup, for
       sites that can be abstracted as lists of items (products, recipes, attractions,
@@ -43,7 +45,7 @@ machines through natural agent-to-agent interaction. Join us in building this co
 
 # NLWeb and MCP
  MCP (Model Context Protocol) is an emerging protocol for Chatbots and AI assistants
- to interact with tools. Every NLWeb instance is also an MCP server, which supports one method,
+ to interact with tools. Every NLWeb instance is also an MCP server, which supports one core method,
  <code>ask</code>, which is used to ask a website a question in natural language. The returned response
  leverages schema.org, a widely-used vocabulary for describing web data. Loosely speaking, 
  MCP is NLWeb as Http is to HTML.
@@ -65,7 +67,7 @@ This repository contains the following:
   on how this can be extended / customized
 - connectors to some of the popular LLMs and vector databases. See documentation on how to add more.
 - tools for adding data in schema.org jsonl, RSS, etc. to a vector database of choice
-- a web server front end for this service, which being small enough runs in the web server
+- a web server front end for this service. The service, being small enough runs in the web server
 - a simple UI for enabling users to issue queries via this web server
 
 We expect most production deployments to use their own UI. They are also likely to integrate
