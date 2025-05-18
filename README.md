@@ -33,14 +33,14 @@ Join us in building this connected web of agents.
 # How it Works
  There are two distinct components to NLWeb.
  1. A protocol, very simple to begin with, to interface with a site in natural 
-     language and a format, leveraging json and schema.org 
-     for the returned answer. See the documentation on the REST API for more details.
+     language and a format, leveraging json and schema.org for the returned answer. 
+     See the documentation on the REST API for more details.
 
  2. A straightforward implementation of (1) that leverages existing markup, for
       sites that can be abstracted as lists of items (products, recipes, attractions,
       reviews, etc.). Together with a set of user interface widgets, sites can 
       easily provide conversational interfaces to their content. See the documentation
-      on Life of a chat query for more details on how this works.
+      on [Life of a chat query](docs/LifeOfAChatQuery.md) for more details on how this works.
 
 
 # NLWeb and MCP
@@ -51,11 +51,11 @@ Join us in building this connected web of agents.
  MCP is NLWeb as Http is to HTML.
 
 
-# NLWeb and platforms.
+# NLWeb and platforms
 NLWeb is deeply agnostic:
-- About the platform. We have tested it running on Windows, MacOS, Linux,  ...
-- About the vector stores used --- Qdrant, Snowflake, Azure AI Search, ...
-- About the LLM --- OAI, Deepseek, Gemini, Anthropic, InceptionLabs, ...
+- About the platform. We have tested it running on Windows, MacOS, Linux, ...
+- About the vector stores used: Qdrant, Snowflake, Milvus, Azure AI Search, ...
+- About the LLM: OAI, Deepseek, Gemini, Anthropic, Inception, ...
 - It is intended to be both lightweight and scalable, running on everything from clusters 
   in the cloud to laptops and soon phones.
 
@@ -79,18 +79,17 @@ the contents over, which inevitably introduces freshness issues.
 # Documentation
 
 ## Getting Started
-- Hello world on your laptop
-- Running it on Azure
+- [Hello world on your laptop](HelloWorld.md)
+- [Running it on Azure](docs/Azure.md)
 - Running it on GCP ... coming soon
 - Running it AWS ... coming soon
 
 ## NLWeb
-- Life of a Chat Query
-- Modifying behaviour by changing prompts
-- Modifying control flow
+- [Life of a Chat Query](docs/LifeOfAChatQuery.md)
+- [Modifying behaviour by changing prompts](docs/Prompts.md)
+- [Modifying control flow](docs/ControlFlow.md)
 - Modifying the user interface
-- REST interface
-- 
+- [REST interface](docs/RestAPI.md)
 
 
 

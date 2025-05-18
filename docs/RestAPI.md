@@ -1,10 +1,11 @@
-# NLWeb RestAPI
+# NLWeb Rest API
 
 At this point, NLWeb supports 2 APIs at the endpoints /ask
 and /mcp. The arguments are the same for both, as is most of the functionality. 
 The /mcp endpoint returns the answers in format that MCP clients can use.
 The /mcp endpoint also supports the core MCP methods (list_tools, list_prompts,
 call_tool, get_prompt).
+
 
 In the included implementation, there is no server side state.
 So, the context of the conversation thus far has to be passed back as part of 
@@ -32,8 +33,7 @@ The following are optional arguments
 The returned value is a json object with the following fields:
 - query_id
 - zero or more result attributes
-- An array (soon to be moved to a richer structure, starting with schema.org's ItemList) of results,
-     each of which has
+- An array (soon to be moved to a richer structure, starting with schema.org's ItemList) of results, each of which has
      - url
      - name
      - site

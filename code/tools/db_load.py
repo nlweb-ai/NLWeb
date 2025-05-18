@@ -13,22 +13,17 @@ import csv
 import asyncio
 import aiohttp
 import tempfile
-import pandas as pd
 import traceback
 from urllib.parse import urlparse
-from pathlib import Path
-from io import StringIO
+
 from typing import List, Dict, Any, Tuple, Union, Optional
 
 from config.config import CONFIG
 from embedding.embedding import batch_get_embeddings
 from tools.db_load_utils import (
     read_file_lines,
-    upload_batch_to_db,
     prepare_documents_from_json,
     documents_from_csv_line,
-    resolve_file_path,
-    get_vector_client
 )
 
 # Import vector database client directly
@@ -364,7 +359,7 @@ async def detect_file_type(file_path: str) -> Tuple[str, bool]:
 
 async def process_csv_file(file_path: str, site: str) -> List[Dict[str, Any]]:
     """
-    Process a standard CSV file into document objects.
+    Process a standard CSV file into document objects without using pandas.
     
     Args:
         file_path: Path to the CSV file
@@ -375,65 +370,128 @@ async def process_csv_file(file_path: str, site: str) -> List[Dict[str, Any]]:
     """
     print(f"Processing CSV file: {file_path}")
     
+    documents = []
+    error_count = 0
+    success_count = 0
+    
     try:
-        # Read CSV using pandas (handles various CSV formats better)
-        df = pd.read_csv(file_path)
+        with open(file_path, 'r', encoding='utf-8', errors='replace') as csv_file:
+            # First try to determine the dialect
+            try:
+                dialect = csv.Sniffer().sniff(csv_file.read(4096))
+                csv_file.seek(0)
+            except csv.Error:
+                # If sniffer fails, use default dialect
+                dialect = csv.excel
+                csv_file.seek(0)
+            
+            # Try to create a reader - handle potential BOM or encoding issues
+            try:
+                csv_reader = csv.DictReader(csv_file, dialect=dialect)
+                
+                # Check if we have enough columns for meaningful data
+                if len(csv_reader.fieldnames or []) < 2:
+                    print(f"Warning: CSV file has fewer than 2 columns. This may not contain enough data.")
+            except Exception as e:
+                # If we have trouble with DictReader, try a more primitive approach
+                print(f"Error with DictReader: {e}. Trying with simple CSV reader...")
+                csv_file.seek(0)
+                csv_reader = csv.reader(csv_file, dialect=dialect)
+                # Read the header line
+                header = next(csv_reader, [])
+                if len(header) < 2:
+                    print(f"Warning: CSV file has fewer than 2 columns. This may not contain enough data.")
+                
+                # Convert to a format compatible with our processing
+                reader_with_header = []
+                for row in csv_reader:
+                    # If row is shorter than header, pad it
+                    if len(row) < len(header):
+                        row.extend([''] * (len(header) - len(row)))
+                    # If row is longer than header, truncate it
+                    elif len(row) > len(header):
+                        row = row[:len(header)]
+                    
+                    row_dict = dict(zip(header, row))
+                    reader_with_header.append(row_dict)
+                
+                csv_reader = reader_with_header
+            
+            # Process each row in the CSV
+            for index, row in enumerate(csv_reader):
+                try:
+                    # Handle both DictReader objects and our manual dict list
+                    if isinstance(csv_reader, list):
+                        row_data = row
+                    else:
+                        row_data = row
+                    
+                    # Try to find a good identifier column (url, id, etc.)
+                    url = None
+                    
+                    # Look for common URL/ID columns
+                    for col in ['url', 'URL', 'link', 'Link', 'id', 'ID', 'identifier']:
+                        if col in row_data and row_data[col]:
+                            url = str(row_data[col])
+                            break
+                    
+                    # If no URL found, use a generated one with the row index
+                    if not url:
+                        url = f"csv:{os.path.basename(file_path)}:{index}"
+                    
+                    # Convert row to JSON
+                    json_data = json.dumps(row_data)
+                    
+                    # Find a good name field
+                    name = None
+                    for col in ['name', 'Name', 'title', 'Title', 'heading', 'Heading']:
+                        if col in row_data and row_data[col]:
+                            name = str(row_data[col])
+                            break
+                    
+                    # If no name found, use a generated one
+                    if not name:
+                        name = f"Row {index} from {os.path.basename(file_path)}"
+                    
+                    # Create document
+                    document = {
+                        "id": str(hash(url) % (2**63)),  # Create a stable ID from the URL
+                        "schema_json": json_data,
+                        "url": url,
+                        "name": name,
+                        "site": site
+                    }
+                    
+                    documents.append(document)
+                    success_count += 1
+                    
+                    # Print progress periodically
+                    if (index + 1) % 1000 == 0:
+                        print(f"Processed {index + 1} rows ({success_count} successful, {error_count} errors)")
+                
+                except Exception as row_error:
+                    # Log the error but continue processing other rows
+                    error_count += 1
+                    print(f"Error processing row {index}: {str(row_error)}")
+                    if error_count <= 5:  # Only print detailed traceback for the first few errors
+                        traceback.print_exc()
+                    elif error_count == 6:
+                        print("Suppressing further detailed error messages...")
+                    
+                    # Continue with the next row
+                    continue
         
-        # Check if we have enough columns for meaningful data
-        if len(df.columns) < 2:
-            print(f"Warning: CSV file has fewer than 2 columns. This may not contain enough data.")
-        
-        documents = []
-        
-        # Process each row in the CSV
-        for index, row in df.iterrows():
-            # Convert row to dictionary
-            row_dict = row.to_dict()
-            
-            # Try to find a good identifier column (url, id, etc.)
-            id_value = None
-            url = None
-            
-            # Look for common URL/ID columns
-            for col in ['url', 'URL', 'link', 'Link', 'id', 'ID', 'identifier']:
-                if col in row_dict and row_dict[col]:
-                    url = str(row_dict[col])
-                    break
-            
-            # If no URL found, use a generated one with the row index
-            if not url:
-                url = f"csv:{os.path.basename(file_path)}:{index}"
-            
-            # Convert row to JSON
-            json_data = json.dumps(row_dict)
-            
-            # Find a good name field
-            name = None
-            for col in ['name', 'Name', 'title', 'Title', 'heading', 'Heading']:
-                if col in row_dict and row_dict[col]:
-                    name = str(row_dict[col])
-                    break
-            
-            # If no name found, use a generated one
-            if not name:
-                name = f"Row {index} from {os.path.basename(file_path)}"
-            
-            # Create document
-            document = {
-                "id": str(hash(url) % (2**63)),  # Create a stable ID from the URL
-                "schema_json": json_data,
-                "url": url,
-                "name": name,
-                "site": site
-            }
-            
-            documents.append(document)
-        
-        print(f"Processed {len(documents)} rows from CSV file")
+        print(f"CSV processing complete: {success_count} rows processed successfully, {error_count} rows had errors")
         return documents
+    
     except Exception as e:
-        print(f"Error processing CSV file: {str(e)}")
-        return []
+        print(f"Fatal error processing CSV file: {str(e)}")
+        traceback.print_exc()
+        # Return any documents we've managed to process so far
+        print(f"Returning {len(documents)} documents that were processed before the error")
+        return documents
+    
+
 
 async def process_rss_feed(file_path: str, site: str) -> List[Dict[str, Any]]:
     """
@@ -492,7 +550,7 @@ async def process_rss_feed(file_path: str, site: str) -> List[Dict[str, Any]]:
         traceback.print_exc()
         return []
 
-async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int = 500, delete_existing: bool = False, database: str = None):
+async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int = 100, delete_existing: bool = False, database: str = None):
     """
     Load data from a file with precomputed embeddings into the database.
     
@@ -615,7 +673,7 @@ async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int 
             except Exception:
                 pass
 
-async def loadJsonToDB(file_path: str, site: str, batch_size: int = 500, delete_existing: bool = False, force_recompute: bool = False, database: str = None):
+async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_existing: bool = False, force_recompute: bool = False, database: str = None):
     """
     Load data from a file, compute embeddings, and store in the database.
     
@@ -843,7 +901,7 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 500, delete_
             except Exception:
                 pass
 
-async def loadUrlListToDB(file_path: str, site: str, batch_size: int = 500, delete_existing: bool = False, force_recompute: bool = False, database: str = None):
+async def loadUrlListToDB(file_path: str, site: str, batch_size: int = 100, delete_existing: bool = False, force_recompute: bool = False, database: str = None):
     """
     Process a file containing a list of URLs, fetch each URL, and load the content into the database.
     Each line in the file should be a single URL pointing to RSS/XML or JSON content.
@@ -1032,7 +1090,7 @@ async def main():
                         help="Treat the input file as a list of URLs to process (one URL per line). The list file itself can be local or a URL.")
     parser.add_argument("file_path", nargs="?", help="Path to the input file or URL")
     parser.add_argument("site", help="Site identifier")
-    parser.add_argument("--batch-size", type=int, default=500,
+    parser.add_argument("--batch-size", type=int, default=100,
                         help="Batch size for processing and uploading")
     parser.add_argument("--database", type=str, default=None,
                         help="Specific database endpoint to use (from config_retrieval.yaml)")

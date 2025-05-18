@@ -65,9 +65,9 @@ class SnowflakeProvider(LLMProvider):
         - prompt: The prompt to complete
         - schema: JSON schema of the desired response.
         - model: The name of the model to use (if not specified, one will be chosen)
-        - max_tokens: A value between 1 and 4096 (inclusive) that controls the maximum number of tokens to output. Output is truncated after this number of tokens.
-        - top_p: A value from 0 to 1 (inclusive) that controls the diversity of the language model by restricting the set of possible tokens that the model outputs.
         - temperature: A value from 0 to 1 (inclusive) that controls the randomness of the output of the language model by influencing which possible token is chosen at each step.
+        - max_tokens: A value between 1 and 4096 (inclusive) that controls the maximum number of tokens to output. Output is truncated after this number of tokens.
+        - timeout: Maximum time (in seconds) to wait for a response.
         """
         return await cortex_complete(prompt, schema, model, max_tokens, temperature, timeout)
 
