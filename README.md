@@ -5,7 +5,7 @@ Building conversational interfaces for websites is hard. NLWeb seeks to
 make it easy for websites to do this. And since NLWeb natively speaks MCP,
 the same natural language APIs can be used both by humans and agents.
 
-Schema.org and related semi-structured formats like RSS.
+Schema.org and related semi-structured formats like RSS,
 in use by over 100m websites, have become not just the defacto
 syndication mechanism but also the semantic layer for the web. NLWeb leverages
 these to make it much easier to create natural language interfaces. 
@@ -34,7 +34,7 @@ Join us in building this connected web of agents.
  There are two distinct components to NLWeb.
  1. A protocol, very simple to begin with, to interface with a site in natural 
      language and a format, leveraging json and schema.org for the returned answer. 
-     See the documentation on the REST API for more details.
+     See the documentation on the [REST API](/docs/RestAPI.md) for more details.
 
  2. A straightforward implementation of (1) that leverages existing markup, for
       sites that can be abstracted as lists of items (products, recipes, attractions,
@@ -53,7 +53,7 @@ Join us in building this connected web of agents.
 
 # NLWeb and platforms
 NLWeb is deeply agnostic:
-- About the platform. We have tested it running on Windows, MacOS, Linux, ...
+- About the platform: We have tested it running on Windows, MacOS, Linux, ...
 - About the vector stores used: Qdrant, Snowflake, Milvus, Azure AI Search, ...
 - About the LLM: OAI, Deepseek, Gemini, Anthropic, Inception, ...
 - It is intended to be both lightweight and scalable, running on everything from clusters 
@@ -63,12 +63,11 @@ NLWeb is deeply agnostic:
 # Repository
 This repository contains the following:
 
-- the code for the core service -- handling a natural language query. See below for documentation
-  on how this can be extended / customized
-- connectors to some of the popular LLMs and vector databases. See documentation on how to add more.
-- tools for adding data in schema.org jsonl, RSS, etc. to a vector database of choice
-- a web server front end for this service. The service, being small enough runs in the web server
-- a simple UI for enabling users to issue queries via this web server
+- The code for the core service -- handling a natural language query on how this can be extended / customized.
+- Connectors to some of the popular LLMs and vector databases.
+- Tools for adding data in schema.org jsonl, RSS, etc. to a vector database of choice.
+- A web server front end for this service. The service, being small enough runs in the web server.
+- A simple UI for enabling users to issue queries via this web server.
 
 We expect most production deployments to use their own UI. They are also likely to integrate
 the code into their application environment (as opposed to running a standalone NLWeb server). They
@@ -88,8 +87,9 @@ the contents over, which inevitably introduces freshness issues.
 - [Life of a Chat Query](docs/LifeOfAChatQuery.md)
 - [Modifying behaviour by changing prompts](docs/Prompts.md)
 - [Modifying control flow](docs/ControlFlow.md)
-- Modifying the user interface
+- [Modifying the user interface](/docs/UserInterface.md)
 - [REST interface](docs/RestAPI.md)
+- [Adding memory to your NLWeb interface](/docs/Memory.md)
 
 
 
