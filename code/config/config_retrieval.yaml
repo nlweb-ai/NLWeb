@@ -8,10 +8,11 @@ endpoints:
     db_type: azure_ai_search
     name: NLWeb_Crawl
 
-  milvus_1:
-    database_path: ../milvus/milvus_prod.db
-    index_name: prod_collection
-    db_type: milvus
+  # Milvus is still under development and not yet supported. 
+  # milvus_1:
+  #   database_path: ../milvus/milvus_prod.db
+  #   index_name: prod_collection
+  #   db_type: milvus
 
   # Option 1: Local file-based Qdrant storage
   qdrant_local:

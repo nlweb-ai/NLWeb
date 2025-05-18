@@ -287,7 +287,7 @@ export class DropdownInterface {
    */
   getSites() {
     return [
-      'scifi_movies', 'verge','oreilly', 'eventbrite','all'
+      'scifi_movies', 'verge', 'oreilly', 'eventbrite', 'all'
     ];
   }
 

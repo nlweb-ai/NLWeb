@@ -317,6 +317,51 @@ export class ChatInterface {
 
 
   /**
+   * Creates title and link for an item
+   * 
+   * @param {Object} item - The item data
+   * @param {HTMLElement} titleRow - The title row element
+   */
+  createTitleAndLink(item, titleRow) {
+    // Title/link
+    const titleLink = document.createElement('a');
+    // Fix: Validate URL protocol before setting href
+    if (item.url) {
+      const sanitizedUrl = escapeHtml(item.url);
+      // Only allow http: and https: protocols
+      if (sanitizedUrl.startsWith('http://') || sanitizedUrl.startsWith('https://')) {
+        titleLink.href = sanitizedUrl;
+      } else {
+        titleLink.href = '#'; // Default to # for invalid URLs
+        console.warn('Blocked potentially unsafe URL:', sanitizedUrl);
+      }
+    } else {
+      titleLink.href = '#';
+    }
+    
+    const itemName = this.getItemName(item);
+    // Safe text insertion
+    titleLink.textContent = itemName;
+    titleLink.className = 'item-title-link';
+    titleRow.appendChild(titleLink);
+
+    // Info icon
+    const infoIcon = document.createElement('span');
+    // Use a safer way to create the icon
+    const imgElement = document.createElement('img');
+    imgElement.src = '/info.png';
+    imgElement.alt = 'Info';
+    infoIcon.appendChild(imgElement);
+    
+    infoIcon.className = 'item-info-icon';
+    // Sanitize tooltip content
+    infoIcon.title = `${escapeHtml(item.explanation || '')} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
+    titleRow.appendChild(infoIcon);
+
+    contentDiv.appendChild(titleRow);
+  }
+  
+  /**
    * Adds a visible URL to the content div
    * 
    * @param {Object} item - The item data
@@ -553,20 +598,25 @@ export class ChatInterface {
   createDebugString() {
     return jsonLdToHtml(this.currentItems);
   }
+
   /**
-   * Validates if a URL belongs to a trusted domain
+   * Sanitizes a URL to prevent javascript: protocol and other potentially dangerous URLs
    * 
-   * @param {string} url - The URL to validate
-   * @returns {boolean} - True if the URL is trusted, false otherwise
+   * @param {string} url - The URL to sanitize
+   * @returns {string} - The sanitized URL
    */
-  isTrustedUrl(url) {
-    try {
-      const trustedDomains = ['example.com', 'trustedsite.org']; // Add trusted domains here
-      const parsedUrl = new URL(url);
-      return trustedDomains.includes(parsedUrl.hostname);
-    } catch (e) {
-      console.error('Invalid URL:', e);
-      return false;
+  sanitizeUrl(url) {
+    if (!url || typeof url !== 'string') return '#';
+    
+    // Remove leading and trailing whitespace
+    const trimmedUrl = url.trim();
+    
+    // Check for javascript: protocol or other dangerous protocols
+    const protocolPattern = /^(javascript|data|vbscript|file):/i;
+    if (protocolPattern.test(trimmedUrl)) {
+      return '#';
     }
+    
+    return trimmedUrl;
   }
 }

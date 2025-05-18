@@ -788,7 +788,15 @@
                 statusEl.textContent = `Request ${queryId} completed successfully: ${new Date().toLocaleTimeString()}`;
             } catch (error) {
                 responseEl.textContent = `Error: ${error.message}`;
-                document.getElementById('standard-json-tree').innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                
+                // Fix: Create elements safely instead of using innerHTML
+                const errorDiv = document.createElement('div');
+                errorDiv.style.color = 'red';
+                errorDiv.textContent = `Error: ${error.message}`;
+                const treeElement = document.getElementById('standard-json-tree');
+                treeElement.innerHTML = ''; // Clear existing content
+                treeElement.appendChild(errorDiv);
+                
                 statusEl.textContent = `Request ${queryId} failed: ${new Date().toLocaleTimeString()}`;
                 console.error("Error:", error);
             }

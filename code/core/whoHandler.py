@@ -1,29 +1,9 @@
-from code.core.baseHandler import NLWebHandler
-import mllm
-import code.retrieval.retriever as retriever
-import asyncio
-import json
-import utils
-from code.utils.trim import trim_json
-import code.pre_retrieval.decontextualize as decontextualize
-import code.pre_retrieval.analyze_query as analyze_query
-import code.pre_retrieval.memory as memory   
-import code.pre_retrieval.post_prepare as post_prepare
-import code.core.ranking as ranking
-import code.pre_retrieval.required_info as required_info
-import traceback
-import code.pre_retrieval.relevance_detection as relevance_detection
-import code.core.fastTrack as fastTrack
-from code.core.state import NLWebHandlerState
-from utils import get_param
-from code.utils.azure_logger import log  # Import our new logging utility
+from core.baseHandler import NLWebHandler
 
-# NLWebHandler calls the various preprocessing routines (almost all of which are
-# are just LLM calls), then gets the 
+# Who handler is work in progress for answering questions about who
+# might be able to answer a given query
 
-# file name is from previous iteration where handlers were being subclassed. 
-# Now most of the behaviour specialization can be done with the prompts that are
-# in the site_type.xml file.
+
 
 class WhoHandler (NLWebHandler) :
 
@@ -42,7 +22,6 @@ class WhoHandler (NLWebHandler) :
             await self.sendMessage(message)
             return message
         except Exception as e:
-            log(f"Error in runQuery: {e}")
             traceback.print_exc()
 
     
