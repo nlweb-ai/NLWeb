@@ -47,9 +47,17 @@ The format of the command is as follows (make sure you are still in the 'code' f
 python -m tools.db_load <RSS URL> <site-name>
 ```
 
-Kevin's 'Behind the Tech' Podcast:  https://feeds.libsyn.com/121695/rss
-Verge's 'Decoder' Podcast: https://feeds.megaphone.fm/recodedecode
-<TODO ADD MORE>
+Kevin's 'Behind the Tech' Podcast:  
+```
+python -m tools.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
+```
+
+Verge's 'Decoder' Podcast:
+```
+python -m tools.db_load https://feeds.megaphone.fm/recodedecode Decoder
+```
+
+You can find even more data, including other formats other than RSS, in this [OneDrive folder](https://1drv.ms/f/c/6c6197aa87f7f4c4/EsT094eql2EggGxlBAAAAAABajQiZ5unf_Ri_OWksR8eNg?e=I4z5vw). (Note:  If it asks you to login, try the URL a 2nd time. It should be open permissions.)
 
 6. Start your NLWeb server (again from the 'code' folder):
 ```
