@@ -5,7 +5,7 @@
 
 Use these instructions to configure NLWeb to run in Azure - below we have instructions for:
 
-- [Deploying NLWeb to Azure via the Azure Portal](#deploying-nlweb-via-the-azure-portal)
+<!-- - [Deploying NLWeb to Azure via the Azure Portal](#deploying-nlweb-via-the-azure-portal) -->
 - [Deploying NLWeb to Azure via Azure CLI](#deploying-nlweb-via-the-azure-cli)
 - [Azure OpenAI endpoint creation and obtaining your API key](#azure-openai-endpoint-creation)
 - [Increasing your Azure OpenAI quota and rates](#increasing-your-azure-openai-quota-and-rates)
@@ -15,7 +15,7 @@ Use these instructions to configure NLWeb to run in Azure - below we have instru
 
 These instructions assume that you have an [Azure subscription](https://go.microsoft.com/fwlink/?linkid=2227353&clcid=0x409&l=en-us&icid=nlweb), the [Azure CLI installed locally](https://learn.microsoft.com/cli/azure/install-azure-cli), and have Python 3.10+ installed locally.
 
-
+<!-- commenting our until we can test after making repo public.#
 ## Deploying NLWeb via the Azure Portal
 
 1. Create a [WebApp in the Azure Portal](https://portal.azure.com/?feature.msaljs=true#view/WebsitesExtension/AppServiceWebAppCreateV3Blade):
@@ -44,7 +44,7 @@ These instructions assume that you have an [Azure subscription](https://go.micro
    ```
    This can be found under "Settings" in the "Configuration" section.  It's in the default "General settings" tab.  Again, don't forget to click "Save" when you are done to save your changes.  
 
-   ![Startup Command can be found in the Configuration pane under the General settings tab.](../images/StartupCommand.jpg)
+   ![Startup Command can be found in the Configuration pane under the General settings tab.](../images/StartupCommand.jpg) -->
 
 ## Deploying NLWeb via the Azure CLI
 
@@ -53,7 +53,7 @@ These instructions assume that you have an [Azure subscription](https://go.micro
    az login
    ```
 
-2. Create a resource group (if needed):
+2. Create a resource group (if needed) - if you already have a resource group you want to use, skip to the next step:
    ```bash
    az group create --name yourResourceGroup --location eastus2
    ```
@@ -71,12 +71,13 @@ These instructions assume that you have an [Azure subscription](https://go.micro
 5. Configure environment variables; modify the below command to include all of the environment variables in your .env:
    ```bash
    az webapp config appsettings set --resource-group yourResourceGroup --name yourWebAppName --settings \
-    AZURE_VECTOR_SEARCH_ENDPOINT="https://TODO.search.windows.net" \ 
-    AZURE_VECTOR_SEARCH_API_KEY="TODO" \ 
-    AZURE_OPENAI_ENDPOINT="https://TODO.openai.azure.com/" \ 
-    AZURE_OPENAI_API_KEY="TODO" \ 
-    WEBSITE_RUN_FROM_PACKAGE=1 \ 
-    SCM_DO_BUILD_DURING_DEPLOYMENT=true
+   AZURE_VECTOR_SEARCH_ENDPOINT="https://TODO.search.windows.net" \
+   AZURE_VECTOR_SEARCH_API_KEY="TODO" \
+   AZURE_OPENAI_ENDPOINT="https://TODO.openai.azure.com/" \
+   AZURE_OPENAI_API_KEY="TODO" \
+   WEBSITE_RUN_FROM_PACKAGE=1 \
+   SCM_DO_BUILD_DURING_DEPLOYMENT=true \
+   NLWEB_OUTPUT_DIR=/home/data \
    ```
 
 6. Set startup command:
@@ -84,12 +85,15 @@ These instructions assume that you have an [Azure subscription](https://go.micro
    az webapp config set --resource-group yourResourceGroup --name yourWebAppName --startup-file "startup.sh"
    ```
 
-7. Deploy code using ZIP deployment:
+7. Deploy code using ZIP deployment. Do this from within your cloned NLWeb folder, making sure you have set your preferred providers you will use in the 'code/config' folder before doing this.  If you are not using the 'main' branch, replace this with the branch name to use.
    ```bash
-   # Create a ZIP file of your project
    git archive --format zip --output ./app.zip main
    
-   # Deploy the ZIP file
+   ```
+
+8. Deploy code using ZIP deployment:
+
+   ```bash 
    az webapp deployment source config-zip --resource-group yourResourceGroup --name yourWebAppName --src ./app.zip
    ```
 

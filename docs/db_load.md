@@ -22,9 +22,9 @@ Data must be in one of the following formats:
 ## Loading Data into a Vector Database
 
 With this command, three things happen in the following order:
-1. Point to an existing data source containing structured data (see above for supported data formats) The tool will load/scrape the data.
+1. Point to an existing data source containing structured data (see above for supported data formats.) The tool will load/scrape the data.
 2. The tool then computes the embeddings using your preferred embedding provider (configured in code/config_embedding.yaml)
-3.  The tool then loads the embeddings into the vector database (set in the code/config_retrieval.yaml file).  Note that if you are using a cloud service, such as Azure AI Search, you must have a key with write permissions to the database.
+3. The tool then loads the embeddings into the vector database (set in the code/config_retrieval.yaml file).  Note that if you are using a cloud service, such as Azure AI Search, you must have a key with write permissions to the database.
 
 The command structure for this is as follows - run this while in your `myenv` virtual environment from the 'code' folder:
 ```
