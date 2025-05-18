@@ -67,7 +67,7 @@ source ../myenv/bin/activate
 python app-file.py
 ```
 
-4.  Open Claude Desktop. When the welcome page appears, you should see 'ask_nlw' in the bottom right '+' options.  Select it.
+4.  Open Claude Desktop. It should ask you to trust the 'ask_nlw' external connection if it is configured correctly.  After clicking yes and the welcome page appears, you should see 'ask_nlw' in the bottom right '+' options.  Select it to start a query.
 
 ![alt text](../images/Claude-ask_nlw-Option.png)
 
