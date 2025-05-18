@@ -1,8 +1,8 @@
-# NL Web Configuration and CLI Guide
+# NLWeb Configuration CLI Guide
 
 ## Introduction
 
-NL Web provides a command-line interface (CLI) to simplify configuration, testing, and execution of the application. The CLI helps users navigate through the various configuration steps, ensuring all necessary environment variables and settings are properly set up before running the application.
+NLWeb provides a command-line interface (CLI) to simplify configuration, testing, and execution of the application. The CLI helps users navigate through the various configuration steps, ensuring all necessary environment variables and settings are properly set up before running the application.
 
 ## Getting Started
 
@@ -14,7 +14,7 @@ source setup.sh
 
 This will temporarily add the `nlweb` command to your PATH and create an alias for easier use.
 
-### The NL Web CLI offers several advantages:
+### The NLWeb CLI offers several advantages:
 
 1. **Simplified Configuration**: The CLI guides users through selecting and configuring LLM providers and retrieval endpoints, automatically detecting which environment variables need to be set.
 
@@ -83,7 +83,6 @@ To start the web application:
 ```bash
 nlweb app
 ```
-
 
 ## Configuration Files
 
@@ -183,7 +182,3 @@ nlweb data-load
 This command will prompt you for:
 - An RSS URL to load data from
 - A site name for the loaded data
-
-## Conclusion
-
-The NL Web CLI simplifies the process of configuring, testing, and running the application, ensuring all necessary services are properly connected and environment variables are set. This allows users to focus on using the application rather than dealing with complex setup procedures.
