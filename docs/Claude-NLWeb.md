@@ -93,6 +93,29 @@ If you encounter issues with Claude connecting to NLWeb, you can enable develope
 2. Menu -> Help -> Enable Developer mode
 3. Restart Claude Desktop to apply the debug settings
 
+### Checking Claude Log Files
+
+Claude stores detailed logs about MCP connections that can be helpful for troubleshooting:
+
+#### Log File Locations
+- **macOS**: `~/Library/Logs/Claude/`
+- **Windows**: `%APPDATA%\Claude\logs\`
+
+#### Important Log Files
+- `mcp.log` - Contains general logging about MCP connections and connection failures
+- `mcp-server-ask_nlw.log` - Contains error (stderr) logging from the NLWeb MCP server
+
+#### Viewing Log Files
+You can use the following commands to view recent logs and monitor them in real-time:
+
+```bash
+# macOS/Linux
+tail -n 20 -f ~/Library/Logs/Claude/mcp*.log
+
+# Windows
+type "%APPDATA%\Claude\logs\mcp*.log"
+```
+
 ### Common Issues
 
 - If Claude doesn't show the 'ask_nlw' option, check that your config file is in the correct location and properly formatted
