@@ -315,6 +315,7 @@ export class ChatInterface {
     return this.jsonRenderer.createJsonItemHtml(item);
   }
 
+
   /**
    * Creates title and link for an item
    * 
