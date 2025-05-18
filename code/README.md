@@ -92,14 +92,19 @@ demo/
 |   └── README.md                 # Build demo instructions
 docs/
 |   ├── Azure.md                  # Azure Services Guidance (Setup + Management)
+|   ├── Claude-NLWeb.md           # Setup Claude to talk to NLWeb
 |   ├── Configs.md                # How to set config file variables
 |   ├── ControlFlow.md            #
 |   ├── db_load.md                # How to use the data load utility
 |   ├── LifeOfAChatQuery.md       # Explains how a chat flows through NLWeb
+|   ├── Memory.md                 # How memory can be used
+|   ├── NLWebCLI.md               # How the NLWeb CLI tool works
 |   ├── Prompts.md                # How prompts are setup in NLWeb & how to customize
+|   ├── Qdrant.md                 # Instructions to configure Qdrant
 |   ├── RestAPI.md                # NLWeb & MCP API information
-|   ├── Setup.md                  # Instructions for NLWeb local setup script
-|   └── Snowflake.md              # Instructions to configure and use Snowflake
+|   ├── Retreival.md              # How to configure your vector DB provider
+|   ├── Snowflake.md              # Instructions to configure and use Snowflake
+|   └── UserInterface.md          # Instructions to configure your user interface
 images/                           # Folder for images in md files 
 scripts/
 static/                           # Static files directory
