@@ -112,6 +112,10 @@ For questions about this GitHub project, please reach out to [NLWeb Support](mai
 
 Please see [Contribution Guidance](CONTRIBUTING.md) for more information.
 
+## Contributor Wall of Fame
+
+[![nlweb contributors](https://contrib.rocks/image?repo=microsoft/nlweb)](https://github.com/microsoft/nlweb/graphs/contributors)
+
 ## Trademarks
 
 This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft 
