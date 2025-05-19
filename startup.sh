@@ -15,4 +15,4 @@ pip install -r requirements.txt
 echo "Starting application..."
 
 #python app-file.py
-python -m webserver/WebServer.py
+python -m webserver.WebServer

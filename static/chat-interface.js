@@ -286,7 +286,7 @@ export class ChatInterface {
       const queryString = queryParams.toString();
       const url = `/ask?${queryString}`;
       console.log("url", url);
-      
+      this.noResponse = true;
       this.eventSource = new ManagedEventSource(url);
       this.eventSource.query_id = queryId;
       this.eventSource.connect(this);
@@ -314,6 +314,119 @@ export class ChatInterface {
   createJsonItemHtml(item) {
     return this.jsonRenderer.createJsonItemHtml(item);
   }
+
+
+  /**
+   * Creates title and link for an item
+   * 
+   * @param {Object} item - The item data
+   * @param {HTMLElement} titleRow - The title row element
+   */
+  createTitleAndLink(item, titleRow) {
+    // Title/link
+    const titleLink = document.createElement('a');
+    // Fix: Validate URL protocol before setting href
+    if (item.url) {
+      const sanitizedUrl = escapeHtml(item.url);
+      // Only allow http: and https: protocols
+      if (sanitizedUrl.startsWith('http://') || sanitizedUrl.startsWith('https://')) {
+        titleLink.href = sanitizedUrl;
+      } else {
+        titleLink.href = '#'; // Default to # for invalid URLs
+        console.warn('Blocked potentially unsafe URL:', sanitizedUrl);
+      }
+    } else {
+      titleLink.href = '#';
+    }
+    
+    const itemName = this.getItemName(item);
+    // Safe text insertion
+    titleLink.textContent = itemName;
+    titleLink.className = 'item-title-link';
+    titleRow.appendChild(titleLink);
+
+    // Info icon
+    const infoIcon = document.createElement('span');
+    // Use a safer way to create the icon
+    const imgElement = document.createElement('img');
+    imgElement.src = '/info.png';
+    imgElement.alt = 'Info';
+    infoIcon.appendChild(imgElement);
+    
+    infoIcon.className = 'item-info-icon';
+    // Sanitize tooltip content
+    infoIcon.title = `${escapeHtml(item.explanation || '')} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
+    titleRow.appendChild(infoIcon);
+
+    contentDiv.appendChild(titleRow);
+  }
+  
+  /**
+   * Adds a visible URL to the content div
+   * 
+   * @param {Object} item - The item data
+   * @param {HTMLElement} contentDiv - The content div
+   */
+  addVisibleUrl(item, contentDiv) {
+    const visibleUrlLink = document.createElement("a");
+    
+    // Fix: Properly validate URL protocol before setting href
+    if (item.siteUrl) {
+      const sanitizedUrl = escapeHtml(item.siteUrl);
+      // Only allow http: and https: protocols
+      if (sanitizedUrl.startsWith('http://') || sanitizedUrl.startsWith('https://')) {
+        // Additionally check if it's from a trusted domain
+        if (this.isTrustedUrl(sanitizedUrl)) {
+          visibleUrlLink.href = sanitizedUrl;
+        } else {
+          visibleUrlLink.href = '#'; // Default to # for untrusted domains
+          console.warn('Blocked untrusted domain URL:', sanitizedUrl);
+        }
+      } else {
+        visibleUrlLink.href = '#'; // Default to # for invalid protocols
+        console.warn('Blocked potentially unsafe URL protocol:', sanitizedUrl);
+      }
+    } else {
+      visibleUrlLink.href = '#';
+    }
+    
+    // Use textContent for safe insertion
+    visibleUrlLink.textContent = item.site || '';
+    visibleUrlLink.className = 'item-site-link';
+    contentDiv.appendChild(visibleUrlLink);
+  }
+  
+  /**
+   * Adds an image to the item if available
+   * 
+   * @param {Object} item - The item data
+   * @param {HTMLElement} container - The container element
+   */
+  addImageIfAvailable(item, container) {
+    if (item.schema_object) {
+      const imgURL = this.extractImage(item.schema_object);
+      if (imgURL) {
+        const imageDiv = document.createElement('div');
+        const img = document.createElement('img');
+        
+        // Fix: Validate URL protocol before setting src
+        const sanitizedUrl = escapeHtml(imgURL);
+        // Only allow safe protocols for images: http, https, and data
+        if (sanitizedUrl.startsWith('http://') || 
+            sanitizedUrl.startsWith('https://') || 
+            sanitizedUrl.startsWith('data:image/')) {
+          img.src = sanitizedUrl;
+          img.alt = 'Item image';
+          img.className = 'item-image';
+          imageDiv.appendChild(img);
+          container.appendChild(imageDiv);
+        } else {
+          console.warn('Blocked potentially unsafe image URL:', sanitizedUrl);
+        }
+      }
+    }
+  }
+  
 
   /**
    * Gets the name of an item
@@ -423,29 +536,6 @@ export class ChatInterface {
     }
   }
 
-  /**
-   * Annotates the user query with decontextualized query
-   * 
-   * @param {string} decontextualizedQuery - The decontextualized query
-   */
-  possiblyAnnotateUserQuery(decontextualizedQuery) {
-    const msgDiv = this.lastUserMessageDiv;
-    if (msgDiv && decontextualizedQuery) {
-      // Optional: Uncomment to show decontextualized query
-      // Use a safer approach if uncommenting
-      // const originalContent = this.currentMessage;
-      // msgDiv.textContent = '';
-      // 
-      // const textNode = document.createTextNode(originalContent);
-      // msgDiv.appendChild(textNode);
-      // msgDiv.appendChild(document.createElement('br'));
-      // 
-      // const decontextSpan = document.createElement('span');
-      // decontextSpan.className = 'decontextualized-query';
-      // decontextSpan.textContent = decontextualizedQuery;
-      // msgDiv.appendChild(decontextSpan);
-    }
-  }
   
   /**
    * Resorts the results by score
@@ -507,5 +597,26 @@ export class ChatInterface {
    */
   createDebugString() {
     return jsonLdToHtml(this.currentItems);
+  }
+
+  /**
+   * Sanitizes a URL to prevent javascript: protocol and other potentially dangerous URLs
+   * 
+   * @param {string} url - The URL to sanitize
+   * @returns {string} - The sanitized URL
+   */
+  sanitizeUrl(url) {
+    if (!url || typeof url !== 'string') return '#';
+    
+    // Remove leading and trailing whitespace
+    const trimmedUrl = url.trim();
+    
+    // Check for javascript: protocol or other dangerous protocols
+    const protocolPattern = /^(javascript|data|vbscript|file):/i;
+    if (protocolPattern.test(trimmedUrl)) {
+      return '#';
+    }
+    
+    return trimmedUrl;
   }
 }

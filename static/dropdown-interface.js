@@ -1,6 +1,8 @@
 /**
  * DropdownInterface Class
  * Handles the dropdown UI elements for site selection and options
+ * for the debug interface.
+ * 
  */
 
 import { escapeHtml } from './utils.js';
@@ -11,10 +13,16 @@ export class DropdownInterface {
    * 
    * @param {Object} chatInterface - The main chat interface instance
    * @param {HTMLElement} container - The container element to append to
+   * @param {Object} options - Configuration options
+   * @param {boolean} [options.useTextInputForSite=false] - Whether to use a text input instead of dropdown for site selection
    */
-  constructor(chatInterface, container) {
+  constructor(chatInterface, container, options = {}) {
     this.chatInterface = chatInterface;
     this.container = container;
+    this.options = {
+      useTextInputForSite: false,
+      ...options
+    };
     
     // Create the dropdown interface
     this.createSelectors();
@@ -29,8 +37,12 @@ export class DropdownInterface {
     this.selector = selector;
     selector.className = 'site-selector';
 
-    // Create site selector
-    this.createSiteSelector();
+    // Create site selector (dropdown or text input based on options)
+    if (this.options.useTextInputForSite) {
+      this.createSiteTextInput();
+    } else {
+      this.createSiteDropdown();
+    }
     
     // Create generate mode selector
     this.createGenerateModeSelector();
@@ -56,7 +68,7 @@ export class DropdownInterface {
   /**
    * Creates the site selector dropdown
    */
-  createSiteSelector() {
+  createSiteDropdown() {
     const siteSelect = document.createElement('select');
     this.siteSelect = siteSelect;
     
@@ -82,6 +94,50 @@ export class DropdownInterface {
     
     // Make siteSelect accessible to chatInterface
     this.chatInterface.siteSelect = siteSelect;
+  }
+
+  /**
+   * Creates the site text input
+   */
+  createSiteTextInput() {
+    const siteInput = document.createElement('input');
+    this.siteInput = siteInput;
+    siteInput.type = 'text';
+    siteInput.placeholder = 'Enter site name (defaults to "all")';
+    siteInput.className = 'site-input';
+    
+    // Make the input taller
+    siteInput.style.height = '28px';
+    siteInput.style.lineHeight = '28px';
+    siteInput.style.fontSize = '14px';
+    siteInput.style.padding = '0 8px';
+    
+    this.selector.appendChild(this.makeSelectorLabel("Site"));
+    this.selector.appendChild(siteInput);
+    
+    siteInput.addEventListener('change', () => {
+      // If input is empty, default to 'all'
+      this.chatInterface.site = siteInput.value.trim() || 'all';
+      this.chatInterface.resetChatState();
+    });
+    
+    // Add blur event for when user clicks away
+    siteInput.addEventListener('blur', () => {
+      // If input is empty, default to 'all'
+      this.chatInterface.site = siteInput.value.trim() || 'all';
+      this.chatInterface.resetChatState();
+    });
+    
+    // Set initial value if chatInterface has a site
+    if (this.chatInterface.site) {
+      siteInput.value = this.chatInterface.site;
+    } else {
+      // Default to 'all' if no site is specified
+      this.chatInterface.site = 'all';
+    }
+    
+    // Make siteInput accessible to chatInterface
+    this.chatInterface.siteInput = siteInput;
   }
   
   /**
@@ -136,8 +192,8 @@ export class DropdownInterface {
     });
     
     // Set initial value to preferred endpoint from config
-    dbSelect.value = "azure_ai_search_1";
-    this.chatInterface.database = "azure_ai_search_1";
+    dbSelect.value = "azure_ai_search";
+    this.chatInterface.database = "azure_ai_search";
     
     // Make dbSelect accessible to chatInterface
     this.chatInterface.dbSelect = dbSelect;
@@ -225,13 +281,13 @@ export class DropdownInterface {
    * Gets the available sites for the selector
    * 
    * @returns {Array} - Array of site names
+   * If you would like a site to show up in the dropdown, please add it here.
+   * For now, we will leave it with just the launch partners who
+   * are making their data available
    */
   getSites() {
     return [
-      'scifi_movies','imdb', 'nytimes', 'verge','delish','alltrails', 'allbirds', 'seriouseats', 'oreilly',
-      'npr podcasts', 'backcountry', 'bc_product', 'neurips', 'zillow', 'eventbrite',
-      'tripadvisor', 'woksoflife', 'cheftariq', 'hebbarskitchen',
-      'latam_recipes', 'spruce', 'med podcast', 'allbirdsdd', 'all'
+      'scifi_movies', 'verge', 'oreilly', 'eventbrite', 'all'
     ];
   }
 
@@ -251,12 +307,8 @@ export class DropdownInterface {
    */
   getDatabases() {
     return [
-      { id: 'azure_ai_search_1', name: 'NLWeb_Crawl' },
-      { id: 'azure_ai_search_2', name: 'Bing_Crawl' },
-
-      { id: 'azure_ai_search_test', name: 'NLWeb_Upload_Test' },
+      { id: 'azure_ai_search', name: 'NLWeb_Crawl' },
       { id: 'milvus_1', name: 'Milvus' },
-
       { id: 'qdrant_local', name: 'Qdrant Local' },
       { id: 'qdrant_url', name: 'Qdrant URL' },
       { id: 'snowflake_cortex_search_1', name: 'Snowflake_Cortex_Search' }

@@ -26,6 +26,7 @@ from utils.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("nlweb_handler")
 
+API_VERSION = "0.1"
 
 class NLWebHandler:
 
@@ -111,6 +112,8 @@ class NLWebHandler:
         # it will be a dictionary with the message type as the key and the value being
         # the value of the message.
         self.return_value = {}
+
+        self.versionNumberSent = False
         
         logger.info(f"NLWebHandler initialized with parameters:")
         logger.debug(f"site: {self.site}, query: {self.query}")
@@ -132,9 +135,10 @@ class NLWebHandler:
         else:
             self.connection_alive_event.clear()
 
+   
+
     async def send_message(self, message):
         logger.debug(f"Sending message of type: {message.get('message_type', 'unknown')}")
-        
         async with self._send_lock:  # Protect send operation with lock
             # Check connection before sending
             if not self.connection_alive_event.is_set():
@@ -143,6 +147,11 @@ class NLWebHandler:
                 
             if (self.streaming and self.http_handler is not None):
                 message["query_id"] = self.query_id
+                if not self.versionNumberSent:
+                    self.versionNumberSent = True
+                    version_number_message = {"message_type": "api_version", "api_version": API_VERSION}
+                  #  await self.http_handler.write_stream(version_number_message)
+                    
                 try:
                     await self.http_handler.write_stream(message)
                     logger.debug(f"Message streamed successfully")

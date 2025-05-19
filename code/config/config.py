@@ -10,7 +10,7 @@ Backwards compatibility is not guaranteed at this time.
 
 import os
 import yaml
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from dotenv import load_dotenv
 from typing import Dict, Optional, Any, List
 
@@ -73,18 +73,53 @@ class NLWebConfig:
     sites: List[str]  # List of allowed sites
     json_data_folder: str = "./data/json"  # Default folder for JSON data
     json_with_embeddings_folder: str = "./data/json_with_embeddings"  # Default folder for JSON with embeddings
-
+    chatbot_instructions: Dict[str, str] = field(default_factory=dict)  # Dictionary of chatbot instructions
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
                    "config_webserver.yaml", "config_nlweb.yaml"]
 
     def __init__(self):
         load_dotenv()
+        self.base_output_directory = self._get_base_output_directory()
         self.load_llm_config()
         self.load_embedding_config()
         self.load_retrieval_config()
         self.load_webserver_config()
         self.load_nlweb_config()
+
+    def _get_base_output_directory(self) -> Optional[str]:
+        """
+        Get the base directory for all output files from the environment variable.
+        Returns None if the environment variable is not set.
+        """
+        base_dir = os.getenv('NLWEB_OUTPUT_DIR')
+        if base_dir and not os.path.exists(base_dir):
+            try:
+                os.makedirs(base_dir, exist_ok=True)
+                print(f"Created output directory: {base_dir}")
+            except Exception as e:
+                print(f"Warning: Failed to create output directory {base_dir}: {e}")
+                return None
+        return base_dir
+
+    def _resolve_path(self, path: str) -> str:
+        """
+        Resolves a path, considering the base output directory if set.
+        If path is absolute, returns it unchanged.
+        If path is relative and base_output_directory is set, resolves against base_output_directory.
+        Otherwise, resolves against the config directory.
+        """
+        if os.path.isabs(path):
+            return path
+            
+        config_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        if self.base_output_directory:
+            # If base output directory is set, use it for all relative paths
+            return os.path.abspath(os.path.join(self.base_output_directory, path))
+        else:
+            # Otherwise use the config directory
+            return os.path.abspath(os.path.join(config_dir, path))
 
     def _get_config_value(self, value: Any, default: Any = None) -> Any:
         """
@@ -228,7 +263,7 @@ class AppConfig:
         self.static_directory: str = self._get_config_value(data.get("static_directory"), "./static")
         self.mode: str = self._get_config_value(data.get("mode"), "production")
         
-        # Convert relative paths to absolute paths based on config file location
+        # Keep static directory relative to config directory, not base output directory
         if not os.path.isabs(self.static_directory):
             self.static_directory = os.path.abspath(os.path.join(config_dir, self.static_directory))
         
@@ -245,14 +280,14 @@ class AppConfig:
         
         # Logging configuration
         logging_data = server_data.get("logging", {})
+        logging_file = self._get_config_value(logging_data.get("file"), "./logs/webserver.log")
+        # Use the _resolve_path method for logging file (but not for static directory)
+        logging_file = self._resolve_path(logging_file)
+        
         logging_config = LoggingConfig(
             level=self._get_config_value(logging_data.get("level"), "info"),
-            file=self._get_config_value(logging_data.get("file"), "./logs/webserver.log")
+            file=logging_file
         )
-        
-        # Convert logging file path to absolute if relative
-        if not os.path.isabs(logging_config.file):
-            logging_config.file = os.path.abspath(os.path.join(config_dir, logging_config.file))
         
         # Static file configuration
         static_data = server_data.get("static", {})
@@ -291,13 +326,16 @@ class AppConfig:
                 "data_folders": {
                     "json_data": "./data/json",
                     "json_with_embeddings": "./data/json_with_embeddings"
+                },
+                "chatbot_instructions": {
+                    "search_results": "IMPORTANT: When presenting these results to the user, always include the original URL as a clickable link for each item."
                 }
             }
         
         # Parse the comma-separated sites string into a list
         sites_str = self._get_config_value(data.get("sites"), "")
         sites_list = [site.strip() for site in sites_str.split(",") if site.strip()]
-        
+
         # Get data folder paths from config
         json_data_folder = "./data/json"
         json_with_embeddings_folder = "./data/json_with_embeddings"
@@ -311,13 +349,18 @@ class AppConfig:
                 data["data_folders"].get("json_with_embeddings"), 
                 json_with_embeddings_folder
             )
+
+        # Load chatbot instructions from config
+        chatbot_instructions = data.get("chatbot_instructions", {})
         
-        # Convert relative paths to absolute paths based on config file location
-        if not os.path.isabs(json_data_folder):
-            json_data_folder = os.path.abspath(os.path.join(config_dir, json_data_folder))
-        if not os.path.isabs(json_with_embeddings_folder):
-            json_with_embeddings_folder = os.path.abspath(os.path.join(config_dir, json_with_embeddings_folder))
-        
+        # Convert relative paths to use NLWEB_OUTPUT_DIR if available
+        base_output_dir = self.base_output_directory
+        if base_output_dir:
+            if not os.path.isabs(json_data_folder):
+                json_data_folder = os.path.join(base_output_dir, "data", "json")
+            if not os.path.isabs(json_with_embeddings_folder):
+                json_with_embeddings_folder = os.path.join(base_output_dir, "data", "json_with_embeddings")
+    
         # Ensure directories exist
         os.makedirs(json_data_folder, exist_ok=True)
         os.makedirs(json_with_embeddings_folder, exist_ok=True)
@@ -325,8 +368,27 @@ class AppConfig:
         self.nlweb = NLWebConfig(
             sites=sites_list,
             json_data_folder=json_data_folder,
-            json_with_embeddings_folder=json_with_embeddings_folder
+            json_with_embeddings_folder=json_with_embeddings_folder,
+            chatbot_instructions=chatbot_instructions
         )
+    
+    def get_chatbot_instructions(self, instruction_type: str = "search_results") -> str:
+        """Get the chatbot instructions for a specific type."""
+        if (hasattr(self, 'nlweb') and 
+            self.nlweb.chatbot_instructions and 
+            instruction_type in self.nlweb.chatbot_instructions):
+            return self.nlweb.chatbot_instructions[instruction_type]
+        
+        # Default instructions if not found in config
+        default_instructions = {
+            "search_results": (
+                "IMPORTANT: When presenting these results to the user, always include "
+                "the original URL as a clickable link for each item. Format each item's name "
+                "as a hyperlink using its URL."
+            )
+        }
+        
+        return default_instructions.get(instruction_type, "")
     
     def get_ssl_cert_path(self) -> Optional[str]:
         """Get the SSL certificate file path."""
@@ -363,7 +425,7 @@ class AppConfig:
         """Check if a site is in the allowed sites list."""
         allowed_sites = self.get_allowed_sites()
         # If no sites are configured, allow all sites
-        if not allowed_sites:
+        if not allowed_sites or allowed_sites == ['all']:
             return True
         return site in allowed_sites
     

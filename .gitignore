@@ -9,6 +9,10 @@
 *.user
 *.userosscache
 *.sln.docstates
+myenv
+venv
+.env
+
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -426,4 +430,10 @@ code/.env
 app.zip
 
 /static/p
+
+.DS_Store
+code/.DS_Store
+static/.DS_Store
+
 \#README.md\#
+myenv/

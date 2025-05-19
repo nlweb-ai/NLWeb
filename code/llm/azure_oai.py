@@ -146,7 +146,7 @@ class AzureOpenAIProvider(LLMProvider):
         except json.JSONDecodeError as e:
             error_msg = f"Failed to parse response as JSON: {e}"
             logger.error(f"{error_msg}, content: {json_str}")
-            raise ValueError(error_msg)
+            #raise ValueError(error_msg)
 
     async def get_completion(
         self,

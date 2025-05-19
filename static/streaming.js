@@ -1,138 +1,11 @@
-const styles = `
-  .chat-container {
-  /*  max-width: 600px;
-    max-height: 600px; */
-    height: 80%;
-    width: 80%;
-    margin: 0 auto;
-    padding: 20px;
-    font-family: sans-serif;
-  }
-  
-  .site-selector {
-    margin-bottom: 20px;
-  }
+/**
+ * Streaming chat interface implementation
+ */
 
-  .site-selector select {
-    padding: 8px;
-    font-size: 14px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-  }
-  
-  .messages {
-   /* max-height: 500px;
-    max-width: 500px; */
-    height: 80%;
-    width: 80%;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 20px;
-    margin-bottom: 2px;
-  }
+import { applyStyles } from './styles.js';
 
-   .messages_full {
-   /* max-height: 500px;
-    max-width: 500px; */
-    height: 95%;
-    width: 100%;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 20px;
-    margin-bottom: 20px;
-  }
-  
-  .message {
-    margin-bottom: 15px;
-    display: flex;
-  }
-  
-  .user-message {
-    justify-content: flex-end;
-  }
-  
-  .assistant-message {
-    justify-content: flex-start;
-  }
-
-  .remember-message {
-    font-weight: bold;
-  /  font-size: 0.8em;
-    color: #333333;
-    justify-content: flex-start;
-    margin-bottom: 1em;
-  }
-
-  .item-details-message {
-    font-size: 0.95em; 
-    color: #333333;
-    justify-content: flex-start;
-    margin-bottom: 2em;
-    display: flex;
-    font-family: sans-serif;
-  }
-  
-  .message-bubble {
-    max-width: 90%;
-    padding: 10px 15px;
-    border-radius: 15px;
-  }
-
-  .user-message .message-bubble {
-    background: #007bff;
-    color: white;
-  }
-  
-  .assistant-message .message-bubble {
-    background: #f9f9f9; // #e9ecef;
-    color: black;
-  }
-  
-  .input-area {
-    display: flex;
-    gap: 10px;
-    width: 87%;
-  }
-
-   .input-area_full {
-    display: flex;
-    gap: 10px;
-    width: 100%;
-  }
-  
-  .message-input {
-    flex-grow: 1;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    font-size: 16px;
-  }
-  
-  .send-button {
-    padding: 10px 20px;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-  }
-  
-  .send-button:hover {
-    background: #0056b3;
-  }
-
-  .intermediate-container {
-    padding: 20px 0;
-    font-weight: bold;
-    font-size: 0.95em;
-    color: #333333;
-  }
-`;
-
-// Add styles to document
-const styleSheet = document.createElement("style");
-styleSheet.textContent = styles;
-document.head.appendChild(styleSheet);
+// Apply styles from the dedicated styles module
+applyStyles();
 
 class ManagedEventSource {
   constructor(url, options = {}) {
@@ -501,9 +374,19 @@ class ChatInterface {
     }
     
     htmlUnescape(str) {
-    const div = document.createElement("div");
-    div.innerHTML = str;
-    return div.textContent || div.innerText;
+      // Return empty string for null/undefined values
+      if (!str) return '';
+      
+      // Check if input is a string
+      if (typeof str !== 'string') {
+        return String(str);
+      }
+
+      // Use the browser's built-in text decoder functionality
+      // This safely decodes HTML entities without execution risks
+      const textarea = document.createElement('textarea');
+      textarea.textContent = str;
+      return textarea.value;
     }
   
     addMessage(content, sender) {
@@ -526,11 +409,25 @@ class ChatInterface {
       } catch (e) {
           parsedContent = content;
       }
+      
+      // FIX: Replace innerHTML with safer DOM manipulation
       if (Array.isArray(parsedContent)) {
-          bubble.innerHTML = parsedContent.map(obj => {
-             
-              return this.createJsonItemHtml(obj).outerHTML;
-          }).join('<br><br>');
+          // Clear any existing content
+          while (bubble.firstChild) {
+              bubble.removeChild(bubble.firstChild);
+          }
+          
+          // Append each item
+          parsedContent.forEach(obj => {
+              const itemElement = this.createJsonItemHtml(obj);
+              bubble.appendChild(itemElement);
+              
+              // Add line breaks between items if not the last one
+              if (parsedContent.indexOf(obj) < parsedContent.length - 1) {
+                  bubble.appendChild(document.createElement('br'));
+                  bubble.appendChild(document.createElement('br'));
+              }
+          });
       } else {
           bubble.textContent = content;
       }
@@ -578,7 +475,7 @@ class ChatInterface {
         const address = item.schema_object.address;
         const numBedrooms = item.schema_object.numberOfRooms;
         const numBathrooms = item.schema_object.numberOfBathroomsTotal;
-        const sqft = item.schema_object.floorSize.value;
+        const sqft = item.schema_object.floorSize?.value;
         let priceValue = price;
         if (typeof price === 'object') {
           priceValue = price.price || price.value || price;
@@ -586,12 +483,18 @@ class ChatInterface {
           priceValue = priceValue.toLocaleString('en-US');
         }
 
-        detailsDiv.appendChild(this.makeAsSpan(address.streetAddress + ", " + address.addressLocality))
-        detailsDiv.appendChild(document.createElement('br'));
-        detailsDiv.appendChild(this.makeAsSpan(`${numBedrooms} bedrooms, ${numBathrooms} bathrooms, ${sqft} sqft`))
-        detailsDiv.appendChild(document.createElement('br'));
+        if (address?.streetAddress && address?.addressLocality) {
+          detailsDiv.appendChild(this.makeAsSpan(address.streetAddress + ", " + address.addressLocality));
+          detailsDiv.appendChild(document.createElement('br'));
+        }
+        
+        if (numBedrooms && numBathrooms && sqft) {
+          detailsDiv.appendChild(this.makeAsSpan(`${numBedrooms} bedrooms, ${numBathrooms} bathrooms, ${sqft} sqft`));
+          detailsDiv.appendChild(document.createElement('br'));
+        }
+        
         if (priceValue) {
-          detailsDiv.appendChild(this.makeAsSpan(`Listed at ${priceValue}`))
+          detailsDiv.appendChild(this.makeAsSpan(`Listed at ${priceValue}`));
         }
       }
     }
@@ -630,7 +533,15 @@ class ChatInterface {
   
       // Title/link
       const titleLink = document.createElement('a');
-      titleLink.href = item.url;
+      // FIX: Use sanitizeUrl for URL attributes and add additional security measures
+      const sanitizedUrl = item.url ? this.sanitizeUrl(item.url) : '#';
+      titleLink.href = sanitizedUrl;
+      // Add rel="noopener noreferrer" for external links
+      if (sanitizedUrl !== '#' && !sanitizedUrl.startsWith(window.location.origin)) {
+          titleLink.rel = "noopener noreferrer";
+          // Optional: Open external links in new tab
+          titleLink.target = "_blank";
+      }
       const itemName = this.getItemName(item);
       titleLink.textContent = this.htmlUnescape(`${itemName}`);
       titleLink.style.fontWeight = '600';
@@ -640,22 +551,24 @@ class ChatInterface {
   
       // info icon
       const infoIcon = document.createElement('span');
-      infoIcon.innerHTML = '<img src="/html/info.png" width="16" height="16">';
-    //  questionIcon.style.cursor = 'help';
+      const imgElement = document.createElement('img');
+      imgElement.src = this.sanitizeUrl('static/images/info.png');
+      imgElement.width = 16;
+      imgElement.height = 16;
+      imgElement.alt = 'Info';
+      infoIcon.appendChild(imgElement);
       infoIcon.style.fontSize = '0.5em';
       infoIcon.style.position = 'relative';
       
-      
       // Create popup element
-      infoIcon.title = item.explanation + "(score=" + item.score + ")" + "(Ranking time=" + item.time + ")";
-     // questionIcon.style.cursor = 'help';
+      infoIcon.title = `${item.explanation || ''} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
       titleRow.appendChild(infoIcon);
   
       contentDiv.appendChild(titleRow);
   
       // Description
       const description = document.createElement('div');
-      description.textContent = item.description;
+      description.textContent = item.description || '';
       description.style.fontSize = '0.9em';
       contentDiv.appendChild(description);
 
@@ -663,8 +576,16 @@ class ChatInterface {
           // visible url
           const visibleUrl = document.createElement("div");
           const visibleUrlLink = document.createElement("a");
-          visibleUrlLink.href = item.siteUrl;
-          visibleUrlLink.textContent = item.site;
+          // FIX: Use sanitizeUrl for URL attributes and add security attributes
+          const sanitizedSiteUrl = item.siteUrl ? this.sanitizeUrl(item.siteUrl) : '#';
+          visibleUrlLink.href = sanitizedSiteUrl;
+          // Add rel="noopener noreferrer" for external links
+          if (sanitizedSiteUrl !== '#' && !sanitizedSiteUrl.startsWith(window.location.origin)) {
+              visibleUrlLink.rel = "noopener noreferrer";
+              visibleUrlLink.target = "_blank";
+          }
+          // Sanitize the site text content to prevent XSS
+          visibleUrlLink.textContent = this.htmlUnescape(item.site || '');
           visibleUrlLink.style.fontSize = "0.9em";
           visibleUrlLink.style.textDecoration = "none";
           visibleUrlLink.style.color = "#2962ff";
@@ -707,19 +628,59 @@ class ChatInterface {
           if (imgURL) {
               const imageDiv = document.createElement('div');
               const img = document.createElement('img');
-              img.src = imgURL;
-              img.width = 80;
-              img.height = 80;
-              img.style.objectFit = 'cover';
-              imageDiv.appendChild(img);
-            container.appendChild(imageDiv);
+              // FIX: Sanitize URL and verify it's an acceptable image URL
+              const sanitizedUrl = this.sanitizeUrl(imgURL);
+              if (sanitizedUrl !== '#') {
+                  img.src = sanitizedUrl;
+                  img.width = 80;
+                  img.height = 80;
+                  img.style.objectFit = 'cover';
+                  img.alt = 'Item image';
+                  // Add onerror handler to handle broken images
+                  img.onerror = function() {
+                      this.style.display = 'none';
+                  };
+                  imageDiv.appendChild(img);
+                  container.appendChild(imageDiv);
+              }
           }
-        } 
-     // this.currentMessage.push([item.url, item.name, item.description]);
+      }
   
       return container;
     }
   
+    // Add sanitizeUrl function if it doesn't exist
+    sanitizeUrl(url) {
+      // Return a safe default if input is null, undefined, or not a string
+      if (!url || typeof url !== 'string') return '#';
+      
+      // Remove leading and trailing whitespace
+      const trimmedUrl = url.trim();
+      
+      try {
+        // Check for dangerous protocols using a more comprehensive approach
+        const dangerousProtocols = /^(javascript|data|vbscript|file):/i;
+        if (dangerousProtocols.test(trimmedUrl)) {
+          return '#';
+        }
+        
+        // Try to parse the URL - this will throw for malformed URLs
+        const parsedUrl = new URL(trimmedUrl, window.location.origin);
+        
+        // Only allow specific protocols
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+          return '#';
+        }
+        
+        // Return the sanitized URL
+        return parsedUrl.toString();
+      } catch (e) {
+        // If URL parsing fails or any other error occurs, return a safe default
+        console.warn("Invalid URL detected and sanitized:", url);
+        return '#';
+      }
+    }
+
     quickHash(string) {
       let hash = 0;
       for (let i = 0; i < string.length; i++) {
@@ -958,5 +919,5 @@ class ChatInterface {
           return `<pre class="json-ld error">Error: ${error.message}</pre>`;
       }
   }
-  
-  
+
+export { ChatInterface, ManagedEventSource };

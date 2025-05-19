@@ -47,7 +47,14 @@ export class RecipeRenderer {
         const authorDiv = document.createElement('div');
         authorDiv.className = 'recipe-author';
         
-        const authorName = schema.author[0].name || '';
+        // Safe user data handling: properly fetch and validate the author name
+        let authorName = '';
+        if (schema.author[0] && typeof schema.author[0] === 'object' && typeof schema.author[0].name === 'string') {
+          authorName = schema.author[0].name;
+        } else if (typeof schema.author[0] === 'string') {
+          authorName = schema.author[0];
+        }
+        
         if (authorName) {
           authorDiv.textContent = `By ${authorName}`;
           authorDiv.style.fontSize = '0.85em';
@@ -61,12 +68,29 @@ export class RecipeRenderer {
       
       // Add rating as stars
       if (schema.aggregateRating) {
-        const rating = schema.aggregateRating.ratingValue || 0;
+        let rating = 0;
+        let reviewCount = 0;
         
-        // Check both review array length and reviewCount property, use the higher value
-        const reviewArrayCount = schema.review ? schema.review.length : 0;
-        const ratingObjectCount = schema.aggregateRating.ratingCount ? parseInt(schema.aggregateRating.ratingCount, 10) : 0;
-        const reviewCount = Math.max(reviewArrayCount, ratingObjectCount);
+        // Safe data handling for rating value
+        if (schema.aggregateRating.ratingValue !== undefined) {
+          const ratingValue = parseFloat(schema.aggregateRating.ratingValue);
+          if (!isNaN(ratingValue)) {
+            rating = ratingValue;
+          }
+        }
+        
+        // Safe data handling for review count
+        const reviewArrayCount = schema.review && Array.isArray(schema.review) ? schema.review.length : 0;
+        let ratingObjectCount = 0;
+        
+        if (schema.aggregateRating.ratingCount !== undefined) {
+          const parsedCount = parseInt(schema.aggregateRating.ratingCount, 10);
+          if (!isNaN(parsedCount)) {
+            ratingObjectCount = parsedCount;
+          }
+        }
+        
+        reviewCount = Math.max(reviewArrayCount, ratingObjectCount);
         
         const ratingDiv = document.createElement('div');
         ratingDiv.className = 'recipe-rating';
@@ -116,14 +140,17 @@ export class RecipeRenderer {
      * @returns {string} - Formatted time information
      */
     getTimeInfo(schema) {
+      // Check schema is valid
+      if (!schema || typeof schema !== 'object') return '';
+      
       // Check for different time properties in order of preference
-      if (schema.prepTime && schema.cookTime) {
+      if (typeof schema.prepTime === 'string' && typeof schema.cookTime === 'string') {
         return `Prep: ${this.formatDuration(schema.prepTime)}, Cook: ${this.formatDuration(schema.cookTime)}`;
-      } else if (schema.prepTime) {
+      } else if (typeof schema.prepTime === 'string') {
         return `Preparation time: ${this.formatDuration(schema.prepTime)}`;
-      } else if (schema.totalTime) {
+      } else if (typeof schema.totalTime === 'string') {
         return `Total time: ${this.formatDuration(schema.totalTime)}`;
-      } else if (schema.cookTime) {
+      } else if (typeof schema.cookTime === 'string') {
         return `Cooking time: ${this.formatDuration(schema.cookTime)}`;
       }
       return '';
@@ -154,16 +181,16 @@ export class RecipeRenderer {
      * @returns {string} - Human-readable duration
      */
     formatDuration(duration) {
-      if (!duration) return 'Not specified';
+      if (!duration || typeof duration !== 'string') return 'Not specified';
       
       // Basic parsing of ISO 8601 duration
       const matches = duration.match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/i);
       if (!matches) return duration; // Return original if can't parse
       
-      const days = matches[1] ? parseInt(matches[1]) : 0;
-      const hours = matches[2] ? parseInt(matches[2]) : 0;
-      const minutes = matches[3] ? parseInt(matches[3]) : 0;
-      const seconds = matches[4] ? parseInt(matches[4]) : 0;
+      const days = matches[1] ? parseInt(matches[1], 10) : 0;
+      const hours = matches[2] ? parseInt(matches[2], 10) : 0;
+      const minutes = matches[3] ? parseInt(matches[3], 10) : 0;
+      const seconds = matches[4] ? parseInt(matches[4], 10) : 0;
       
       const parts = [];
       if (days > 0) parts.push(`${days} day${days > 1 ? 's' : ''}`);
