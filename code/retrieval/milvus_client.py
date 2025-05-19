@@ -5,6 +5,7 @@
 Milvus Vector Database Client - Interface for Milvus operations.
 """
 
+import os
 import sys
 import threading
 import asyncio
@@ -35,21 +36,31 @@ class MilvusVectorClient:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
         self.endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+        logger.info(f"Initialized MilvusVectorClient for endpoint: {self.endpoint_name}")
+
         self._client_lock = threading.Lock()
         self._milvus_clients = {}  # Cache for Milvus clients
         
         # Get endpoint configuration
         self.endpoint_config = self._get_endpoint_config()
-        self.database_path = self.endpoint_config.database_path
         self.default_collection_name = self.endpoint_config.index_name or "prod_collection"
         
-        if not self.database_path:
+        uri_from_env = os.getenv("MILVUS_ENDPOINT")
+        # If the environment variable is set, use it as the URI to override the endpoint configuration
+        if uri_from_env:
+            self.uri = uri_from_env
+            self.token = os.getenv("MILVUS_TOKEN", None)
+            logger.info(f"Using Milvus URI from environment variable: {uri_from_env}")
+        else:
+            self.uri = self.endpoint_config.database_path
+            self.token = None
+            logger.info(f"Using local database path URI from endpoint configuration: {self.uri}")
+
+        if not self.uri:
             error_msg = f"database_path is not set for endpoint: {self.endpoint_name}"
             logger.error(error_msg)
             raise ValueError(error_msg)
             
-        logger.info(f"Initialized MilvusVectorClient for endpoint: {self.endpoint_name}")
-        logger.info(f"Using database path: {self.database_path}")
         logger.info(f"Default collection name: {self.default_collection_name}")
     
     def _get_endpoint_config(self):
@@ -86,8 +97,8 @@ class MilvusVectorClient:
                 logger.debug(f"Creating Milvus client for {client_key}")
                 
                 # Initialize the client
-                self._milvus_clients[client_key] = MilvusClient(self.database_path)
-                logger.info(f"Created Milvus client for {client_key} at {self.database_path}")
+                self._milvus_clients[client_key] = MilvusClient(self.uri, self.token)
+                logger.info(f"Created Milvus client for {client_key} at {self.uri}")
                 
                 # Test client connection with a simple search
                 try:
@@ -95,7 +106,7 @@ class MilvusVectorClient:
                     self._milvus_clients[client_key].list_collections()
                     logger.info(f"Connection verified for {client_key}")
                 except Exception as e:
-                    logger.error(f"Failed to connect to Milvus at {self.database_path}: {str(e)}")
+                    logger.error(f"Failed to connect to Milvus at {self.uri}: {str(e)}")
                     raise
                     
         return self._milvus_clients[client_key]
