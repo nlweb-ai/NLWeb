@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Streaming Chat Interface</title>
+  <title>Text Input Chat Interface</title>
   <!-- Import styles first -->
   <script type="module">
     import { applyStyles } from './styles.js';
@@ -20,6 +20,9 @@
     // Import the required modules
     import { ChatInterface } from './chat-interface.js';
     import { DropdownInterface } from './dropdown-interface.js';
+    
+    // Configuration option to enable/disable database selector
+    const ENABLE_DATABASE_SELECTOR = true;
     
     // Initialize on DOM load
     document.addEventListener('DOMContentLoaded', () => {
@@ -38,10 +41,14 @@
           false           // Don't append elements yet
         );
         
-        // Initialize dropdown interface
+        // Pass configuration for database selector
+        chatInterface.enableDatabaseSelector = ENABLE_DATABASE_SELECTOR;
+        
+        // Initialize dropdown interface with option to use text input for site
         const dropdownInterface = new DropdownInterface(
           chatInterface,
-          container
+          container,
+          { useTextInputForSite: true }  // Use text input instead of dropdown
         );
         
         // Now append chat elements after dropdown

@@ -42,9 +42,19 @@ class LoggingConfig:
     def _ensure_log_directory(self):
         """Create log directory if it doesn't exist"""
         log_dir = self.config["logging"].get("log_directory", "logs")
+        
+        # Check for NLWEB_OUTPUT_DIR environment variable
+        output_dir = os.getenv('NLWEB_OUTPUT_DIR')
+        if output_dir:
+            # Create logs directory under the output directory
+            log_dir = os.path.join(output_dir, os.path.basename(log_dir))
+            
         if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir)
+            os.makedirs(log_dir, exist_ok=True)
             print(f"Created log directory: {log_dir}")
+            
+        # Store the resolved directory
+        self.log_directory = log_dir
     
     def get_module_config(self, module_name: str) -> Dict[str, Any]:
         """Get configuration for a specific module"""
@@ -56,23 +66,43 @@ class LoggingConfig:
         module_config = self.get_module_config(module_name)
         global_config = self.config["logging"].get("global", {})
         
-        # Get log level from environment variable or config
+        # Get log level from environment variable if set
         env_var = module_config.get("env_var")
-        default_level_str = module_config.get("default_level", 
-                                            self.config["logging"].get("default_level", "INFO"))
+        env_level = os.getenv(env_var) if env_var else None
+        
+        # Get active profile from environment variable (only if set)
+        active_profile_name = os.getenv("NLWEB_LOGGING_PROFILE")
+        profile_level = None
+        if active_profile_name:
+            active_profile = self.get_profile(active_profile_name)
+            profile_level = active_profile.get("default_level") if active_profile else None
+    
+        # Determine log level - priority order:
+        # 1. Environment variable if set
+        # 2. Profile-specific default level (only if profile is set)
+        # 3. Module-specific default level if defined
+        # 4. Global default level as fallback
+        # 5. Ultimately fallback to INFO
+        if env_level:
+            level_str = env_level
+        elif profile_level:
+            level_str = profile_level
+        else:
+            # Fall back to module-specific level, then global default
+            level_str = module_config.get("default_level", 
+                       self.config["logging"].get("default_level", "INFO"))
         
         # Convert string level to LogLevel enum
         try:
-            default_level = LogLevel[default_level_str.upper()]
+            default_level = LogLevel[level_str.upper()]
         except KeyError:
             default_level = LogLevel.INFO
         
-        # Get log file path - ALWAYS use the log directory
+        # Get log file path - Use self.log_directory which respects NLWEB_OUTPUT_DIR
         log_file = None
         if global_config.get("file_output", True):
             log_filename = module_config.get("log_file", f"{module_name}.log")
-            log_dir = self.config["logging"].get("log_directory", "logs")
-            log_file = os.path.join(log_dir, log_filename)
+            log_file = os.path.join(self.log_directory, log_filename)
         
         # Get format string
         format_string = global_config.get("file_format" if log_file else "format")
@@ -144,7 +174,7 @@ def get_logging_config(config_path: str = "config/config_logging.yaml") -> Loggi
 # Convenience function for getting a logger
 def get_configured_logger(module_name: str) -> LoggerUtility:
     """Get a logger configured according to the YAML configuration"""
-    config = get_logging_config()
+    config = get_logging_config()  # Fixed to call get_logging_config instead of itself
     return config.get_logger(module_name)
 
 
@@ -173,6 +203,7 @@ def set_all_loggers_to_level(level: str):
 # Example usage
 if __name__ == "__main__":
     import sys
+    import os
     
     if len(sys.argv) > 1:
         if sys.argv[1] == "set-level" and len(sys.argv) > 2:
@@ -184,8 +215,10 @@ if __name__ == "__main__":
         # Get configuration
         config = get_logging_config()
         
-        # Apply production profile
-        config.apply_profile("production")
+        # Get profile from environment variable or default to development
+        profile = os.getenv("NLWEB_LOGGING_PROFILE", "development")
+        config.apply_profile(profile)
+        print(f"Applied logging profile: {profile}")
         
         # Get loggers for different modules
         llm_logger = get_configured_logger("llm_wrapper")

@@ -59,16 +59,41 @@ async def check_search_api():
         print(f"❌ Error connecting to Azure AI Search: {e}")
         return False
 
+async def check_inception_api():
+    """Check Inception API connectivity"""
+    print("\nChecking Inception API connectivity...")
+    
+    # Check if Inception is configured
+    if "inception" not in CONFIG.llm_providers:
+        print("❌ Inception provider not configured")
+        return False
+    
+    inception_config = CONFIG.llm_providers["inception"]
+    api_key = inception_config.api_key
+    
+    if not api_key:
+        print("❌ API key for Inception not configured")
+        return False
+    
+    try:
+        client = OpenAI(api_key=api_key, base_url="https://api.inceptionlabs.ai/v1")
+        models = client.models.list()
+        print(f"✅ Successfully connected to Inception API")
+        return True
+    except Exception as e:
+        print(f"❌ Error connecting to Inception API: {e}")
+        return False
+
 async def check_openai_api():
     """Check OpenAI API connectivity"""
     print("\nChecking OpenAI API connectivity...")
     
     # Check if OpenAI is configured
-    if "openai" not in CONFIG.providers:
+    if "openai" not in CONFIG.llm_providers:
         print("❌ OpenAI provider not configured")
         return False
     
-    openai_config = CONFIG.providers["openai"]
+    openai_config = CONFIG.llm_providers["openai"]
     api_key = openai_config.api_key
     
     if not api_key:
@@ -89,14 +114,14 @@ async def check_azure_openai_api():
     print("\nChecking Azure OpenAI API connectivity...")
     
     # Check if Azure OpenAI is configured
-    if "azure_openai" not in CONFIG.providers:
+    if "azure_openai" not in CONFIG.llm_providers:
         print("❌ Azure OpenAI provider not configured")
         return False
     
-    azure_config = CONFIG.providers["azure_openai"]
+    azure_config = CONFIG.llm_providers["azure_openai"]
     api_key = azure_config.api_key
     endpoint = azure_config.endpoint
-    api_version = azure_config.api_version or "2024-10-21"
+    api_version = azure_config.api_version or "2024-12-01-preview"
     
     if not api_key:
         print("❌ API key for Azure OpenAI not configured")
@@ -125,16 +150,16 @@ async def check_embedding_api():
     """Check Azure Embedding API connectivity"""
     print("\nChecking Azure Embedding API connectivity...")
     
-    # Check if Azure is configured
-    if "azure_openai" not in CONFIG.providers:
-        print("❌ Azure provider not configured")
+    # Check if Azure OpenAI embedding is configured
+    if "azure_openai" not in CONFIG.embedding_providers:
+        print("❌ Azure OpenAI embedding provider not configured")
         return False
     
-    azure_config = CONFIG.providers["azure_openai"]
-    api_key = azure_config.api_key
-    endpoint = azure_config.endpoint
-    api_version = azure_config.azure_embedding_api_version or "2024-10-21"
-    embedding_model = azure_config.embedding_model
+    azure_embedding_config = CONFIG.embedding_providers["azure_openai"]
+    api_key = azure_embedding_config.api_key
+    endpoint = azure_embedding_config.endpoint
+    api_version = azure_embedding_config.api_version or "2024-10-21"
+    embedding_model = azure_embedding_config.model
     
     if not api_key:
         print("❌ API key for Azure Embedding not configured")
@@ -174,7 +199,8 @@ async def check_embedding_api():
 async def main():
     """Run all connectivity checks"""
     print("Running Azure connectivity checks...")
-    print(f"Using configuration from preferred provider: {CONFIG.preferred_provider}")
+    print(f"Using configuration from preferred LLM provider: {CONFIG.preferred_llm_provider}")
+    print(f"Using configuration from preferred embedding provider: {CONFIG.preferred_embedding_provider}")
     print(f"Using configuration from preferred retrieval endpoint: {CONFIG.preferred_retrieval_endpoint}")
     
     start_time = time.time()
@@ -182,6 +208,7 @@ async def main():
     # Create and run all checks simultaneously
     tasks = [
         check_search_api(),
+        check_inception_api(),
         check_openai_api(),
         check_azure_openai_api(),
         check_embedding_api()
@@ -206,4 +233,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

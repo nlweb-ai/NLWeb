@@ -4,8 +4,8 @@
  */
 
 import { ManagedEventSource } from './managed-event-source.js';
-import { jsonLdToHtml } from './utils.js';
-
+import { JsonRenderer, TypeRendererFactory, jsonLdToHtml, escapeHtml } from './utils.js';
+import { RecipeRenderer } from './recipe-renderer.js'; 
 
 export class ChatInterface {
   /**
@@ -25,6 +25,11 @@ export class ChatInterface {
     this.dotsStillThere = false;
     this.debug_mode = false;
     
+    // Create JSON renderer
+    this.jsonRenderer = new JsonRenderer();
+    TypeRendererFactory.registerAll(this.jsonRenderer);
+    TypeRendererFactory.registerRenderer(RecipeRenderer, this.jsonRenderer);
+  
     // Parse URL parameters
     this.parseUrlParams();
     
@@ -55,7 +60,12 @@ export class ChatInterface {
       this.generate_mode = urlGenerateMode;
     }
     
-    this.prevMessages = prevMessagesStr ? JSON.parse(decodeURIComponent(prevMessagesStr)) : [];
+    try {
+      this.prevMessages = prevMessagesStr ? JSON.parse(decodeURIComponent(prevMessagesStr)) : [];
+    } catch (e) {
+      console.error('Error parsing previous messages:', e);
+      this.prevMessages = [];
+    }
   }
 
   /**
@@ -205,10 +215,19 @@ export class ChatInterface {
     }
     
     if (Array.isArray(parsedContent)) {
-      bubble.innerHTML = parsedContent.map(obj => {
-        return this.createJsonItemHtml(obj).outerHTML;
-      }).join('<br><br>');
+      // Safer approach: Create DOM elements instead of using innerHTML
+      parsedContent.forEach(obj => {
+        const itemElement = this.createJsonItemHtml(obj);
+        bubble.appendChild(itemElement);
+        
+        // Add line breaks between items
+        if (parsedContent.indexOf(obj) < parsedContent.length - 1) {
+          bubble.appendChild(document.createElement('br'));
+          bubble.appendChild(document.createElement('br'));
+        }
+      });
     } else {
+      // Use textContent for regular messages to prevent XSS
       bubble.textContent = content;
     }
 
@@ -267,7 +286,7 @@ export class ChatInterface {
       const queryString = queryParams.toString();
       const url = `/ask?${queryString}`;
       console.log("url", url);
-      
+      this.noResponse = true;
       this.eventSource = new ManagedEventSource(url);
       this.eventSource.query_id = queryId;
       this.eventSource.connect(this);
@@ -293,61 +312,50 @@ export class ChatInterface {
    * @returns {HTMLElement} - The HTML element
    */
   createJsonItemHtml(item) {
-    const container = document.createElement('div');
-    container.className = 'item-container';
-
-    // Left content div (title + description)
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'item-content';
-
-    // Title row with link and info icon
-    this.createTitleRow(item, contentDiv);
-
-    // Description
-    const description = document.createElement('div');
-    description.textContent = item.description;
-    description.className = 'item-description';
-    contentDiv.appendChild(description);
-
-    // For NL web search display mode
-    if (this.display_mode === "nlwebsearch") {
-      this.addVisibleUrl(item, contentDiv);
-    }
-    
-    // Add type-specific content
-    this.typeSpecificContent(item, contentDiv);
-
-    container.appendChild(contentDiv);
-
-    // Add image if available
-    this.addImageIfAvailable(item, container);
-
-    return container;
+    return this.jsonRenderer.createJsonItemHtml(item);
   }
-  
+
+
   /**
-   * Creates a title row for an item
+   * Creates title and link for an item
    * 
    * @param {Object} item - The item data
-   * @param {HTMLElement} contentDiv - The content div
+   * @param {HTMLElement} titleRow - The title row element
    */
-  createTitleRow(item, contentDiv) {
-    const titleRow = document.createElement('div');
-    titleRow.className = 'item-title-row';
-
+  createTitleAndLink(item, titleRow) {
     // Title/link
     const titleLink = document.createElement('a');
-    titleLink.href = item.url;
+    // Fix: Validate URL protocol before setting href
+    if (item.url) {
+      const sanitizedUrl = escapeHtml(item.url);
+      // Only allow http: and https: protocols
+      if (sanitizedUrl.startsWith('http://') || sanitizedUrl.startsWith('https://')) {
+        titleLink.href = sanitizedUrl;
+      } else {
+        titleLink.href = '#'; // Default to # for invalid URLs
+        console.warn('Blocked potentially unsafe URL:', sanitizedUrl);
+      }
+    } else {
+      titleLink.href = '#';
+    }
+    
     const itemName = this.getItemName(item);
-    titleLink.textContent = this.htmlUnescape(itemName);
+    // Safe text insertion
+    titleLink.textContent = itemName;
     titleLink.className = 'item-title-link';
     titleRow.appendChild(titleLink);
 
     // Info icon
     const infoIcon = document.createElement('span');
-    infoIcon.innerHTML = '<img src="images/info.png">';
+    // Use a safer way to create the icon
+    const imgElement = document.createElement('img');
+    imgElement.src = '/info.png';
+    imgElement.alt = 'Info';
+    infoIcon.appendChild(imgElement);
+    
     infoIcon.className = 'item-info-icon';
-    infoIcon.title = item.explanation + "(score=" + item.score + ")" + "(Ranking time=" + item.time + ")";
+    // Sanitize tooltip content
+    infoIcon.title = `${escapeHtml(item.explanation || '')} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
     titleRow.appendChild(infoIcon);
 
     contentDiv.appendChild(titleRow);
@@ -361,8 +369,29 @@ export class ChatInterface {
    */
   addVisibleUrl(item, contentDiv) {
     const visibleUrlLink = document.createElement("a");
-    visibleUrlLink.href = item.siteUrl;
-    visibleUrlLink.textContent = item.site;
+    
+    // Fix: Properly validate URL protocol before setting href
+    if (item.siteUrl) {
+      const sanitizedUrl = escapeHtml(item.siteUrl);
+      // Only allow http: and https: protocols
+      if (sanitizedUrl.startsWith('http://') || sanitizedUrl.startsWith('https://')) {
+        // Additionally check if it's from a trusted domain
+        if (this.isTrustedUrl(sanitizedUrl)) {
+          visibleUrlLink.href = sanitizedUrl;
+        } else {
+          visibleUrlLink.href = '#'; // Default to # for untrusted domains
+          console.warn('Blocked untrusted domain URL:', sanitizedUrl);
+        }
+      } else {
+        visibleUrlLink.href = '#'; // Default to # for invalid protocols
+        console.warn('Blocked potentially unsafe URL protocol:', sanitizedUrl);
+      }
+    } else {
+      visibleUrlLink.href = '#';
+    }
+    
+    // Use textContent for safe insertion
+    visibleUrlLink.textContent = item.site || '';
     visibleUrlLink.className = 'item-site-link';
     contentDiv.appendChild(visibleUrlLink);
   }
@@ -379,14 +408,26 @@ export class ChatInterface {
       if (imgURL) {
         const imageDiv = document.createElement('div');
         const img = document.createElement('img');
-        img.src = imgURL;
-        img.className = 'item-image';
-        imageDiv.appendChild(img);
-        container.appendChild(imageDiv);
+        
+        // Fix: Validate URL protocol before setting src
+        const sanitizedUrl = escapeHtml(imgURL);
+        // Only allow safe protocols for images: http, https, and data
+        if (sanitizedUrl.startsWith('http://') || 
+            sanitizedUrl.startsWith('https://') || 
+            sanitizedUrl.startsWith('data:image/')) {
+          img.src = sanitizedUrl;
+          img.alt = 'Item image';
+          img.className = 'item-image';
+          imageDiv.appendChild(img);
+          container.appendChild(imageDiv);
+        } else {
+          console.warn('Blocked potentially unsafe image URL:', sanitizedUrl);
+        }
       }
     }
   }
   
+
   /**
    * Gets the name of an item
    * 
@@ -394,149 +435,7 @@ export class ChatInterface {
    * @returns {string} - The item name
    */
   getItemName(item) {
-    if (item.name) {
-      return item.name;
-    } else if (item.schema_object && item.schema_object.keywords) {
-      return item.schema_object.keywords;
-    }
-    return item.url;
-  }
-  
-  /**
-   * Adds type-specific content to the item
-   * 
-   * @param {Object} item - The item data
-   * @param {HTMLElement} contentDiv - The content div
-   */
-  typeSpecificContent(item, contentDiv) {
-    if (!item.schema_object) {
-      return;
-    }
-    
-    const objType = item.schema_object['@type'];
-    const houseTypes = ["SingleFamilyResidence", "Apartment", "Townhouse", "House", "Condominium", "RealEstateListing"];
-    
-    if (objType === "PodcastEpisode") {
-      this.possiblyAddExplanation(item, contentDiv, true);
-      return;
-    }
-    
-    if (houseTypes.includes(objType)) {
-      this.addRealEstateDetails(item, contentDiv);
-    }
-  }
-  
-  /**
-   * Adds real estate details to an item
-   * 
-   * @param {Object} item - The item data
-   * @param {HTMLElement} contentDiv - The content div
-   */
-  addRealEstateDetails(item, contentDiv) {
-    const detailsDiv = this.possiblyAddExplanation(item, contentDiv, true);
-    detailsDiv.className = 'item-real-estate-details';
-    
-    const schema = item.schema_object;
-    const price = schema.price;
-    const address = schema.address;
-    const numBedrooms = schema.numberOfRooms;
-    const numBathrooms = schema.numberOfBathroomsTotal;
-    const sqft = schema.floorSize?.value;
-    
-    let priceValue = price;
-    if (typeof price === 'object') {
-      priceValue = price.price || price.value || price;
-      priceValue = Math.round(priceValue / 100000) * 100000;
-      priceValue = priceValue.toLocaleString('en-US');
-    }
-
-    detailsDiv.appendChild(this.makeAsSpan(address.streetAddress + ", " + address.addressLocality));
-    detailsDiv.appendChild(document.createElement('br'));
-    detailsDiv.appendChild(this.makeAsSpan(`${numBedrooms} bedrooms, ${numBathrooms} bathrooms, ${sqft} sqft`));
-    detailsDiv.appendChild(document.createElement('br'));
-    
-    if (priceValue) {
-      detailsDiv.appendChild(this.makeAsSpan(`Listed at ${priceValue}`));
-    }
-  }
-  
-  /**
-   * Creates a span element with the given content
-   * 
-   * @param {string} content - The content for the span
-   * @returns {HTMLElement} - The span element
-   */
-  makeAsSpan(content) {
-    const span = document.createElement('span');
-    span.textContent = content;
-    span.className = 'item-details-text';
-    return span;
-  }
-
-  /**
-   * Adds an explanation to an item
-   * 
-   * @param {Object} item - The item data
-   * @param {HTMLElement} contentDiv - The content div
-   * @param {boolean} force - Whether to force adding the explanation
-   * @returns {HTMLElement} - The details div
-   */
-  possiblyAddExplanation(item, contentDiv, force = false) {
-    const detailsDiv = document.createElement('div'); 
-    contentDiv.appendChild(document.createElement('br'));
-    const explSpan = this.makeAsSpan(item.explanation);
-    explSpan.className = 'item-explanation';
-    detailsDiv.appendChild(explSpan);
-    contentDiv.appendChild(detailsDiv);
-    return detailsDiv;
-  }
-
-  /**
-   * Extracts an image URL from a schema object
-   * 
-   * @param {Object} schema_object - The schema object
-   * @returns {string|null} - The image URL or null
-   */
-  extractImage(schema_object) {
-    if (schema_object && schema_object.image) {
-      return this.extractImageInternal(schema_object.image);
-    }
-    return null;
-  }
-
-  /**
-   * Extracts an image URL from various image formats
-   * 
-   * @param {*} image - The image data
-   * @returns {string|null} - The image URL or null
-   */
-  extractImageInternal(image) {
-    if (typeof image === 'string') {
-      return image;
-    } else if (typeof image === 'object' && image.url) {
-      return image.url;
-    } else if (typeof image === 'object' && image.contentUrl) {
-      return image.contentUrl;
-    } else if (image instanceof Array) {
-      if (image[0] && typeof image[0] === 'string') {
-        return image[0];
-      } else if (image[0] && typeof image[0] === 'object') {
-        return this.extractImageInternal(image[0]);
-      }
-    } 
-    return null;
-  }
-
-  /**
-   * Unescapes HTML entities in a string
-   * 
-   * @param {string} str - The string to unescape
-   * @returns {string} - The unescaped string
-   */
-  htmlUnescape(str) {
-    const div = document.createElement("div");
-    div.innerHTML = str;
-    return div.textContent || div.innerText;
+    return this.jsonRenderer.getItemName(item);
   }
 
   /**
@@ -564,7 +463,8 @@ export class ChatInterface {
   createIntermediateMessageHtml(message) {
     const container = document.createElement('div');
     container.className = 'intermediate-container';
-    container.textContent = message;
+    // Use textContent for safe insertion
+    container.textContent = message || '';
     return container;
   }
 
@@ -579,6 +479,7 @@ export class ChatInterface {
     if (itemToRemember) {
       const messageDiv = document.createElement('div');
       messageDiv.className = 'remember-message';
+      // Use textContent for safe insertion
       messageDiv.textContent = itemToRemember;
       chatInterface.thisRoundRemembered = messageDiv;
       chatInterface.bubble.appendChild(messageDiv);
@@ -596,7 +497,8 @@ export class ChatInterface {
     console.log("askUserMessage", message);
     const messageDiv = document.createElement('div');
     messageDiv.className = 'ask-user-message';
-    messageDiv.textContent = message;
+    // Use textContent for safe insertion
+    messageDiv.textContent = message || '';
     chatInterface.bubble.appendChild(messageDiv);
   }
 
@@ -610,7 +512,8 @@ export class ChatInterface {
     console.log("siteIsIrrelevantToQuery", message);
     const messageDiv = document.createElement('div');
     messageDiv.className = 'site-is-irrelevant-to-query';
-    messageDiv.textContent = message;
+    // Use textContent for safe insertion
+    messageDiv.textContent = message || '';
     chatInterface.bubble.appendChild(messageDiv);
   }
 
@@ -625,6 +528,7 @@ export class ChatInterface {
     if (itemDetails) {
       const messageDiv = document.createElement('div');
       messageDiv.className = 'item-details-message';
+      // Use textContent for safe insertion
       messageDiv.textContent = itemDetails;
       chatInterface.thisRoundRemembered = messageDiv;
       chatInterface.bubble.appendChild(messageDiv);
@@ -632,18 +536,6 @@ export class ChatInterface {
     }
   }
 
-  /**
-   * Annotates the user query with decontextualized query
-   * 
-   * @param {string} decontextualizedQuery - The decontextualized query
-   */
-  possiblyAnnotateUserQuery(decontextualizedQuery) {
-    const msgDiv = this.lastUserMessageDiv;
-    if (msgDiv) {
-      // Optional: Uncomment to show decontextualized query
-      // msgDiv.innerHTML = this.currentMessage + "<br><span class=\"decontextualized-query\">" + decontextualizedQuery + "</span>";
-    }
-  }
   
   /**
    * Resorts the results by score
@@ -705,5 +597,26 @@ export class ChatInterface {
    */
   createDebugString() {
     return jsonLdToHtml(this.currentItems);
+  }
+
+  /**
+   * Sanitizes a URL to prevent javascript: protocol and other potentially dangerous URLs
+   * 
+   * @param {string} url - The URL to sanitize
+   * @returns {string} - The sanitized URL
+   */
+  sanitizeUrl(url) {
+    if (!url || typeof url !== 'string') return '#';
+    
+    // Remove leading and trailing whitespace
+    const trimmedUrl = url.trim();
+    
+    // Check for javascript: protocol or other dangerous protocols
+    const protocolPattern = /^(javascript|data|vbscript|file):/i;
+    if (protocolPattern.test(trimmedUrl)) {
+      return '#';
+    }
+    
+    return trimmedUrl;
   }
 }

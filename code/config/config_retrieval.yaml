@@ -1,22 +1,42 @@
-preferred_endpoint: azure_ai_search_1
+preferred_endpoint: azure_ai_search
 
 endpoints:
-  azure_ai_search_1:
+  azure_ai_search:
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536
     db_type: azure_ai_search
     name: NLWeb_Crawl
 
-  azure_ai_search_2:
-    api_key_env: AZURE_VECTOR_SEARCH_API_KEY
-    api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
-    index_name: embeddings1536
-    db_type: azure_ai_search
-    name: Bing_Crawl
-      
+  # Milvus is still under development and not yet supported. 
+  # milvus_1:
+  #   database_path: ../milvus/milvus_prod.db
+  #   index_name: prod_collection
+  #   db_type: milvus
 
-  milvus_1:
-    database_path: ../milvus/milvus_prod.db
-    index_name: prod_collection
-    db_type: milvus
+  # Option 1: Local file-based Qdrant storage
+  qdrant_local:
+    # Use local file-based storage with a specific path
+    database_path: "../data/db"
+    # Set the collection name to use
+    index_name: nlweb_collection
+    # Specify the database type
+    db_type: qdrant
+    
+  # Option 2: Remote Qdrant server
+  qdrant_url:
+    # Connect to a Qdrant server at a specific URL
+    api_endpoint_env: QDRANT_URL
+    # Optional API key for authentication
+    api_key_env: QDRANT_API_KEY
+    # Set the collection name to use
+    index_name: nlweb_collection
+    # Specify the database type
+    db_type: qdrant
+
+  snowflake_cortex_search_1:
+    api_key_env: SNOWFLAKE_PAT
+    api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
+    index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
+    db_type: snowflake_cortex_search
+

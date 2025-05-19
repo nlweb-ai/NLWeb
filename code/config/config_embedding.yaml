@@ -1,0 +1,27 @@
+preferred_provider: azure_openai
+
+providers:
+  openai:
+    api_key_env: OPENAI_API_KEY
+    api_endpoint_env: OPENAI_ENDPOINT
+    model: text-embedding-3-small
+
+  anthropic:
+    api_key_env: ANTHROPIC_API_KEY
+    model: ANTHROPIC_EMBEDDING_MODEL
+
+  gemini:
+    api_key_env: GCP_PROJECT
+    model: GCP_EMBEDDING_MODEL
+
+  azure_openai:
+    api_key_env: AZURE_OPENAI_API_KEY
+    api_endpoint_env: AZURE_OPENAI_ENDPOINT
+    api_version_env: "2024-10-21"  # Specific API version for embeddings
+    model: text-embedding-3-small
+
+  snowflake:
+    api_key_env: SNOWFLAKE_PAT
+    api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
+    api_version_env: "2024-10-01"
+    model: snowflake-arctic-embed-m-v1.5

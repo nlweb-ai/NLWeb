@@ -1,24 +1,28 @@
 preferred_provider: azure_openai
 
 providers:
+  inception:
+    api_key_env: INCEPTION_API_KEY
+    api_endpoint_env: INCEPTION_ENDPOINT
+    models:
+      high: mercury-small
+      low: mercury-small
+
   openai:
     api_key_env: OPENAI_API_KEY
     api_endpoint_env: OPENAI_ENDPOINT
-    embedding_model_env: text-embedding-3-small
     models:
       high: gpt-4.1
       low: gpt-4.1-mini
 
   anthropic:
     api_key_env: ANTHROPIC_API_KEY
-    embedding_model_env: ANTHROPIC_EMBEDDING_MODEL
     models:
       high: claude-2
       low: claude-2
 
   gemini:
     api_key_env: GCP_PROJECT
-    embedding_model_env: GCP_EMBEDDING_MODEL
     models:
       high: chat-bison@001
       low: chat-bison-lite@001
@@ -27,8 +31,6 @@ providers:
     api_key_env: AZURE_OPENAI_API_KEY
     api_endpoint_env: AZURE_OPENAI_ENDPOINT
     api_version_env: "2024-12-01-preview"
-    embedding_model_env: text-embedding-3-small
-    azure_embedding_api_version: "2024-10-21"
     models:
       high: gpt-4.1
       low: gpt-4.1-mini
@@ -48,3 +50,12 @@ providers:
     models:
       high: deepseek-coder-33b
       low: deepseek-coder-7b
+
+      
+  snowflake:
+    api_key_env: SNOWFLAKE_PAT
+    api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
+    api_version_env: "2024-12-01"
+    models:
+      high: claude-3-5-sonnet
+      low: llama3.1-8b

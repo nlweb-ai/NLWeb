@@ -43,7 +43,7 @@ class PromptRunner:
             if (prompt_str is None):
                 if (verbose):
                     print(f"Prompt {prompt_name} not found")
-                logger.error(f"Cannot run prompt '{prompt_name}' - prompt not found")
+                logger.debug(f"Cannot run prompt '{prompt_name}' - prompt not found")
                 return None
         
             logger.debug(f"Filling prompt template with handler data")

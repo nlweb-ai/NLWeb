@@ -46,7 +46,6 @@ async def send_static_file(path, send_response, send_chunk):
         safe_path = os.path.normpath(path.lstrip('/'))
 
         # Try multiple possible root locations
-        print(APP_ROOT)
         possible_roots = [
             APP_ROOT,
             os.path.join(APP_ROOT, 'site', 'wwwroot'),

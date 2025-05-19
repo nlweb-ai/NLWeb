@@ -9,6 +9,10 @@
 *.user
 *.userosscache
 *.sln.docstates
+myenv
+venv
+.env
+
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -404,5 +408,31 @@ code/set_keys.sh
 data/sites/scifi_movies/embeddings/scifi_movies.txt
 code/webapp.zip
 .DS_Store
+data/json_with_embeddings/allbirdsdd.tsv
+data/json_with_embeddings/scifi_movies_wikipedia.tsv
+static/chat-interface_delish.js
+static/delish_chat.html
+static/styles_delish.js
+code/data/json_with_embeddings/tmp1c92g0ai.xml
+code/data/json_with_embeddings/tmp_99df8zk.xml
+/code/data/json_with_embeddings
+code/tools/old_db_create_utils.py
+/data/json_with_embeddings
+/data/json_with_embeddings
+static/chat-interface_delish.js
+static/chat-interface_delish.js
+static/delish_chat.html
+code/cp
+/data/db
+data/json/ghrepoinfo-small.json
 code/.env
 app.zip
+
+/static/p
+
+.DS_Store
+code/.DS_Store
+static/.DS_Store
+
+\#README.md\#
+myenv/

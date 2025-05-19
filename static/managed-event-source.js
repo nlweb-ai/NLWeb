@@ -85,7 +85,13 @@ export class ManagedEventSource {
     }
     
     // Parse the JSON data
-    const data = JSON.parse(event.data);
+    let data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (e) {
+      console.error('Error parsing event data:', e);
+      return;
+    }
     
     // Verify query_id matches
     if (this.query_id && data.query_id && this.query_id !== data.query_id) {
@@ -104,6 +110,12 @@ export class ManagedEventSource {
    * @param {Object} chatInterface - The chat interface instance
    */
   processMessageByType(data, chatInterface) {
+    // Basic validation to prevent XSS
+    if (!data || typeof data !== 'object') {
+      console.error('Invalid message data received');
+      return;
+    }
+    
     const messageType = data.message_type;
     
     switch(messageType) {
@@ -111,38 +123,74 @@ export class ManagedEventSource {
         this.handleQueryAnalysis(data, chatInterface);
         break;
       case "remember":
-        chatInterface.memoryMessage(data.message, chatInterface);
+        // Ensure message is a string
+        if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
+          chatInterface.memoryMessage(data.message, chatInterface);
+        }
         break;
       case "asking_sites":
-        chatInterface.sourcesMessage = chatInterface.createIntermediateMessageHtml(data.message);
-        chatInterface.bubble.appendChild(chatInterface.sourcesMessage);
+        // Ensure message is a string
+        if (typeof data.message === 'string') {
+          chatInterface.sourcesMessage = chatInterface.createIntermediateMessageHtml(data.message);
+          chatInterface.bubble.appendChild(chatInterface.sourcesMessage);
+        }
         break;
       case "site_is_irrelevant_to_query":
-        chatInterface.siteIsIrrelevantToQuery(data.message, chatInterface);
+        // Ensure message is a string
+        if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
+          chatInterface.siteIsIrrelevantToQuery(data.message, chatInterface);
+        }
         break;
       case "ask_user":
-        chatInterface.askUserMessage(data.message, chatInterface);
+        // Ensure message is a string
+        if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
+          chatInterface.askUserMessage(data.message, chatInterface);
+        }
         break;
       case "item_details":
-        chatInterface.itemDetailsMessage(data.message, chatInterface);
+        // Ensure message is a string
+        if (typeof data.message === 'string') {
+          chatInterface.itemDetailsMessage(data.message, chatInterface);
+        }
         break;
       case "result_batch":
+        chatInterface.noResponse = false;
         this.handleResultBatch(data, chatInterface);
         break;
       case "intermediate_message":
-        chatInterface.bubble.appendChild(chatInterface.createIntermediateMessageHtml(data.message));
+        // Ensure message is a string
+        if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
+          chatInterface.bubble.appendChild(chatInterface.createIntermediateMessageHtml(data.message));
+        }
         break;
       case "summary":
-        chatInterface.thisRoundSummary = chatInterface.createIntermediateMessageHtml(data.message);
-        chatInterface.resortResults();
+        // Ensure message is a string
+        if (typeof data.message === 'string') {
+          chatInterface.noResponse = false;
+          chatInterface.thisRoundSummary = chatInterface.createIntermediateMessageHtml(data.message);
+          chatInterface.resortResults();
+        }
         break;
       case "nlws":
+        chatInterface.noResponse = false;
         this.handleNLWS(data, chatInterface);
         break;
       case "complete":
         chatInterface.resortResults();
+        // Add this check to display a message when no results found
+        if (chatInterface.noResponse) {
+          const noResultsMessage = chatInterface.createIntermediateMessageHtml("No results were found");
+          chatInterface.bubble.appendChild(noResultsMessage);
+        }
         chatInterface.scrollDiv.scrollIntoView();
         this.close();
+        break;
+      default:
+        console.log("Unknown message type:", messageType);
         break;
     }
   }
@@ -154,11 +202,22 @@ export class ManagedEventSource {
    * @param {Object} chatInterface - The chat interface instance
    */
   handleQueryAnalysis(data, chatInterface) {
-    chatInterface.itemToRemember.push(data.item_to_remember);
-    chatInterface.decontextualizedQuery = data.decontextualized_query;
-    chatInterface.possiblyAnnotateUserQuery(data.decontextualized_query);
+    // Validate data properties
+    if (!data) return;
     
-    if (chatInterface.itemToRemember) {
+    // Safely handle item_to_remember
+    if (typeof data.item_to_remember === 'string') {
+      chatInterface.itemToRemember.push(data.item_to_remember);
+    }
+    
+    // Safely handle decontextualized_query
+    if (typeof data.decontextualized_query === 'string') {
+      chatInterface.decontextualizedQuery = data.decontextualized_query;
+      chatInterface.possiblyAnnotateUserQuery(data.decontextualized_query);
+    }
+    
+    // Safely display item to remember if it exists
+    if (chatInterface.itemToRemember && typeof data.item_to_remember === 'string') {
       chatInterface.memoryMessage(data.item_to_remember, chatInterface);
     }
   }
@@ -170,7 +229,16 @@ export class ManagedEventSource {
    * @param {Object} chatInterface - The chat interface instance
    */
   handleResultBatch(data, chatInterface) {
+    // Validate results array
+    if (!data.results || !Array.isArray(data.results)) {
+      console.error('Invalid results data');
+      return;
+    }
+    
     for (const item of data.results) {
+      // Validate each item
+      if (!item || typeof item !== 'object') continue;
+      
       const domItem = chatInterface.createJsonItemHtml(item);
       chatInterface.currentItems.push([item, domItem]);
       chatInterface.bubble.appendChild(domItem);
@@ -186,17 +254,29 @@ export class ManagedEventSource {
    * @param {Object} chatInterface - The chat interface instance
    */
   handleNLWS(data, chatInterface) {
-    // Clear existing content
+    // Basic validation
+    if (!data || typeof data !== 'object') return;
+    
+    // Clear existing content safely
     while (chatInterface.bubble.firstChild) {
       chatInterface.bubble.removeChild(chatInterface.bubble.firstChild);
     }
     
-    chatInterface.itemDetailsMessage(data.answer, chatInterface);
+    // Safely handle answer
+    if (typeof data.answer === 'string') {
+      chatInterface.itemDetailsMessage(data.answer, chatInterface);
+    }
     
-    for (const item of data.items) {
-      const domItem = chatInterface.createJsonItemHtml(item);
-      chatInterface.currentItems.push([item, domItem]);
-      chatInterface.bubble.appendChild(domItem);
+    // Validate items array
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        // Validate each item
+        if (!item || typeof item !== 'object') continue;
+        
+        const domItem = chatInterface.createJsonItemHtml(item);
+        chatInterface.currentItems.push([item, domItem]);
+        chatInterface.bubble.appendChild(domItem);
+      }
     }
   }
 

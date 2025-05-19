@@ -7,8 +7,8 @@
     font-family: sans-serif;
   }
 </style>
-</style>
-<script type="application/javascript" src="../static/streaming.js"></script>
+<script type="module" src="/static/streaming.js"></script>
+<script type="module" src="/static/chat-init.js"></script>
 
 <body>
   <div id="ai-search-container" style="position: relative; width: 100%; max-width: 800px; margin: 20px auto;">
@@ -42,12 +42,17 @@
     </div>
 </div>
 
-<script>
+<script type="module">
+    import { ChatInterface } from '/static/streaming.js';
+    
+    // Single global chat interface
+    let chat_interface = null;
 
     document.addEventListener('DOMContentLoaded', () => {
          const searchInput = document.getElementById('ai-search-input');
          const searchButton = document.getElementById('ai-search-button');
-         var chatContainer = document.getElementById('chat-container');
+         const chatContainer = document.getElementById('chat-container');
+         
          searchButton.addEventListener('click', handleSearch);
          searchInput.addEventListener('keypress', (e) => {
               if (e.key === 'Enter') {
@@ -55,19 +60,17 @@
               }
          });
 
-         var chat_interface = null;
-
-         function findChatInterface() {
-          if (chat_interface) {
+         // Make available globally for other scripts
+         window.findChatInterface = function() {
+              if (chat_interface) {
+                  return chat_interface;
+              }
+              chat_interface = new ChatInterface('', 'nlwebsearch', 'list');
               return chat_interface;
-          }
-          chat_interface = new ChatInterface('', display_mode='nlwebsearch', generate_mode='list');
-          return chat_interface;
          }
 
          function handleSearch() {
               const query = searchInput.value.trim();
-              
               chatContainer.style.display = 'block';
               chat_interface = findChatInterface();
               searchInput.value = '';
@@ -75,9 +78,5 @@
          }
     });
 </script>
-
-
-  <div id="chat-container"  style="position: relative; width: 100%; max-width: 800px; margin: 20px auto; font-family: sans-serif;"></div>
 </body>
-
 </html>

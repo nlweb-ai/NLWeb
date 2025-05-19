@@ -403,16 +403,16 @@
         <div id="about-tab" class="tab-content">
             <div class="container">
                 <div class="panel left-panel">
-                    <h2>About NLWeb andMCP</h2>
-                    <p>NLWeb aims to bring AI powered conversational search to a broad range of
+                    <h2>About NLWeb and MCP</h2>
+                    <p>NLWeb aims to bring AI-powered conversational search to a broad range of
                         content sources, especially websites. NLWeb is designed to give agency into all players in the AI ecosystem, 
                         especially content creators. A more balanced ecosystem is one where content creators
                         have greater control over their content.
                     </p>
-                    <p>MCP (Mediated Communication Protocol) is an emerging protocol for Chatbots and AI
+                    <p>MCP (Model Context Protocol) is an emerging protocol for Chatbots and AI
                         assistants to interact with tools. Every NLWeb instance is also an MCP server, which supports one method,
                         <code>ask</code>, which is used to ask a website a question in natural language. The returned response
-                        is in schema.org, a widely used vocabulary for describing web data.
+                        is in schema.org, a widely-used vocabulary for describing web data.
                     </p>
                     
                     <p>This test interface allows you to experiment with MCP requests to your NLWeb server, 
@@ -422,7 +422,7 @@
                     <p>An MCP request includes:</p>
                     <ul>
                         <li><strong>function_call</strong>: The function to invoke</li>
-                        <li><strong>name</strong>:ask</li>
+                        <li><strong>name</strong>: ask</li>
                         <li><strong>arguments</strong>: JSON string with parameters. All parameters except 'query' and 'site' are optional. Site may be 'all' to search all the 
                             sites in this NLWeb instance.</li>
                     </ul>
@@ -788,7 +788,15 @@
                 statusEl.textContent = `Request ${queryId} completed successfully: ${new Date().toLocaleTimeString()}`;
             } catch (error) {
                 responseEl.textContent = `Error: ${error.message}`;
-                document.getElementById('standard-json-tree').innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                
+                // Fix: Create elements safely instead of using innerHTML
+                const errorDiv = document.createElement('div');
+                errorDiv.style.color = 'red';
+                errorDiv.textContent = `Error: ${error.message}`;
+                const treeElement = document.getElementById('standard-json-tree');
+                treeElement.innerHTML = ''; // Clear existing content
+                treeElement.appendChild(errorDiv);
+                
                 statusEl.textContent = `Request ${queryId} failed: ${new Date().toLocaleTimeString()}`;
                 console.error("Error:", error);
             }

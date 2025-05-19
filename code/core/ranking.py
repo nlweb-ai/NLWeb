@@ -77,7 +77,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             prompt = fill_ranking_prompt(prompt_str, self.handler, description)
             
             logger.debug(f"Sending ranking request to LLM for item: {name}")
-            ranking = await ask_llm(prompt, ans_struc)
+            ranking = await ask_llm(prompt, ans_struc, level="low")
             logger.debug(f"Received ranking score: {ranking.get('score', 'N/A')} for item: {name}")
             
             ansr = {
@@ -235,7 +235,6 @@ The user's question is: {request.query}. The item's description is {item.descrip
         results = [r for r in self.rankedAnswers if r['sent'] == False]
         if (self.num_results_sent > self.NUM_RESULTS_TO_SEND):
             logger.info(f"Already sent {self.num_results_sent} results, returning without sending more")
-            log("returning without looking at remaining results")
             return
        
         # Sort by score in descending order

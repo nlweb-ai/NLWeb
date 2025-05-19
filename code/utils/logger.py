@@ -4,7 +4,41 @@ import os
 from enum import Enum
 from typing import Optional, Dict, Any
 from functools import lru_cache
+from logging.handlers import RotatingFileHandler
+from dotenv import load_dotenv
 
+# Ensure environment variables are loaded
+load_dotenv()
+
+def resolve_log_path(log_file):
+    """
+    Resolve the log file path based on NLWEB_OUTPUT_DIR if available
+    """
+    if not log_file:
+        return None
+        
+    # If absolute path, return as is
+    if os.path.isabs(log_file):
+        return log_file
+        
+    # Check for NLWEB_OUTPUT_DIR environment variable
+    output_dir = os.getenv('NLWEB_OUTPUT_DIR')
+    if output_dir:
+        # Create logs subdirectory in the output directory
+        log_dir = os.path.join(output_dir, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Get just the filename from the original path
+        log_filename = os.path.basename(log_file)
+        
+        # Return the full path in the output directory
+        return os.path.join(log_dir, log_filename)
+    
+    # Default behavior - use relative path from current directory
+    # Make sure logs directory exists
+    log_dir = os.path.dirname(log_file) if os.path.dirname(log_file) else "logs"
+    os.makedirs(log_dir, exist_ok=True)
+    return log_file
 
 class LogLevel(Enum):
     """Enumeration for logging verbosity levels."""
@@ -42,28 +76,21 @@ class LoggerUtility:
     ):
         """
         Initialize the logger utility.
-        
-        Args:
-            name: Logger name
-            level: Initial logging level
-            format_string: Custom format for log messages
-            log_file: Path to log file (if None, no file logging)
-            console_output: Whether to output to console
         """
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level.value)
+        self.logger.propagate = False  # Prevent duplicate logs
         
         # Store the current level for reference
         self._current_level = level
-
-      #  print(f"Logger level: {level} {name}")
         
         # Clear any existing handlers
-        self.logger.handlers.clear()
+        for handler in self.logger.handlers[:]:
+            self.logger.removeHandler(handler)
         
         # Default format if none provided
         if format_string is None:
-            format_string = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            format_string = '%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s'
         
         formatter = logging.Formatter(format_string)
         
@@ -71,13 +98,32 @@ class LoggerUtility:
         if console_output:
             console_handler = logging.StreamHandler(sys.stdout)
             console_handler.setFormatter(formatter)
+            console_handler.setLevel(level.value)
             self.logger.addHandler(console_handler)
         
-        # File handler
+        # File handler - with path resolution
         if log_file:
-            file_handler = logging.FileHandler(log_file)
-            file_handler.setFormatter(formatter)
-            self.logger.addHandler(file_handler)
+            resolved_log_file = resolve_log_path(log_file)
+            log_dir = os.path.dirname(resolved_log_file)
+            
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+                
+            try:
+                # Open in append mode with immediate flush
+                file_handler = RotatingFileHandler(
+                    resolved_log_file,
+                    mode='a',
+                    maxBytes=10485760,  # 10MB
+                    backupCount=5,
+                    delay=False  # Open file immediately
+                )
+                file_handler.setFormatter(formatter)
+                file_handler.setLevel(level.value)
+                self.logger.addHandler(file_handler)
+                print(f"Logger {name} writing to: {resolved_log_file} at level {level.name}")
+            except Exception as e:
+                print(f"Error setting up log file {resolved_log_file}: {e}")
     
     def set_level(self, level: LogLevel):
         """Set the logging verbosity level."""
@@ -88,30 +134,38 @@ class LoggerUtility:
         """Get the current logging level."""
         return self._current_level
     
-    def debug(self, message: str, **kwargs):
+    def debug(self, message: str, *args, **kwargs):
         """Log a debug message."""
-        if LogLevel.level_matches(self.get_level(), LogLevel.DEBUG):
-            self.logger.debug(message, **kwargs)
+        self.logger.debug(message, *args, **kwargs)
+        self._force_flush()
     
-    def info(self, message: str, **kwargs):
+    def info(self, message: str, *args, **kwargs):
         """Log an info message."""
-        if LogLevel.level_matches(self.get_level(), LogLevel.INFO):
-            self.logger.info(message, **kwargs)
+        self.logger.info(message, *args, **kwargs)
+        self._force_flush()
     
-    def warning(self, message: str, **kwargs):
+    def warning(self, message: str, *args, **kwargs):
         """Log a warning message."""
-        if LogLevel.level_matches(self.get_level(), LogLevel.WARNING):
-            self.logger.warning(message, **kwargs)
+        self.logger.warning(message, *args, **kwargs)
+        self._force_flush()
     
-    def error(self, message: str, **kwargs):
+    def error(self, message: str, *args, **kwargs):
         """Log an error message."""
-        if LogLevel.level_matches(self.get_level(), LogLevel.ERROR):
-            self.logger.error(message, **kwargs)
+        self.logger.error(message, *args, **kwargs)
+        self._force_flush()
     
-    def critical(self, message: str, **kwargs):
+    def critical(self, message: str, *args, **kwargs):
         """Log a critical message."""
-        if LogLevel.level_matches(self.get_level(), LogLevel.CRITICAL):
-            self.logger.critical(message, **kwargs)
+        self.logger.critical(message, *args, **kwargs)
+        self._force_flush()
+    
+    def _force_flush(self):
+        """Force all handlers to flush their buffers."""
+        for handler in self.logger.handlers:
+            try:
+                handler.flush()
+            except:
+                pass
     
     def exception(self, message: str, **kwargs):
         """Log an exception with traceback."""
@@ -131,6 +185,40 @@ class LoggerUtility:
             full_message = f"{message} | Context: {context_str}"
             self.logger.log(level.value, full_message)
 
+def setup_logger(name, config=None):
+    """
+    Set up logger with the correct path based on environment variables
+    """
+    logger = logging.getLogger(name)
+    
+    # Default log directory and path
+    default_log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "logs")
+    default_log_path = os.path.join(default_log_dir, f"{name}.log")
+    
+    # Check for environment variable and override if exists
+    base_output_dir = os.getenv('NLWEB_OUTPUT_DIR')
+    if base_output_dir:
+        log_dir = os.path.join(base_output_dir, "logs")
+        log_path = os.path.join(log_dir, f"{name}.log")
+        print(f"Using environment-based log path: {log_path}")
+    else:
+        log_dir = default_log_dir
+        log_path = default_log_path
+        print(f"Using default log path: {log_path}")
+    
+    # Create log directory if it doesn't exist
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Configure handler with the correct path
+    handler = RotatingFileHandler(log_path, maxBytes=10485760, backupCount=5)
+    
+    # Rest of your logger configuration...
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)  # Or from config
+    
+    return logger
 
 @lru_cache(maxsize=None)
 def get_logger(

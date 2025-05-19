@@ -8,7 +8,7 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from retrieval.retriever import DBQueryRetriever
+from retrieval.retriever import get_vector_db_client
 import asyncio
 import pre_retrieval.decontextualize as decontextualize
 import pre_retrieval.analyze_query as analyze_query
@@ -26,6 +26,7 @@ from utils.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("nlweb_handler")
 
+API_VERSION = "0.1"
 
 class NLWebHandler:
 
@@ -111,6 +112,8 @@ class NLWebHandler:
         # it will be a dictionary with the message type as the key and the value being
         # the value of the message.
         self.return_value = {}
+
+        self.versionNumberSent = False
         
         logger.info(f"NLWebHandler initialized with parameters:")
         logger.debug(f"site: {self.site}, query: {self.query}")
@@ -132,9 +135,10 @@ class NLWebHandler:
         else:
             self.connection_alive_event.clear()
 
+   
+
     async def send_message(self, message):
         logger.debug(f"Sending message of type: {message.get('message_type', 'unknown')}")
-        
         async with self._send_lock:  # Protect send operation with lock
             # Check connection before sending
             if not self.connection_alive_event.is_set():
@@ -143,6 +147,11 @@ class NLWebHandler:
                 
             if (self.streaming and self.http_handler is not None):
                 message["query_id"] = self.query_id
+                if not self.versionNumberSent:
+                    self.versionNumberSent = True
+                    version_number_message = {"message_type": "api_version", "api_version": API_VERSION}
+                  #  await self.http_handler.write_stream(version_number_message)
+                    
                 try:
                     await self.http_handler.write_stream(message)
                     logger.debug(f"Message streamed successfully")
@@ -215,27 +224,27 @@ class NLWebHandler:
         # Wait for retrieval to be done
         if not self.retrieval_done_event.is_set():
             logger.info("Retrieval not done by fast track, performing regular retrieval")
-            items = await DBQueryRetriever(self.decontextualized_query, self).do()
+            client = get_vector_db_client(query_params=self.query_params)
+            items = await client.search(self.decontextualized_query, self.site)
             self.final_retrieved_items = items
             logger.debug(f"Retrieved {len(items)} items from database")
             self.retrieval_done_event.set()
         
         logger.info("Preparation phase completed")
-        log(f"prepare tasks done")
 
     def decontextualizeQuery(self):
         logger.info("Determining decontextualization strategy")
-        if (self.context_url == '' and len(self.prev_queries) < 1):
+        if (len(self.prev_queries) < 1):
             logger.debug("No context or previous queries - using NoOpDecontextualizer")
             self.decontextualized_query = self.query
             return decontextualize.NoOpDecontextualizer(self)
         elif (self.decontextualized_query != ''):
             logger.debug("Decontextualized query already provided - using NoOpDecontextualizer")
             return decontextualize.NoOpDecontextualizer(self)
-        elif (self.context_url == '' and len(self.prev_queries) > 0):
+        elif (len(self.prev_queries) > 0):
             logger.debug(f"Using PrevQueryDecontextualizer with {len(self.prev_queries)} previous queries")
             return decontextualize.PrevQueryDecontextualizer(self)
-        elif (self.context_url != '' and len(self.prev_queries) == 0):
+        elif (len(self.context_url) > 4 and len(self.prev_queries) == 0):
             logger.debug(f"Using ContextUrlDecontextualizer with context URL: {self.context_url}")
             return decontextualize.ContextUrlDecontextualizer(self)
         else:

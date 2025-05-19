@@ -11,7 +11,7 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from retrieval.retriever import DBQueryRetriever
+from retrieval.retriever import get_vector_db_client
 import core.ranking as ranking
 from utils.logger import get_logger, LogLevel
 from utils.logging_config_helper import get_configured_logger
@@ -43,13 +43,13 @@ class FastTrack:
             return
         
         logger.info("Starting fast track processing")
-        print("in fast track")
         
         self.handler.retrieval_done_event.set()  # Use event instead of flag
         
         try:
             logger.debug(f"Retrieving items for query: {self.handler.query}")
-            items = await DBQueryRetriever(self.handler.query, self.handler).do()
+            client = get_vector_db_client(query_params=self.handler.query_params)
+            items = await client.search(self.handler.query, self.handler.site)
             self.handler.final_retrieved_items = items
             logger.info(f"Fast track retrieved {len(items)} items")
             
