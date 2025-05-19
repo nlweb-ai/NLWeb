@@ -12,7 +12,6 @@ import os
 import asyncio
 import threading
 from typing import List, Optional
-
 from anthropic import AsyncAnthropic
 from config.config import CONFIG
 
@@ -23,7 +22,7 @@ logger = get_configured_logger("anthropic_embedding")
 _client_lock = threading.Lock()
 anthropic_client = None
 
-def get_anthropic_api_key() -> str:
+def get_anthropic_api_key():
     """
     Retrieve the Anthropic API key from configuration.
     """
@@ -32,7 +31,9 @@ def get_anthropic_api_key() -> str:
     if provider_config and provider_config.api_key:
         api_key = provider_config.api_key
         if api_key:
+            api_key = api_key.strip('"')  # Remove quotes if present
             return api_key
+    return None
     
     # Fallback to environment variable
     api_key = os.getenv("ANTHROPIC_API_KEY")
