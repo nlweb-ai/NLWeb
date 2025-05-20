@@ -1,49 +1,49 @@
-# Memory
+# 记忆
 
-One of the pre-retrieval steps (implemented using the DetectMemoryRequestPrompt in site_types.xml)
-is used to determine whether the statement by the user has something that should be remembered
-for the longer term. The code included in this repo will 'remember' that only for the conversation,
-so long as it is passed in the list of previous queries. However, as noted by the comment in 
-pre_retrieval/memory.py, there is a hook for where a website may choose to keep this in longer term
-memory. It can be passed along in future calls to NLWeb as part of previous queries.
+预检索步骤之一（使用 site_types.xml 中的 DetectMemoryRequestPrompt 实现）
+用于确定用户的陈述是否包含应记住的内容
+从长远来看。此 repo 中包含的代码将仅针对对话 “记住” 这一点，
+只要它在前面的查询列表中传递即可。但是，正如
+pre_retrieval/memory.py，有一个钩子，网站可以选择长期保留它
+记忆。它可以在将来对 NLWeb 的调用中作为先前查询的一部分传递。
 
-The memory pre retrieval step, like other pre retrieval steps (and ranking) is implemented with 
-a prompt, which can be specialized. For example, here is the generic memory prompt:
+与其他预检索步骤（和排名）一样，内存预检索步骤是通过以下方式实现的
+一个提示，可以是专用的。例如，下面是通用的内存提示符：
 
 <Prompt ref="DetectMemoryRequestPrompt">
       <promptString>
-        Analyze the following statement from the user. 
-        Is the user asking you to remember, that may be relevant to not just this query, but also future queries? 
-        If so, what is the user asking us to remember?
-        The user should be explicitly asking you to remember something for future queries, 
-        not just expressing a requirement for the current query.
-        The user's query is: {request.rawQuery}.
+        分析用户的以下陈述。
+        用户是否要求您记住，这可能不仅与此查询相关，还与将来的查询相关？
+        如果是这样，用户要求我们记住什么？
+        用户应该明确要求您记住一些内容以备将来查询，
+        而不仅仅是表达对当前查询的要求。
+        用户的查询为：{request.rawQuery}。
       </promptString>
       <returnStruc>
         {
-          "is_memory_request": "True or False",
-          "memory_request": "The memory request, if any"
+          “is_memory_request”： “对或错”，
+          “memory_request”： “内存请求，如果有”
         }
       </returnStruc>
     </Prompt>
 
-And here is one specific for recipes:
+下面是一个特定于食谱的：
 
 <Prompt ref="DetectMemoryRequestPrompt">
       <promptString>
-        Analyze the following statement from the user. 
-        Is the user asking you to remember a dietary constraint, that may be relevant
-        to not just this query, but also future queries? For example, the user may say
-        that they are vegetarian or observe kosher or halal or specify an allergy.
-        If so, what is the user asking us to remember?
-        The user should be explicitly asking you to remember something for future queries, 
-        not just expressing a requirement for the current query.
-        The user's query is: {request.rawQuery}.
+        分析用户的以下陈述。
+        用户是否要求您记住可能相关的饮食限制
+        不仅针对此查询，还针对未来的查询？例如，用户可能会说
+        他们是素食主义者或遵守犹太洁食或清真食品，或指定过敏。
+        如果是这样，用户要求我们记住什么？
+        用户应该明确要求您记住一些内容以备将来查询，
+        而不仅仅是表达对当前查询的要求。
+        用户的查询为：{request.rawQuery}。
       </promptString>
       <returnStruc>
         {
-          "is_memory_request": "True or False",
-          "memory_request": "The memory request, if any"
+          “is_memory_request”： “对或错”，
+          “memory_request”： “内存请求，如果有”
         }
       </returnStruc>
     </Prompt>

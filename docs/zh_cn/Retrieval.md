@@ -1,17 +1,17 @@
-# Retrieval
+# 检索
 
- At this point, only one of the
-stores is queried. In future, we will query all the available stores.
-We do not assume that the backend is a vector store. 
+ 此时，只有一个
+stores 的将来，我们将查询所有可用的商店。
+我们不假设后端是 vector store。 
 
-We do assume that the vector store will return a list of the database
-items encoded as json objects, preferably in a schema.org schema.
+我们确实假设 vector store 将返回数据库的列表
+编码为 JSON 对象的项，最好采用 schema.org 架构。
 
-We are in the process of adding Restful vector stores, which
-will enable one NLWeb instance to treat another as its backend.
+我们正在添加 Restful 向量存储，它
+将使一个 NLWeb 实例能够将另一个实例视为其后端。
 
-A significant improvement to retrieval would be the following. Consider
-a query like "homes costing less than 500k which would be suitable
-for a family with 2 small children and a large dog". The database
-of items (real estate listings) will have structured fields like the
-price. It would be good to translate this into a combination of 
+检索的重大改进如下。考虑
+像 “homes cost less than 500k which would be suitable
+适合一个有 2 个小孩和一只大狗的家庭”。数据库
+的项目（房地产列表）将具有结构化字段，例如
+价格。最好将其转换为 

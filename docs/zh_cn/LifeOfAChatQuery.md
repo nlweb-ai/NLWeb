@@ -1,48 +1,48 @@
-# Life of a Chat Query
+# 聊天查询的生命周期
 
 
-NLWeb aims to make it very simple to provide conversational interfaces to
-websites (or more generally, collections of content) which can be abstracted
-as 'lists of items'. Items maybe recipes, events, products, books, movies, etc.
-NLWeb leverages the fact that most such websites already make their data
-available in a structured form, in a common vocabulary, namely that provided
-by Schema.org. Given the widespread prevalence of schema.org based markup,
-it is not surprising that most LLMs seem to understand schema.org markup very well.
-We exploit this to make it easy to create conversational interfaces.
+NLWeb 旨在让提供对话界面变得非常简单
+可以抽象的网站（或更一般地说，内容集合）
+作为 'items 列表'。项目可能是食谱、活动、产品、书籍、电影等。
+NLWeb 利用了大多数此类网站已经制作了他们的数据这一事实
+以结构化形式提供，以通用词汇表提供
+由 Schema.org。鉴于基于 schema.org 的加价的广泛流行，
+毫不奇怪，大多数 LLM 似乎都非常理解 schema.org 标记。
+我们利用这一点来轻松创建对话界面。
 
-This document has a brief description of the processing that is done when a User submits
-a query to an NLWeb instance. At a high level, the flow is very similar to
-the processing of a query in Web search. The main difference is that in 'traditional'
-(i.e., pre-llm) search engines, there would be specialized algorithms or special
-purpose models for many of the tasks involved in the query processing. This
-both made it very expensive to develop robust search tools and also made them
-somewhat limited. Here, we rely on LLMs to perform these tasks.
+本文档简要描述了用户提交时完成的处理
+对 NLWeb 实例的查询。在高级别上，流程与
+在 Web 搜索中处理查询。主要区别在于，在“传统”中
+（即 LLM 之前）搜索引擎，将有专门的算法或特殊的
+查询处理中涉及的许多任务的用途模型。这
+这两者都使开发强大的搜索工具变得非常昂贵，并且还使它们
+有点有限。在这里，我们依靠 LLM 来执行这些任务。
 
-Depending on the request parameters, control of the results that are returned can
-stay with 'traditional' code, which affords greater control over the returned
-results. In particular, the result can be a list of items, each of which includes
-the data item corresponding to that result, preventing
-hallucination of items. So, results can be less than most relevant, but a result will not
-be 'made up'.
+根据请求参数，可以控制返回的结果
+保留 'traditional' 代码，这样可以更好地控制返回的
+结果。具体而言，结果可以是项列表，每个项包括
+与该结果对应的数据项，阻止
+物品的幻觉。因此，结果可能不是最相关的，但结果不会
+是 “编造的”。
 
-![alt text](../images/LifeofaChatQuery.png)
+![替换文本](../images/LifeofaChatQuery.png)
 
-1. User submits next query in the conversation
+1. 用户提交对话中的下一个查询
 
-2a. Multiple parallel calls are made for checking relevancy, decontextualizing query based on conversation history, determining if there are items that should be remembered in memory, etc. Each of these is implemented as a call to an LLM, though alternate implementations are possible. At the end of this, we have a decontextualized query, which we know is relevant to the site, that we have all the information required to answer the query, etc. In some cases, this step might result in the query being broken down into multiple smaller queries. In some cases, the system may return a response (e.g., when more information is required for further processing) and not go any further. 
+2a.进行多个并行调用，用于检查相关性、根据对话历史记录对查询进行去上下文化、确定是否有应该在内存中记住的项目等。其中每个实现都是作为对 LLM 的调用实现的，尽管还有其他实现是可能的。最后，我们有一个去上下文化的查询，我们知道它与网站相关，我们拥有回答查询所需的所有信息，等等。在某些情况下，此步骤可能会导致查询被分解为多个较小的查询。在某些情况下，系统可能会返回响应（例如，当需要更多信息进行进一步处理时）并且不会继续。 
 
-2b. Fast Track: We expect that most conversations, especially early on, will resemble search and will involve a query that is relevant, doesn't require decontextualization, etc. So, it is very likely that step 2 will not make any changes to what follows. Consequently, after a light weight check to see if this condition might hold, a 'fast track' path to (3) is launched, in parallel to (2). Results from (4) are blocked from being sent to the user until the results of the analysis from (2) are completed. In some cases, the results from the fast track channel may be entirely dropped. 
+2b. 快速通道：我们预计大多数对话，尤其是早期对话，将类似于搜索，并且将涉及相关的查询，不需要去上下文化等。因此，步骤 2 很可能不会对后面的内容进行任何更改。因此，在轻量级检查以查看此条件是否成立之后，将启动到 （3） 的“快速通道”路径，与 （2） 并行。在 （2） 的分析结果完成之前，将阻止将 （4） 中的结果发送给用户。在某些情况下，来自 Fast Track 通道的结果可能会完全丢弃。 
 
-3. The (decontextualized) query/queries is sent to a database service to retrieve potential answers. Typically, this is a vector database and the retrieval is a combination of tfidf scores on embeddings and structured data constraints. The data is returned as a set of json objects encoded in schema.org schema. 
+3. （脱离上下文的）查询/查询被发送到数据库服务以检索可能的答案。通常，这是一个向量数据库，检索是嵌入和结构化数据约束的 tfidf 分数的组合。数据以一组以 schema.org 架构编码的 json 对象的形式返回。 
 
-4. The results returned from the database are scored. This is again done with a set of very specific calls to an LLM. The LLM may also be asked to generate a 'snippet' that is appropriate for the query. The top N results that have a score above some threshold, together with the score, snippet and the associated database object are collected. 
+4. 对从数据库返回的结果进行评分。这又是通过对 LLM 的一组非常具体的调用来完成的。也可能要求 LLM 生成适合查询的 'snippet'。收集分数高于某个阈值的前 N 个结果，以及分数、代码段和关联的数据库对象。 
     
-    4a. Optional: If the user has requested post processing, this is done and the results from (4), together with the results from post processing are returned to the user. Post processing may for example summarize the results in (4) or go a step further and try to use the results from (4) to answer the query.
+    4a. 可选：如果用户已请求后处理，则执行此作，并将 （4） 的结果以及后处理的结果返回给用户。例如，后处理可以总结 （4） 中的结果，或者更进一步，尝试使用 （4） 中的结果来回答查询。
 
-5. The results are then returned to the user in the specified format.
+5. 然后，结果将以指定的格式返回给用户。
 
-## Notes
+## 笔记
 
-- Processing a single query might involve over 50 LLM API calls. The calls tend to be very narrow and specific. Different kinds of calls may be to different models. The prompts can be specialized, declaratively, for particular object types (with the default type hierarchy from schema.org), e.g., Recipe vs Real Estate and further for specific sites.
+- 处理单个查询可能涉及 50 多个 LLM API 调用。这些调用往往非常狭窄和具体。不同类型的调用可能针对不同的模型。提示可以以声明方式专门用于特定对象类型（默认类型层次结构为 schema.org），例如 Recipe vs Real Estate 以及特定站点。
 
-- Since the items that are returned each come from the database, the user can be assured that none of the results are 'made up'. There is of course the possibility that the results are not the best, but there will not be result results returned that are not in the database. Post processing may degrade this, however, so be sure to test any you add carefully.
+- 由于返回的每个项目都来自数据库，因此用户可以放心，没有任何结果都是“编造的”。当然，结果有可能不是最好的，但不会返回不在数据库中的结果结果。但是，后处理可能会降低此性能，因此请务必仔细测试您添加的任何内容。

@@ -1,16 +1,16 @@
-# Qdrant Setup
+# Qdrant 设置
 
-qdrant:
-  # To connect to a Qdrant server, set the `QDRANT_URL` and optionally `QDRANT_API_KEY`.
-  # > docker run -p 6333:6333 qdrant/qdrant
-  # QDRANT_URL="http://localhost:6333"
-  api_endpoint_env: QDRANT_URL
-  api_key_env: QDRANT_API_KEY
+qdrant：
+  # 要连接到 Qdrant 服务器，请设置 `QDRANT_URL` 和 （可选 `QDRANT_API_KEY`）。
+  # > docker run -p 6333：6333 qdrant/qdrant
+  # QDRANT_URL=“http://localhost:6333”
+  api_endpoint_env：QDRANT_URL
+  api_key_env：QDRANT_API_KEY
 
-  # To use a local persistent instance for prototyping,
-  # set database_path to a local directory
-  database_path: ""
+  # 要使用本地持久性实例进行原型设计，
+  # 将 database_path 设置为本地目录
+  database_path：“”
 
-  # Set the name of the collection to use as `index_name`
-  index_name: nlweb_collection
-  db_type: qdrant
+  # 设置要用作的集合的名称 `index_name`
+  index_name：nlweb_collection
+  db_type： qdrant

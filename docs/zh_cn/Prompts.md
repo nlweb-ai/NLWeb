@@ -1,36 +1,36 @@
-# Modifying behaviour by changing prompts
+# 通过更改提示来修改行为
 
-During the course of processing a single query from a user, NLWeb makes a number of
-LLM calls for many different kinds of tasks. These include:
+在处理来自用户的单个查询的过程中，NLWeb 会进行大量
+LLM 需要许多不同类型的任务。这些包括：
 
-- 'Pre' steps, e.g.,
-  * Analyzing whether the query is relevant to the site
-  * Constructing a decontextualized query from query history
-  * Identifying whether the query mentions somethign that should be commited to memory
-- Ranking
-- 'Post'. Post steps are optional 
-  * Create summary of results
-  * Try to answer the user's question using the top ranked results (this is closer to traditional RAG)
+- “前”步骤，例如，
+  * 分析查询是否与网站相关
+  * 从查询历史记录构造一个去上下文化的查询
+  * 确定查询是否提到了应该提交到内存的内容
+- 排名
+- '发布'。后处理步骤是可选的 
+  * 创建结果摘要
+  * 尝试使用排名靠前的结果来回答用户的问题（这更接近传统的 RAG）
 
-The prompts used for these calls are in the file site_types.xml. The behaviour of the system can be modified
-by changing these prompts.
+用于这些调用的提示位于 file site_types.xml 中。系统的行为可以修改
+通过更改这些提示。
 
- Given below is a sample prompt:
+ 下面给出的是一个示例提示：
 
 <Thing>
    <Prompt ref="DetectMemoryRequestPrompt">
       <promptString>
-        Analyze the following statement from the user. 
-        Is the user asking you to remember, that may be relevant to not just this query, but also future queries? 
-        If so, what is the user asking us to remember?
-        The user should be explicitly asking you to remember something for future queries, 
-        not just expressing a requirement for the current query.
-        The user's query is: {request.rawQuery}.
+        分析用户的以下陈述。
+        用户是否要求您记住，这可能不仅与此查询相关，还与将来的查询相关？
+        如果是这样，用户要求我们记住什么？
+        用户应该明确要求您记住一些内容以备将来查询，
+        而不仅仅是表达对当前查询的要求。
+        用户的查询为：{request.rawQuery}。
       </promptString>
       <returnStruc>
         {
-          "is_memory_request": "True or False",
-          "memory_request": "The memory request, if any"
+          “is_memory_request”： “对或错”，
+          “memory_request”： “内存请求，如果有”
         }
       </returnStruc>
     </Prompt>
@@ -40,50 +40,50 @@ by changing these prompts.
 </Thing>
 
 
-Each <tag>Prompt</tag> is identified by a 'ref' attribute, which is used
-by the code calling the LLM to construct the tag. The <tag>promptString</tag>
-follows a templated structure. Each string contains placeholders / variables
-(like {request.query}, {site.itemType}, etc.) that get dynamically populated
-during execution. The prompts typically begin by establishing context about
-the user's query and the site being searched, followed by specific instructions
-for analyzing or transforming the query or ranking the candidate item
-in the context of the query. The LLM calls always used structured output
-and the desired structure of the output is in the <tag>returnStruc</tag>
-The list of allowed placeholders is given at the end of this document.
+每个 <tag>Prompt</tag> 都由一个 'ref' 属性标识，该属性用于
+通过调用 LLM 来构造标签的代码。promptString <tag></tag>
+遵循模板化结构。每个字符串都包含占位符/变量
+（如 {request.query}、{site.itemType} 等）动态填充
+在执行期间。提示通常首先建立有关
+用户的查询和正在搜索的网站，后跟具体说明
+用于分析或转换查询或对候选项目进行排名
+在查询的上下文中。LLM 调用始终使用结构化输出
+并且所需的输出结构位于 <tag>returnStruc</tag> 中
+本文档末尾给出了允许的占位符列表。
 
-The above prompt is very generic and meant to be used for all types of
-items. However, most sites deal with a very limited number of types of items
-and more specific (and hence better performing) prompts can be designed
-for these. For example, if we know that the user is looking for a recipe,
-we can use the following more specific prompt.
+上面的提示非常通用，旨在用于所有类型的
+项目。但是，大多数网站处理的项目类型非常有限
+并且可以设计更具体（因此性能更好）的提示
+对于这些。例如，如果我们知道用户正在查找配方，
+我们可以使用以下更具体的提示。
 
   <Recipe>
     <Prompt ref="DetectMemoryRequestPrompt">
       <promptString>
-        Analyze the following statement from the user. 
-        Is the user asking you to remember a dietary constraint, that may be relevant
-        to not just this query, but also future queries? For example, the user may say
-        that they are vegetarian or observe kosher or halal or specify an allergy.
-        If so, what is the user asking us to remember?
-        The user should be explicitly asking you to remember something for future queries, 
-        not just expressing a requirement for the current query.
-        The user's query is: {request.rawQuery}.
+        分析用户的以下陈述。
+        用户是否要求您记住可能相关的饮食限制
+        不仅针对此查询，还针对未来的查询？例如，用户可能会说
+        他们是素食主义者或遵守犹太洁食或清真食品，或指定过敏。
+        如果是这样，用户要求我们记住什么？
+        用户应该明确要求您记住一些内容以备将来查询，
+        而不仅仅是表达对当前查询的要求。
+        用户的查询为：{request.rawQuery}。
       </promptString>
       <returnStruc>
         {
-          "is_memory_request": "True or False",
-          "memory_request": "The memory request, if any"
+          “is_memory_request”： “对或错”，
+          “memory_request”： “内存请求，如果有”
         }
       </returnStruc>
     </Prompt>
   </Recipe>
 
-In the schema.org hierarchy, <tag>Recipe</tag> is under <tag>Thing</tag> in the class
-hierarchy and hence when it is determined that the user is looking for a <tag>Recipe</tag>
-this prompt will be used.
+在 schema.org 层次结构中，<tag>Recipe</tag> 位于 <tag></tag> 类中的 Thing 下
+层次结构，因此当确定用户正在查找 <tag>Recipe</tag> 时
+将使用此提示。
 
-Prompts can also be used to change the ranking and description associated with
-each item. For example, the default ranking prompt is:
+提示还可用于更改与
+每个项目。例如，默认排名提示为：
 
 
    <Prompt ref="RankingPrompt">
@@ -103,9 +103,9 @@ each item. For example, the default ranking prompt is:
       </returnStruc>
    </Prompt>
 
-A site which has star ratings for items (and where the json for each item includes the star rating) might want to
-incorporate that rating into the ranking. One way of doing this would be to use a <tag>promptString</tag> that
-asks the LLM to factor this in. E.g.,
+对项目进行星级评分（并且每个项目的 json 都包含星级评分）的网站可能需要
+将该评级纳入排名。一种方法是使用 <tag>promptString</tag> ，该
+要求 LLM 将此因素考虑在内。例如，
 
    <Prompt ref="RankingPrompt">
       <promptString>
@@ -123,21 +123,21 @@ asks the LLM to factor this in. E.g.,
       </returnStruc>
    </Prompt>
 
-Similarly, descriptions can also be changed. Eg.
+同样，也可以更改描述。例如。
 
  <Recipe>
    <Prompt ref="RankingPrompt">
       <promptString>
-        Assign a score between 0 and 100 to the following item
-        based on how relevant it is to the user's question. Include a short description of the item, focussing on the
-	relevance of the teim to the user's query. Also, include the salient aspects of the nutritional value of
-	this recipe.
-        The user's question is: \"{request.query}\". The item's description in schema.org format is \"{item.description}\".
+        为以下项目分配一个介于 0 和 100 之间的分数
+        基于它与用户问题的相关性。包括项目的简短描述，重点放在
+	teim 与用户查询的相关性。此外，还包括营养价值的突出方面
+	这个食谱。
+        用户的问题是：\“{request.query}\”。schema.org 格式的项的描述为 \“{item.description}\”。
       </promptString>
       <returnStruc>
         {
-          "score": "integer between 0 and 100",
-          "description": "short description of the item"
+          “score”： “介于 0 和 100 之间的整数”，
+          “description”： “项目的简短描述”
         }
       </returnStruc>
    </Prompt>
@@ -145,21 +145,21 @@ Similarly, descriptions can also be changed. Eg.
 
 
 
-# Variables
+# 变量
 
- - request.site: the site associated with the request
+ - request.site：与请求关联的站点
  
- - site.itemType: the item types (Recipe, Movie, etc.) typically associated with this site
- - request.itemType: type of item requested by user, if explicit, in the query
+ - site.itemType：通常与此站点关联的项目类型（配方、电影等）
+ - request.itemType：用户在查询中请求的项的类型（如果显式）
 
- - request.rawQuery: the query as typed in by the user, before any kind of decontextualization
- - request.previousQueries: previous queries in this session
- - request.query: the decontextualized query
+ - request.rawQuery：在任何类型的解情之前，用户键入的查询
+ - request.previousQueries：此会话中的先前查询
+ - request.query：解情境化的查询
  
- - request.contextUrl: If there is an explicit url associated with the query as the context
- - request.contextDescription:
+ - request.contextUrl：如果存在与查询关联的显式 url 作为上下文
+ - request.context描述：
 
- - request.answers: The list of top ranked answers for this request. For post steps, if any
+ - request.answers：此请求排名靠前的答案列表。对于发布步骤（如果有）
 
 
     

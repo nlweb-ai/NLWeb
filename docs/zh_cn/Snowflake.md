@@ -1,43 +1,43 @@
-# Snowflake
+# 雪花
 
-The Snowflake AI Data Cloud provides:
-* Various [LLM functions](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-llm-rest-api) and
-* And [interactive search over unstructured data](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-search/cortex-search-overview)
+Snowflake AI 数据云提供：
+* 各种 [LLM 函数](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-llm-rest-api) 和
+* 以及 [对非结构化数据的交互式搜索](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-search/cortex-search-overview)
 
-This guide walks you through how to use your Snowflake account for LLMs and/or for retrieval.
+本指南将指导您了解如何将 Snowflake 帐户用于 LLM 和/或检索。
 
-## Connect to your Snowflake account
+## 连接到您的 Snowflake 帐户
 
-The sample application can use a [programmatic access token](https://docs.snowflake.com/en/user-guide/programmatic-access-tokens)
+示例应用程序可以使用 [编程访问令牌](https://docs.snowflake.com/en/user-guide/programmatic-access-tokens)
 
-1. Login to your Snowflake account, e.g., https://<account_identifier>.snowflakecomputing.com/
-2. Click on your user, then "Settings", then "Authentication"
-3. Under "Programmatic access tokens" click "Generate new token"
-4. Set `SNOWFLAKE_ACCOUNT_URL` and `SNOWFLAKE_PAT` in the `.env` file (as [README.md](../README.md) suggests).
-5. (Optionally): Set `SNOWFLAKE_EMBEDDING_MODEL` to an [embedding model available in Snowflake](https://docs.snowflake.com/en/user-guide/snowflake-cortex/vector-embeddings#text-embedding-models)
-6. (Optionally): Set `SNOWFLAKE_CORTEX_SEARCH_SERVICE` to the fully qualified name of the [Cortex Search Service](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-search/cortex-search-overview) to use for retrieval.
+1. 登录您的 Snowflake 帐户，例如 https://<account_identifier>.snowflakecomputing.com/
+2. 单击您的用户，然后单击“设置”，然后单击“身份验证”
+3. 在“Programmatic access tokens（编程访问令牌）”下，单击“Generate new token”（生成新令牌）
+4. set `SNOWFLAKE_ACCOUNT_URL` 和 `SNOWFLAKE_PAT` in `.env` 文件中（如 [README.md](../README.md) 所建议的那样）。
+5. （可选）：设置为 `SNOWFLAKE_EMBEDDING_MODEL` [Snowflake 中可用的嵌入模型](https://docs.snowflake.com/en/user-guide/snowflake-cortex/vector-embeddings#text-embedding-models)
+6. （可选）：设置为 `SNOWFLAKE_CORTEX_SEARCH_SERVICE` 用于检索的 [Cortex 搜索服务的](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-search/cortex-search-overview)完全限定名称。
 
-## Test connectivity
+## 测试连接性
 
-Run:
+跑：
 
 ```
 python snowflake-connectivity.py
 ```
 
-You'll see a three line report on configuration whether configuration has been set correctly for Snowflake services.
+您将看到一个三行报告，说明是否已为 Snowflake 服务正确设置配置。
 
-## Use LLMs from Snowflake
+## 使用 Snowflake 中的 LLM
 
-1. Edit [config_llm.yaml](../code/config_llm.yaml) and change `preferred_provider` at the top to `preferred_provider: snowflake`
-2. (Optionally) adjust the models to use by setting `snowflake.models.high` or `snowflake.models.low` in `config_llm.yaml` to any of [the models available to your Snowflake account](https://docs.snowflake.com/en/user-guide/snowflake-cortex/llm-functions#availability)
+1. 编辑 [config_llm.yaml](../code/config_llm.yaml) 并将 `preferred_provider` 顶部的 `preferred_provider: snowflake`
+2. （可选）通过设置 `snowflake.models.high` 或 `snowflake.models.low` 调整 `config_llm.yaml`Snowflake 账户可用的[任何模型来调整要使用的模型](https://docs.snowflake.com/en/user-guide/snowflake-cortex/llm-functions#availability)
 
-## Use Cortex Search for retrieval
+## 使用 Cortex Search 进行检索
 
-1. Edit [config_retrieval.yaml](../code/config_retrieval.yaml) and change `preferred_provider` at the top to `preferred_provider: snowflake_cortex_search_1`
-2. (Optionally): To populate a Cortex Search Service with the SciFi Movies dataset included in this repository:
-   a. Install the [snowflake cli](https://docs.snowflake.com/en/developer-guide/snowflake-cli/installation/installation) and [configure your connection](https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli). Make sure to set `role`, `database` and `schema` in the `connections.toml` file.
-   b. Run the [snowflake.sql](../code/utils/snowflake.sql) script to index the scifi movies data (Cortex Search will automatically vectorize and also build a keyword index) using the `snow` command, for example:
+1. 编辑 [config_retrieval.yaml](../code/config_retrieval.yaml) 并将 `preferred_provider` 顶部的 `preferred_provider: snowflake_cortex_search_1`
+2. （可选）：要使用此存储库中包含的 SciFi Movies 数据集填充 Cortex 搜索服务：
+   一个。安装 [snowflake CLI](https://docs.snowflake.com/en/developer-guide/snowflake-cli/installation/installation) 并 [配置您的连接](https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli)。确保在文件中设置 `role`、 `database` 和 `schema` `connections.toml` 。
+   b.使用以下命令运行 [snowflake.sql](../code/utils/snowflake.sql) 脚本以索引科幻电影数据（Cortex Search 将自动矢量化并构建关键字索引）， `snow` 例如：
 
    ```sh
    snow sql \

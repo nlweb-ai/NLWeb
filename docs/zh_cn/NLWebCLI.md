@@ -1,184 +1,184 @@
-# NLWeb Configuration CLI Guide
+# NLWeb 配置 CLI 指南
 
-## Introduction
+## 介绍
 
-NLWeb provides a command-line interface (CLI) to simplify configuration, testing, and execution of the application. The CLI helps users navigate through the various configuration steps, ensuring all necessary environment variables and settings are properly set up before running the application.
+NLWeb 提供了一个命令行界面 （CLI） 来简化应用程序的配置、测试和执行。CLI 可帮助用户浏览各种配置步骤，确保在运行应用程序之前正确设置所有必要的环境变量和设置。
 
-## Getting Started
+## 开始
 
-To set up the `nlweb` command-line interface, you need to source the setup script first:
+要设置 `nlweb` 命令行界面，您需要先获取设置脚本：
 
 ```bash
 source setup.sh
 ```
 
-This will temporarily add the `nlweb` command to your PATH and create an alias for easier use.
+这将暂时将命令添加到您的 `nlweb` PATH 中，并创建一个别名以便于使用。
 
-### The NLWeb CLI offers several advantages:
+### NLWeb CLI 具有以下几个优势：
 
-1. **Simplified Configuration**: The CLI guides users through selecting and configuring LLM providers and retrieval endpoints, automatically detecting which environment variables need to be set.
+1. **简化配置**：CLI 指导用户选择和配置 LLM 提供程序和检索终端节点，自动检测需要设置哪些环境变量。
 
-2. **Preference Management**: The CLI remembers user preferences, such as preferred LLM provider and retrieval endpoint, storing them in configuration files for future use.
+2. **首选项管理**：CLI 会记住用户首选项，例如首选 LLM 提供程序和检索终端节点，并将其存储在配置文件中以备将来使用。
 
-3. **Environment Validation**: Before running the main application, the CLI can check connections to Azure OpenAI, Snowflake, or other services, ensuring everything is properly configured.
+3. **环境验证**： 在运行主应用程序之前，CLI 可以检查与 Azure OpenAI、Snowflake 或其他服务的连接，确保一切都已正确配置。
 
-4. **Interactive Setup**: Rather than requiring users to manually edit configuration files, the CLI provides an interactive process to select options and input necessary credentials.
+4. **交互式设置**：CLI 提供了一个交互式过程来选择选项并输入必要的凭据，而不是要求用户手动编辑配置文件。
 
-5. **Consistent Environment**: The CLI ensures that all required environment variables are properly set and persisted in the `.env` file.
+5. **一致的环境**：CLI 确保所有必需的环境变量都已正确设置并保留在 `.env` 文件中。
 
-## CLI Commands
+## CLI 命令
 
-The `nlweb` CLI provides the following commands:
+ `nlweb` CLI 提供以下命令：
 
-| Command | Description |
+| 命令 | 描述 |
 |---------|-------------|
-| `init`  | Configure the LLM provider and retrieval endpoint |
-| `init-python` | Set up Python virtual environment and install dependencies |
-| `check` | Verify connectivity for selected configuration and environment variables |
-| `app`   | Run the web application |
-| `run`   | End-to-end flow: Runs `init`, `check`, and `app` sequentially |
-| `data-load` | Load data from an RSS feed URL with a specified site name |
+| `init`  | 配置 LLM 提供程序和检索终端节点 |
+| `init-python` | 设置 Python 虚拟环境并安装依赖项 |
+| `check` | 验证所选配置和环境变量的连接 |
+| `app`   | 运行 Web 应用程序 |
+| `run`   | 端到端流：按顺序运行 `init`、 `check` `app`  和|
+| `data-load` | 从具有指定站点名称的 RSS 源 URL 加载数据 |
 
-### Common Flags
+### 常见标志
 
-| Flag | Description |
+| 旗 | 描述 |
 |------|-------------|
-| `-h`, `--help` | Display help information |
-| `-d`, `--debug` | Enable debug output for troubleshooting |
+| `-h`、 `--help` | 显示帮助信息 |
+| `-d`、 `--debug` | 启用调试输出以进行故障排除 |
 
-## Usage Examples
+## 使用示例
 
-### Complete Workflow
+### 完整的工作流程
 
-For a complete end-to-end workflow that configures, tests, and runs the application:
+有关配置、测试和运行应用程序的完整端到端工作流：
 
 ```bash
 nlweb run
 ```
 
-### Configuration Setup
+### 配置设置
 
-To configure your environment:
+要配置您的环境：
 
 ```bash
 nlweb init
 ```
 
-This will guide you through selecting an LLM provider (e.g., Azure OpenAI, OpenAI, Anthropic, etc.) and a retrieval endpoint (e.g., Azure Vector Search, Qdrant, Snowflake Cortex, etc.). The CLI will then prompt you for any required API keys or endpoints.
+这将指导您选择 LLM 提供商（例如 Azure OpenAI、OpenAI、Anthropic 等）和检索终端节点（例如 Azure Vector Search、Qdrant、Snowflake Cortex 等）。然后，CLI 将提示您输入任何必需的 API 密钥或终端节点。
 
-### Connection Test
+### 连接测试
 
-To verify your configuration can connect to the required services:
+要验证您的配置是否可以连接到所需的服务，请执行以下作：
 
 ```bash
 nlweb check
 ```
 
-This runs connectivity tests to ensure your environment variables are correctly set and that the application can communicate with the selected services.
+这将运行连接测试，以确保您的环境变量设置正确，并且应用程序可以与所选服务通信。
 
-### Running the Application
+### 运行应用程序
 
-To start the web application:
+要启动 Web 应用程序：
 
 ```bash
 nlweb app
 ```
 
-## Configuration Files
+## 配置文件
 
-The CLI manages several YAML configuration files:
+CLI 管理多个 YAML 配置文件：
 
-- `code/config/config_llm.yaml`: LLM provider configuration
-- `code/config/config_retrieval.yaml`: Retrieval endpoint configuration
+- `code/config/config_llm.yaml`：LLM 提供程序配置
+- `code/config/config_retrieval.yaml`：检索终端节点配置
 
-These files store settings including:
-- Preferred providers/endpoints
-- Model names and configurations
-- Environment variable names for API keys and endpoints
+这些文件存储的设置包括：
+- 首选提供商/终端节点
+- 型号名称和配置
+- API 密钥和终端节点的环境变量名称
 
-## Environment Variables
+## 环境变量
 
-The CLI helps manage environment variables required by the application, storing them in `.env`. These typically include:
+CLI 帮助管理应用程序所需的环境变量，并将其存储在 `.env`.这些通常包括：
 
-- API keys for various LLM providers (OpenAI, Azure OpenAI, Anthropic, etc.)
-- Endpoints for services (Azure Vector Search, Qdrant, etc.)
-- Other configuration options specific to each provider or endpoint
+- 各种 LLM 提供商（OpenAI、Azure OpenAI、Anthropic 等）的 API 密钥
+- 服务终结点（Azure 矢量搜索、Qdrant 等）
+- 特定于每个提供商或终端节点的其他配置选项
 
-### Pre-Existing Environment Variables
+### 预先存在的环境变量
 
-If an environment variable is already set in your shell, the CLI will use that value and won't prompt you to enter it again. This is useful when:
+如果您的 shell 中已设置环境变量，则 CLI 将使用该值，并且不会提示您再次输入。这在以下情况下非常有用：
 
-- You have environment variables set in your shell profile
-- You're using a CI/CD pipeline with pre-configured secrets
-- You want to script the configuration process
+- 您在 shell 配置文件中设置了环境变量
+- 您正在使用具有预配置密钥的 CI/CD 管道
+- 您希望编写配置过程的脚本
 
-For example, if you've already set `AZURE_OPENAI_API_KEY` in your terminal session:
+例如，如果您已经 `AZURE_OPENAI_API_KEY` 在终端会话中设置了：
 
 ```bash
 export AZURE_OPENAI_API_KEY="your-api-key-here"
 nlweb init
 ```
 
-The CLI will detect this value and skip prompting for it during the setup process.
+CLI 将检测此值，并在设置过程中跳过提示。
 
-## Advanced Usage
+## 高级用法
 
-### Switching Providers or Endpoints
+### 切换提供商或终端节点
 
-You can switch between different LLM providers or retrieval endpoints at any time by running:
+您可以随时通过运行以下命令在不同的 LLM 提供程序或检索终端节点之间切换：
 
 ```bash
 nlweb init
 ```
 
-The CLI will update your preference in the configuration files and prompt for any additional required environment variables.
+CLI 将更新配置文件中的首选项，并提示输入任何其他必需的环境变量。
 
-### Debugging
+### 调试
 
-When experiencing issues, run commands with the debug flag:
+遇到问题时，请运行带有 debug 标志的命令：
 
 ```bash
 nlweb run -d
 ```
 
-This provides detailed logging information that can help identify configuration problems.
+这提供了详细的日志记录信息，可帮助识别配置问题。
 
-### Python Virtual Environment Setup
+### Python 虚拟环境设置
 
-To set up the Python virtual environment:
+要设置 Python 虚拟环境，请执行以下作：
 
 ```bash
 nlweb init-python
 ```
 
-This will:
-1. Create a Python virtual environment in the `venv` directory
-2. Install all required dependencies from `requirements.txt`
+这将：
+1. 在目录中`venv`创建 Python 虚拟环境 
+2. 从 安装所有必需的依赖项 `requirements.txt`
 
-**Note**: When running `init-python` from the CLI, the virtual environment will be activated only within the script's execution context. After the command completes, your shell won't remain in the activated virtual environment.
+**注意**： `init-python` 从 CLI 运行时，虚拟环境将仅在脚本的执行上下文中激活。命令完成后，您的 shell 将不会保留在已激活的虚拟环境中。
 
-To activate the virtual environment in your current shell session, you need to source the activation script:
+要在当前 shell 会话中激活虚拟环境，您需要获取激活脚本：
 
 ```bash
 source venv/bin/activate
 ```
 
-Alternatively, if you need to set up and use the environment in one step, you can use:
+或者，如果您需要一步设置和使用环境，则可以使用：
 
 ```bash
 nlweb init-python && source venv/bin/activate
 ```
 
-This will both set up the Python environment and activate it in your current shell session.
+这将设置 Python 环境并在当前 shell 会话中激活它。
 
-### Data Loading
+### 数据加载
 
-To load data from an RSS feed:
+要从 RSS 源加载数据：
 
 ```bash
 nlweb data-load
 ```
 
-This command will prompt you for:
-- An RSS URL to load data from
-- A site name for the loaded data
+此命令将提示您：
+- 用于加载数据的 RSS URL
+- 加载的数据的站点名称

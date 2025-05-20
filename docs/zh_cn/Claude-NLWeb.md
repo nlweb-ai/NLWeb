@@ -1,29 +1,29 @@
-# Setting up Claude to talk to NLWeb
+# 设置 Claude 与 NLWeb 对话
 -----------------------------------------------------------------
 
-## Getting Started
+## 开始
 
-Since NLWeb includes an MCP server by default, you can configure Claude for Desktop to talk to NLWeb!
+由于 NLWeb 默认包含一个 MCP 服务器，因此您可以配置 Claude for Desktop 以与 NLWeb 通信！
 
-## Prerequisites
+## 先决条件
 
-Assumes you have [Claude for Desktop](https://claude.ai/download). This works on both macOS and Windows.
+假设您拥有 [Claude for Desktop](https://claude.ai/download)。这适用于 macOS 和 Windows。
 
-## Setup Steps
+## 设置步骤
 
-1. If you do not already have it, install MCP in your venv:
+1. 如果你还没有，请在你的 venv 中安装 MCP：
 ```bash
 pip install mcp
 ```
 
-2. Next, configure your Claude MCP server. If you don't have the config file already, you can create the file at the following locations:
+2. 接下来，配置 Claude MCP 服务器。如果您还没有配置文件，可以在以下位置创建该文件：
 
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- macOS 版本： `~/Library/Application Support/Claude/claude_desktop_config.json`
+- 窗户： `%APPDATA%\Claude\claude_desktop_config.json`
 
-The default MCP JSON file needs to be modified as shown below:
+默认的 MCP JSON 文件需要修改，如下所示：
 
-### macOS Example Configuration
+### macOS 示例配置
 
 ```json
 {
@@ -43,7 +43,7 @@ The default MCP JSON file needs to be modified as shown below:
 }
 ```
 
-### Windows Example Configuration
+### Windows 示例配置
 
 ```json
 {
@@ -63,9 +63,9 @@ The default MCP JSON file needs to be modified as shown below:
 }
 ```
 
-> **Note:** For Windows paths, you need to use double backslashes (`\\`) to escape the backslash character in JSON.
+> **注意：**对于 Windows 路径，您需要使用双反斜杠 （） `\\`来转义 JSON 中的反斜杠字符。
 
-3. From your code folder, enter your virtual environment and start your NLWeb local server. Make sure it is configured to access the data you would like to ask about from Claude.
+3. 从您的代码文件夹中，输入您的虚拟环境并启动 NLWeb 本地服务器。确保将其配置为访问您想向 Claude 询问的数据。
 
 ```bash
 # On macOS
@@ -77,36 +77,36 @@ python app-file.py
 python app-file.py
 ```
 
-4. Open Claude Desktop. It should ask you to trust the 'ask_nlw' external connection if it is configured correctly. After clicking yes and the welcome page appears, you should see 'ask_nlw' in the bottom right '+' options. Select it to start a query.
+4. 打开 Claude Desktop。如果配置正确，它应该要求您信任 'ask_nlw' 外部连接。单击“是”并出现欢迎页面后，您应该会在右下角的“+”选项中看到“ask_nlw”。选择它以启动查询。
 
-![Claude ask_nlw Option](../images/Claude-ask_nlw-Option.png)
+![Claude ask_nlw 选项](../images/Claude-ask_nlw-Option.png)
 
-5. Voilà! When you ask a question and want to query NLWeb, just type 'ask_nlw' in your prompt to Claude. You'll notice that you also get the full JSON script for your results. Remember, you have to have your local NLWeb server started to use this option.
+5. 瞧！当您提出问题并想查询 NLWeb 时，只需在 Claude 的提示符中键入 'ask_nlw' 即可。您会注意到，您还可以获得结果的完整 JSON 脚本。请记住，您必须让本地 NLWeb 服务器启动才能使用此选项。
 
-## Troubleshooting
+## 故障 排除
 
-If you encounter issues with Claude connecting to NLWeb, you can enable developer mode to help diagnose problems:
+如果您在 Claude 连接到 NLWeb 时遇到问题，您可以启用开发人员模式来帮助诊断问题：
 
-### Enabling Developer Mode in Claude Desktop
+### 在 Claude Desktop 中启用开发人员模式
 
-1. Open the Claude Desktop application
-2. Menu -> Help -> Enable Developer mode
-3. Restart Claude Desktop to apply the debug settings
+1. 打开 Claude Desktop 应用程序
+2. 菜单 -> 帮助 -> 启用开发人员模式
+3. 重新启动 Claude Desktop 以应用调试设置
 
-### Checking Claude Log Files
+### 检查 Claude 日志文件
 
-Claude stores detailed logs about MCP connections that can be helpful for troubleshooting:
+Claude 存储有关 MCP 连接的详细日志，这些日志可能有助于故障排除：
 
-#### Log File Locations
-- **macOS**: `~/Library/Logs/Claude/`
-- **Windows**: `%APPDATA%\Claude\logs\`
+#### 日志文件位置
+- **macOS：** `~/Library/Logs/Claude/`
+- **Windows （窗口**）： `%APPDATA%\Claude\logs\`
 
-#### Important Log Files
-- `mcp.log` - Contains general logging about MCP connections and connection failures
-- `mcp-server-ask_nlw.log` - Contains error (stderr) logging from the NLWeb MCP server
+#### 重要日志文件
+- `mcp.log` - 包含有关 MCP 连接和连接失败的常规日志记录
+- `mcp-server-ask_nlw.log` - 包含来自 NLWeb MCP 服务器的错误 （stderr） 日志记录
 
-#### Viewing Log Files
-You can use the following commands to view recent logs and monitor them in real-time:
+#### 查看日志文件
+您可以使用以下命令查看最近的日志并实时监控它们：
 
 ```bash
 # macOS/Linux
@@ -116,13 +116,13 @@ tail -n 20 -f ~/Library/Logs/Claude/mcp*.log
 type "%APPDATA%\Claude\logs\mcp*.log"
 ```
 
-### Common Issues
+### 常见问题
 
-- If Claude doesn't show the 'ask_nlw' option, check that your config file is in the correct location and properly formatted
-- Verify that your NLWeb server is running before attempting to connect
-- Make sure you have installed mcp in your venv
-- Check the developer console for connection errors or file path issues
-- Make sure all file paths in the configuration use the correct format for your operating system
-- Make sure Claude desktop fully closed (Menu -> File -> Exit) to read changes to config
+- 如果 Claude 没有显示 'ask_nlw' 选项，请检查您的配置文件是否位于正确的位置和正确的格式
+- 在尝试连接之前，请验证 NLWeb 服务器是否正在运行
+- 确保你已经在你的 venv 中安装了 mcp
+- 检查开发人员控制台是否存在连接错误或文件路径问题
+- 确保配置中的所有文件路径都使用适用于您的作系统的正确格式
+- 确保 Claude 桌面完全关闭（菜单 -> 文件 -> 退出）以读取对配置的更改
 
-For persistent issues, you can try restarting both the NLWeb server and Claude Desktop application.
+对于持续存在的问题，您可以尝试重新启动 NLWeb 服务器和 Claude Desktop 应用程序。

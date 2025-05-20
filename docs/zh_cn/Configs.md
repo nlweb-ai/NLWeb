@@ -1,39 +1,39 @@
-# Configuration files
+# 配置文件
 
-The NLWeb implementation in this repo supports a number of 
-different vector stores, LLMs and embedding providers. 
-The directory called config contains all the configurations.
+此存储库中的 NLWeb 实现支持许多
+不同的向量存储、LLM 和嵌入提供程序。
+名为 config 的目录包含所有配置。
 
-We have the following configuration files (all yaml):
+我们有以下配置文件（都是 yaml）：
 
-- llm : specifies the available llms and the environment variables
-        in which their endpoint, API keys etc. can be found. These
-        might need to be appropriately modified. The top line  
-        <code>preferred_provider</code> specifies which llm should
-        be used as the default. Some of the llm calls require slightly
-        better models and some like the ranking calls prefer
-        lighter models. This is specified using the high and low parameters
+- llm ：指定可用的 LLMS 和环境变量
+        其中可以找到他们的端点、API 密钥等。这些
+        可能需要适当修改。顶线 
+        <code>preferred_provider</code> 指定了哪个 LLM 应该
+        作为默认值。一些 llm 调用需要稍微
+        更好的模型和一些像排名调用更喜欢的模型
+        更轻的型号。这是使用 high 和 low 参数指定的
 
-- embedding: similar to llms, specifies providers, endpoints, etc. Note
-         that the embedding is integral to retrieval and the same
-         embedding needs to be used for creating the vector store
-         and retrieving from it.
+- embedding：与 LLMS 类似，指定提供程序、端点等。注意
+         嵌入是检索不可或缺的一部分，并且相同
+         需要使用 embedding 来创建 vector store
+         并从中检索。
 
-- retrieval: specifies the available vector stores. As above variables
-         specify endpoint, API keys, etc. At this point, only one of the
-         stores is queried. In future, we will query all the available stores.
-         We do not assume that the backend is a vector store. We are in 
-         the process of adding Restful vector stores, which
-         will enable one NLWeb instance to treat another as its backend.
+- retrieval：指定可用的向量存储。如上变量
+         指定终端节点、API 密钥等。此时，只有一个
+         stores 的将来，我们将查询所有可用的商店。
+         我们不假设后端是 vector store。我们位于
+         添加 Restful 向量存储的过程，其中
+         将使一个 NLWeb 实例能够将另一个实例视为其后端。
 
          We do assume that the vector store will return a list of the database
          items encoded as json objects, preferably in a schema.org schema.
 
-- nlweb: specifies the location of the json file that may be used for data 
-         uploads. Also species the prompt to be used with chatbots when
-         communicating with them over MCP
+- nlweb：指定可用于数据的 JSON 文件的位置
+         上传。在以下情况下，还将提示与聊天机器人一起使用
+         通过 MCP 与他们通信
          
-- webserver: most of the variables are self explanatory. The server can
-         be run in development or production mode. When in development mode,
-         query parameters can override what is in the config for retrieval
-         and llm
+- Web 服务器：大多数变量都是不言自明的。服务器可以
+         在开发或生产模式下运行。在开发模式下，
+         查询参数可以覆盖配置中的内容以进行检索
+         和 LLM
