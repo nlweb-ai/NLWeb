@@ -44,7 +44,7 @@ class GeminiProvider(LLMProvider):
         
         # For Gemini, we need the GCP project ID, which might be stored in API_KEY_ENV or a specific field
         # First check if there's a specific project env var in the config
-        project_env_var = provider_config.api_key_env  # This might actually be the project ID for GCP
+        project_env_var = provider_config.api_key  # This might actually be the project ID for GCP
         
         project = os.getenv("GCP_PROJECT") or os.getenv(project_env_var)
         if not project:
@@ -61,7 +61,7 @@ class GeminiProvider(LLMProvider):
         """Retrieve the API key if needed for Gemini API."""
         preferred_provider = CONFIG.preferred_llm_provider
         provider_config = CONFIG.llm_providers[preferred_provider]
-        api_key_env_var = provider_config.api_key_env
+        api_key_env_var = provider_config.api_key
         
         if api_key_env_var:
             return os.getenv(api_key_env_var)
