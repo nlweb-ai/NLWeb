@@ -130,7 +130,7 @@ Azure 应用服务在 Azure 门户中提供诊断工具：
 
 3. 您需要将 Azure OpenAI 终端节点和密钥添加到 .env 文件中，请参阅 [README 文件中](/README.md)本地设置的步骤 5。可以在 Azure 门户中找到上面创建的 Azure OpenAI 资源的终结点 API 密钥[](https://portal.azure.com/?feature.msaljs=true#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/OpenAI)，而不是在部署模型的 [Azure AI Foundry](https://ai.azure.com) 中找到。 单击 Azure OpenAI 资源，然后在左侧边栏中的“资源管理”下，选择“密钥和端点”。  
 
-![Azure 门户中“资源管理”下的“密钥和终结点”的屏幕截图](../images/AOAIKeysAndEndpoint.jpg)
+![Azure 门户中“资源管理”下的“密钥和终结点”的屏幕截图](../../images/AOAIKeysAndEndpoint.jpg)
 
 ## 提高 Azure OpenAI 速率限制
 
@@ -144,5 +144,5 @@ Azure 应用服务在 Azure 门户中提供诊断工具：
 
 4. 在弹出窗口中，滚动到底部显示“每分钟令牌数速率限制”的位置，然后将滑块拖动到更高的值。 
 
-![编辑弹出窗口的屏幕截图](../images/Azure_token_rate_increase.jpg)
+![编辑弹出窗口的屏幕截图](../../images/Azure_token_rate_increase.jpg)
 

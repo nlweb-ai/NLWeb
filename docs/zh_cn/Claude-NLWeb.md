@@ -79,7 +79,7 @@ python app-file.py
 
 4. 打开 Claude Desktop。如果配置正确，它应该要求您信任 'ask_nlw' 外部连接。单击“是”并出现欢迎页面后，您应该会在右下角的“+”选项中看到“ask_nlw”。选择它以启动查询。
 
-![Claude ask_nlw 选项](../images/Claude-ask_nlw-Option.png)
+![Claude ask_nlw 选项](../../images/Claude-ask_nlw-Option.png)
 
 5. 瞧！当您提出问题并想查询 NLWeb 时，只需在 Claude 的提示符中键入 'ask_nlw' 即可。您会注意到，您还可以获得结果的完整 JSON 脚本。请记住，您必须让本地 NLWeb 服务器启动才能使用此选项。
 

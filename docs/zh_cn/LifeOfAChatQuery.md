@@ -25,7 +25,7 @@ NLWeb 利用了大多数此类网站已经制作了他们的数据这一事实
 物品的幻觉。因此，结果可能不是最相关的，但结果不会
 是 “编造的”。
 
-![替换文本](../images/LifeofaChatQuery.png)
+![替换文本](../../images/LifeofaChatQuery.png)
 
 1. 用户提交对话中的下一个查询
 
