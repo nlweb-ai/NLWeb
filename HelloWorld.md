@@ -1,3 +1,14 @@
+<!-- Multi-Language Navigation -->
+<p align="center">
+  <table>
+    <tr>
+      <td><a href="README.md">English</a></td>
+      <td>|</td>
+      <td><a href="README_cn.md">简体中文</a></td>
+    </tr>
+  </table>
+</p>
+
 # Hello World
 
 ## Getting Started
