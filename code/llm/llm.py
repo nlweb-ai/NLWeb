@@ -24,7 +24,7 @@ from llm.azure_llama import provider as llama_provider
 from llm.azure_deepseek import provider as deepseek_provider
 from llm.inception import provider as inception_provider
 from llm.snowflake import provider as snowflake_provider
-
+from llm.huggingface import provider as huggingface_provider
 from utils.logging_config_helper import get_configured_logger, LogLevel
 logger = get_configured_logger("llm_wrapper")
 
@@ -37,7 +37,8 @@ _providers = {
     "llama_azure": llama_provider,
     "deepseek_azure": deepseek_provider,
     "inception": inception_provider,
-    "snowflake": snowflake_provider
+    "snowflake": snowflake_provider,
+    "huggingface": huggingface_provider
 }
 
 async def ask_llm(

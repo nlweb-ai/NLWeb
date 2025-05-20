@@ -59,3 +59,9 @@ providers:
     models:
       high: claude-3-5-sonnet
       low: llama3.1-8b
+
+  huggingface:
+    api_key_env: HF_TOKEN
+    models:
+      high: Qwen/Qwen2.5-72B-Instruct
+      low: Qwen/Qwen2.5-Coder-7B-Instruct
