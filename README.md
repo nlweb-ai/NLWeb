@@ -47,15 +47,14 @@ Join us in building this connected web of agents.
  MCP (Model Context Protocol) is an emerging protocol for Chatbots and AI assistants
  to interact with tools. Every NLWeb instance is also an MCP server, which supports one core method,
  <code>ask</code>, which is used to ask a website a question in natural language. The returned response
- leverages schema.org, a widely-used vocabulary for describing web data. Loosely speaking, 
- MCP is NLWeb as Http is to HTML.
+ leverages schema.org, a widely-used vocabulary for describing web data. In short, MCP is to NLWeb what HTTP is to HTML.
 
 
 # NLWeb and platforms
 NLWeb is deeply agnostic:
-- About the platform: We have tested it running on Windows, MacOS, Linux, ...
-- About the vector stores used: Qdrant, Snowflake, Milvus, Azure AI Search, ...
-- About the LLM: OAI, Deepseek, Gemini, Anthropic, Inception, ...
+- About the platform: We have tested it running on Windows, MacOS, Linux...
+- About the vector stores used: Qdrant, Snowflake, Milvus, Azure AI Search...
+- About the LLM: OAI, Deepseek, Gemini, Anthropic, Inception...
 - It is intended to be both lightweight and scalable, running on everything from clusters 
   in the cloud to laptops and soon phones.
 
@@ -80,8 +79,8 @@ the contents over, which inevitably introduces freshness issues.
 ## Getting Started
 - [Hello world on your laptop](HelloWorld.md)
 - [Running it on Azure](docs/Azure.md)
-- Running it on GCP ... coming soon
-- Running it AWS ... coming soon
+- Running it on GCP... coming soon
+- Running it AWS... coming soon
 
 ## NLWeb
 - [Life of a Chat Query](docs/LifeOfAChatQuery.md)
