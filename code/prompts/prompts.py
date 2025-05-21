@@ -10,7 +10,7 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 from xml.etree import ElementTree as ET
-import json 
+import json # Add this import
 import os  # Add this import
 from utils.logging_config_helper import get_configured_logger
 
