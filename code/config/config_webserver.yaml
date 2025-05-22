@@ -6,13 +6,12 @@ static_directory: ../../
 # obviously, this cannot be allowed in production.
 mode: development # or production. 
 
-
 # Additional optional configurations
-server:
+server: 
   host: 0.0.0.0
   enable_cors: true
-  max_connections: 100
-  timeout: 30  # seconds
+  max_connections: 100 
+  timeout: 30  # seconds 
   
   # SSL configuration (optional)
   ssl:
@@ -29,4 +28,4 @@ server:
   static:
     enable_cache: true
     cache_max_age: 3600  # seconds
-    gzip_enabled: true
+    gzip_enabled: true 
