@@ -20,11 +20,11 @@ except ImportError as e:
     sys.exit(1)
 
 async def check_search_api():
-    """Check Azure AI Search connectivity"""
-    print("\nChecking Azure AI Search connectivity...")
-    
+    """Check Azure AI Search connectivity."""
+    print("\nChecking Azure AI Search connectivity...")    
+
     # Get search configuration from CONFIG
-    preferred_endpoint = CONFIG.preferred_retrieval_endpoint
+    preferred_endpoint = CONFIG.preferred_retrieval_endpoint 
     if preferred_endpoint not in CONFIG.retrieval_endpoints:
         print(f"❌ Preferred retrieval endpoint '{preferred_endpoint}' not configured")
         return False
@@ -65,52 +65,54 @@ async def check_inception_api():
     
     # Check if Inception is configured
     if "inception" not in CONFIG.llm_providers:
-        print("❌ Inception provider not configured")
+        print("❌ Inception provider not configured.")
         return False
     
     inception_config = CONFIG.llm_providers["inception"]
     api_key = inception_config.api_key
     
     if not api_key:
-        print("❌ API key for Inception not configured")
+        print("❌ API key for Inception not configured.")
         return False
     
     try:
         client = OpenAI(api_key=api_key, base_url="https://api.inceptionlabs.ai/v1")
         models = client.models.list()
-        print(f"✅ Successfully connected to Inception API")
+        print(f"✅ Successfully connected to Inception API.")
         return True
     except Exception as e:
         print(f"❌ Error connecting to Inception API: {e}")
         return False
 
 async def check_openai_api():
-    """Check OpenAI API connectivity"""
+
+    """Check OpenAI API connectivity."""
+
     print("\nChecking OpenAI API connectivity...")
     
     # Check if OpenAI is configured
     if "openai" not in CONFIG.llm_providers:
-        print("❌ OpenAI provider not configured")
+        print("❌ OpenAI provider not configured.")
         return False
     
     openai_config = CONFIG.llm_providers["openai"]
     api_key = openai_config.api_key
     
     if not api_key:
-        print("❌ API key for OpenAI not configured")
+        print("❌ API key for OpenAI not configured.")
         return False
     
     try:
         client = OpenAI(api_key=api_key)
         models = client.models.list()
-        print(f"✅ Successfully connected to OpenAI API")
-        return True
+        print(f"✅ Successfully connected to OpenAI API.")
+        return True 
     except Exception as e:
         print(f"❌ Error connecting to OpenAI API: {e}")
-        return False
+        return False 
 
 async def check_azure_openai_api():
-    """Check Azure OpenAI API connectivity"""
+    """Check Azure OpenAI API connectivity."""
     print("\nChecking Azure OpenAI API connectivity...")
     
     # Check if Azure OpenAI is configured
@@ -123,13 +125,13 @@ async def check_azure_openai_api():
     endpoint = azure_config.endpoint
     api_version = azure_config.api_version or "2024-12-01-preview"
     
-    if not api_key:
-        print("❌ API key for Azure OpenAI not configured")
-        return False
+    if not api_key: 
+        print("❌ API key for Azure OpenAI not configured.")
+        return False 
     
-    if not endpoint:
-        print("❌ Endpoint for Azure OpenAI not configured")
-        return False
+    if not endpoint: 
+        print("❌ Endpoint for Azure OpenAI not configured.")
+        return False 
 
     try:
         client = AzureOpenAI(
@@ -140,19 +142,19 @@ async def check_azure_openai_api():
         
         # Try to list deployments
         deployments = client.models.list()
-        print(f"✅ Successfully connected to Azure OpenAI API")
+        print(f"✅ Successfully connected to Azure OpenAI API.")
         return True
     except Exception as e:
         print(f"❌ Error connecting to Azure OpenAI API: {e}")
         return False
 
 async def check_embedding_api():
-    """Check Azure Embedding API connectivity"""
+    """Check Azure Embedding API connectivity."""
     print("\nChecking Azure Embedding API connectivity...")
     
     # Check if Azure OpenAI embedding is configured
     if "azure_openai" not in CONFIG.embedding_providers:
-        print("❌ Azure OpenAI embedding provider not configured")
+        print("❌ Azure OpenAI embedding provider not configured.")
         return False
     
     azure_embedding_config = CONFIG.embedding_providers["azure_openai"]
@@ -162,15 +164,15 @@ async def check_embedding_api():
     embedding_model = azure_embedding_config.model
     
     if not api_key:
-        print("❌ API key for Azure Embedding not configured")
+        print("❌ API key for Azure Embedding not configured.")
         return False
     
     if not endpoint:
-        print("❌ Endpoint for Azure Embedding not configured")
+        print("❌ Endpoint for Azure Embedding not configured.")
         return False
     
     if not embedding_model:
-        print("❌ Embedding model not configured, using default")
+        print("❌ Embedding model not configured, using default.")
         embedding_model = "text-embedding-3-small"
     
     try:
@@ -187,17 +189,17 @@ async def check_embedding_api():
         )
         
         if len(response.data[0].embedding) > 0:
-            print(f"✅ Successfully connected to Azure Embedding API")
+            print(f"✅ Successfully connected to Azure Embedding API.")
             return True
         else:
-            print("❌ Got empty embedding response")
+            print("❌ Got empty embedding response.")
             return False
     except Exception as e:
         print(f"❌ Error connecting to Azure Embedding API: {e}")
         return False
 
 async def main():
-    """Run all connectivity checks"""
+    """Run all connectivity checks."""
     print("Running Azure connectivity checks...")
     print(f"Using configuration from preferred LLM provider: {CONFIG.preferred_llm_provider}")
     print(f"Using configuration from preferred embedding provider: {CONFIG.preferred_embedding_provider}")
@@ -220,8 +222,8 @@ async def main():
     successful = sum(1 for r in results if r is True)
     total = len(tasks)
     
-    print(f"\n====== SUMMARY ======")
-    print(f"✅ {successful}/{total} connections successful")
+    print(f"\n======= SUMMARY =======")
+    print(f"✅ {successful}/{total} connections successful.")
     
     if successful < total:
         print("❌ Some connections failed. Please check error messages above.")
