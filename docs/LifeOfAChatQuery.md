@@ -45,4 +45,4 @@ be 'made up'.
 
 - Processing a single query might involve over 50 LLM API calls. The calls tend to be very narrow and specific. Different kinds of calls may be to different models. The prompts can be specialized, declaratively, for particular object types (with the default type hierarchy from schema.org), e.g., Recipe vs Real Estate and further for specific sites.
 
-- Since the items that are returned each come from the database, the user can be assured that none of the results are 'made up'. There is of course the possibility that the results are not the best, but there will not be result results returned that are not in the database. Post processing may degrade this, however, so be sure to test any you add carefully.
+- Since the items that are returned each come from the database, the user can be assured that none of the results are 'made up'. There is of course the possibility that the results are not the best, but there will not be results returned that are not in the database. Post processing may degrade this, however, so be sure to test any you add carefully.
