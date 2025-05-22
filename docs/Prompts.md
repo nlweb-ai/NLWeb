@@ -6,7 +6,7 @@ LLM calls for many different kinds of tasks. These include:
 - 'Pre' steps, e.g.,
   * Analyzing whether the query is relevant to the site
   * Constructing a decontextualized query from query history
-  * Identifying whether the query mentions somethign that should be commited to memory
+  * Identifying whether the query mentions something that should be commited to memory
 - Ranking
 - 'Post'. Post steps are optional 
   * Create summary of results
