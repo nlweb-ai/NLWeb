@@ -6,7 +6,6 @@ providers:
     api_endpoint_env: OPENAI_ENDPOINT
     model: text-embedding-3-small
 
-
   gemini:
     api_key_env: GCP_PROJECT
     model: GCP_EMBEDDING_MODEL
