@@ -6,10 +6,6 @@ providers:
     api_endpoint_env: OPENAI_ENDPOINT
     model: text-embedding-3-small
 
-  anthropic:
-    api_key_env: ANTHROPIC_API_KEY
-    model: ANTHROPIC_EMBEDDING_MODEL
-
   gemini:
     api_key_env: GCP_PROJECT
     model: GCP_EMBEDDING_MODEL
