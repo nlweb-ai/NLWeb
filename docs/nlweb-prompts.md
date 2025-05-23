@@ -125,9 +125,8 @@ Similarly, descriptions can also be changed. Eg.
    <Prompt ref="RankingPrompt">
       <promptString>
         Assign a score between 0 and 100 to the following item
-        based on how relevant it is to the user's question. Include a short description of the item, focussing on the
- relevance of the teim to the user's query. Also, include the salient aspects of the nutritional value of
- this recipe.
+        based on how relevant it is to the user's question. Include a short description of the item, focussing on the 
+        relevance of the item to the user's query. Also, include the salient aspects of the nutritional value of this recipe.
         The user's question is: \"{request.query}\". The item's description in schema.org format is \"{item.description}\".
       </promptString>
       <returnStruc>
