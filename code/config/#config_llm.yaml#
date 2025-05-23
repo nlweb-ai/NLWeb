@@ -1,10 +1,10 @@
-preferred_endpoint: azure_openai
+preferred_provider: azure_openai_ABBA
 
-endpoints:
+:
   inception:
     api_key_env: INCEPTION_API_KEY
     api_endpoint_env: INCEPTION_ENDPOINT
-    llm_type: inception
+    name: Inception
     models:
       high: mercury-small
       low: mercury-small
@@ -12,21 +12,18 @@ endpoints:
   openai:
     api_key_env: OPENAI_API_KEY
     api_endpoint_env: OPENAI_ENDPOINT
-    llm_type: openai
     models:
       high: gpt-4.1
       low: gpt-4.1-mini
 
   anthropic:
     api_key_env: ANTHROPIC_API_KEY
-    llm_type: anthropic
     models:
       high: claude-3-5-sonnet-20241022
       low: claude-3-haiku-20240307
 
   gemini:
     api_key_env: GCP_PROJECT
-    llm_type: gemini
     models:
       high: chat-bison@001
       low: chat-bison-lite@001
@@ -34,6 +31,14 @@ endpoints:
   azure_openai:
     api_key_env: AZURE_OPENAI_API_KEY
     api_endpoint_env: AZURE_OPENAI_ENDPOINT
+    api_version_env: "2024-12-01-preview"
+    models:
+      high: gpt-4.1
+      low: gpt-4.1-mini
+
+  azure_openai_ABBA:
+    api_key_env: AZURE_OPENAI_API_KEY_SWEDEN
+    api_endpoint_env: AZURE_OPENAI_ENDPOINT_SWEDEN
     api_version_env: "2024-12-01-preview"
     llm_type: azure_openai
     models:
@@ -44,7 +49,6 @@ endpoints:
     api_key_env: LLAMA_AZURE_API_KEY
     api_endpoint_env: LLAMA_AZURE_ENDPOINT
     api_version_env: "2024-12-01-preview"
-    llm_type: llama_azure
     models:
       high: llama-2-70b
       low: llama-2-13b
@@ -53,7 +57,6 @@ endpoints:
     api_key_env: DEEPSEEK_AZURE_API_KEY
     api_endpoint_env: DEEPSEEK_AZURE_ENDPOINT
     api_version_env: "2024-12-01-preview"
-    llm_type: deepseek_azure
     models:
       high: deepseek-coder-33b
       low: deepseek-coder-7b
@@ -63,7 +66,6 @@ endpoints:
     api_key_env: SNOWFLAKE_PAT
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     api_version_env: "2024-12-01"
-    llm_type: snowflake
     models:
       high: claude-3-5-sonnet
       low: llama3.1-8b
