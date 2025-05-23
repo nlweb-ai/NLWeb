@@ -212,22 +212,7 @@ class AsyncLogProcessor:
                 real_logger = self._get_real_logger(module_name)
                 
                 # Write the log message
-                if level == 'debug':
-                    real_logger.debug(message, *args, **kwargs)
-                elif level == 'info':
-                    real_logger.info(message, *args, **kwargs)
-                elif level == 'warning':
-                    real_logger.warning(message, *args, **kwargs)
-                elif level == 'error':
-                    real_logger.error(message, *args, **kwargs)
-                elif level == 'critical':
-                    real_logger.critical(message, *args, **kwargs)
-                elif level == 'exception':
-                    real_logger.exception(message, **kwargs)
-                elif level == 'log_with_context':
-                    # args[0] is the log level, args[1] is context
-                    real_logger.log_with_context(args[0], message, args[1])
-                
+                self._dispatch_log(real_logger, level, message, args, kwargs)
                 self.log_queue.task_done()
                 
             except Exception as e:
