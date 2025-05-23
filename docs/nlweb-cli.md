@@ -8,13 +8,13 @@ NLWeb provides a command-line interface (CLI) to simplify configuration, testing
 
 To set up the `nlweb` command-line interface, you need to source the setup script first:
 
-```bash
+```sh
 source setup.sh
 ```
 
 This will temporarily add the `nlweb` command to your PATH and create an alias for easier use.
 
-### The NLWeb CLI offers several advantages:
+### The NLWeb CLI offers several advantages
 
 1. **Simplified Configuration**: The CLI guides users through selecting and configuring LLM providers and retrieval endpoints, automatically detecting which environment variables need to be set.
 
@@ -52,7 +52,7 @@ The `nlweb` CLI provides the following commands:
 
 For a complete end-to-end workflow that configures, tests, and runs the application:
 
-```bash
+```sh
 nlweb run
 ```
 
@@ -60,7 +60,7 @@ nlweb run
 
 To configure your environment:
 
-```bash
+```sh
 nlweb init
 ```
 
@@ -70,7 +70,7 @@ This will guide you through selecting an LLM provider (e.g., Azure OpenAI, OpenA
 
 To verify your configuration can connect to the required services:
 
-```bash
+```sh
 nlweb check
 ```
 
@@ -80,7 +80,7 @@ This runs connectivity tests to ensure your environment variables are correctly 
 
 To start the web application:
 
-```bash
+```sh
 nlweb app
 ```
 
@@ -92,6 +92,7 @@ The CLI manages several YAML configuration files:
 - `code/config/config_retrieval.yaml`: Retrieval endpoint configuration
 
 These files store settings including:
+
 - Preferred providers/endpoints
 - Model names and configurations
 - Environment variable names for API keys and endpoints
@@ -114,7 +115,7 @@ If an environment variable is already set in your shell, the CLI will use that v
 
 For example, if you've already set `AZURE_OPENAI_API_KEY` in your terminal session:
 
-```bash
+```sh
 export AZURE_OPENAI_API_KEY="your-api-key-here"
 nlweb init
 ```
@@ -127,7 +128,7 @@ The CLI will detect this value and skip prompting for it during the setup proces
 
 You can switch between different LLM providers or retrieval endpoints at any time by running:
 
-```bash
+```sh
 nlweb init
 ```
 
@@ -137,7 +138,7 @@ The CLI will update your preference in the configuration files and prompt for an
 
 When experiencing issues, run commands with the debug flag:
 
-```bash
+```sh
 nlweb run -d
 ```
 
@@ -147,11 +148,12 @@ This provides detailed logging information that can help identify configuration 
 
 To set up the Python virtual environment:
 
-```bash
+```sh
 nlweb init-python
 ```
 
 This will:
+
 1. Create a Python virtual environment in the `venv` directory
 2. Install all required dependencies from `requirements.txt`
 
@@ -159,13 +161,13 @@ This will:
 
 To activate the virtual environment in your current shell session, you need to source the activation script:
 
-```bash
+```sh
 source venv/bin/activate
 ```
 
 Alternatively, if you need to set up and use the environment in one step, you can use:
 
-```bash
+```sh
 nlweb init-python && source venv/bin/activate
 ```
 
@@ -175,10 +177,11 @@ This will both set up the Python environment and activate it in your current she
 
 To load data from an RSS feed:
 
-```bash
+```sh
 nlweb data-load
 ```
 
 This command will prompt you for:
+
 - An RSS URL to load data from
 - A site name for the loaded data

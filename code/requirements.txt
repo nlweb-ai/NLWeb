@@ -9,6 +9,7 @@ google-generativeai>=0.3.2
 google-cloud-aiplatform>=1.38.0
 jsonschema>=4.19.1
 mcp>=1.0.0
+marshmallow<4.0.0
 python-dotenv>=1.0.0
 pymilvus>=1.1.0
 qdrant-client>=1.14.0
