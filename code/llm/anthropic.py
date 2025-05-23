@@ -45,7 +45,8 @@ class AnthropicProvider(LLMProvider):
             if api_key:
                 api_key = api_key.strip('"')  # Remove quotes if present
                 return api_key
-        return None
+        # If we didn't find a key, the environment variable is not set properly
+        raise ConfigurationError("Environment variable ANTHROPIC_API_KEY is not set")
 
     @classmethod
     def get_client(cls) -> AsyncAnthropic:
