@@ -48,6 +48,9 @@ class LoggingConfig:
         if output_dir:
             # Create logs directory under the output directory
             log_dir = os.path.join(output_dir, os.path.basename(log_dir))
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+                print(f"Created log directory: {log_dir}")
             
         # Store the resolved directory (but don't create it yet)
         self.log_directory = log_dir
