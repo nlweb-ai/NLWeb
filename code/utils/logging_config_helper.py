@@ -177,8 +177,8 @@ def get_logging_config(config_path: str = "config/config_logging.yaml") -> Loggi
 class AsyncLogProcessor:
     """Background processor for handling log writes asynchronously"""
     
-    def __init__(self, flush_interval=1.0):
-        self.log_queue = queue.Queue()
+    def __init__(self, flush_interval=1.0, max_queue_size=1000):
+        self.log_queue = queue.Queue(maxsize=max_queue_size)
         self.flush_interval = flush_interval
         self.shutdown_event = threading.Event()
         self.worker_thread = None
