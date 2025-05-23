@@ -161,10 +161,7 @@ _lazy_loggers = {}
 _logging_config = None
 _async_log_processor = None
 
-import queue
-import threading
-import time
-import atexit
+# Removed redundant imports; moved to the top of the file.
 
 def get_logging_config(config_path: str = "config/config_logging.yaml") -> LoggingConfig:
     """Get or create the singleton logging configuration"""
