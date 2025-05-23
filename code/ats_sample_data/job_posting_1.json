@@ -1,0 +1,8 @@
+{
+  "id": "job001",
+  "title": "Senior Software Engineer (Python)",
+  "description": "We are looking for an experienced Senior Software Engineer proficient in Python to join our dynamic team. Responsibilities include designing, developing, and deploying scalable software solutions. Experience with cloud platforms (AWS/Azure) and microservices is a plus.",
+  "required_skills": ["Python", "Django/Flask", "REST APIs", "SQL/NoSQL", "Git", "Docker"],
+  "nice_to_have_skills": ["AWS", "Azure", "Kubernetes", "Microservices"],
+  "experience_years": 5
+}

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Submit Resume</title>
+</head>
+<body>
+    <h1>Submit Candidate Resume</h1>
+    <form method="POST" enctype="multipart/form-data">
+        <label for="name">Candidate Name:</label><br>
+        <input type="text" id="name" name="name"><br><br>
+        <label for="resume_text">Paste Resume Text:</label><br>
+        <textarea id="resume_text" name="resume_text" rows="10" cols="50"></textarea><br><br>
+        <label for="resume_file">Or Upload Resume File:</label><br>
+        <input type="file" id="resume_file" name="resume_file"><br><br>
+        <input type="submit" value="Submit Resume">
+    </form>
+    <p><a href="/">Back to Home</a></p>
+</body>
+</html>

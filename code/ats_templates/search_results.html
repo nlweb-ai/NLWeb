@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Candidate Search Results</title>
+</head>
+<body>
+    <h1>Candidate Search Results for: "{{ query }}"</h1>
+
+    {% if error_message %}
+        <p style="color: red;">Error: {{ error_message }}</p>
+    {% endif %}
+
+    <h2>NLWeb Synthesized Answer:</h2>
+    {% if nlweb_response and nlweb_response.nlws and nlweb_response.nlws.answer %}
+        <p>{{ nlweb_response.nlws.answer }}</p>
+    {% elif nlweb_response and nlweb_response.answer %} {# Fallback if structure is slightly different #}
+         <p>{{ nlweb_response.answer }}</p>
+    {% else %}
+        <p>No synthesized answer received or an error occurred.</p>
+    {% endif %}
+
+    <h2>Retrieved Candidates:</h2>
+    {% if nlweb_response and nlweb_response.nlws and nlweb_response.nlws.items %}
+        <ul>
+        {% for item in nlweb_response.nlws.items %}
+            <li>
+                <strong>{{ item.name }}</strong> (Score: {{ item.ranking.score if item.ranking else 'N/A' }})<br>
+                <em>{{ item.ranking.description if item.ranking and item.ranking.description else 'No ranking description.' }}</em><br>
+                URL: <a href="{{ item.url }}" target="_blank">{{ item.url }}</a><br>
+                <details>
+                    <summary>View Raw JSON</summary>
+                    <pre>{{ item.schema_object | tojson(indent=2) }}</pre>
+                </details>
+            </li>
+        {% endfor %}
+        </ul>
+    {% elif nlweb_response and nlweb_response.results %} {# Fallback for a slightly different structure #}
+        <ul>
+        {% for item in nlweb_response.results %}
+             <li>
+                <strong>{{ item.name }}</strong> (Score: {{ item.ranking.score if item.ranking else 'N/A' }})<br>
+                <em>{{ item.ranking.description if item.ranking and item.ranking.description else 'No ranking description.' }}</em><br>
+                URL: <a href="{{ item.url }}" target="_blank">{{ item.url }}</a><br>
+                <details>
+                    <summary>View Raw JSON</summary>
+                    <pre>{{ item.schema_object | tojson(indent=2) }}</pre>
+                </details>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No candidate items retrieved or an error occurred.</p>
+    {% endif %}
+    
+    <h3>Full NLWeb Response (for debugging):</h3>
+    <pre>{{ nlweb_response | tojson(indent=2) }}</pre>
+
+    <p><a href="/search_candidates">New Search</a></p>
+    <p><a href="/">Back to Home</a></p>
+</body>
+</html>

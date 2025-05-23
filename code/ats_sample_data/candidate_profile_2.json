@@ -1,0 +1,15 @@
+{
+  "id": "cand002",
+  "name": "Bob The Builder",
+  "email": "bob.b@example.com",
+  "skills": ["JavaScript", "React", "HTML5", "CSS3", "Node.js", "Express.js", "MongoDB"],
+  "experience": [
+    {
+      "title": "UI Developer",
+      "company": "Creative Designs Co.",
+      "years": 3,
+      "summary": "Built responsive user interfaces for various clients using React and modern JavaScript. Collaborated with designers to implement pixel-perfect designs."
+    }
+  ],
+  "resume_text": "Bob The Builder - bob.b@example.com\n\nSummary: Frontend developer with 3 years of experience in creating engaging user interfaces with React, JavaScript, HTML, and CSS. Proven ability to translate design mockups into functional web components.\n\nExperience:\nUI Developer, Creative Designs Co. (3 years)\n- Built responsive user interfaces for various clients using React and modern JavaScript.\n- Collaborated with designers to implement pixel-perfect designs.\n\nSkills: React, JavaScript (ES6+), HTML5, CSS3, Redux, Webpack, Node.js (basic), Express.js (basic), MongoDB (basic)."
+}

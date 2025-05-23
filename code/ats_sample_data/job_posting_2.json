@@ -1,0 +1,8 @@
+{
+  "id": "job002",
+  "title": "Frontend Developer (React)",
+  "description": "Seeking a creative Frontend Developer with a passion for building intuitive user interfaces using React. You will work closely with UX designers and backend engineers to deliver high-quality web applications. Strong understanding of HTML, CSS, and JavaScript is essential.",
+  "required_skills": ["React", "JavaScript (ES6+)", "HTML5", "CSS3", "Redux/ContextAPI", "Webpack"],
+  "nice_to_have_skills": ["TypeScript", "Next.js", "GraphQL", "Jest/React Testing Library"],
+  "experience_years": 3
+}

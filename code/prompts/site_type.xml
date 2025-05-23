@@ -269,4 +269,39 @@
     </Prompt>
   </RealEstate>
 
+  <Type ref="{http://schema.org/}JobPosting">
+      <!-- You can add specific prompts for JobPosting later if needed -->
+  </Type>
+  <Type ref="{http://schema.org/}Person">
+    <Prompt ref="ATSCandidateRankingPrompt">
+      <promptString>
+        You are an expert recruiter. Assign a relevance score between 0 and 100 to the following candidate profile based on how well they match the user's job query or job description.
+        Consider skills, experience, and any other relevant factors from the candidate's profile.
+        The user's job query/description is: "{request.query}".
+        The candidate's profile (in schema.org Person format) is: "{item.description}".
+        Provide a brief explanation for your score, highlighting key matching attributes or significant gaps.
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100 (as a string)",
+          "description": "Brief explanation for the score, highlighting matches or gaps."
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="ATSCandidateSynthesisPrompt">
+      <promptString>
+        You are an expert recruiter. Given the following top-ranked candidate profiles and the user's original job query/description, synthesize a concise summary explaining why these candidates are collectively or individually good matches.
+        Focus on the most relevant skills and experiences. For each candidate mentioned in your summary, ensure their URL (if available in the items) is listed in the 'urls' field of the structured output.
+        The user's job query/description is: {request.query}.
+        The top-ranked candidate profiles are: {request.answers}.
+      </promptString>
+      <returnStruc>
+        {
+          "answer": "Synthesized summary of why the candidates are good matches.",
+          "urls": "List of URLs of the candidate profiles included in the answer, if available."
+        }
+      </returnStruc>
+    </Prompt>
+  </Type>
 </root>

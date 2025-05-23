@@ -1,0 +1,21 @@
+{
+  "id": "cand001",
+  "name": "Alice Wonderland",
+  "email": "alice.w@example.com",
+  "skills": ["Python", "Django", "Flask", "REST APIs", "SQL", "Git", "Docker", "AWS Basics"],
+  "experience": [
+    {
+      "title": "Software Engineer",
+      "company": "Tech Solutions Inc.",
+      "years": 4,
+      "summary": "Developed and maintained web applications using Python and Django. Worked on API development and database management."
+    },
+    {
+      "title": "Junior Developer",
+      "company": "Web Wizards LLC",
+      "years": 2,
+      "summary": "Assisted in frontend and backend development tasks. Gained experience with Flask and basic cloud deployment."
+    }
+  ],
+  "resume_text": "Alice Wonderland - alice.w@example.com\n\nSummary: Experienced Python developer with 6 years in web application development, specializing in Django and Flask frameworks. Proficient in full-stack development, including API design, database management, and cloud deployment on AWS.\n\nExperience:\nSoftware Engineer, Tech Solutions Inc. (4 years)\n- Developed and maintained web applications using Python and Django.\n- Worked on API development and database management.\n\nJunior Developer, Web Wizards LLC (2 years)\n- Assisted in frontend and backend development tasks.\n- Gained experience with Flask and basic cloud deployment.\n\nSkills: Python, Django, Flask, REST APIs, SQL, NoSQL, Git, Docker, AWS, Microservices (basic understanding)."
+}

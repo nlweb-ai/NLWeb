@@ -1,4 +1,4 @@
-preferred_endpoint: azure_ai_search
+preferred_endpoint: qdrant_local
 
 endpoints:
   azure_ai_search:
@@ -19,7 +19,7 @@ endpoints:
     # Use local file-based storage with a specific path
     database_path: "../data/db"
     # Set the collection name to use
-    index_name: nlweb_collection
+    index_name: ats_prototype_collection # Or a new name like ats_collection
     # Specify the database type
     db_type: qdrant
     
