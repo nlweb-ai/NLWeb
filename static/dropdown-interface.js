@@ -311,7 +311,8 @@ export class DropdownInterface {
       { id: 'milvus_1', name: 'Milvus' },
       { id: 'qdrant_local', name: 'Qdrant Local' },
       { id: 'qdrant_url', name: 'Qdrant URL' },
-      { id: 'snowflake_cortex_search_1', name: 'Snowflake_Cortex_Search' }
+      { id: 'snowflake_cortex_search_1', name: 'Snowflake_Cortex_Search' },
+      { id: 'data_commons', name: 'DataCommons'}
     ];
   }
 }

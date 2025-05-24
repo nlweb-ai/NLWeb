@@ -21,6 +21,7 @@ from retrieval.azure_search_client import AzureSearchClient
 from retrieval.milvus_client import MilvusVectorClient
 from retrieval.qdrant import QdrantVectorClient
 from retrieval.snowflake_client import SnowflakeCortexSearchClient
+from retrieval.data_commons_client import DataCommonsSearchClient
 
 logger = get_configured_logger("retriever")
 
@@ -174,6 +175,8 @@ class VectorDBClient:
                 client = QdrantVectorClient(self.endpoint_name)
             elif self.db_type == "snowflake_cortex_search":
                 client = SnowflakeCortexSearchClient(self.endpoint_name)
+            elif self.db_type == 'data_commons':
+                client = DataCommonsSearchClient(self.endpoint_name)
             else:
                 error_msg = f"Unsupported database type: {self.db_type}"
                 logger.error(error_msg)

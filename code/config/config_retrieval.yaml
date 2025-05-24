@@ -1,4 +1,4 @@
-preferred_endpoint: azure_ai_search
+preferred_endpoint: data_commons
 
 endpoints:
   azure_ai_search:
@@ -39,4 +39,9 @@ endpoints:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
     db_type: snowflake_cortex_search
+
+  data_commons:
+    api_key_env: DC_API_KEY
+    index_name: nlweb
+    db_type: data_commons
 
