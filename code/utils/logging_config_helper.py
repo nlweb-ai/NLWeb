@@ -1,5 +1,9 @@
 import yaml
 import os
+import queue
+import threading
+import time
+import atexit
 from typing import Dict, Any, Optional
 from utils.logger import LogLevel, LoggerUtility
 
@@ -232,6 +236,26 @@ class AsyncLogProcessor:
             config = get_logging_config()
             self.real_loggers[module_name] = config.get_logger(module_name)
         return self.real_loggers[module_name]
+    
+    def _dispatch_log(self, logger, level, message, args, kwargs):
+        """Dispatch log message to the appropriate logger method based on level"""
+        try:
+            if level == 'debug':
+                logger.debug(message, *args, **kwargs)
+            elif level == 'info':
+                logger.info(message, *args, **kwargs)
+            elif level == 'warning':
+                logger.warning(message, *args, **kwargs)
+            elif level == 'error':
+                logger.error(message, *args, **kwargs)
+            elif level == 'critical':
+                logger.critical(message, *args, **kwargs)
+            elif level == 'exception':
+                logger.exception(message, **kwargs)
+            elif level == 'log_with_context':
+                logger.log_with_context(args[0], message, args[1])
+        except Exception as e:
+            print(f"Error dispatching log: {e}")
     
     def _flush_all_loggers(self):
         """Force flush all real loggers"""
