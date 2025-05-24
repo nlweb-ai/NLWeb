@@ -20,7 +20,6 @@ logger = get_configured_logger("embedding_wrapper")
 # Add locks for thread-safe provider access
 _provider_locks = {
     "openai": threading.Lock(),
-    "anthropic": threading.Lock(),
     "gemini": threading.Lock(),
     "azure_openai": threading.Lock(),
     "snowflake": threading.Lock()
@@ -80,17 +79,6 @@ async def get_embedding(
                 timeout=timeout
             )
             logger.debug(f"OpenAI embeddings received, dimension: {len(result)}")
-            return result
-
-        if provider == "anthropic":
-            logger.debug("Getting Anthropic embeddings")
-            # Import here to avoid circular imports
-            from embedding.anthropic_embedding import get_anthropic_embeddings
-            result = await asyncio.wait_for(
-                get_anthropic_embeddings(text, model=model_id),
-                timeout=timeout
-            )
-            logger.debug(f"Anthropic embeddings received, dimension: {len(result)}")
             return result
 
         if provider == "gemini":
@@ -218,21 +206,6 @@ async def batch_get_embeddings(
             )
             logger.debug(f"Snowflake batch embeddings received, count: {len(result)}")
             return result
-            
-        if provider == "anthropic":
-            # Anthropic might not have a native batch API, so process one by one
-            logger.debug("Getting Anthropic batch embeddings (sequential)")
-            from embedding.anthropic_embedding import get_anthropic_embeddings
-            # Process texts one by one with individual timeouts
-            results = []
-            for text in texts:
-                embedding = await asyncio.wait_for(
-                    get_anthropic_embeddings(text, model=model_id),
-                    timeout=30  # Individual timeout per text
-                )
-                results.append(embedding)
-            logger.debug(f"Anthropic batch embeddings received, count: {len(results)}")
-            return results
             
         if provider == "gemini":
             # Gemini might not have a native batch API, so process one by one

@@ -30,7 +30,7 @@ With this command, three things happen in the following order:
 The command structure for this is as follows - run this while in your `myenv` virtual environment from the 'code' folder:
 
 ```sh
-python db_load.py <file-path> <site-name>
+python -m tools.db_load <file-path> <site-name>
 ```
 
 The 'file-path' can be a URL or local path.  The 'site-name' is what the data source is called if you want to scope your search (in code/config_nlweb.yaml) or need to remove the site and/or entries.

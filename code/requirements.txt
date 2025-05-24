@@ -5,11 +5,13 @@ azure-identity>=1.15.0
 anthropic>=0.18.1
 chardet>=5.2.0
 openai>=1.12.0
-google-generativeai>=0.3.2
+google-genai>=0.7.1
 google-cloud-aiplatform>=1.38.0
 jsonschema>=4.19.1
 mcp>=1.0.0
 marshmallow<4.0.0
+packaging<24,>=16.8
+protobuf<5,>=3.20
 python-dotenv>=1.0.0
 pymilvus>=1.1.0
 qdrant-client>=1.14.0
