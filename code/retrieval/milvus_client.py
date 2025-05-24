@@ -43,24 +43,17 @@ class MilvusVectorClient:
         
         # Get endpoint configuration
         self.endpoint_config = self._get_endpoint_config()
-        self.default_collection_name = self.endpoint_config.index_name or "prod_collection"
         
-        uri_from_env = os.getenv("MILVUS_ENDPOINT")
-        # If the environment variable is set, use it as the URI to override the endpoint configuration
-        if uri_from_env:
-            self.uri = uri_from_env
-            self.token = os.getenv("MILVUS_TOKEN", None)
-            logger.info(f"Using Milvus URI from environment variable: {uri_from_env}")
-        else:
-            self.uri = self.endpoint_config.database_path
-            self.token = None
-            logger.info(f"Using local database path URI from endpoint configuration: {self.uri}")
+        self.uri = self.endpoint_config.api_endpoint
+        self.token = self.endpoint_config.api_key
 
         if not self.uri:
-            error_msg = f"database_path is not set for endpoint: {self.endpoint_name}"
+            error_msg = f"Milvus URI is empty. Please check if you have set MILVUS_ENDPOINT env var or milvus.api_endpoint in config_retrieval.yaml properly."
             logger.error(error_msg)
             raise ValueError(error_msg)
+        logger.info(f"Using Milvus deployed at : {self.uri}")
             
+        self.default_collection_name = self.endpoint_config.index_name or "prod_collection"
         logger.info(f"Default collection name: {self.default_collection_name}")
     
     def _get_endpoint_config(self):
@@ -102,7 +95,7 @@ class MilvusVectorClient:
                 
                 # Test client connection with a simple search
                 try:
-                    logger.debug("Performing test search to verify connection")
+                    logger.debug("Testing connection to Milvus")
                     self._milvus_clients[client_key].list_collections()
                     logger.info(f"Connection verified for {client_key}")
                 except Exception as e:
