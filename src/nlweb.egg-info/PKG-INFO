@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: nlweb
+Version: 0.1
+Requires-Python: >=3.8
+License-File: LICENSE
+Dynamic: license-file
+Dynamic: requires-python
