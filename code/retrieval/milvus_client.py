@@ -396,8 +396,13 @@ class MilvusVectorClient:
             if res and len(res) > 0:
                 for item in res[0]:
                     ent = item["entity"]
-                    txt = json.dumps(ent["text"])
-                    retval.append([ent["url"], txt, ent["name"], ent["site"]])
+                    try:
+                        # Parse text field as JSON
+                        schema_json = json.loads(ent["text"])
+                        retval.append([ent["url"], schema_json, ent["name"], ent["site"]])
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse text field as JSON: {str(e)}")
+                        continue
             
             logger.info(f"Retrieved {len(retval)} items from Milvus")
             logger.debug(f"First result URL: {retval[0][0] if retval else 'No results'}")
@@ -457,9 +462,14 @@ class MilvusVectorClient:
             return None
         
         item = res[0]
-        txt = json.dumps(item["text"])
-        logger.info(f"Successfully retrieved item for URL: {url}")
-        return [item["url"], txt, item["name"], item["site"]]
+        try:
+            # Parse text field as JSON
+            schema_json = json.loads(item["text"])
+            logger.info(f"Successfully retrieved item for URL: {url}")
+            return [item["url"], schema_json, item["name"], item["site"]]
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse text field as JSON: {str(e)}")
+            return None
     
     async def search_all_sites(self, query: str, num_results: int = 50, 
                              collection_name: Optional[str] = None,

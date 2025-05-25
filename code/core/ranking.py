@@ -80,12 +80,15 @@ The user's question is: {request.query}. The item's description is {item.descrip
             ranking = await ask_llm(prompt, ans_struc, level="low")
             logger.debug(f"Received ranking score: {ranking.get('score', 'N/A')} for item: {name}")
             
+            # Handle both string and dictionary inputs for json_str
+            schema_object = json_str if isinstance(json_str, dict) else json.loads(json_str)
+            
             ansr = {
                 'url': url,
                 'site': site,
                 'name': name,
                 'ranking': ranking,
-                'schema_object': json.loads(json_str),
+                'schema_object': schema_object,
                 'sent': False,
             }
             
