@@ -1,18 +1,48 @@
 # Milvus Configuration Guide
 
-## Environment Setup
+## Overview
 
-Set the environment variables `MILVUS_ENDPOINT` and `MILVUS_TOKEN`(Optional) to configure your Milvus connection.
+This guide explains how to configure and connect to Milvus vector database in different deployment scenarios.
 
-## Connection Options
+## Environment Variables
 
-- **Milvus Lite (Local Development)**: Setting the `MILVUS_ENDPOINT` as a local file, e.g.`./milvus.db`, is the most convenient method, as it automatically utilizes [Milvus Lite](https://milvus.io/docs/milvus_lite.md) to store all data in this file. This is ideal for development, testing, or smaller datasets.
+Configure your Milvus connection using these environment variables:
 
-- **Milvus Server (Self-Hosted)**: If you have a large scale of data, you can set up a more performant [Milvus server](https://milvus.io/docs/install_standalone-docker-compose.md) on Docker or Kubernetes. In this setup, please use the server URI, e.g., `http://localhost:19530`, as your `MILVUS_ENDPOINT`, and the `MILVUS_TOKEN` is optional.
+- `MILVUS_ENDPOINT`: The connection endpoint for your Milvus instance
+- `MILVUS_TOKEN`: (Optional) Authentication token for secure connections
 
-- **Zilliz Cloud (Managed Service)**: If you want to use Zilliz Cloud, the fully managed cloud service for Milvus, adjust the `MILVUS_ENDPOINT` and `MILVUS_TOKEN`, which correspond to the [Public Endpoint and API key](https://docs.zilliz.com/docs/byoc/quick-start#free-cluster-details) in Zilliz Cloud.
+## Deployment Options
+
+### 1. Milvus Lite (Local Development)
+- **Best for**: Development, testing, and small datasets
+- **Setup**: Set `MILVUS_ENDPOINT` to a local file path (e.g., `./milvus.db`)
+- **Features**:
+  - [Milvus Lite](https://milvus.io/docs/milvus_lite.md) is a vector database that runs directly in Python
+  - Stores all data in a local file, ideal for quick prototyping
+  - No additional infrastructure setup required
+
+### 2. Milvus Server (Self-Hosted)
+- **Best for**: Large-scale production deployments
+- **Setup**: 
+  - Set `MILVUS_ENDPOINT` to your server URI (e.g., `http://localhost:19530`)
+  - Optionally set `MILVUS_TOKEN` for authentication
+- **Features**:
+  - Full functionality, scales to billion vectors
+  - Supports Docker (Milvus Standalone) and Kubernetes (Milvus Distributed): [installation guide](https://milvus.io/docs/install-overview.md)
+
+### 3. Zilliz Cloud (Fully Managed Milvus)
+- **Best for**: Production deployments with managed infrastructure
+- **Setup**:
+  - Set `MILVUS_ENDPOINT` to your Zilliz Cloud public endpoint
+  - Set `MILVUS_TOKEN` to your API key
+- **Features**:
+  - Fully managed service available on Azure, AWS and Google Cloud
+  - Zero DevOps required with automatic scaling and high availability
+  - [Start with a free trial](https://cloud.zilliz.com/signup)
 
 ## Additional Resources
 
-- [Milvus Documentation](https://milvus.io/docs)
-- [Zilliz Cloud Documentation](https://docs.zilliz.com/)
+- [Milvus Documentation](https://milvus.io/docs): Comprehensive guides and API references
+- [Zilliz Cloud Documentation](https://docs.zilliz.com/): Managed service documentation
+- [Milvus GitHub Repository](https://github.com/milvus-io/milvus): Source code and issues
+- [Milvus Community](https://milvus.io/discord): Join our Discord community for support
