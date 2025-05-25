@@ -48,7 +48,7 @@ class MilvusVectorClient:
         self.token = self.endpoint_config.api_key
 
         if not self.uri:
-            error_msg = f"Milvus URI is empty. Please check if you have set MILVUS_ENDPOINT env var or milvus.api_endpoint in config_retrieval.yaml properly."
+            error_msg = f"Milvus URI is empty. Please check if you have set MILVUS_ENDPOINT env var or milvus.api_endpoint_env in config_retrieval.yaml properly."
             logger.error(error_msg)
             raise ValueError(error_msg)
         logger.info(f"Using Milvus deployed at : {self.uri}")
