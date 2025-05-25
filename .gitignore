@@ -436,3 +436,5 @@ static/.DS_Store
 
 \#README.md\#
 myenv/
+code/load_directory_to_db.py
+code/testing/results.txt

@@ -53,7 +53,7 @@ class PromptRunner:
             logger.debug(f"Filled prompt length: {len(prompt)} chars")
             
             logger.info(f"Calling LLM with level={level}")
-            response = await ask_llm(prompt, ans_struc, level=level, timeout=timeout)
+            response = await ask_llm(prompt, ans_struc, level=level, timeout=timeout, query_params=self.handler.query_params)
             
             if response is None:
                 logger.warning(f"LLM returned None for prompt '{prompt_name}'")

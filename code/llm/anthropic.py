@@ -122,7 +122,7 @@ class AnthropicProvider(LLMProvider):
             )
         except asyncio.TimeoutError:
             logger.error("Completion request timed out after %s seconds", timeout)
-            raise
+            return {}
 
         # Extract the response content
         content = response.content[0].text

@@ -113,8 +113,9 @@ async def delete_site_from_database(site: str, database: str = None):
     if endpoint_name not in CONFIG.retrieval_endpoints:
         raise ValueError(f"Database endpoint '{endpoint_name}' not found in configuration")
     
-    # Get a client for the specified endpoint
-    client = get_vector_db_client(endpoint_name)
+    # Get a client for the specified endpoint, using query_params for development mode override
+    query_params = {"db": [endpoint_name]} if database else None
+    client = get_vector_db_client(query_params=query_params)
     
     print(f"Deleting entries for site '{site}' from {client.db_type} using endpoint '{endpoint_name}'...")
     
@@ -573,7 +574,7 @@ async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int 
     if is_url_path:
         temp_path, _ = await save_url_content(file_path)
         file_path = temp_path
-    
+    print(f"file_path: {file_path}")
     try:
         resolved_path = None
         
@@ -629,8 +630,9 @@ async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int 
         
         print(f"Found {total_lines} lines in the file")
         
-        # Get client for the specified retrieval endpoint
-        client = get_vector_db_client(endpoint_name)
+        # Get client for the specified retrieval endpoint, using query_params for development mode override
+        query_params = {"db": [endpoint_name]} if database else None
+        client = get_vector_db_client(query_params=query_params)
         
         # Process lines in batches
         batch_documents = []
@@ -755,8 +757,9 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
         if delete_existing:
             await delete_site_from_database(site, endpoint_name)
         
-        # Get client for the specified retrieval endpoint - using the new interface directly
-        client = get_vector_db_client(endpoint_name)
+        # Get client for the specified retrieval endpoint, using query_params for development mode override
+        query_params = {"db": [endpoint_name]} if database else None
+        client = get_vector_db_client(query_params=query_params)
         
         # Get embedding provider from config
         provider = CONFIG.preferred_embedding_provider
@@ -954,8 +957,9 @@ async def loadUrlListToDB(file_path: str, site: str, batch_size: int = 100, dele
         if delete_existing:
             await delete_site_from_database(site, endpoint_name)
         
-        # Get client directly from the factory function
-        client = get_vector_db_client(endpoint_name)
+        # Get client directly from the factory function, using query_params for development mode override
+        query_params = {"db": [endpoint_name]} if database else None
+        client = get_vector_db_client(query_params=query_params)
         
         # Process each URL
         total_documents = 0
