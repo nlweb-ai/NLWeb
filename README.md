@@ -59,6 +59,7 @@ We expect most production deployments to use their own UI. They are also likely 
 
 - [Hello world on your laptop](docs/nlweb-hello-world.md)
 - [Running it on Azure](docs/setup-azure.md)
+- [Running with Docker](docs/docker.md)
 - Running it on GCP... coming soon
 - Running it AWS... coming soon
 
