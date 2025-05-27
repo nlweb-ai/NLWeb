@@ -1,4 +1,4 @@
-preferred_endpoint: azure_ai_search
+preferred_endpoint: postgres
 
 endpoints:
   azure_ai_search:
@@ -39,4 +39,12 @@ endpoints:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
     db_type: snowflake_cortex_search
+    
+  # PostgreSQL with pgvector extension configuration
+  postgres:
+    # Database connection details
+    api_endpoint_env: POSTGRES_CONNECTION_STRING
+    index_name: documents
+    # Specify the database type
+    db_type: postgres
 
