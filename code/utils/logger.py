@@ -110,18 +110,18 @@ class LoggerUtility:
                 os.makedirs(log_dir, exist_ok=True)
                 
             try:
-                # Open in append mode with immediate flush
+                # Use delay=True to defer file opening until first write
                 file_handler = RotatingFileHandler(
                     resolved_log_file,
                     mode='a',
                     maxBytes=10485760,  # 10MB
                     backupCount=5,
-                    delay=False  # Open file immediately
+                    delay=True  # Defer file opening until first write
                 )
                 file_handler.setFormatter(formatter)
                 file_handler.setLevel(level.value)
                 self.logger.addHandler(file_handler)
-                print(f"Logger {name} writing to: {resolved_log_file} at level {level.name}")
+                # Only print when file is actually opened (removed immediate print)
             except Exception as e:
                 print(f"Error setting up log file {resolved_log_file}: {e}")
     
@@ -137,27 +137,22 @@ class LoggerUtility:
     def debug(self, message: str, *args, **kwargs):
         """Log a debug message."""
         self.logger.debug(message, *args, **kwargs)
-        self._force_flush()
     
     def info(self, message: str, *args, **kwargs):
         """Log an info message."""
         self.logger.info(message, *args, **kwargs)
-        self._force_flush()
     
     def warning(self, message: str, *args, **kwargs):
         """Log a warning message."""
         self.logger.warning(message, *args, **kwargs)
-        self._force_flush()
     
     def error(self, message: str, *args, **kwargs):
         """Log an error message."""
         self.logger.error(message, *args, **kwargs)
-        self._force_flush()
     
     def critical(self, message: str, *args, **kwargs):
         """Log a critical message."""
         self.logger.critical(message, *args, **kwargs)
-        self._force_flush()
     
     def _force_flush(self):
         """Force all handlers to flush their buffers."""
