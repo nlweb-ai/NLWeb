@@ -59,21 +59,16 @@ This will start the NLWeb application and expose it on port 8000.
 
 ### Environment Variables
 
-The application requires several environment variables to be set. You should pass these directly to the container without using a .env file:
+The application requires several environment variables to be set. There are two ways to configure these variables:
 
-```bash
-docker run -p 8000:8000 \
-  -e AZURE_VECTOR_SEARCH_ENDPOINT="https://your-search.search.windows.net" \
-  -e AZURE_VECTOR_SEARCH_API_KEY="your-api-key" \
-  -e OPENAI_API_KEY="your-openai-key" \
-  iunera/nlweb:latest
-```
+1. **Using a `.env` file (recommended for local development):**
 
-For local development or testing, you can export all environment variables from your .env file using:
+   When using `docker-compose.yaml`, the environment variables defined in the `code/.env` file are automatically loaded via the `env_file` directive. Ensure your `.env` file contains the required variables:
 
-```bash
-export $(grep -v '^#'  code/.env | xargs)
-
+   ```env
+   AZURE_VECTOR_SEARCH_ENDPOINT=https://your-search.search.windows.net
+   AZURE_VECTOR_SEARCH_API_KEY=your-api-key
+   OPENAI_API_KEY=your-openai-key
 docker run -it -p 8000:8000 \
   -v ./data:/data \
   -e AZURE_VECTOR_SEARCH_ENDPOINT=${AZURE_VECTOR_SEARCH_ENDPOINT} \
