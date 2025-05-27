@@ -38,7 +38,7 @@ COPY static/ /app/static/
 
 # Remove local logs and .env file
 RUN rm -r code/logs/* || true && \
-    rm -r .env || true
+    rm -r code/.env || true
 
     # Copy installed packages from builder stage
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
