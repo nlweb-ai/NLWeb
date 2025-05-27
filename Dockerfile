@@ -17,11 +17,12 @@ RUN apt-get update && \
 # Stage 2: Runtime stage
 FROM python:3.13-slim
 
-# Update system packages for security
+# Apply security updates
 RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+   apt-get install -y --no-install-recommends --only-upgrade \
+       $(apt-get --just-print upgrade | grep "^Inst" | grep -i securi | awk '{print $2}') && \
+   apt-get clean && \
+   rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
