@@ -21,6 +21,7 @@ class ModelConfig:
 
 @dataclass
 class LLMProviderConfig:
+    llm_type: str
     api_key: Optional[str] = None
     models: Optional[ModelConfig] = None
     endpoint: Optional[str] = None
@@ -150,10 +151,10 @@ class AppConfig:
         with open(full_path, "r") as f:
             data = yaml.safe_load(f)
 
-            self.preferred_llm_provider: str = data["preferred_provider"]
-            self.llm_providers: Dict[str, LLMProviderConfig] = {}
+            self.preferred_llm_endpoint: str = data["preferred_endpoint"]
+            self.llm_endpoints: Dict[str, LLMProviderConfig] = {}
 
-            for name, cfg in data.get("providers", {}).items():
+            for name, cfg in data.get("endpoints", {}).items():
                 m = cfg.get("models", {})
                 models = ModelConfig(
                     high=self._get_config_value(m.get("high")),
@@ -164,8 +165,10 @@ class AppConfig:
                 api_key = self._get_config_value(cfg.get("api_key_env"))
                 api_endpoint = self._get_config_value(cfg.get("api_endpoint_env"))
                 api_version = self._get_config_value(cfg.get("api_version_env"))
+                llm_type = self._get_config_value(cfg.get("llm_type"))
                 # Create the LLM provider config - no longer include embedding model
-                self.llm_providers[name] = LLMProviderConfig(
+                self.llm_endpoints[name] = LLMProviderConfig(
+                    llm_type=llm_type,
                     api_key=api_key,
                     models=models,
                     endpoint=api_endpoint,
@@ -444,14 +447,14 @@ class AppConfig:
             
     def get_llm_provider(self, provider_name: Optional[str] = None) -> Optional[LLMProviderConfig]:
         """Get the specified LLM provider config or the preferred one if not specified."""
-        if not hasattr(self, 'llm_providers'):
+        if not hasattr(self, 'llm_endpoints'):
             return None
             
-        if provider_name and provider_name in self.llm_providers:
-            return self.llm_providers[provider_name]
+        if provider_name and provider_name in self.llm_endpoints:
+            return self.llm_endpoints[provider_name]
             
-        if hasattr(self, 'preferred_llm_provider') and self.preferred_llm_provider in self.llm_providers:
-            return self.llm_providers[self.preferred_llm_provider]
+        if hasattr(self, 'preferred_llm_endpoint') and self.preferred_llm_endpoint in self.llm_endpoints:
+            return self.llm_endpoints[self.preferred_llm_endpoint]
             
         return None
 

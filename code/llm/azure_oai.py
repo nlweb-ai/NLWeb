@@ -31,7 +31,7 @@ class AzureOpenAIProvider(LLMProvider):
     @classmethod
     def get_azure_endpoint(cls) -> str:
         """Get the Azure OpenAI endpoint from configuration."""
-        provider_config = CONFIG.llm_providers.get("azure_openai")
+        provider_config = CONFIG.llm_endpoints.get("azure_openai")
         if provider_config and provider_config.endpoint:
             endpoint = provider_config.endpoint
             if endpoint:
@@ -42,7 +42,7 @@ class AzureOpenAIProvider(LLMProvider):
     @classmethod
     def get_api_key(cls) -> str:
         """Get the Azure OpenAI API key from configuration."""
-        provider_config = CONFIG.llm_providers.get("azure_openai")
+        provider_config = CONFIG.llm_endpoints.get("azure_openai")
         if provider_config and provider_config.api_key:
             api_key = provider_config.api_key
             if api_key:
@@ -53,7 +53,7 @@ class AzureOpenAIProvider(LLMProvider):
     @classmethod
     def get_api_version(cls) -> str:
         """Get the Azure OpenAI API version from configuration."""
-        provider_config = CONFIG.llm_providers.get("azure_openai")
+        provider_config = CONFIG.llm_endpoints.get("azure_openai")
         if provider_config and provider_config.api_version:
             api_version = provider_config.api_version
             return api_version
@@ -64,7 +64,7 @@ class AzureOpenAIProvider(LLMProvider):
     @classmethod
     def get_model_from_config(cls, high_tier=False) -> str:
         """Get the appropriate model from configuration based on tier."""
-        provider_config = CONFIG.llm_providers.get("azure_openai")
+        provider_config = CONFIG.llm_endpoints.get("azure_openai")
         if provider_config and provider_config.models:
             model_name = provider_config.models.high if high_tier else provider_config.models.low
             if model_name:
@@ -223,7 +223,7 @@ class AzureOpenAIProvider(LLMProvider):
             logger.error(f"Azure OpenAI request timed out after {timeout} seconds")
             raise
         except Exception as e:
-            logger.exception(f"Error in Azure OpenAI completion: {str(e)}")
+            logger.error(f"Azure OpenAI completion failed: {type(e).__name__}: {str(e)}")
             raise
 
 
