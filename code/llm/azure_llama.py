@@ -34,7 +34,7 @@ class LlamaAzureProvider(LLMProvider):
     def get_azure_endpoint(cls) -> str:
         """Get Llama Azure endpoint from config"""
         logger.debug("Retrieving Llama Azure endpoint from config")
-        provider_config = CONFIG.providers.get("llama_azure")
+        provider_config = CONFIG.llm_endpoints.get("llama_azure")
         if provider_config and provider_config.endpoint:
             endpoint = provider_config.endpoint
             if endpoint:
@@ -48,7 +48,7 @@ class LlamaAzureProvider(LLMProvider):
     def get_api_key(cls) -> str:
         """Get Llama Azure API key from config"""
         logger.debug("Retrieving Llama Azure API key from config")
-        provider_config = CONFIG.providers.get("llama_azure")
+        provider_config = CONFIG.llm_endpoints.get("llama_azure")
         if provider_config and provider_config.api_key:
             api_key = provider_config.api_key
             if api_key:
@@ -62,7 +62,7 @@ class LlamaAzureProvider(LLMProvider):
     def get_api_version(cls) -> str:
         """Get Llama Azure API version from config"""
         logger.debug("Retrieving Llama Azure API version from config")
-        provider_config = CONFIG.providers.get("llama_azure")
+        provider_config = CONFIG.llm_endpoints.get("llama_azure")
         if provider_config and provider_config.api_version:
             logger.debug(f"Llama Azure API version: {provider_config.api_version}")
             return provider_config.api_version
@@ -135,7 +135,7 @@ class LlamaAzureProvider(LLMProvider):
         """Get completion from Llama on Azure"""
         if model is None:
             # Get model from config if not provided
-            provider_config = CONFIG.providers.get("llama_azure")
+            provider_config = CONFIG.llm_endpoints.get("llama_azure")
             model = provider_config.models.high if provider_config else "llama-2-70b"
         
         logger.info(f"Getting Llama completion with model: {model}")
@@ -172,7 +172,7 @@ Only output the JSON object, no additional text or explanation."""
             logger.error(f"Llama completion timed out after {timeout}s")
             raise
         except Exception as e:
-            logger.exception("Error during Llama completion")
+            logger.error(f"Llama completion failed: {type(e).__name__}: {str(e)}")
             raise
 
 
