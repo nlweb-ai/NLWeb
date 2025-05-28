@@ -21,7 +21,8 @@ def should_skip_item(site, item):
             if type_value in skip_types:
                 return True
     elif "@type" not in item:
-        return True
+        print(f"Warning: Item without @type field found for site {site}, keeping item: {str(item)[:100]}...")
+        return False
     return False
 
 # trim the markup without loosing too much of the information that the LLM can use

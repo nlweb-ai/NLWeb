@@ -39,7 +39,7 @@ class AnthropicProvider(LLMProvider):
     def get_api_key(cls) -> str:
         """Retrieve the Anthropic API key from the environment or raise an error."""
         # Get the API key from the preferred provider config
-        provider_config = CONFIG.llm_providers["anthropic"]
+        provider_config = CONFIG.llm_endpoints["anthropic"]
         if provider_config and provider_config.api_key:
             api_key = provider_config.api_key
             if api_key:
@@ -102,7 +102,7 @@ class AnthropicProvider(LLMProvider):
         """
         # If model not provided, get it from config
         if model is None:
-            provider_config = CONFIG.llm_providers["anthropic"]
+            provider_config = CONFIG.llm_endpoints["anthropic"]
             # Use the 'high' model for completions by default
             model = provider_config.models.high
         
