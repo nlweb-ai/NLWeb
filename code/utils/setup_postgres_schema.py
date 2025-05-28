@@ -83,10 +83,10 @@ async def setup_postgres_schema(args):
         print(f"Table '{client.table_name}' does not exist. Creating it...")
         
         # Create the table and indexes
-        def _create_schema(conn):
-            with conn.cursor() as cur:
-                cur.execute(CREATE_TABLE_SQL)
-                conn.commit()
+        async def _create_schema(conn):
+            async with conn.cursor() as cur:
+                await cur.execute(CREATE_TABLE_SQL)
+                await conn.commit()
                 return True
         
         try:
@@ -117,6 +117,10 @@ async def setup_postgres_schema(args):
     print(f"  Primary key: {schema_info.get('primary_key')}")
     print(f"  Vector column: {schema_info.get('vector_column', 'None')} {schema_info.get('vector_dimension', '')}")
     print(f"  Vector indexes: {len(schema_info.get('vector_indexes', []))}")
+    
+    # Close the connection pool when done
+    print("\nClosing connection pool...")
+    await client.close()
     
     print("\nSetup complete!")
     return True

@@ -81,6 +81,10 @@ async def main():
                     print(f"  Text: {doc[0][:100]}...")
                 else:
                     print("Document not found")
+                    
+            # Close the connection pool when done
+            print("\nClosing connection pool...")
+            await client.close()
     
     except Exception as e:
         print(f"\nError: {e}")

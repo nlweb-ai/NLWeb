@@ -32,7 +32,7 @@ providers:
     api_endpoint_env: AZURE_OPENAI_ENDPOINT
     api_version_env: "2024-12-01-preview"
     models:
-      high: gpt-4.1
+      high: gpt-4.1-mini
       low: gpt-4.1-mini
 
   llama_azure:

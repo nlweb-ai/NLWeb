@@ -1,10 +1,10 @@
-# filepath: /Users/abeomorogbe/Library/CloudStorage/OneDrive-Microsoft/Documents/GitHub/NLWeb/code/retrieval/postgres.py
 # Copyright (c) 2025 Microsoft Corporation.
 # Licensed under the MIT License
 
 """
 PostgreSQL Vector Database Client using pgvector - Interface for PostgreSQL operations.
 This client provides vector similarity search functionality using the pgvector extension.
+Uses psycopg3 for improved async support and performance.
 """
 
 import json
@@ -15,10 +15,11 @@ from typing import List, Dict, Union, Optional, Any, Tuple, Set
 
 from urllib.parse import urlparse, parse_qs
 
-# PostgreSQL client library (standard psycopg2)
-import psycopg2
-import psycopg2.extras
-from psycopg2 import pool
+# PostgreSQL client library (psycopg3)
+import psycopg
+from psycopg.rows import dict_row
+from psycopg_pool import AsyncConnectionPool
+import pgvector.psycopg
 
 from config.config import CONFIG
 from embedding.embedding import get_embedding
@@ -90,8 +91,6 @@ class PgVectorClient:
         Returns:
             Dictionary of configuration parameters
         """
-
-
         parsed_url = urlparse(connection_string)
         
         host = parsed_url.hostname
@@ -164,74 +163,36 @@ class PgVectorClient:
                         # Log connection attempt (without sensitive information)
                         logger.info(f"Connecting to PostgreSQL at {self.host}:{self.port}/{self.dbname} with user {self.username}")
                         
-                        # Set up synchronous connection pool with reasonable defaults
-                        # We'll use this with async wrappers
-                        self._pool = pool.ThreadedConnectionPool(
-                            minconn=1,
-                            maxconn=10,
-                            host=self.host,
-                            port=self.port,
-                            dbname=self.dbname,
-                            user=self.username,
-                            password=self.password
+                        # Set up async connection pool with reasonable defaults
+                        conninfo = f"host={self.host} port={self.port} dbname={self.dbname} user={self.username} password={self.password}"
+                        self._pool = AsyncConnectionPool(
+                            conninfo=conninfo,
+                            min_size=1,
+                            max_size=10
                         )
                         logger.info("PostgreSQL connection pool initialized")
                         
                         # Verify pgvector extension is installed
-                        conn = self._pool.getconn()
-                        try:
-                            with conn.cursor() as cur:
-                                cur.execute("SELECT * FROM pg_extension WHERE extname = 'vector'")
-                                if not cur.fetchone():
+                        async with self._pool.connection() as conn:
+                            # Register vector type
+                            await pgvector.psycopg.register_vector_async(conn)
+                            
+                            async with conn.cursor() as cur:
+                                await cur.execute("SELECT * FROM pg_extension WHERE extname = 'vector'")
+                                row = await cur.fetchone()
+                                if not row:
                                     logger.warning("pgvector extension not found in the database")
-                        finally:
-                            self._pool.putconn(conn)
                     
                     except Exception as e:
                         logger.exception(f"Error creating PostgreSQL connection pool: {e}")
                         raise
         
         return self._pool
-    
-    async def _execute_query(self, query_func):
-        """
-        Execute a database query asynchronously by running it in a thread pool.
-        
-        Args:
-            query_func: Function that takes a connection and performs the database query
-            
-        Returns:
-            Query result
-        """
-        pool_obj = await self._get_connection_pool()
-        
-        # Run the database operation in a thread pool to avoid blocking
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, self._run_query, pool_obj, query_func)
-    
-    def _run_query(self, pool_obj, query_func):
-        """
-        Run a query using a connection from the pool.
-        This runs in a thread pool executor.
-        
-        Args:
-            pool_obj: The connection pool
-            query_func: Function that takes a connection and performs the query
-            
-        Returns:
-            Query result
-        """
-        conn = pool_obj.getconn()
-        try:
-            # Set up the cursor to return dictionaries
-            conn.autocommit = False
-            result = query_func(conn)
-            return result
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            pool_obj.putconn(conn)
+
+    async def close(self):
+        """Close the connection pool when done"""
+        if self._pool:
+            await self._pool.close()
     
     async def _execute_with_retry(self, query_func, max_retries=3, initial_backoff=0.1):
         """
@@ -250,9 +211,13 @@ class PgVectorClient:
         
         while True:
             try:
-                return await self._execute_query(query_func)
+                # With psycopg3, we can use async directly
+                async with (await self._get_connection_pool()).connection() as conn:
+                    # Register vector type
+                    await pgvector.psycopg.register_vector_async(conn)
+                    return await query_func(conn)
             
-            except (psycopg2.OperationalError, psycopg2.InternalError) as e:
+            except (psycopg.OperationalError, psycopg.InternalError) as e:
                 # Handle transient errors like connection issues
                 retry_count += 1
                 
@@ -284,16 +249,16 @@ class PgVectorClient:
         """
         logger.info(f"Deleting documents for site: {site}")
         
-        def _delete_docs(conn):
-            with conn.cursor() as cur:
-                cur.execute(
+        async def _delete_docs(conn):
+            async with conn.cursor() as cur:
+                await cur.execute(
                     f"DELETE FROM {self.table_name} WHERE site = %s",
                     (site,)
                 )
                 
                 # Get count of deleted rows
                 count = cur.rowcount
-                conn.commit()
+                await conn.commit()
                 return count
         
         try:
@@ -331,9 +296,8 @@ class PgVectorClient:
             batch = documents[i:i + batch_size]
             logger.debug(f"Processing batch {i//batch_size + 1} with {len(batch)} documents")
             
-            def _upload_batch(conn):
-
-                with conn.cursor() as cur:
+            async def _upload_batch(conn):
+                async with conn.cursor() as cur:
                     # Prepare the query and values
                     placeholders = []
                     values = []
@@ -372,7 +336,7 @@ class PgVectorClient:
                                 doc["name"],
                                 doc["schema_json"],
                                 doc["site"],
-                                doc["embedding"]  # This should be a list of floats
+                                embedding  # This should be a list of floats
                             ])
                             
                         except Exception as e:
@@ -396,15 +360,15 @@ class PgVectorClient:
                             embedding = EXCLUDED.embedding
                     """
                     
-                    print(f"Executing query with {len(values) // 5} rows")
+                    print(f"Executing query with {len(values) // 6} rows")
                     try:
-                        cur.execute(query, values)
+                        await cur.execute(query, values)
                         count = cur.rowcount
-                        conn.commit()
+                        await conn.commit()
                         print(f"Successfully inserted/updated {count} rows")
                         return count
                     except Exception as e:
-                        conn.rollback()
+                        await conn.rollback()
                         print(f"SQL Error: {e}")
                         # Try logging part of the query and values for debugging
                         print(f"Query start: {query[:200]}...")
@@ -468,9 +432,9 @@ class PgVectorClient:
             "euclidean": "<->",        # Euclidean distance
         }.get(similarity_metric, "<=>")  # Default to cosine
         
-        def _search_docs(conn):
-            # Use DictCursor to get results as dictionaries
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        async def _search_docs(conn):
+            # Use dict_row to get results as dictionaries
+            async with conn.cursor(row_factory=dict_row) as cur:
                 # Build WHERE clause for site filtering if needed
                 where_clause = ""
                 params = [query_embedding]
@@ -496,8 +460,8 @@ class PgVectorClient:
                 """
                 
                 params.append(num_results)
-                cur.execute(query_sql, params)
-                rows = cur.fetchall()
+                await cur.execute(query_sql, params)
+                rows = await cur.fetchall()
                 
                 # Format results
                 results = []
@@ -537,16 +501,17 @@ class PgVectorClient:
         """
         logger.info(f"Retrieving item with URL: {url}")
         
-        def _search_by_url(conn):
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                cur.execute(
-                    f"SELECT url, schema_json, site, name FROM {self.table_name} WHERE url LIKE %s",
+        async def _search_by_url(conn):
+            async with conn.cursor(row_factory=dict_row) as cur:
+                await cur.execute(
+                    f"SELECT url, schema_json, site, name FROM {self.table_name} WHERE url ILIKE %s",
                     (f"%{url}%",)
                 )
-                row = cur.fetchone()
+                print(url)
+                row = await cur.fetchone()
                 
                 if row:
-                    return [row["url"], json.dumps(row["schema_json"], indent=4),row["name"], row["site"]]
+                    return [row["url"], json.dumps(row["schema_json"], indent=4), row["name"], row["site"]]
                 return None
         
         try:
@@ -589,7 +554,7 @@ class PgVectorClient:
         """
         logger.info("Testing PostgreSQL connection")
         
-        def _test_connection(conn):
+        async def _test_connection(conn):
             result = {
                 "success": False,
                 "database_version": None,
@@ -607,29 +572,33 @@ class PgVectorClient:
             
             try:
                 # Test basic connection and get PostgreSQL version
-                with conn.cursor() as cur:
-                    cur.execute("SELECT version()")
-                    version = cur.fetchone()[0]
+                async with conn.cursor() as cur:
+                    await cur.execute("SELECT version()")
+                    row = await cur.fetchone()
+                    version = row[0]
                     result["database_version"] = version
                     result["success"] = True
                     
                     # Check if pgvector extension is installed
-                    cur.execute("SELECT * FROM pg_extension WHERE extname = 'vector'")
-                    result["pgvector_installed"] = cur.fetchone() is not None
+                    await cur.execute("SELECT * FROM pg_extension WHERE extname = 'vector'")
+                    row = await cur.fetchone()
+                    result["pgvector_installed"] = row is not None
                     
                     # Check if our table exists
-                    cur.execute("""
+                    await cur.execute("""
                         SELECT EXISTS (
                             SELECT FROM information_schema.tables 
                             WHERE table_name = %s
                         )
                     """, (self.table_name,))
-                    result["table_exists"] = cur.fetchone()[0]
+                    row = await cur.fetchone()
+                    result["table_exists"] = row[0]
                     
                     # If table exists, get document count
                     if result["table_exists"]:
-                        cur.execute(f"SELECT COUNT(*) FROM {self.table_name}")
-                        result["document_count"] = cur.fetchone()[0]
+                        await cur.execute(f"SELECT COUNT(*) FROM {self.table_name}")
+                        row = await cur.fetchone()
+                        result["document_count"] = row[0]
                         
             except Exception as e:
                 logger.exception("Error testing PostgreSQL connection")
@@ -663,7 +632,7 @@ class PgVectorClient:
         """
         logger.info(f"Checking table schema for {self.table_name}")
         
-        def _check_schema(conn):
+        async def _check_schema(conn):
             schema_info = {
                 "table_exists": False,
                 "columns": {},
@@ -674,15 +643,16 @@ class PgVectorClient:
             }
             
             try:
-                with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+                async with conn.cursor(row_factory=dict_row) as cur:
                     # Check if table exists
-                    cur.execute("""
+                    await cur.execute("""
                         SELECT EXISTS (
                             SELECT FROM information_schema.tables 
                             WHERE table_name = %s
                         )
                     """, (self.table_name,))
-                    schema_info["table_exists"] = cur.fetchone()[0]
+                    row = await cur.fetchone()
+                    schema_info["table_exists"] = row["exists"]
                     
                     if not schema_info["table_exists"]:
                         schema_info["needs_corrections"].append(
@@ -691,13 +661,13 @@ class PgVectorClient:
                         return schema_info
                     
                     # Get column information
-                    cur.execute("""
+                    await cur.execute("""
                         SELECT column_name, data_type, is_nullable
                         FROM information_schema.columns
                         WHERE table_name = %s
                     """, (self.table_name,))
                     
-                    columns = cur.fetchall()
+                    columns = await cur.fetchall()
                     for col in columns:
                         schema_info["columns"][col["column_name"]] = {
                             "data_type": col["data_type"],
@@ -721,7 +691,7 @@ class PgVectorClient:
                             )
                     
                     # Check for vector column (pgvector special handling)
-                    cur.execute("""
+                    await cur.execute("""
                         SELECT a.attname, format_type(a.atttypid, a.atttypmod) as data_type
                         FROM pg_attribute a
                         JOIN pg_class c ON a.attrelid = c.oid
@@ -731,7 +701,7 @@ class PgVectorClient:
                         AND NOT a.attisdropped
                     """, (self.table_name,))
                     
-                    pg_columns = cur.fetchall()
+                    pg_columns = await cur.fetchall()
                     for col in pg_columns:
                         if "vector" in col["data_type"]:
                             schema_info["has_vector_column"] = True
@@ -744,7 +714,7 @@ class PgVectorClient:
                         )
                     
                     # Check for indexes (including vector indexes)
-                    cur.execute("""
+                    await cur.execute("""
                         SELECT
                             i.relname as index_name,
                             array_agg(a.attname) as column_names,
@@ -766,7 +736,7 @@ class PgVectorClient:
                             ix.indisprimary
                     """, (self.table_name,))
                     
-                    indexes = cur.fetchall()
+                    indexes = await cur.fetchall()
                     for idx in indexes:
                         if idx["is_primary"]:
                             schema_info["primary_key"] = idx["column_names"]
@@ -840,6 +810,9 @@ if __name__ == "__main__":
                 print(f"  Text: {result[0][:50]}...")
                 print(f"  URL: {result[1]}")
                 print(f"  Context: {result[2][:30]}..." if result[2] else "  No context")
+        
+        # Close connection pool
+        await client.close()
     
     # Run the test
     # asyncio.run(test_pgvector_client())

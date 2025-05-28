@@ -34,6 +34,21 @@ In the `code` directory run
 python utils/setup_postgres_schema.py
 ```
 
+### Dependencies
+
+Make sure you have the required Python packages installed:
+
+```bash
+# Install PostgreSQL client libraries
+pip install "psycopg[binary]" "psycopg[pool]" pgvector
+```
+
+The following packages are needed:
+- `psycopg` - The PostgreSQL adapter for Python (psycopg3)
+- `psycopg[binary]` - Binary dependencies for psycopg
+- `psycopg[pool]` - Connection pooling support
+- `pgvector` - Support for pgvector operations (vector types and indexing)
+
 ### Configuration
 
 Configure PostgreSQL in the `config_retrieval.yaml` file:

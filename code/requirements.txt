@@ -19,6 +19,6 @@ aiohttp>=3.9.1
 pyyaml>=6.0.1
 feedparser>=6.0.1
 httpx>=0.28.1
-psycopg2-binary>=2.9.9  # PostgreSQL adapter with binary distribution
+psycopg-binary>=3.1.12  # PostgreSQL adapter (psycopg3)
+psycopg-pool>=3.2.0  # Connection pooling for psycopg3
 pgvector>=0.2.3  # pgvector Python client for PostgreSQL vector operations
-
