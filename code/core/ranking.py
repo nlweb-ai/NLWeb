@@ -107,6 +107,10 @@ The user's question is: {request.query}. The item's description is {item.descrip
             logger.error(f"Error in rankItem for {name}: {str(e)}")
             logger.debug(f"Full error trace: ", exc_info=True)
             print(f"Error in rankItem for {name}: {str(e)}")
+            # Import here to avoid circular import
+            from config.config import CONFIG
+            if CONFIG.should_raise_exceptions():
+                raise  # Re-raise in testing/development mode
 
     def shouldSend(self, result):
         # Don't send if we've already reached the limit

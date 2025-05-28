@@ -151,7 +151,7 @@ async def run_system_test(query: str, prev: List[str], site: str, model: str,
 
 
 def run_system_test_sync(query: str, prev: List[str], site: str, model: str,
-                        generate_mode: str, retrieval_backend: str, **kwargs) -> int:
+                        generate_mode: str, retrieval_backend: str, **kwargs) -> tuple[int, str]:
     """
     Synchronous wrapper for run_system_test.
     
@@ -165,13 +165,16 @@ def run_system_test_sync(query: str, prev: List[str], site: str, model: str,
         **kwargs: Additional query parameters
         
     Returns:
-        int: Number of results in the answer, or -1 if error occurred
+        tuple[int, str]: (Number of results in the answer, error message if any)
+                        Returns (-1, error_message) if error occurred
     """
     try:
-        return asyncio.run(run_system_test(query, prev, site, model, generate_mode, retrieval_backend, **kwargs))
+        result_count = asyncio.run(run_system_test(query, prev, site, model, generate_mode, retrieval_backend, **kwargs))
+        return result_count, None
     except Exception as e:
-        logger.error(f"Error in synchronous system test: {e}")
-        return -1
+        error_msg = str(e)
+        logger.error(f"Error in synchronous system test: {error_msg}")
+        return -1, error_msg
 
 
 def generate_test_combinations(args):
@@ -264,7 +267,7 @@ def run_single_test_combination(args, test_config, combination_num, total_combin
                 'error': detailed_result.get('error')
             }
         else:
-            count = run_system_test_sync(
+            count, error_message = run_system_test_sync(
                 query=args.query,
                 prev=args.prev,
                 site=args.site,
@@ -273,13 +276,17 @@ def run_single_test_combination(args, test_config, combination_num, total_combin
                 retrieval_backend=args.retrieval_backend,
                 **test_kwargs
             )
-            print(f"✓ Success: {count} results")
+            
+            if count >= 0:
+                print(f"✓ Success: {count} results")
+            else:
+                print(f"✗ Failed: {error_message if error_message else 'Unknown error'}")
             
             return {
                 'config': test_config,
                 'success': count >= 0,
                 'result_count': count,
-                'error': None if count >= 0 else 'Unknown error'
+                'error': error_message if count < 0 else None
             }
             
     except Exception as e:
@@ -592,7 +599,7 @@ def run_json_tests(json_file_path: str) -> Dict[str, Any]:
                     # Get default model from config
                     defaults = get_config_defaults()
                     
-                    result_count = run_system_test_sync(
+                    result_count, error_message = run_system_test_sync(
                         query=test_case['query'],
                         prev=test_case['prev'],
                         site=test_case['site'],
@@ -603,18 +610,35 @@ def run_json_tests(json_file_path: str) -> Dict[str, Any]:
                     )
                     
                     test_case['result_count'] = result_count
-                    test_case['success'] = result_count >= 0
+                    if error_message:
+                        test_case['error'] = error_message
+                    # In testing mode, 0 results should be considered failure if errors occurred
+                    # Check if we're in testing mode and got 0 results
+                    if CONFIG.is_testing_mode() and result_count == 0:
+                        test_case['success'] = False
+                        test_case['error'] = test_case.get('error') or "No results returned in testing mode"
+                    else:
+                        test_case['success'] = result_count >= 0
                     
                     if test_case['success']:
                         print(f"  PASSED: {result_count} results")
                         passed_tests += 1
                     else:
+                        error_details = test_case.get('error', 'Unknown error')
                         print(f"  FAILED: Error occurred (result_count = {result_count})")
+                        if CONFIG.is_testing_mode() and error_details and error_details != 'Unknown error':
+                            print(f"  Error details: {error_details}")
                         failed_tests += 1
                         
                 except Exception as e:
                     test_case['error'] = str(e)
-                    print(f"  FAILED: {e}")
+                    if CONFIG.is_testing_mode():
+                        print(f"  FAILED: {e}")
+                        # In testing mode, print detailed error information
+                        import traceback
+                        print(f"  Error details: {traceback.format_exc()}")
+                    else:
+                        print(f"  FAILED: {e}")
                     failed_tests += 1
                 
                 test_results.append(test_case)
@@ -822,7 +846,25 @@ python run_tests.py --help
 
 if __name__ == "__main__":
     parser = create_argument_parser()
+    
+    # Add mode argument to override config
+    parser.add_argument(
+        '--mode',
+        choices=['development', 'production', 'testing'],
+        default=None,
+        help='Override the application mode from config (defaults to config value)'
+    )
+    
     args = parser.parse_args()
+    
+    # Override mode if specified, otherwise set to testing by default
+    if args.mode:
+        CONFIG.set_mode(args.mode)
+        print(f"Mode overridden to: {args.mode}")
+    else:
+        # Default to testing mode for test runs
+        CONFIG.set_mode('testing')
+        print("Mode set to: testing (default for tests)")
     
     if args.example:
         # Run single example test
@@ -830,7 +872,7 @@ if __name__ == "__main__":
         try:
             print("Running single test example...")
             print(f"Using config defaults: site={defaults['site']}, model={defaults['model']}, generate_mode={defaults['generate_mode']}, retrieval_backend={defaults['retrieval_backend']}")
-            count = run_system_test_sync(
+            count, error_message = run_system_test_sync(
                 query="What are some popular pasta recipes?",
                 prev=defaults['prev'],
                 site=defaults['site'], 
@@ -838,7 +880,10 @@ if __name__ == "__main__":
                 generate_mode=defaults['generate_mode'],
                 retrieval_backend=defaults['retrieval_backend']
             )
-            print(f"Test completed with {count} results")
+            if count >= 0:
+                print(f"Test completed with {count} results")
+            else:
+                print(f"Test failed: {error_message if error_message else 'Unknown error'}")
         except Exception as e:
             print(f"Test failed: {e}")
             

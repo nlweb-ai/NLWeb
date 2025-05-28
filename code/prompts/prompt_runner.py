@@ -67,7 +67,15 @@ class PromptRunner:
             return response
             
         except Exception as e:
-            logger.error(f"Error in run_prompt for '{prompt_name}': {type(e).__name__}: {str(e)}")
+            from config.config import CONFIG
+            error_msg = f"Error in run_prompt for '{prompt_name}': {type(e).__name__}: {str(e)}"
+            logger.error(error_msg)
             logger.debug("Full traceback:", exc_info=True)
-            print(f"ERROR in run_prompt: {type(e).__name__}: {str(e)}")
-            return None
+            
+            if CONFIG.should_raise_exceptions():
+                # In testing/development mode, re-raise with enhanced error message
+                raise Exception(f"LLM call failed for prompt '{prompt_name}': {type(e).__name__}: {str(e)}") from e
+            else:
+                # In production mode, log and return None
+                print(f"ERROR in run_prompt: {type(e).__name__}: {str(e)}")
+                return None

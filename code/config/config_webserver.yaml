@@ -1,10 +1,11 @@
 port: 8000
 static_directory: ../../
 
-# the system can be run in development or production mode.
+# the system can be run in development, production, or testing mode.
 # if development, various config params can be overridden with query params
 # obviously, this cannot be allowed in production.
-mode: development # or production. 
+# in testing mode, exceptions are raised instead of being caught for better error visibility
+mode: development # or production or testing. 
 
 
 # Additional optional configurations
