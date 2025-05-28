@@ -57,10 +57,14 @@ async def setup_postgres_schema(args):
     
     # First test the connection
     print("Testing PostgreSQL connection...")
-    connection_info = await client.test_connection()
-    
-    if not connection_info.get("success"):
-        print(f"ERROR: Could not connect to PostgreSQL: {connection_info.get('error')}")
+    try:
+        connection_info = await client.test_connection()
+        
+        if not connection_info.get("success"):
+            print(f"ERROR: Could not connect to PostgreSQL: {connection_info.get('error')}")
+            return False
+    except Exception as e:
+        print(f"ERROR: Could not connect to PostgreSQL: {e}")
         return False
     
     print(f"Successfully connected to PostgreSQL {connection_info.get('database_version')}")
@@ -83,10 +87,10 @@ async def setup_postgres_schema(args):
         print(f"Table '{client.table_name}' does not exist. Creating it...")
         
         # Create the table and indexes
-        def _create_schema(conn):
-            with conn.cursor() as cur:
-                cur.execute(CREATE_TABLE_SQL)
-                conn.commit()
+        async def _create_schema(conn):
+            async with conn.cursor() as cur:
+                await cur.execute(CREATE_TABLE_SQL)
+                await conn.commit()
                 return True
         
         try:
@@ -94,6 +98,7 @@ async def setup_postgres_schema(args):
             print(f"Successfully created table '{client.table_name}' and indexes")
         except Exception as e:
             print(f"ERROR creating schema: {e}")
+            await client.close()  # Make sure to close the connection on error
             return False
     else:
         print(f"Table '{client.table_name}' already exists")
@@ -118,6 +123,10 @@ async def setup_postgres_schema(args):
     print(f"  Vector column: {schema_info.get('vector_column', 'None')} {schema_info.get('vector_dimension', '')}")
     print(f"  Vector indexes: {len(schema_info.get('vector_indexes', []))}")
     
+    # Close the connection pool when done
+    print("\nClosing connection pool...")
+    await client.close()
+    
     print("\nSetup complete!")
     return True
 
@@ -127,4 +136,13 @@ if __name__ == "__main__":
     parser.add_argument("--fix", action="store_true", help="Attempt to fix schema issues if any are found")
     args = parser.parse_args()
     
-    asyncio.run(setup_postgres_schema(args))
+    async def main():
+        try:
+            return await setup_postgres_schema(args)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    asyncio.run(main())

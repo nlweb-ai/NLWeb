@@ -92,6 +92,10 @@ async def test_postgres_connection():
             
             print("\nConnection configuration:")
             pprint(connection_info["configuration"])
+            
+            # Close the connection pool when done
+            print("\nClosing connection pool...")
+            await client.close()
     
     except Exception as e:
         print(f"\nError testing PostgreSQL connection: {e}")

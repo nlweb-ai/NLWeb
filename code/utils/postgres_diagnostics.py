@@ -37,6 +37,13 @@ try:
     from config.config import CONFIG
     print("Successfully imported CONFIG")
     
+    # Add import for PgVectorClient
+    try:
+        from retrieval.postgres import PgVectorClient
+        print("Successfully imported PgVectorClient")
+    except ImportError as e:
+        print(f"Failed to import PgVectorClient: {e}")
+    
 except ImportError as e:
     print(f"Failed to import required modules: {e}")
     print(f"Make sure you're running this script from the code directory: {code_dir}")
@@ -144,6 +151,37 @@ async def diagnose_postgres_config():
     index_name: documents
     db_type: postgres
 """)
+    # Test connection with psycopg3 client
+    print("\n=== Testing Connection with psycopg3 Client ===")
+    try:
+        client = PgVectorClient("postgres")
+        
+        print("Testing database connection...")
+        connection_info = await client.test_connection()
+        
+        print("\nConnection test results:")
+        print(f"  Success: {connection_info.get('success', False)}")
+        
+        if connection_info.get("error"):
+            print(f"  Error: {connection_info['error']}")
+            if "vector type not found in the database" in connection_info.get("error", ""):
+                print("\nPossible pgvector extension issue:")
+                print("  - Make sure the pgvector extension is installed in the database")
+                print("  - Run 'CREATE EXTENSION IF NOT EXISTS vector;' in your PostgreSQL database")
+                print("  - Refer to https://github.com/pgvector/pgvector for installation instructions")
+        else:
+            print(f"  PostgreSQL version: {connection_info.get('database_version')}")
+            print(f"  pgvector installed: {connection_info.get('pgvector_installed')}")
+            print(f"  Table exists: {connection_info.get('table_exists')}")
+            print(f"  Document count: {connection_info.get('document_count')}")
+        
+        # Close connection pool
+        await client.close()
+        
+    except Exception as e:
+        print(f"ERROR testing connection: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     asyncio.run(diagnose_postgres_config())
