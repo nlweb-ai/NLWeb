@@ -8,7 +8,9 @@ This will get you up and running, using a local vector database and RSS feeds we
 
 ## Prerequisites
 
-These instructions assume that you have Python 3.10+ installed locally.
+These instructions assume that you have:
+- Python 3.10+ installed locally.
+- Docker and Qdrant setup to run the local qudrant instance. See [Setup Docker and Quadrant](https://github.com/nlweb/docs/setup-docker-local.md)
 
 ## From the Terminal
 
@@ -43,9 +45,9 @@ These instructions assume that you have Python 3.10+ installed locally.
 
     - config_llm.yaml: Update the first line to the LLM provider you set in the .env file.  By default it is Azure OpenAI.  You can also adjust the models you call here by updating the models noted.  By default, we are assuming 4.1 and 4.1-mini.
     - config_embedding.yaml: Update the first line to your preferred embedding provider.  By default it is Azure OpenAI, using text-embedding-3-small.
-    - config_retrieval.yaml: Update this to qdrant_local for this exercise.  By default, this is Azure AI Search.
+    - config_retrieval.yaml: Update this to qdrant_local for this exercise (when running locally).  By default, this is Azure AI Search.
 
-6. Now we will load some data in our local vector database to test with. We've listed a few RSS feeds you can choose from below. Note, you can also load all of these on top of each other to have multiple 'sites' to search across as well.  By default it will search all sites you load, but this is configured in config_nlweb.yaml if you want to scope your search to specific sites.
+6. Now we will load some data in our local vector database to test with. We've listed a few RSS feeds you can choose from below. Note, you can also load all of these on top of each other to have multiple 'sites' to search across as well.  By default it will search all sites you load, but this is configured in config_nlweb.yaml if you want to scope your search to specific sites. 
 
     The format of the command is as follows (make sure you are still in the 'code' folder when you run this):
 
