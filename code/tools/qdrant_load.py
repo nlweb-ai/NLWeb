@@ -7,17 +7,17 @@ from db_create_utils import documentsFromCSVLine
 
 # To use a local persistent instance for prototyping,
 # set database_path to a local directory
-QDRANT_PATH = "/path/to/some/directory"
+# QDRANT_PATH = "/path/to/some/directory"
 
 # To connect to a Qdrant server, set the `QDRANT_URL` and optionally `QDRANT_API_KEY`.
 # > docker run -p 6333:6333 qdrant/qdrant
-QDRANT_URL = None
+QDRANT_URL = 'http://localhost:6333'
 QDRANT_API_KEY = None
 
 COLLECTION_NAME = "nlweb_collection"
 EMBEDDING_SIZE = 1536
 
-EMBEDDINGS_PATH_SMALL = "/Users/anush/Desktop/NLWeb/data/sites/embeddings/small"
+EMBEDDINGS_PATH_SMALL = "/data/small"
 
 # Initialize Qdrant client
 client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, path=QDRANT_PATH)

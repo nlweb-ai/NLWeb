@@ -1,4 +1,4 @@
-preferred_endpoint: azure_ai_search
+preferred_endpoint: qdrant_local
 
 endpoints:
   azure_ai_search:
@@ -14,7 +14,7 @@ endpoints:
   #   index_name: prod_collection
   #   db_type: milvus
 
-  # Option 1: Local file-based Qdrant storage
+  # Option 1: Local file-based Qdrant storage / running at http://localhost:6333/dashboard#/welcome
   qdrant_local:
     # Use local file-based storage with a specific path
     database_path: "../data/db"
