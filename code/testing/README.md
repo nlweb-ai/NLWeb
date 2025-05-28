@@ -1,6 +1,8 @@
 # NLWeb Testing Framework
 
-This testing framework allows you to run system tests for NLWeb to validate query responses and system functionality.
+This testing framework allows you to run system tests for NLWeb to validate query responses and system functionality. 
+
+These commands should be run from the code directory.  
 
 ## Files
 
@@ -12,48 +14,48 @@ This testing framework allows you to run system tests for NLWeb to validate quer
 ### Running Tests from JSON File
 
 ```bash
-python run_tests.py --file tests.json
+python -m testing.run_tests --file testing\tests.json
 ```
 
 ### Running Single Tests
 
 ```bash
 # Basic single test (uses config defaults)
-python run_tests.py --query "give me spicy crunchy snacks"
+python -m testing.run_tests --query "give me spicy crunchy snacks"
 
 # Single test with specific site
-python run_tests.py --query "give me spicy crunchy snacks" --site seriouseats
+python -m testing.run_tests --query "give me spicy crunchy snacks" --site seriouseats
 
 # Single test with all sites
-python run_tests.py --query "give me spicy crunchy snacks" --site all
+python -m testing.run_tests --query "give me spicy crunchy snacks" --site all
 
 # Single test with custom parameters
-python run_tests.py --query "give me spicy crunchy snacks" --site seriouseats --model gpt-4o --generate_mode summarize
+python -m testing.run_tests --query "give me spicy crunchy snacks" --site seriouseats --model gpt-4o --generate_mode summarize
 
 # Single test with previous queries for context
-python run_tests.py --query "with more protein" --prev "give me spicy crunchy snacks" --site seriouseats
+python -m testing.run_tests --query "with more protein" --prev "give me spicy crunchy snacks" --site seriouseats
 
 # Show detailed results (name, description, url, score)
-python run_tests.py --query "give me spicy crunchy snacks" --site seriouseats --show_results
+python -m testing.run_tests --query "give me spicy crunchy snacks" --site seriouseats --show_results
 ```
 
 ### Testing Multiple Configurations
 
 ```bash
 # Test all available LLM providers
-python run_tests.py --query "give me spicy crunchy snacks" --site seriouseats --llm_provider all
+python -m testing.run_tests --query "give me spicy crunchy snacks" --site seriouseats --llm_provider all
 
 # Test all generation modes
-python run_tests.py --query "give me spicy crunchy snacks" --site seriouseats --generate_mode all
+python -m testing.run_tests --query "give me spicy crunchy snacks" --site seriouseats --generate_mode all
 
 # Test all providers and all modes
-python run_tests.py --query "give me spicy crunchy snacks" --site seriouseats --llm_provider all --generate_mode all
+python -m testing.run_tests --query "give me spicy crunchy snacks" --site seriouseats --llm_provider all --generate_mode all
 ```
 
 ### Running Example Test
 
 ```bash
-python run_tests.py --example
+python -m testing.run_tests --example
 ```
 
 ## Test JSON Format

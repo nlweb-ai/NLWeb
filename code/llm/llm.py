@@ -162,7 +162,7 @@ def get_available_providers() -> list:
     """
     available_providers = []
     
-    for provider_name, provider_config in CONFIG.llm_providers.items():
+    for provider_name, provider_config in CONFIG.llm_endpoints.items():
         # Check if provider config exists and has required fields
         if (provider_config and 
             hasattr(provider_config, 'api_key') and provider_config.api_key and 
