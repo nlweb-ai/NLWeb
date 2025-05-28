@@ -33,6 +33,7 @@ code/
 |   ├── embedding.py              #
 |   ├── gemini_embedding.py       #
 |   ├── openai_embedding.py       #
+|   ├── qwen_embedding.py       #
 |   ├── snowflake_embedding.py    #
 ├── llm/
 |   ├── anthropic.py              #
@@ -44,6 +45,7 @@ code/
 |   ├── llm_provider.py           #
 |   ├── llm.py                    #
 |   ├── openai.py                 #
+|   ├── qwen.py                 #
 |   └── snowflake.py              #
 ├── logs/                         # folder to which all logs are sent
 ├── pre_retrieval/

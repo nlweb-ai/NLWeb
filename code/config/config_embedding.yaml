@@ -13,7 +13,7 @@ providers:
   azure_openai:
     api_key_env: AZURE_OPENAI_API_KEY
     api_endpoint_env: AZURE_OPENAI_ENDPOINT
-    api_version_env: "2024-10-21"  # Specific API version for embeddings
+    api_version_env: "2024-10-21" # Specific API version for embeddings
     model: text-embedding-3-small
 
   snowflake:
@@ -21,3 +21,8 @@ providers:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     api_version_env: "2024-10-01"
     model: snowflake-arctic-embed-m-v1.5
+
+  qwen:
+    api_key_env: QWEN_API_KEY
+    api_endpoint_env: QWEN_ENDPOINT
+    model: text-embedding-v3

@@ -67,3 +67,11 @@ endpoints:
     models:
       high: claude-3-5-sonnet
       low: llama3.1-8b
+  
+  qwen:
+    api_key_env: QWEN_API_KEY
+    api_endpoint_env: QWEN_ENDPOINT
+    llm_type: qwen
+    models:
+      high: qwen3-235b-a22b
+      low: qwen3-30b-a3b
