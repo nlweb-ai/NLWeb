@@ -92,6 +92,9 @@ python utils/postgres_example.py
 
 # Run diagonostics
 python utils/postgres_diagnostics.py 
+
+# Test if pgvector version is functioning as expected
+python utils/test_pgvector.py
 ```
 
 Common issues:

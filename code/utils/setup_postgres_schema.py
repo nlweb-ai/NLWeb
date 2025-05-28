@@ -57,10 +57,14 @@ async def setup_postgres_schema(args):
     
     # First test the connection
     print("Testing PostgreSQL connection...")
-    connection_info = await client.test_connection()
-    
-    if not connection_info.get("success"):
-        print(f"ERROR: Could not connect to PostgreSQL: {connection_info.get('error')}")
+    try:
+        connection_info = await client.test_connection()
+        
+        if not connection_info.get("success"):
+            print(f"ERROR: Could not connect to PostgreSQL: {connection_info.get('error')}")
+            return False
+    except Exception as e:
+        print(f"ERROR: Could not connect to PostgreSQL: {e}")
         return False
     
     print(f"Successfully connected to PostgreSQL {connection_info.get('database_version')}")
@@ -94,6 +98,7 @@ async def setup_postgres_schema(args):
             print(f"Successfully created table '{client.table_name}' and indexes")
         except Exception as e:
             print(f"ERROR creating schema: {e}")
+            await client.close()  # Make sure to close the connection on error
             return False
     else:
         print(f"Table '{client.table_name}' already exists")
@@ -131,4 +136,13 @@ if __name__ == "__main__":
     parser.add_argument("--fix", action="store_true", help="Attempt to fix schema issues if any are found")
     args = parser.parse_args()
     
-    asyncio.run(setup_postgres_schema(args))
+    async def main():
+        try:
+            return await setup_postgres_schema(args)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    asyncio.run(main())

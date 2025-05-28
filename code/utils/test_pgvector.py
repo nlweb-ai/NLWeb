@@ -32,7 +32,9 @@ async def test_pgvector():
         return
     
     print("Connecting to PostgreSQL...")
-    pool = AsyncConnectionPool(conninfo=conninfo, min_size=1, max_size=5)
+    pool = AsyncConnectionPool(conninfo=conninfo, min_size=1, max_size=5, open=False)
+    # Explicitly open the pool as recommended in newer psycopg versions
+    await pool.open()
     
     try:
         async with pool.connection() as conn:

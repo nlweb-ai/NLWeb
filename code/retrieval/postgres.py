@@ -168,8 +168,11 @@ class PgVectorClient:
                         self._pool = AsyncConnectionPool(
                             conninfo=conninfo,
                             min_size=1,
-                            max_size=10
+                            max_size=10, 
+                            open=False # Don't open immediately, we will do it explicitly later
                         )
+                        # Explicitly open the pool as recommended in newer psycopg versions
+                        await self._pool.open()
                         logger.info("PostgreSQL connection pool initialized")
                         
                         # Verify pgvector extension is installed
