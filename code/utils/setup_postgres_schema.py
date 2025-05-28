@@ -11,15 +11,21 @@ import sys
 import asyncio
 import argparse
 
-# Add the parent directory to the path so we can import modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# More robust path handling for imports
+script_path = os.path.abspath(__file__)
+utils_dir = os.path.dirname(script_path)
+code_dir = os.path.dirname(utils_dir)
+
+# Add both directories to path
+sys.path.insert(0, code_dir)  # Add code dir first
+sys.path.insert(1, utils_dir)  # Then utils dir
 
 # Import the required modules from the project
 try:
     from retrieval.postgres import PgVectorClient
 except ImportError as e:
     print(f"Failed to import required modules: {e}")
-    print("Make sure you're running this script from the NLWeb/code directory")
+    print(f"Make sure you're running this script from the code directory: {code_dir}")
     sys.exit(1)
 
 # SQL for creating the table and indexes
@@ -117,7 +123,7 @@ async def setup_postgres_schema(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PostgreSQL pgvector Schema Setup")
-    parser.add_argument("--endpoint", default="postgres_vector", help="Name of the PostgreSQL endpoint to use")
+    parser.add_argument("--endpoint", default="postgres", help="Name of the PostgreSQL endpoint to use")
     parser.add_argument("--fix", action="store_true", help="Attempt to fix schema issues if any are found")
     args = parser.parse_args()
     

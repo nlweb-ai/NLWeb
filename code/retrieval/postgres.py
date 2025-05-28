@@ -7,6 +7,7 @@ PostgreSQL Vector Database Client using pgvector - Interface for PostgreSQL oper
 This client provides vector similarity search functionality using the pgvector extension.
 """
 
+import json
 import os
 import asyncio
 import time
@@ -340,16 +341,13 @@ class PgVectorClient:
                     for idx, doc in enumerate(batch):
                         try:
                             # Ensure required fields are present
+                            if not all(k in doc for k in ["id", "url", "name","schema_json", "site", "embedding"]):
+                                missing = [k for k in ["id", "url", "name","schema_json", "site", "embedding"] if k not in doc]
+                                logger.warning(f"Skipping document with missing fields: {missing}")
+                                continue
 
-                            # if not all(k in doc for k in ["id", "url", "name","schema_json", "site", "embedding", "source"]):
-                            #     missing = [k for k in ["id", "url", "name","schema_json", "site", "embedding", "source"] if k not in doc]
-                            #     logger.warning(f"Skipping document with missing fields: {missing}")
-                            #     continue
-                            
                             # Validate embedding format - should be a list of numbers
                             embedding = doc["embedding"]
-                            # print("####"*40)
-                            # print(f"Here {embedding}")
                             if not isinstance(embedding, list):
                                 logger.warning(f"Skipping document with invalid embedding type: {type(embedding)}")
                                 continue
@@ -364,9 +362,6 @@ class PgVectorClient:
                                 print(f"Invalid embedding example: {str(embedding[:5])}...")
                                 continue
                             
-                            # Format embedding as PostgreSQL array string
-                            #embedding_str = "[" + ",".join(str(x) for x in embedding) + "]"
-                            
                             # Add placeholder for this row
                             placeholders.append("(%s, %s, %s, %s, %s, %s::vector)")
                             
@@ -377,12 +372,8 @@ class PgVectorClient:
                                 doc["name"],
                                 doc["schema_json"],
                                 doc["site"],
-                                doc["embedding"],  # This should be a list of floats
-                                #embedding_str,  # Formatted as array string for pgvector
+                                doc["embedding"]  # This should be a list of floats
                             ])
-                            
-                            # print("####"*40)
-                            # print(f"Here {values}")
                             
                         except Exception as e:
                             logger.warning(f"Error processing document {idx} in batch: {e}")
@@ -448,7 +439,7 @@ class PgVectorClient:
             
         Returns:
             List of search results, where each result is a list of strings:
-            [name, score, url, schema_json]
+            [url, schema_json, name, site]
         """
         start_time = time.time()
         logger.info(f"Searching for '{query[:50]}...' in site: {site}, num_results: {num_results}")
@@ -513,9 +504,8 @@ class PgVectorClient:
                 for row in rows:
                     result = [
                         row["url"],
-                        row["schema_json"] or "",
+                        json.dumps(row["schema_json"], indent=4),
                         row["name"],
-                        # str(row["similarity_score"]),
                         row["site"],
                     ]
                     results.append(result)
@@ -550,13 +540,13 @@ class PgVectorClient:
         def _search_by_url(conn):
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
                 cur.execute(
-                    f"SELECT schema_json, site, name FROM {self.table_name} WHERE id = %s",
+                    f"SELECT url, schema_json, site, name FROM {self.table_name} WHERE id = %s",
                     (url,)
                 )
                 row = cur.fetchone()
                 
                 if row:
-                    return [row["name"], row["site"], row["schema_json"] or ""]
+                    return [row["url"], json.dumps(row["schema_json"], indent=4),row["name"], row["site"]]
                 return None
         
         try:
@@ -719,8 +709,10 @@ class PgVectorClient:
                         "id": "text",
                         "name": "text",
                         "url": "text",
-                        "schema_json": "text"
-                    }
+                        "schema_json": "jsonb",
+                        "site": "text",
+                        "embedding": "vector",  # Adjust dimension to match your model
+                        }
                     
                     for col_name, col_type in required_columns.items():
                         if col_name not in schema_info["columns"]:
@@ -780,7 +772,7 @@ class PgVectorClient:
                             schema_info["primary_key"] = idx["column_names"]
                         
                         # Vector indexes have special naming patterns
-                        if any("vector" in str(col).lower() for col in idx["column_names"]):
+                        if any("embedding" in str(col).lower() for col in idx["column_names"]):
                             schema_info["vector_indexes"].append({
                                 "name": idx["index_name"],
                                 "columns": idx["column_names"]

@@ -2,7 +2,7 @@
 # Licensed under the MIT License
 
 """
-Unified vector database interface with support for Azure AI Search, Milvus, and Qdrant.
+Unified vector database interface with support for Azure AI Search, Milvus, Qdrant and Postgres.
 This module provides abstract base classes and concrete implementations for database operations.
 """
 
