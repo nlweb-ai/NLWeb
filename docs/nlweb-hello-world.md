@@ -10,7 +10,11 @@ This will get you up and running, using a local vector database and RSS feeds we
 
 These instructions assume that you have:
 - Python 3.10+ installed locally.
+<<<<<<< HEAD
 - Docker and Qdrant setup to run the local qdrant instance. See [Setup Docker and Quadrant](setup-docker-local.md)
+=======
+- Docker and Qdrant setup to run the local qudrant instance. See [Setup Docker and Qdrant](setup-docker-local.md)
+>>>>>>> a8fb32475a279a9029e5179dbf33cbb33ea866d7
 
 ## From the Terminal
 
