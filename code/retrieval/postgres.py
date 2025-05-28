@@ -540,8 +540,8 @@ class PgVectorClient:
         def _search_by_url(conn):
             with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
                 cur.execute(
-                    f"SELECT url, schema_json, site, name FROM {self.table_name} WHERE id = %s",
-                    (url,)
+                    f"SELECT url, schema_json, site, name FROM {self.table_name} WHERE url LIKE %s",
+                    (f"%{url}%",)
                 )
                 row = cur.fetchone()
                 

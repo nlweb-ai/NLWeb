@@ -7,6 +7,7 @@ Example script to test the PostgreSQL vector database integration
 This script demonstrates how to initialize and use the PgVectorClient
 """
 
+import json
 import os
 import asyncio
 import sys
@@ -54,10 +55,11 @@ async def main():
         
         # Only continue if the connection was successful and the table exists
         if connection_info.get("success") and connection_info.get("table_exists"):
+            
             # Example: Search for documents
             print("\nPerforming a test search query...")
-            query = "How does Azure AI Search work?"
-            results = await client.search(query, site=None, num_results=3)
+            query = "How does Azure Postgres Flexible Server work?"
+            results = await client.search(query, site=None, num_results=1)
             
             print(f"\nQuery: {query}")
             print(f"Found {len(results)} results")
@@ -70,7 +72,7 @@ async def main():
                 
             # Example: Search by URL
             if results and results[0][1]:
-                url = results[0][1]  # Get URL from the first result
+                url = json.loads(results[0][1])["url"] # Get URL from the first result
                 print(f"\nSearching for document with URL: {url}")
                 doc = await client.search_by_url(url)
                 
