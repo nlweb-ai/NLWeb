@@ -28,8 +28,8 @@ from llm.snowflake import provider as snowflake_provider
 from utils.logging_config_helper import get_configured_logger, LogLevel
 logger = get_configured_logger("llm_wrapper")
 
-# Provider mapping
-_providers = {
+# LLM type to provider mapping
+_llm_type_providers = {
     "openai": openai_provider,
     "anthropic": anthropic_provider,
     "gemini": gemini_provider,
@@ -49,12 +49,12 @@ async def ask_llm(
     query_params: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
-    Route an LLM request to the specified provider.
+    Route an LLM request to the specified endpoint, with dispatch based on llm_type.
     
     Args:
         prompt: The text prompt to send to the LLM
         schema: JSON schema that the response should conform to
-        provider: The LLM provider to use (if None, use preferred provider from config)
+        provider: The LLM endpoint to use (if None, use preferred endpoint from config)
         level: The model tier to use ('low' or 'high')
         timeout: Request timeout in seconds
         query_params: Optional query parameters for development mode provider override
@@ -63,11 +63,11 @@ async def ask_llm(
         Parsed JSON response from the LLM
         
     Raises:
-        ValueError: If the provider is unknown or response cannot be parsed
+        ValueError: If the endpoint is unknown or response cannot be parsed
         TimeoutError: If the request times out
     """
     # Determine provider, with development mode override support
-    provider_name = provider or CONFIG.preferred_llm_provider
+    provider_name = provider or CONFIG.preferred_llm_endpoint
     
     # In development mode, allow query param override
     if CONFIG.is_development_mode() and query_params:
@@ -86,7 +86,7 @@ async def ask_llm(
     logger.debug(f"Prompt preview: {prompt[:100]}...")
     logger.debug(f"Schema: {schema}")
     
-    if provider_name not in CONFIG.llm_providers:
+    if provider_name not in CONFIG.llm_endpoints:
         error_msg = f"Unknown provider '{provider_name}'"
         logger.error(error_msg)
         print(f"Unknown provider '{provider_name}'")
@@ -99,22 +99,29 @@ async def ask_llm(
         logger.error(error_msg)
         return {}
 
+    # Get llm_type for dispatch
+    llm_type = provider_config.llm_type
+    logger.debug(f"Using LLM type: {llm_type}")
+
     model_id = getattr(provider_config.models, level)
     logger.debug(f"Using model: {model_id}")
+    
+    # Initialize variables for exception handling
+    llm_type_for_error = llm_type
 
     try:
 
-        # Get the provider instance
-        if provider_name not in _providers:
-            error_msg = f"No implementation for provider '{provider_name}'"
+        # Get the provider instance based on llm_type
+        if llm_type not in _llm_type_providers:
+            error_msg = f"No implementation for LLM type '{llm_type}'"
             logger.error(error_msg)
             return {}
             
-        provider_instance = _providers[provider_name]
+        provider_instance = _llm_type_providers[llm_type]
         
         # Simply call the provider's get_completion method without locking
         # Each provider should handle thread-safety internally
-        logger.debug(f"Calling {provider_name} completion")
+        logger.debug(f"Calling {llm_type} provider completion for endpoint {provider_name}")
         result = await asyncio.wait_for(
             provider_instance.get_completion(prompt, schema, model=model_id),
             timeout=timeout
@@ -126,12 +133,16 @@ async def ask_llm(
         logger.error(f"LLM call timed out after {timeout}s with provider {provider_name}")
         return {}
     except Exception as e:
-        logger.error(f"Error during LLM call with provider {provider_name}")
+        error_msg = f"LLM call failed: {type(e).__name__}: {str(e)}"
+        logger.error(f"Error with provider {provider_name}: {error_msg}")
+        print(f"LLM Error ({provider_name}): {type(e).__name__}: {str(e)}")
+
         logger.log_with_context(
             LogLevel.ERROR,
             "LLM call failed",
             {
-                "provider": provider_name,
+                "endpoint": provider_name,
+                "llm_type": llm_type_for_error,
                 "model": model_id,
                 "level": level,
                 "error_type": type(e).__name__,

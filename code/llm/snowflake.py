@@ -123,7 +123,7 @@ async def cortex_complete(
         return {}
 
 async def post(api: str, request: dict, timeout: float) -> dict:
-    cfg = CONFIG.llm_providers.get("snowflake")
+    cfg = CONFIG.llm_endpoints.get("snowflake")
     async with httpx.AsyncClient() as client:
         response =  await client.post(
             snowflake.get_account_url(cfg) + api,

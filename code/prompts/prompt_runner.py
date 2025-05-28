@@ -70,6 +70,4 @@ class PromptRunner:
             logger.error(f"Error in run_prompt for '{prompt_name}': {type(e).__name__}: {str(e)}")
             logger.debug("Full traceback:", exc_info=True)
             print(f"ERROR in run_prompt: {type(e).__name__}: {str(e)}")
-            import traceback
-            traceback.print_exc()
             return None

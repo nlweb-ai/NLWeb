@@ -6,7 +6,6 @@ endpoints:
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536
     db_type: azure_ai_search
-    name: NLWeb_Crawl
 
   azure_ai_search_backup:
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY_BACKUP

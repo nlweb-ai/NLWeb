@@ -48,7 +48,7 @@ class OpenAIProvider(LLMProvider):
         Retrieve the OpenAI API key from environment or raise an error.
         """
         # Get the API key from the preferred provider config
-        provider_config = CONFIG.llm_providers["openai"]
+        provider_config = CONFIG.llm_endpoints["openai"]
         api_key = provider_config.api_key
         return api_key
 
@@ -106,7 +106,7 @@ class OpenAIProvider(LLMProvider):
         """
         # If model not provided, get it from config
         if model is None:
-            provider_config = CONFIG.llm_providers["openai"]
+            provider_config = CONFIG.llm_endpoints["openai"]
             # Use the 'high' model for completions by default
             model = provider_config.models.high
         
