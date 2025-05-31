@@ -123,6 +123,16 @@ def get_prompt_variable_value(variable, handler):
         value = query
     elif variable == "request.answers":
         value = str(handler.final_ranked_answers)
+    elif variable == "tool.description":
+        value = getattr(handler.tool, 'description', '')
+    elif variable == "tools.description":
+        value = getattr(handler.tools, 'description', '')
+    elif variable == "request.top_k":
+        value = str(getattr(handler, 'top_k', 3))
+    elif variable == "request.item_name":
+        value = getattr(handler, 'item_name', '')
+    elif variable == "request.details_requested":
+        value = getattr(handler, 'details_requested', '')
     else:
         logger.warning(f"Unknown variable: {variable}")
         value = ""
