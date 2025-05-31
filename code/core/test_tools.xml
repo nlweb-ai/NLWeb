@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Tools>
+
+<!-- This file contains all the tools that can be used to process queries for different schema.org types. -->
+
+  <Thing>
+    <Tool name="search">
+      <path>/api/search</path>
+      <description>Find items that match specific search criteria</description>
+      <method>url</method>
+      <argument name="query">User's search query</argument>
+      <example>Find Italian restaurants near me</example>
+      <example>Show me action movies from the 1990s</example>
+      <example>I need vegetarian pasta recipes</example>
+      <example>Find wireless headphones under $200</example>
+    </Tool>
+
+    <Tool name="details">
+      <path>/api/details</path>
+      <description>Get detailed information about a specific item</description>
+      <method>url</method>
+      <argument name="item">Name or identifier of the item</argument>
+      <example>What are the ingredients in Chicken Alfredo?</example>
+      <example>Who directed The Dark Knight?</example>
+      <example>What's the price of the iPhone 15 Pro?</example>
+      <example>What are the hours for Olive Garden?</example>
+    </Tool>
+
+    <Tool name="compare">
+      <path>/api/compare</path>
+      <description>Compare two items side by side</description>
+      <method>url</method>
+      <argument name="item1">First item name or identifier</argument>
+      <argument name="item2">Second item name or identifier</argument>
+      <example>Compare pizza margherita vs pepperoni pizza</example>
+      <example>Which is better: iPhone vs Samsung Galaxy?</example>
+      <example>Compare The Dark Knight vs The Dark Knight Rises</example>
+      <example>Which has better ratings: Olive Garden vs Carrabba's?</example>
+    </Tool>
+  </Thing>
+
+  <Recipe>
+    <Tool name="search">
+      <path>/api/recipes/search</path>
+      <description>Find recipes that match specific criteria such as cuisine type, dietary restrictions, cooking time, or ingredients</description>
+      <method>url</method>
+      <argument name="query">User's search query for recipes</argument>
+      <example>Find quick vegetarian pasta recipes under 30 minutes</example>
+      <example>Show me gluten-free dessert recipes</example>
+      <example>I need chicken recipes that take less than 45 minutes</example>
+      <example>Find keto-friendly dinner recipes with salmon</example>
+    </Tool>
+
+    <Tool name="details">
+      <path>/api/recipes/details</path>
+      <description>Get detailed information about a specific recipe including nutritional content, ingredients list, cooking instructions, prep time, and serving size</description>
+      <method>url</method>
+      <argument name="item">Name or identifier of the recipe</argument>
+      <example>What are the nutritional facts for Chicken Alfredo?</example>
+      <example>Show me the ingredients for Beef Stroganoff</example>
+      <example>How long does it take to make Homemade Lasagna?</example>
+      <example>What's the calorie content of Thai Green Curry?</example>
+    </Tool>
+
+    <Tool name="compare">
+      <path>/api/recipes/compare</path>
+      <description>Compare two recipes side by side for nutritional content, ingredients, cooking time, difficulty, or cost</description>
+      <method>url</method>
+      <argument name="item1">First recipe name or identifier</argument>
+      <argument name="item2">Second recipe name or identifier</argument>
+      <example>Compare the calories in pizza margherita vs pepperoni pizza</example>
+      <example>Which has more protein: grilled chicken or salmon teriyaki?</example>
+      <example>Compare cooking time between homemade bread and no-knead bread</example>
+      <example>Which is healthier: caesar salad or greek salad?</example>
+    </Tool>
+
+    <Tool name="recipe_substitutions">
+      <path>/api/recipes/substitutions</path>
+      <description>Suggest ingredient substitutions for recipes to accommodate dietary restrictions, allergies, or ingredient availability</description>
+      <method>url</method>
+      <argument name="recipe_name">Name of the recipe to modify</argument>
+      <argument name="dietary_need">Specific dietary requirement (dairy-free, nut-free, low-sodium, etc.)</argument>
+      <argument name="unavailable_ingredient">Ingredient that needs to be substituted</argument>
+      <argument name="preference">Taste or texture preference for substitution</argument>
+      <example>How can I make chocolate cake dairy-free?</example>
+      <example>What can I substitute for eggs in cookie dough?</example>
+      <example>Make this pasta recipe gluten-free</example>
+      <example>I don't have buttermilk, what can I use instead?</example>
+    </Tool>
+  </Recipe>
+
+  <Movie>
+    <Tool name="search">
+      <path>/api/movies/search</path>
+      <description>Find movies based on criteria like genre, year, rating, director, or actor</description>
+      <method>url</method>
+      <argument name="query">User's search query for movies</argument>
+      <example>Find action movies from the 1990s</example>
+      <example>Show me highly rated comedies from 2020-2023</example>
+      <example>I want to watch sci-fi movies with good ratings</example>
+      <example>Find family-friendly movies for kids</example>
+    </Tool>
+
+    <Tool name="details">
+      <path>/api/movies/details</path>
+      <description>Get detailed information about a specific movie including cast, director, plot, runtime, release date, and ratings</description>
+      <method>url</method>
+      <argument name="item">Title or identifier of the movie</argument>
+      <example>Who directed The Dark Knight?</example>
+      <example>What's the plot of Inception?</example>
+      <example>How long is Avengers Endgame?</example>
+      <example>What's the rating for Parasite?</example>
+    </Tool>
+
+    <Tool name="compare">
+      <path>/api/movies/compare</path>
+      <description>Compare two movies side by side for ratings, box office, cast, or other attributes</description>
+      <method>url</method>
+      <argument name="item1">First movie title or identifier</argument>
+      <argument name="item2">Second movie title or identifier</argument>
+      <example>Compare The Dark Knight vs The Dark Knight Rises</example>
+      <example>Which made more money: Avengers or Avatar?</example>
+      <example>Compare the ratings of Inception vs Interstellar</example>
+      <example>Which has a better cast: Ocean's Eleven or Ocean's Twelve?</example>
+    </Tool>
+
+    <Tool name="filmography_search">
+      <path>/api/movies/filmography</path>
+      <description>Find all movies featuring a specific actor or directed by a specific director</description>
+      <method>url</method>
+      <argument name="person_name">Name of the actor or director</argument>
+      <argument name="role">Role type (actor, director, producer, writer)</argument>
+      <argument name="year_range">Filter by release year range</argument>
+      <argument name="genre">Filter by genre</argument>
+      <example>What movies has Leonardo DiCaprio been in?</example>
+      <example>Show me all Christopher Nolan films</example>
+      <example>Find all Tom Hanks movies from the 1990s</example>
+      <example>What horror movies has Jordan Peele directed?</example>
+    </Tool>
+  </Movie>
+
+  <Product>
+    <Tool name="search">
+      <path>/api/products/search</path>
+      <description>Find products that match specific criteria such as category, price range, brand, features, or customer ratings</description>
+      <method>url</method>
+      <argument name="query">User's search query for products</argument>
+      <example>Find laptops under $1000 with good ratings</example>
+      <example>Show me Nike running shoes in size 10</example>
+      <example>I need a wireless Bluetooth speaker under $200</example>
+      <example>Find organic skincare products with 4+ star reviews</example>
+    </Tool>
+
+    <Tool name="details">
+      <path>/api/products/details</path>
+      <description>Get detailed information about a specific product including price, specifications, available colors/sizes, customer reviews, and shipping information</description>
+      <method>url</method>
+      <argument name="item">Name or identifier of the product</argument>
+      <example>What colors does the iPhone 15 Pro come in?</example>
+      <example>What's the price of the Samsung 65-inch QLED TV?</example>
+      <example>Show me customer reviews for the Keurig K-Elite</example>
+      <example>Is the Levi's 501 Jeans available in size 32?</example>
+    </Tool>
+
+    <Tool name="compare">
+      <path>/api/products/compare</path>
+      <description>Compare two or more products side by side for price, features, specifications, customer ratings, or other attributes</description>
+      <method>url</method>
+      <argument name="item1">First product name or identifier</argument>
+      <argument name="item2">Second product name or identifier</argument>
+      <example>Compare iPhone 15 vs Samsung Galaxy S24 prices and features</example>
+      <example>Which is better: Sony WH-1000XM5 or Bose QuietComfort headphones?</example>
+      <example>Compare these three laptops for gaming performance</example>
+      <example>What's the price difference between these two coffee machines?</example>
+    </Tool>
+  </Product>
+
+  <Restaurant>
+    <Tool name="search">
+      <path>/api/restaurants/search</path>
+      <description>Find restaurants in a specific area that match criteria such as cuisine type, price range, ratings, or special features</description>
+      <method>url</method>
+      <argument name="query">User's search query for restaurants</argument>
+      <example>Find Italian restaurants near downtown with outdoor seating</example>
+      <example>Show me highly rated sushi places within 5 miles</example>
+      <example>I need cheap eats near the airport</example>
+      <example>Find upscale restaurants for a date night in the city center</example>
+    </Tool>
+
+    <Tool name="details">
+      <path>/api/restaurants/details</path>
+      <description>Get detailed information about a specific restaurant including menu, hours, location, ratings, and special features</description>
+      <method>url</method>
+      <argument name="item">Name or identifier of the restaurant</argument>
+      <example>What are the hours for Olive Garden?</example>
+      <example>Show me the menu for Joe's Pizza</example>
+      <example>What's the rating for The French Laundry?</example>
+      <example>Does Chipotle have outdoor seating?</example>
+    </Tool>
+
+    <Tool name="compare">
+      <path>/api/restaurants/compare</path>
+      <description>Compare two restaurants side by side for ratings, price, cuisine, or other attributes</description>
+      <method>url</method>
+      <argument name="item1">First restaurant name or identifier</argument>
+      <argument name="item2">Second restaurant name or identifier</argument>
+      <example>Compare Olive Garden vs Carrabba's Italian Grill</example>
+      <example>Which is more expensive: Ruth's Chris or Morton's?</example>
+      <example>Compare the ratings of In-N-Out vs Five Guys</example>
+      <example>Which has better vegetarian options: Chipotle or Qdoba?</example>
+    </Tool>
+
+    <Tool name="restaurant_menu">
+      <path>/api/restaurants/menu</path>
+      <description>Get menu information for a specific restaurant and suggest dishes based on dietary constraints or preferences</description>
+      <method>url</method>
+      <argument name="restaurant_name">Name of the restaurant</argument>
+      <argument name="restaurant_id">Unique identifier of the restaurant</argument>
+      <argument name="dietary_constraint">Dietary restrictions (vegetarian, vegan, gluten-free, keto, etc.)</argument>
+      <argument name="meal_type">Type of meal (breakfast, lunch, dinner, appetizers, desserts)</argument>
+      <argument name="allergens">Food allergies to avoid</argument>
+      <example>What vegetarian options does Olive Garden have?</example>
+      <example>Show me gluten-free dishes at this Italian restaurant</example>
+      <example>What can I order at McDonald's if I'm on keto?</example>
+      <example>Does this restaurant have nut-free desserts?</example>
+    </Tool>
+
+    <Tool name="restaurant_nearby">
+      <path>/api/restaurants/nearby</path>
+      <description>Find restaurants close to a specific location, landmark, or address</description>
+      <method>url</method>
+      <argument name="reference_location">Specific place, landmark, or address</argument>
+      <argument name="radius">Search radius in miles or kilometers</argument>
+      <argument name="cuisine">Preferred cuisine type</argument>
+      <argument name="open_now">Filter for currently open restaurants</argument>
+      <argument name="price_preference">Preferred price range</argument>
+      <example>Find restaurants near the Eiffel Tower</example>
+      <example>What's good to eat near Times Square?</example>
+      <example>Show me restaurants within walking distance of the hotel</example>
+      <example>Find coffee shops near the university campus</example>
+    </Tool>
+  </Restaurant>
+
+</Tools>

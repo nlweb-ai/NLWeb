@@ -229,6 +229,150 @@
     </Prompt>
 
 
+    <Prompt ref="ToolScoringPrompt">
+      <promptString>
+        The user has the following query: {request.query}.
+        Assign a score from 0 to 100 for whether the following tool is
+        the appropriate tool to answer the user's query. Pay careful attention
+        to the example use cases of this tool.
+        
+        {tool.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "justification": "brief explanation of why this score was assigned"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="SearchToolScoringPrompt">
+      <promptString>
+        The user has the following query: {request.query}.
+        
+        The search tool finds multiple items that match criteria and is best for:
+        - Finding recipes/items that match certain requirements
+        - Browsing or discovering items
+        - Queries like "find recipes with X" or "show me items that..."
+        
+        The search tool is NOT the best choice if the user is asking for specific details 
+        about a PARTICULAR named item (like ingredients, instructions, etc.).
+        
+        Assign a score from 0 to 100 for whether the search tool is appropriate.
+        
+        {tool.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "justification": "brief explanation of why this score was assigned",
+          "search_query": "the search query that should be passed to the tool"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="DetailsToolScoringPrompt">
+      <promptString>
+        The user has the following query: {request.query}.
+        
+        The details tool gets specific information about a PARTICULAR named item and is best for:
+        - Getting ingredients, instructions, or other details about a SPECIFIC recipe/item
+        - Queries that mention a specific item name and ask for details about it
+        - Queries like "give me the ingredients for X recipe" or "what are the steps for Y"
+        
+        The details tool should score HIGH (80-100) if the user names a specific item and wants details.
+        The details tool should score LOW (0-30) if the user wants to find/search for items.
+        
+        Assign a score from 0 to 100 for whether the details tool is appropriate.
+        
+        {tool.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "justification": "brief explanation of why this score was assigned",
+          "item_name": "the name or identifier of the specific item for which details are being sought"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="CompareToolScoringPrompt">
+      <promptString>
+        The user has the following query: {request.query}.
+        Assign a score from 0 to 100 for whether the compare tool is
+        the appropriate tool to answer the user's query. The compare tool
+        compares two items side by side.
+        
+        {tool.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "justification": "brief explanation of why this score was assigned",
+          "item1": "the name or identifier of the first item to compare",
+          "item2": "the name or identifier of the second item to compare"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="ToolRankingPrompt">
+      <promptString>
+        The user has the following query: {request.query}
+
+        Please rank the following tools based on how appropriate they are for answering this query. 
+        Return the top {request.top_k} tools with scores from 0 to 100, where 100 means perfectly appropriate 
+        and 0 means completely inappropriate.
+
+        {tools.description}
+
+        Rank them and provide scores for the top {request.top_k} most appropriate tools.
+      </promptString>
+      <returnStruc>
+        {
+          "rankings": "array of objects with tool_name, score, and explanation for each ranked tool"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="ItemMatchingPrompt">
+      <promptString>
+        The user is looking for information about: {request.item_name}
+        
+        Assign a score between 0 and 100 for whether the following item description
+        matches what the user is looking for. A score of 100 means this is exactly
+        the item they want, 0 means it's completely unrelated.
+        
+        Item description: {item.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "explanation": "brief explanation of why this item matches or doesn't match"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="ItemDetailsExtractionPrompt">
+      <promptString>
+        The user is asking: {request.details_requested}
+        
+        Answer the user's specific question by extracting the relevant information from the recipe/item data below.
+        
+        If they asked for ingredients, provide only the ingredients list.
+        If they asked for instructions, provide only the cooking steps.
+        If they asked for nutrition info, provide only nutritional details.
+        
+        Be direct and specific - extract exactly what they asked for from the data.
+        
+        Item data: {item.description}
+      </promptString>
+      <returnStruc>
+        {
+          "item_details": "the specific information requested by the user"
+        }
+      </returnStruc>
+    </Prompt>
+
   </Thing>
 
   <Recipe>

@@ -66,7 +66,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
         if not self.handler.connection_alive_event.is_set():
             logger.warning("Connection lost, skipping item ranking")
             return
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted, skipping item ranking")
             logger.info("Aborting fast track")
             return
@@ -138,7 +138,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             print("Connection lost during ranking, skipping sending results")
             return
         
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted, not sending answers")
             return
               
@@ -169,7 +169,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             await self.handler.pre_checks_done_event.wait()
             
             # if we got here, prechecks are done. check once again for fast track abort
-            if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+            if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
                 logger.info("Fast track aborted after pre-checks")
                 return
             
@@ -244,7 +244,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
         # Wait for pre checks using event
         await self.handler.pre_checks_done_event.wait()
         
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted after ranking tasks completed")
             return
     
