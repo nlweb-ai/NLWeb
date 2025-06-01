@@ -347,18 +347,7 @@ export class ChatInterface {
     titleLink.className = 'item-title-link';
     titleRow.appendChild(titleLink);
 
-    // Info icon
-    const infoIcon = document.createElement('span');
-    // Use a safer way to create the icon
-    const imgElement = document.createElement('img');
-    imgElement.src = '/info.png';
-    imgElement.alt = 'Info';
-    infoIcon.appendChild(imgElement);
-    
-    infoIcon.className = 'item-info-icon';
-    // Sanitize tooltip content
-    infoIcon.title = `${escapeHtml(item.explanation || '')} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
-    titleRow.appendChild(infoIcon);
+   
 
     contentDiv.appendChild(titleRow);
   }

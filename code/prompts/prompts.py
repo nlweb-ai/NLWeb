@@ -190,6 +190,42 @@ def fill_ranking_prompt(prompt_str, handler, description):
         print(f"Error in fill_ranking_prompt: {str(e)}")
         # Return original prompt string with error message
         return f"{prompt_str}\n[ERROR in fill_ranking_prompt: {str(e)}]"
+    
+def fill_item_details_prompt(prompt_str, handler, description, item_details):
+    logger.debug(f"Filling item details prompt template (length: {len(prompt_str)})")
+    
+    try:
+        variables = get_prompt_variables_from_prompt(prompt_str)
+        logger.debug(f"Found {len(variables)} variables to fill for item details prompt")
+        
+        for variable in variables:
+            try:
+                if (variable == "item.description"):
+                    value = json.dumps(description)
+                    logger.debug(f"Filling item.description with JSON (length: {len(value)})")
+                elif (variable == "request.details_requested"):
+                    value = item_details
+                    logger.debug(f"Filling item_details with JSON (length: {len(value)})")
+                else:
+                    value = get_prompt_variable_value(variable, handler)
+                
+                prompt_str = prompt_str.replace("{" + variable + "}", value)
+                
+            except Exception as e:
+                logger.error(f"Error processing variable '{variable}': {str(e)}")
+                print(f"Error processing variable '{variable}': {str(e)}")
+                # Use a placeholder to indicate error
+                prompt_str = prompt_str.replace("{" + variable + "}", f"[ERROR: {str(e)}]")
+        
+        logger.debug(f"Ranking prompt filled successfully (final length: {len(prompt_str)})")
+        return prompt_str
+        
+    except Exception as e:
+        logger.error(f"Error in fill_ranking_prompt: {str(e)}")
+        logger.debug("Error details:", exc_info=True)
+        print(f"Error in fill_ranking_prompt: {str(e)}")
+        # Return original prompt string with error message
+        return f"{prompt_str}\n[ERROR in fill_ranking_prompt: {str(e)}]"
 
 cached_prompts = {}
 def get_cached_values(site, item_type, prompt_name):

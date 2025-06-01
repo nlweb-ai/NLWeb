@@ -586,7 +586,7 @@ export class ChatInterface {
     infoIcon.innerHTML = '<img src="images/info.png">';
     infoIcon.className = 'item-info-icon';
     infoIcon.title = item.explanation + "(score=" + item.score + ")" + "(Ranking time=" + item.time + ")";
-    titleRow.appendChild(infoIcon);
+   // titleRow.appendChild(infoIcon);
 
     contentDiv.appendChild(titleRow);
   }
@@ -747,6 +747,7 @@ export class ChatInterface {
    * @returns {string|null} - The image URL or null
    */
   extractImageInternal(image) {
+    console.log("extractImageInternal", image);
     if (typeof image === 'string') {
       return image;
     } else if (typeof image === 'object' && image.url) {
