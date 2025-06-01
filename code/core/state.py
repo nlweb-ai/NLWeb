@@ -93,11 +93,11 @@ class NLWebHandlerState:
         # 6. Tool routing indicates the top tool is not 'search'
         if (hasattr(handler, 'tool_routing_results') and 
             handler.tool_routing_results and 
-            'top_tool' in handler.tool_routing_results and 
-            handler.tool_routing_results['top_tool'] is not None):
+            isinstance(handler.tool_routing_results, list) and
+            len(handler.tool_routing_results) > 0):
             
-            top_tool = handler.tool_routing_results['top_tool']
-            if top_tool.tool.name != 'search':
+            top_tool_result = handler.tool_routing_results[0]
+            if top_tool_result["tool"].name != 'search':
                 return True
         
         return False

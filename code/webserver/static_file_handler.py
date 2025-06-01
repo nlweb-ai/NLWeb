@@ -74,7 +74,6 @@ async def send_static_file(path, send_response, send_chunk):
                     stripped_path = safe_path[len(prefix):]  # Remove prefix
                     for root in possible_roots:
                         try_path = os.path.join(root, stripped_path)
-                        print(try_path)
                         if os.path.isfile(try_path):
                             full_path = try_path
                             file_found = True
