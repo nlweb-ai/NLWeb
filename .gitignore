@@ -415,6 +415,7 @@ static/delish_chat.html
 static/styles_delish.js
 code/data/json_with_embeddings/tmp1c92g0ai.xml
 code/data/json_with_embeddings/tmp_99df8zk.xml
+code/benchmark/data/results
 /code/data/json_with_embeddings
 code/tools/old_db_create_utils.py
 /data/json_with_embeddings
