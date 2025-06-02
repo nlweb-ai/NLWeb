@@ -474,3 +474,94 @@ class MilvusVectorClient:
         """
         # This is just a convenience wrapper around the regular search method with site="all"
         return await self.search(query, "all", num_results, collection_name, query_params)
+    
+    async def get_sites(self, collection_name: Optional[str] = None,
+                       embedding_size: str = "small") -> List[str]:
+        """
+        Get a list of unique site names from the Milvus collection.
+        
+        Args:
+            collection_name: Optional collection name (defaults to configured name)
+            embedding_size: Size of embeddings ("small"=1536 or "large"=3072)
+            
+        Returns:
+            List[str]: Sorted list of unique site names
+        """
+        collection_name = collection_name or self.default_collection_name
+        logger.info(f"Retrieving unique sites from collection: {collection_name}")
+        
+        try:
+            # Run the get_sites operation asynchronously
+            return await asyncio.get_event_loop().run_in_executor(
+                None, self._get_sites_sync, collection_name, embedding_size
+            )
+        except Exception as e:
+            logger.exception(f"Error retrieving sites from collection '{collection_name}': {str(e)}")
+            logger.log_with_context(
+                LogLevel.ERROR,
+                "Milvus get_sites failed",
+                {
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "collection": collection_name,
+                }
+            )
+            raise
+    
+    def _get_sites_sync(self, collection_name: str, embedding_size: str) -> List[str]:
+        """Synchronous implementation of get_sites for thread execution"""
+        client = self._get_milvus_client(embedding_size)
+        
+        try:
+            # Check if collection exists
+            if not client.has_collection(collection_name):
+                logger.warning(f"Collection '{collection_name}' does not exist")
+                return []
+            
+            # Query all distinct site values
+            # Note: Milvus doesn't have a direct "SELECT DISTINCT" equivalent,
+            # so we need to query all records and extract unique sites
+            sites = set()
+            
+            # Query in batches to handle large collections
+            batch_size = 10000
+            offset = 0
+            
+            while True:
+                try:
+                    # Query a batch of records, only getting the site field
+                    results = client.query(
+                        collection_name=collection_name,
+                        filter="",  # Empty filter to get all records
+                        output_fields=["site"],
+                        limit=batch_size,
+                        offset=offset
+                    )
+                    
+                    if not results:
+                        break
+                    
+                    # Extract unique site values from this batch
+                    for result in results:
+                        site = result.get("site")
+                        if site:
+                            sites.add(site)
+                    
+                    # If we got fewer results than batch_size, we've reached the end
+                    if len(results) < batch_size:
+                        break
+                    
+                    offset += batch_size
+                    
+                except Exception as e:
+                    logger.error(f"Error querying batch at offset {offset}: {str(e)}")
+                    break
+            
+            # Convert to sorted list
+            site_list = sorted(list(sites))
+            logger.info(f"Found {len(site_list)} unique sites in collection '{collection_name}'")
+            return site_list
+            
+        except Exception as e:
+            logger.error(f"Error in _get_sites_sync for collection '{collection_name}': {str(e)}")
+            raise
