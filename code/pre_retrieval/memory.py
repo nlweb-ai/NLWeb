@@ -13,15 +13,21 @@ from prompts.prompt_runner import PromptRunner
 import asyncio
 
 class Memory(PromptRunner):
-
+    """ Handles detection and storage of user information for long-state memory"""
+    
+    # Constants for prompt configurations and step identification
     MEMORY_PROMPT_NAME = "DetectMemoryRequestPrompt"
     STEP_NAME = "Memory"
     
     def __init__(self, handler):
         super().__init__(handler)
+        # Register this step with the state manager
         self.handler.state.start_precheck_step(self.STEP_NAME)
 
     async def do(self):
+        """Main execution method to detect memory requests""" 
+
+        # Run the AI prompt to detect memory requests
         response = await self.run_prompt(self.MEMORY_PROMPT_NAME, level="high")
         if (not response):
             await self.handler.state.precheck_step_done(self.STEP_NAME)
