@@ -420,6 +420,20 @@ class AppConfig:
         """Returns True if the system is running in development mode."""
         return getattr(self, 'mode', 'production').lower() == 'development'
     
+    def is_testing_mode(self) -> bool:
+        """Returns True if the system is running in testing mode."""
+        return getattr(self, 'mode', 'production').lower() == 'testing'
+    
+    def should_raise_exceptions(self) -> bool:
+        """Returns True if exceptions should be raised instead of caught (for testing and development)."""
+        return self.is_testing_mode() or self.is_development_mode()
+    
+    def set_mode(self, mode: str):
+        """Set the application mode (development, production, or testing)."""
+        if mode.lower() not in ['development', 'production', 'testing']:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'development', 'production', or 'testing'")
+        self.mode = mode.lower()
+    
     def get_allowed_sites(self) -> List[str]:
         """Get the list of allowed sites from NLWeb configuration."""
         return self.nlweb.sites if hasattr(self, 'nlweb') else []

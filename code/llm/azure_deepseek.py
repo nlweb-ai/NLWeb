@@ -93,8 +93,8 @@ class DeepSeekAzureProvider(LLMProvider):
                     )
                     logger.info("DeepSeek Azure client initialized successfully")
                 except Exception as e:
-                    logger.exception("Failed to initialize DeepSeek Azure client")
-                    raise
+                    logger.error("Failed to initialize DeepSeek Azure client")
+                    return None
         
         return cls._client
 
@@ -110,7 +110,7 @@ class DeepSeekAzureProvider(LLMProvider):
         if start_idx == -1 or end_idx == 0:
             error_msg = "No valid JSON object found in response"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            return {}
         
         json_str = response_text[start_idx:end_idx]
         
@@ -120,7 +120,7 @@ class DeepSeekAzureProvider(LLMProvider):
             return result
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse response as JSON: {e}")
-            raise ValueError(f"Failed to parse response as JSON: {e}")
+            return {}
 
     async def get_completion(
         self,
@@ -170,7 +170,7 @@ Only output the JSON object itself, with no markdown formatting, no explanations
             
         except asyncio.TimeoutError:
             logger.error(f"DeepSeek completion timed out after {timeout}s")
-            raise
+            return {}
         except Exception as e:
             logger.error(f"DeepSeek completion failed: {type(e).__name__}: {str(e)}")
             raise

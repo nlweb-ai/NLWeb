@@ -437,3 +437,11 @@ static/.DS_Store
 
 \#README.md\#
 myenv/
+<<<<<<< Updated upstream
+code/load_directory_to_db.py
+=======
+>>>>>>> Stashed changes
+code/testing/results.txt
+startup.sh
+nlw.zip
+nlw.zip

@@ -279,7 +279,7 @@ class VectorDBClient:
         Returns:
             List of search results
         """
-
+        print(f"Searching for '{query[:50]}...' in site: {site}, num_results: {num_results}")
         if (site == "all"):
             sites = CONFIG.nlweb.sites
             if (len(sites) == 0 or sites == "all"):

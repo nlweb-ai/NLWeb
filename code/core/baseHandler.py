@@ -23,6 +23,7 @@ from core.state import NLWebHandlerState
 from utils.utils import get_param, siteToItemType, log
 from utils.logger import get_logger, LogLevel
 from utils.logging_config_helper import get_configured_logger
+from config.config import CONFIG
 
 logger = get_configured_logger("nlweb_handler")
 
@@ -214,9 +215,16 @@ class NLWebHandler:
         
         try:
             logger.debug(f"Running {len(tasks)} preparation tasks concurrently")
-            await asyncio.gather(*tasks, return_exceptions=True)
+            if CONFIG.should_raise_exceptions():
+                # In testing/development mode, raise exceptions to fail tests properly
+                await asyncio.gather(*tasks)
+            else:
+                # In production mode, catch exceptions to avoid crashing
+                await asyncio.gather(*tasks, return_exceptions=True)
         except Exception as e:
             logger.exception(f"Error during preparation tasks: {e}")
+            if CONFIG.should_raise_exceptions():
+                raise  # Re-raise in testing/development mode
         finally:
             self.pre_checks_done_event.set()  # Signal completion regardless of errors
             self.state.set_pre_checks_done()
