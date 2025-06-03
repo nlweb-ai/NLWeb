@@ -426,6 +426,20 @@ def get_port():
         return CONFIG.port
 
 if __name__ == "__main__":
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="NLWeb Server")
+    parser.add_argument('--mode', choices=['development', 'production', 'testing'], 
+                       help='Override the application mode from config')
+    parser.add_argument('command', nargs='?', help='Optional command (e.g., https)')
+    args = parser.parse_args()
+    
+    # Override mode if specified
+    if args.mode:
+        CONFIG.set_mode(args.mode)
+        print(f"Mode overridden to: {args.mode}")
+    
     try:
         port = get_port()
         
@@ -448,7 +462,7 @@ if __name__ == "__main__":
         if use_https:
             print("Starting HTTPS server")
             # If using command line, use default cert files
-            if len(sys.argv) > 1 and sys.argv[1] == "https":
+            if args.command == "https":
                 ssl_cert_file = 'fullchain.pem'
                 ssl_key_file = 'privkey.pem'
             else:

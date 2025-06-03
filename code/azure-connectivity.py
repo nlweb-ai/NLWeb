@@ -64,11 +64,11 @@ async def check_inception_api():
     print("\nChecking Inception API connectivity...")
     
     # Check if Inception is configured
-    if "inception" not in CONFIG.llm_providers:
+    if "inception" not in CONFIG.llm_endpoints:
         print("❌ Inception provider not configured")
         return False
     
-    inception_config = CONFIG.llm_providers["inception"]
+    inception_config = CONFIG.llm_endpoints["inception"]
     api_key = inception_config.api_key
     
     if not api_key:
@@ -89,11 +89,11 @@ async def check_openai_api():
     print("\nChecking OpenAI API connectivity...")
     
     # Check if OpenAI is configured
-    if "openai" not in CONFIG.llm_providers:
+    if "openai" not in CONFIG.llm_endpoints:
         print("❌ OpenAI provider not configured")
         return False
     
-    openai_config = CONFIG.llm_providers["openai"]
+    openai_config = CONFIG.llm_endpoints["openai"]
     api_key = openai_config.api_key
     
     if not api_key:
@@ -114,11 +114,11 @@ async def check_azure_openai_api():
     print("\nChecking Azure OpenAI API connectivity...")
     
     # Check if Azure OpenAI is configured
-    if "azure_openai" not in CONFIG.llm_providers:
+    if "azure_openai" not in CONFIG.llm_endpoints:
         print("❌ Azure OpenAI provider not configured")
         return False
     
-    azure_config = CONFIG.llm_providers["azure_openai"]
+    azure_config = CONFIG.llm_endpoints["azure_openai"]
     api_key = azure_config.api_key
     endpoint = azure_config.endpoint
     api_version = azure_config.api_version or "2024-12-01-preview"
@@ -199,7 +199,7 @@ async def check_embedding_api():
 async def main():
     """Run all connectivity checks"""
     print("Running Azure connectivity checks...")
-    print(f"Using configuration from preferred LLM provider: {CONFIG.preferred_llm_provider}")
+    print(f"Using configuration from preferred LLM endpoint: {CONFIG.preferred_llm_endpoint}")
     print(f"Using configuration from preferred embedding provider: {CONFIG.preferred_embedding_provider}")
     print(f"Using configuration from preferred retrieval endpoint: {CONFIG.preferred_retrieval_endpoint}")
     

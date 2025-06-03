@@ -39,13 +39,14 @@ class AnthropicProvider(LLMProvider):
     def get_api_key(cls) -> str:
         """Retrieve the Anthropic API key from the environment or raise an error."""
         # Get the API key from the preferred provider config
-        provider_config = CONFIG.llm_providers["anthropic"]
-        api_key_env_var = provider_config.api_key_env
-        
-        key = os.getenv(api_key_env_var)
-        if not key:
-            raise ConfigurationError(f"{api_key_env_var} is not set")
-        return key
+        provider_config = CONFIG.llm_endpoints["anthropic"]
+        if provider_config and provider_config.api_key:
+            api_key = provider_config.api_key
+            if api_key:
+                api_key = api_key.strip('"')  # Remove quotes if present
+                return api_key
+        # If we didn't find a key, the environment variable is not set properly
+        raise ConfigurationError("Environment variable ANTHROPIC_API_KEY is not set")
 
     @classmethod
     def get_client(cls) -> AsyncAnthropic:
@@ -101,7 +102,7 @@ class AnthropicProvider(LLMProvider):
         """
         # If model not provided, get it from config
         if model is None:
-            provider_config = CONFIG.llm_providers["anthropic"]
+            provider_config = CONFIG.llm_endpoints["anthropic"]
             # Use the 'high' model for completions by default
             model = provider_config.models.high
         
@@ -121,7 +122,7 @@ class AnthropicProvider(LLMProvider):
             )
         except asyncio.TimeoutError:
             logger.error("Completion request timed out after %s seconds", timeout)
-            raise
+            return {}
 
         # Extract the response content
         content = response.content[0].text

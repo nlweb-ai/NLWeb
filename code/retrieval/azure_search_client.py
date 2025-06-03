@@ -625,3 +625,54 @@ class AzureSearchClient:
                 }
             )
             raise
+    
+    async def get_sites(self, index_name: Optional[str] = None) -> List[str]:
+        """
+        Get list of all unique sites in the database.
+        
+        Args:
+            index_name: Optional index name (defaults to configured index name)
+            
+        Returns:
+            List[str]: List of unique site names
+        """
+        index_name = index_name or self.default_index_name
+        logger.info(f"Retrieving list of sites from index: {index_name}")
+        
+        search_client = self._get_search_client(index_name)
+        
+        try:
+            # Use a facet query to get distinct sites
+            search_options = {
+                "facets": ["site"],
+                "search_text": "*",
+                "top": 0  # We only want facets, not actual documents
+            }
+            
+            # Execute the search asynchronously
+            def search_sync():
+                return search_client.search(**search_options)
+            
+            results = await asyncio.get_event_loop().run_in_executor(None, search_sync)
+            
+            # Extract unique sites from facets
+            sites = []
+            if hasattr(results, 'get_facets') and results.get_facets():
+                site_facets = results.get_facets().get('site', [])
+                sites = [facet['value'] for facet in site_facets]
+            
+            logger.info(f"Retrieved {len(sites)} unique sites")
+            return sorted(sites)
+        
+        except Exception as e:
+            logger.exception(f"Error retrieving sites from index: {index_name}")
+            logger.log_with_context(
+                LogLevel.ERROR,
+                "Azure sites retrieval failed",
+                {
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "index_name": index_name
+                }
+            )
+            raise

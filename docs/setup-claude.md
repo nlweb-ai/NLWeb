@@ -1,5 +1,4 @@
 # Setting up Claude to talk to NLWeb
------------------------------------------------------------------
 
 ## Getting Started
 
@@ -12,16 +11,17 @@ Assumes you have [Claude for Desktop](https://claude.ai/download). This works on
 ## Setup Steps
 
 1. If you do not already have it, install MCP in your venv:
-```bash
-pip install mcp
-```
+
+    ```sh
+    pip install mcp
+    ```
 
 2. Next, configure your Claude MCP server. If you don't have the config file already, you can create the file at the following locations:
 
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+    - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+    - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-The default MCP JSON file needs to be modified as shown below:
+    The default MCP JSON file needs to be modified as shown below:
 
 ### macOS Example Configuration
 
@@ -29,7 +29,7 @@ The default MCP JSON file needs to be modified as shown below:
 {
   "mcpServers": {
     "ask_nlw": {
-      "command": "/Users/yourname/NLWeb/myenv/bin/python", 
+      "command": "/Users/yourname/NLWeb/myenv/bin/python",
       "args": [
         "/Users/yourname/NLWeb/code/chatbot_interface.py",
         "--server",
@@ -37,7 +37,7 @@ The default MCP JSON file needs to be modified as shown below:
         "--endpoint",
         "/mcp"
       ],
-      "cwd": "/Users/yourname/NLWeb/code" 
+      "cwd": "/Users/yourname/NLWeb/code"
     }
   }
 }
@@ -65,23 +65,23 @@ The default MCP JSON file needs to be modified as shown below:
 
 > **Note:** For Windows paths, you need to use double backslashes (`\\`) to escape the backslash character in JSON.
 
-3. From your code folder, enter your virtual environment and start your NLWeb local server. Make sure it is configured to access the data you would like to ask about from Claude.
+1. From your code folder, enter your virtual environment and start your NLWeb local server. Make sure it is configured to access the data you would like to ask about from Claude.
 
-```bash
-# On macOS
-source ../myenv/bin/activate
-python app-file.py
+    ```sh
+    # On macOS
+    source ../myenv/bin/activate
+    python app-file.py
 
-# On Windows
-..\myenv\Scripts\activate
-python app-file.py
-```
+    # On Windows
+    ..\myenv\Scripts\activate
+    python app-file.py
+    ```
 
-4. Open Claude Desktop. It should ask you to trust the 'ask_nlw' external connection if it is configured correctly. After clicking yes and the welcome page appears, you should see 'ask_nlw' in the bottom right '+' options. Select it to start a query.
+2. Open Claude Desktop. It should ask you to trust the 'ask_nlw' external connection if it is configured correctly. After clicking yes and the welcome page appears, you should see 'ask_nlw' in the bottom right '+' options. Select it to start a query.
 
-![Claude ask_nlw Option](../images/Claude-ask_nlw-Option.png)
+    ![Claude ask_nlw Option](../images/Claude-ask_nlw-Option.png)
 
-5. Voilà! When you ask a question and want to query NLWeb, just type 'ask_nlw' in your prompt to Claude. You'll notice that you also get the full JSON script for your results. Remember, you have to have your local NLWeb server started to use this option.
+3. Voilà! When you ask a question and want to query NLWeb, just type 'ask_nlw' in your prompt to Claude. You'll notice that you also get the full JSON script for your results. Remember, you have to have your local NLWeb server started to use this option.
 
 ## Troubleshooting
 
@@ -98,17 +98,20 @@ If you encounter issues with Claude connecting to NLWeb, you can enable develope
 Claude stores detailed logs about MCP connections that can be helpful for troubleshooting:
 
 #### Log File Locations
+
 - **macOS**: `~/Library/Logs/Claude/`
 - **Windows**: `%APPDATA%\Claude\logs\`
 
 #### Important Log Files
+
 - `mcp.log` - Contains general logging about MCP connections and connection failures
 - `mcp-server-ask_nlw.log` - Contains error (stderr) logging from the NLWeb MCP server
 
 #### Viewing Log Files
+
 You can use the following commands to view recent logs and monitor them in real-time:
 
-```bash
+```sh
 # macOS/Linux
 tail -n 20 -f ~/Library/Logs/Claude/mcp*.log
 
