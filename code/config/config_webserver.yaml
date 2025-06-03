@@ -5,13 +5,14 @@ static_directory: ../../
 # if development, various config params can be overridden with query params
 # obviously, this cannot be allowed in production.
 # in testing mode, exceptions are raised instead of being caught for better error visibility
-mode: development # or production or testing. 
+mode: development # or production or testing.
 
 
 # Additional optional configurations
 server:
   host: 0.0.0.0
   enable_cors: true
+  cors_trusted_origins: "*"  # Comma-separated list of trusted origins. Set "*" for wildcard. https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Allow-Origin
   max_connections: 100
   timeout: 30  # seconds
   

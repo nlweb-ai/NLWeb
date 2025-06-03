@@ -106,8 +106,16 @@ async def handle_client(reader, writer, fulfill_request):
                 writer.write(status_line.encode('utf-8'))
                 
                 # Add CORS headers if enabled
-                if CONFIG.server.enable_cors and 'Origin' in headers:
-                    response_headers['Access-Control-Allow-Origin'] = '*'
+                if CONFIG.server.enable_cors and 'origin' in headers:
+                    origin = headers.get('origin', '')
+
+                    # If trusted origins list is empty or the origin is in the trusted origins list
+                    if CONFIG.server.cors_trusted_origins:
+                        if origin in CONFIG.server.cors_trusted_origins:
+                            response_headers['Access-Control-Allow-Origin'] = origin
+                        if '*' in CONFIG.server.cors_trusted_origins:
+                            response_headers['Access-Control-Allow-Origin'] = '*'
+
                     response_headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
                     response_headers['Access-Control-Allow-Headers'] = 'Content-Type'
                 
@@ -427,19 +435,19 @@ def get_port():
 
 if __name__ == "__main__":
     import argparse
-    
+
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="NLWeb Server")
-    parser.add_argument('--mode', choices=['development', 'production', 'testing'], 
+    parser.add_argument('--mode', choices=['development', 'production', 'testing'],
                        help='Override the application mode from config')
     parser.add_argument('command', nargs='?', help='Optional command (e.g., https)')
     args = parser.parse_args()
-    
+
     # Override mode if specified
     if args.mode:
         CONFIG.set_mode(args.mode)
         print(f"Mode overridden to: {args.mode}")
-    
+
     try:
         port = get_port()
         
