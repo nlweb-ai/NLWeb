@@ -55,6 +55,13 @@ class AzureSearchClient:
         
         # Get endpoint configuration
         self.endpoint_config = self._get_endpoint_config()
+        
+        # Safely handle None values
+        if self.endpoint_config.api_endpoint is None:
+            raise ValueError(f"api_endpoint is not configured for endpoint {self.endpoint_name}")
+        if self.endpoint_config.api_key is None:
+            raise ValueError(f"api_key is not configured for endpoint {self.endpoint_name}")
+            
         self.api_endpoint = self.endpoint_config.api_endpoint.strip('"')
         self.api_key = self.endpoint_config.api_key.strip('"')
         self.default_index_name = self.endpoint_config.index_name or "embeddings1536"
@@ -146,7 +153,7 @@ class AzureSearchClient:
             SimpleField(name="id", type=SearchFieldDataType.String, key=True, filterable=True),
             SimpleField(name="url", type=SearchFieldDataType.String, filterable=True),
             SimpleField(name="name", type=SearchFieldDataType.String, filterable=True, sortable=True),
-            SimpleField(name="site", type=SearchFieldDataType.String, filterable=True, sortable=True),
+            SimpleField(name="site", type=SearchFieldDataType.String, filterable=True, sortable=True, facetable=True),
             SimpleField(name="schema_json", type=SearchFieldDataType.String, filterable=False),
             SearchField(
                 name="embedding",
@@ -553,7 +560,7 @@ class AzureSearchClient:
             )
             raise
     
-    async def search_all_sites(self, query: str, top_n: int = 10, 
+    async def search_all_sites(self, query: str, num_results: int = 50, 
                              index_name: Optional[str] = None,
                              query_params: Optional[Dict[str, Any]] = None) -> List[List[str]]:
         """
@@ -561,7 +568,7 @@ class AzureSearchClient:
         
         Args:
             query: The search query to embed and search with
-            top_n: Maximum number of results to return
+            num_results: Maximum number of results to return
             index_name: Optional index name (defaults to configured index name)
             query_params: Additional query parameters
             
@@ -569,7 +576,7 @@ class AzureSearchClient:
             List[List[str]]: List of search results
         """
         index_name = index_name or self.default_index_name
-        logger.info(f"Starting global Azure Search (all sites) - index: {index_name}, top_n: {top_n}")
+        logger.info(f"Starting global Azure Search (all sites) - index: {index_name}, num_results: {num_results}")
         logger.debug(f"Query: {query}")
         
         try:
@@ -591,10 +598,10 @@ class AzureSearchClient:
                         "kind": "vector",
                         "vector": query_embedding,
                         "fields": "embedding",
-                        "k": top_n
+                        "k": num_results
                     }
                 ],
-                "top": top_n,
+                "top": num_results,
                 "select": "url,name,site,schema_json"
             }
             
