@@ -94,7 +94,7 @@ class GenerateAnswer(NLWebHandler):
             description = trim_json_hard(json_str)
             prompt = fill_ranking_prompt(prompt_str, self, description)
             logger.debug(f"Sending ranking request to LLM for item: {name}")
-            ranking = await ask_llm(prompt, ans_struc, level="low")
+            ranking = await ask_llm(prompt, ans_struc, level="low", query_params=self.query_params)
             logger.debug(f"Received ranking score: {ranking.get('score', 'N/A')} for item: {name}")
             ansr = {
                 'url': url,

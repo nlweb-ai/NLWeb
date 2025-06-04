@@ -48,7 +48,7 @@ class OpenAIProvider(LLMProvider):
         Retrieve the OpenAI API key from environment or raise an error.
         """
         # Get the API key from the preferred provider config
-        provider_config = CONFIG.llm_providers["openai"]
+        provider_config = CONFIG.llm_endpoints["openai"]
         api_key = provider_config.api_key
         return api_key
 
@@ -88,7 +88,7 @@ class OpenAIProvider(LLMProvider):
         match = re.search(r"(\{.*\})", cleaned, re.S)
         if not match:
             logger.error("Failed to parse JSON from content: %r", content)
-            raise ValueError("No JSON object found in response")
+            return {}
         return json.loads(match.group(1))
 
     async def get_completion(
@@ -106,7 +106,7 @@ class OpenAIProvider(LLMProvider):
         """
         # If model not provided, get it from config
         if model is None:
-            provider_config = CONFIG.llm_providers["openai"]
+            provider_config = CONFIG.llm_endpoints["openai"]
             # Use the 'high' model for completions by default
             model = provider_config.models.high
         
@@ -125,9 +125,13 @@ class OpenAIProvider(LLMProvider):
             )
         except asyncio.TimeoutError:
             logger.error("Completion request timed out after %s seconds", timeout)
-            raise
+            return {}
 
-        return self.clean_response(response.choices[0].message.content)
+        try:
+            return self.clean_response(response.choices[0].message.content)
+        except Exception as e:
+            logger.error(f"Error processing OpenAI response: {e}")
+            return {}
 
 
 

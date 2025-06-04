@@ -48,13 +48,25 @@ class PrevQueryDecontextualizer(NoOpDecontextualizer):
             self.handler.decontextualized_query = self.handler.query
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return
+        elif "requires_decontextualization" not in response:
+            from config.config import CONFIG
+            error_msg = f"Missing 'requires_decontextualization' key in response: {response}"
+            logger.error(error_msg)
+            if CONFIG.should_raise_exceptions():
+                raise KeyError(f"Decontextualization failed: {error_msg}")
+            else:
+                # Fallback in production mode
+                self.handler.requires_decontextualization = False
+                self.handler.decontextualized_query = self.handler.query
+                await self.handler.state.precheck_step_done(self.STEP_NAME)
+                return
         elif (response["requires_decontextualization"] == "True"):
             self.handler.requires_decontextualization = True
             self.handler.abort_fast_track_event.set()  # Use event instead of flag
             self.handler.decontextualized_query = response["decontextualized_query"]
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             message = {
-                "type": "decontextualized_query",
+                "message_type": "decontextualized_query",
                 "decontextualized_query": self.handler.decontextualized_query
             }
             logger.info(f"Sending decontextualized query: {self.handler.decontextualized_query}")
