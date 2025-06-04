@@ -88,7 +88,7 @@ class OpenAIProvider(LLMProvider):
         match = re.search(r"(\{.*\})", cleaned, re.S)
         if not match:
             logger.error("Failed to parse JSON from content: %r", content)
-            raise ValueError("No JSON object found in response")
+            return {}
         return json.loads(match.group(1))
 
     async def get_completion(
@@ -125,9 +125,13 @@ class OpenAIProvider(LLMProvider):
             )
         except asyncio.TimeoutError:
             logger.error("Completion request timed out after %s seconds", timeout)
-            raise
+            return {}
 
-        return self.clean_response(response.choices[0].message.content)
+        try:
+            return self.clean_response(response.choices[0].message.content)
+        except Exception as e:
+            logger.error(f"Error processing OpenAI response: {e}")
+            return {}
 
 
 

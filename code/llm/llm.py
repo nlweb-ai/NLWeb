@@ -45,7 +45,8 @@ async def ask_llm(
     schema: Dict[str, Any],
     provider: Optional[str] = None,
     level: str = "low",
-    timeout: int = 8
+    timeout: int = 8,
+    query_params: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Route an LLM request to the specified endpoint, with dispatch based on llm_type.
@@ -56,6 +57,7 @@ async def ask_llm(
         provider: The LLM endpoint to use (if None, use preferred endpoint from config)
         level: The model tier to use ('low' or 'high')
         timeout: Request timeout in seconds
+        query_params: Optional query parameters for development mode provider override
         
     Returns:
         Parsed JSON response from the LLM
@@ -64,7 +66,22 @@ async def ask_llm(
         ValueError: If the endpoint is unknown or response cannot be parsed
         TimeoutError: If the request times out
     """
+    # Determine provider, with development mode override support
     provider_name = provider or CONFIG.preferred_llm_endpoint
+    
+    # In development mode, allow query param override
+    if CONFIG.is_development_mode() and query_params:
+        from utils.utils import get_param
+        override_provider = get_param(query_params, "llm_provider", str, None)
+        if override_provider:
+            provider_name = override_provider
+            logger.debug(f"Development mode: LLM provider overridden to {provider_name}")
+        
+        # Also allow level override in development mode
+        override_level = get_param(query_params, "llm_level", str, None)
+        if override_level:
+            level = override_level
+            logger.debug(f"Development mode: LLM level overridden to {level}")
     logger.debug(f"Initiating LLM request with provider: {provider_name}, level: {level}")
     logger.debug(f"Prompt preview: {prompt[:100]}...")
     logger.debug(f"Schema: {schema}")
@@ -73,14 +90,14 @@ async def ask_llm(
         error_msg = f"Unknown provider '{provider_name}'"
         logger.error(error_msg)
         print(f"Unknown provider '{provider_name}'")
-        raise ValueError(error_msg)
+        return {}
 
     # Get provider config using the helper method
     provider_config = CONFIG.get_llm_provider(provider_name)
     if not provider_config or not provider_config.models:
         error_msg = f"Missing model configuration for provider '{provider_name}'"
         logger.error(error_msg)
-        raise ValueError(error_msg)
+        return {}
 
     # Get llm_type for dispatch
     llm_type = provider_config.llm_type
@@ -98,7 +115,7 @@ async def ask_llm(
         if llm_type not in _llm_type_providers:
             error_msg = f"No implementation for LLM type '{llm_type}'"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            return {}
             
         provider_instance = _llm_type_providers[llm_type]
         
@@ -114,11 +131,12 @@ async def ask_llm(
         
     except asyncio.TimeoutError:
         logger.error(f"LLM call timed out after {timeout}s with provider {provider_name}")
-        raise
+        return {}
     except Exception as e:
         error_msg = f"LLM call failed: {type(e).__name__}: {str(e)}"
         logger.error(f"Error with provider {provider_name}: {error_msg}")
         print(f"LLM Error ({provider_name}): {type(e).__name__}: {str(e)}")
+
         logger.log_with_context(
             LogLevel.ERROR,
             "LLM call failed",
@@ -132,4 +150,25 @@ async def ask_llm(
             }
         )
 
-        raise
+        return {}
+
+
+def get_available_providers() -> list:
+    """
+    Get a list of LLM providers that have their required API keys available.
+    
+    Returns:
+        List of provider names that are available for use.
+    """
+    available_providers = []
+    
+    for provider_name, provider_config in CONFIG.llm_endpoints.items():
+        # Check if provider config exists and has required fields
+        if (provider_config and 
+            hasattr(provider_config, 'api_key') and provider_config.api_key and 
+            provider_config.api_key.strip() != "" and
+            hasattr(provider_config, 'models') and provider_config.models and
+            provider_config.models.high and provider_config.models.low):
+            available_providers.append(provider_name)
+    
+    return available_providers

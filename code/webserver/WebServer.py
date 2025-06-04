@@ -24,6 +24,7 @@ from webserver.static_file_handler import send_static_file
 from config.config import CONFIG
 from core.baseHandler import NLWebHandler
 from utils.logging_config_helper import get_configured_logger
+from retrieval.retriever import get_vector_db_client
 
 # Initialize module logger
 logger = get_configured_logger("webserver")
@@ -344,6 +345,60 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
             await send_response(200, {'Content-Type': 'application/json'})
             await send_chunk(json.dumps(retval), end_response=True)
             return
+        elif (path.find("sites") != -1):
+            # Handle /sites endpoint
+            try:
+                # Create a retriever client
+                retriever = get_vector_db_client(query_params=query_params)
+                
+                # Get the list of sites
+                sites = await retriever.get_sites()
+                
+                # Prepare the response with message-type
+                response_data = {
+                    "message-type": "sites",
+                    "sites": sites
+                }
+                
+                if streaming:
+                    # Set proper headers for server-sent events (SSE)
+                    response_headers = {
+                        'Content-Type': 'text/event-stream',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Accel-Buffering': 'no'  # Disable proxy buffering
+                    }
+                    
+                    # Send SSE headers
+                    await send_response(200, response_headers)
+                    
+                    # Send the sites data as an SSE event
+                    await send_chunk(f"data: {json.dumps(response_data)}\n\n", end_response=True)
+                else:
+                    # Non-streaming mode - return as JSON
+                    await send_response(200, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps(response_data), end_response=True)
+            except Exception as e:
+                logger.error(f"Error getting sites: {str(e)}")
+                error_data = {
+                    "message-type": "error",
+                    "error": f"Failed to get sites: {str(e)}"
+                }
+                if streaming:
+                    # Send error as SSE event
+                    if not (hasattr(send_response, 'headers_sent') and send_response.headers_sent):
+                        response_headers = {
+                            'Content-Type': 'text/event-stream',
+                            'Cache-Control': 'no-cache',
+                            'Connection': 'keep-alive',
+                            'X-Accel-Buffering': 'no'
+                        }
+                        await send_response(500, response_headers)
+                    await send_chunk(f"data: {json.dumps(error_data)}\n\n", end_response=True)
+                else:
+                    await send_response(500, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps(error_data), end_response=True)
+            return
         elif (path.find("mcp") != -1):
             # Handle MCP health check
             if path == "/mcp/health" or path == "/mcp/healthz":
@@ -426,6 +481,20 @@ def get_port():
         return CONFIG.port
 
 if __name__ == "__main__":
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="NLWeb Server")
+    parser.add_argument('--mode', choices=['development', 'production', 'testing'], 
+                       help='Override the application mode from config')
+    parser.add_argument('command', nargs='?', help='Optional command (e.g., https)')
+    args = parser.parse_args()
+    
+    # Override mode if specified
+    if args.mode:
+        CONFIG.set_mode(args.mode)
+        print(f"Mode overridden to: {args.mode}")
+    
     try:
         port = get_port()
         
@@ -448,7 +517,7 @@ if __name__ == "__main__":
         if use_https:
             print("Starting HTTPS server")
             # If using command line, use default cert files
-            if len(sys.argv) > 1 and sys.argv[1] == "https":
+            if args.command == "https":
                 ssl_cert_file = 'fullchain.pem'
                 ssl_key_file = 'privkey.pem'
             else:

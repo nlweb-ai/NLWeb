@@ -93,8 +93,8 @@ class LlamaAzureProvider(LLMProvider):
                     )
                     logger.info("Llama Azure client initialized successfully")
                 except Exception as e:
-                    logger.exception("Failed to initialize Llama Azure client")
-                    raise
+                    logger.error("Failed to initialize Llama Azure client")
+                    return None
         
         return cls._client
 
@@ -110,7 +110,7 @@ class LlamaAzureProvider(LLMProvider):
         if start_idx == -1 or end_idx == 0:
             error_msg = "No valid JSON object found in response"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            return {}
         
         json_str = response_text[start_idx:end_idx]
         
@@ -120,7 +120,7 @@ class LlamaAzureProvider(LLMProvider):
             return result
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse response as JSON: {e}")
-            raise ValueError(f"Failed to parse response as JSON: {e}")
+            return {}
 
     async def get_completion(
         self,
@@ -170,7 +170,7 @@ Only output the JSON object, no additional text or explanation."""
             
         except asyncio.TimeoutError:
             logger.error(f"Llama completion timed out after {timeout}s")
-            raise
+            return {}
         except Exception as e:
             logger.error(f"Llama completion failed: {type(e).__name__}: {str(e)}")
             raise
