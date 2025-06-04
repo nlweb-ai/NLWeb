@@ -2,7 +2,7 @@
 
 NLWeb enables an open standard.  You will need a model and a retrieval option. 
 
-If you want to contribute a model or retrieval option, please see the following checklists to ensure that you have fully integrated into the solution. Please open an issue for guidance if you believe you need more new files than the lists below outline or within our [Contributor Guidelines](/CONTRIBUTING.md), which offer higher level principles.
+If you want to contribute a model or retrieval option, please see the following checklists to ensure that you have fully integrated into the solution. Please open an issue for guidance if you believe you need more new files than the lists below outline or within our [Contributor Guidelines](../CONTRIBUTING.md), which offer higher level principles.
 
 [Model LLM Provider Checklist](#model-llm-provider-checklist)
 
