@@ -24,6 +24,7 @@ from webserver.static_file_handler import send_static_file
 from config.config import CONFIG
 from core.baseHandler import NLWebHandler
 from utils.logging_config_helper import get_configured_logger
+from retrieval.retriever import get_vector_db_client
 
 # Initialize module logger
 logger = get_configured_logger("webserver")
@@ -343,6 +344,60 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
             retval =  await WhoHandler(query_params, None).runQuery()
             await send_response(200, {'Content-Type': 'application/json'})
             await send_chunk(json.dumps(retval), end_response=True)
+            return
+        elif (path.find("sites") != -1):
+            # Handle /sites endpoint
+            try:
+                # Create a retriever client
+                retriever = get_vector_db_client(query_params=query_params)
+                
+                # Get the list of sites
+                sites = await retriever.get_sites()
+                
+                # Prepare the response with message-type
+                response_data = {
+                    "message-type": "sites",
+                    "sites": sites
+                }
+                
+                if streaming:
+                    # Set proper headers for server-sent events (SSE)
+                    response_headers = {
+                        'Content-Type': 'text/event-stream',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Accel-Buffering': 'no'  # Disable proxy buffering
+                    }
+                    
+                    # Send SSE headers
+                    await send_response(200, response_headers)
+                    
+                    # Send the sites data as an SSE event
+                    await send_chunk(f"data: {json.dumps(response_data)}\n\n", end_response=True)
+                else:
+                    # Non-streaming mode - return as JSON
+                    await send_response(200, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps(response_data), end_response=True)
+            except Exception as e:
+                logger.error(f"Error getting sites: {str(e)}")
+                error_data = {
+                    "message-type": "error",
+                    "error": f"Failed to get sites: {str(e)}"
+                }
+                if streaming:
+                    # Send error as SSE event
+                    if not (hasattr(send_response, 'headers_sent') and send_response.headers_sent):
+                        response_headers = {
+                            'Content-Type': 'text/event-stream',
+                            'Cache-Control': 'no-cache',
+                            'Connection': 'keep-alive',
+                            'X-Accel-Buffering': 'no'
+                        }
+                        await send_response(500, response_headers)
+                    await send_chunk(f"data: {json.dumps(error_data)}\n\n", end_response=True)
+                else:
+                    await send_response(500, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps(error_data), end_response=True)
             return
         elif (path.find("mcp") != -1):
             # Handle MCP health check

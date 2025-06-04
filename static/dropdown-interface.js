@@ -31,7 +31,7 @@ export class DropdownInterface {
   /**
    * Creates selector controls
    */
-  createSelectors() {
+  async createSelectors() {
     // Create selectors container
     const selector = document.createElement('div');
     this.selector = selector;
@@ -41,16 +41,17 @@ export class DropdownInterface {
     if (this.options.useTextInputForSite) {
       this.createSiteTextInput();
     } else {
-      this.createSiteDropdown();
+      await this.createSiteDropdown();
     }
     
     // Create generate mode selector
     this.createGenerateModeSelector();
     
     // Create database selector if enabled
-    if (this.chatInterface.enableDatabaseSelector) {
-      this.createDatabaseSelector();
-    }
+    // Commented out - database selector functionality
+    // if (this.chatInterface.enableDatabaseSelector) {
+    //   this.createDatabaseSelector();
+    // }
      
     // Create clear chat icon
     this.addClearChatIcon();
@@ -68,29 +69,60 @@ export class DropdownInterface {
   /**
    * Creates the site selector dropdown
    */
-  createSiteDropdown() {
+  async createSiteDropdown() {
     const siteSelect = document.createElement('select');
     this.siteSelect = siteSelect;
     
-    this.getSites().forEach(site => {
-      const option = document.createElement('option');
-      option.value = escapeHtml(site);
-      option.textContent = escapeHtml(site);
-      siteSelect.appendChild(option);
-    });
+    // Add a loading option temporarily
+    const loadingOption = document.createElement('option');
+    loadingOption.value = '';
+    loadingOption.textContent = 'Loading sites...';
+    loadingOption.disabled = true;
+    siteSelect.appendChild(loadingOption);
     
     this.selector.appendChild(this.makeSelectorLabel("Site"));
     this.selector.appendChild(siteSelect);
+    
+    // Fetch sites asynchronously
+    try {
+      const sites = await this.getSites();
+      
+      // Clear the loading option
+      siteSelect.innerHTML = '';
+      
+      // Add the fetched sites
+      sites.forEach(site => {
+        const option = document.createElement('option');
+        option.value = escapeHtml(site);
+        option.textContent = escapeHtml(site);
+        siteSelect.appendChild(option);
+      });
+      
+      // Set initial value if chatInterface has a site
+      if (this.chatInterface.site && sites.includes(this.chatInterface.site)) {
+        siteSelect.value = escapeHtml(this.chatInterface.site);
+      } else if (sites.length > 0) {
+        // Default to first site if no site is set or site not in list
+        siteSelect.value = escapeHtml(sites[0]);
+        this.chatInterface.site = sites[0];
+      }
+    } catch (error) {
+      console.error('Error creating site dropdown:', error);
+      // Clear loading option and add fallback sites
+      siteSelect.innerHTML = '';
+      const fallbackSites = ['all', 'eventbrite', 'oreilly', 'scifi_movies', 'verge'];
+      fallbackSites.forEach(site => {
+        const option = document.createElement('option');
+        option.value = escapeHtml(site);
+        option.textContent = escapeHtml(site);
+        siteSelect.appendChild(option);
+      });
+    }
     
     siteSelect.addEventListener('change', () => {
       this.chatInterface.site = siteSelect.value;
       this.chatInterface.resetChatState();
     });
-    
-    // Set initial value if chatInterface has a site
-    if (this.chatInterface.site) {
-      siteSelect.value = escapeHtml(this.chatInterface.site);
-    }
     
     // Make siteSelect accessible to chatInterface
     this.chatInterface.siteSelect = siteSelect;
@@ -280,15 +312,43 @@ export class DropdownInterface {
   /**
    * Gets the available sites for the selector
    * 
-   * @returns {Array} - Array of site names
-   * If you would like a site to show up in the dropdown, please add it here.
-   * For now, we will leave it with just the launch partners who
-   * are making their data available
+   * @returns {Promise<Array>} - Promise that resolves to array of site names
+   * Fetches sites from the server using the /sites endpoint
    */
-  getSites() {
-    return [
-      'scifi_movies', 'verge', 'oreilly', 'eventbrite', 'all'
-    ];
+  async getSites() {
+    try {
+      const response = await fetch('/sites?streaming=false');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      
+      // Check if we have the expected response structure
+      if (data && data['message-type'] === 'sites' && Array.isArray(data.sites)) {
+        let sites = data.sites;
+        
+        // Sort sites alphabetically
+        sites.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        
+        // Add 'all' to the beginning of the list if not already present
+        if (!sites.includes('all')) {
+          sites.unshift('all');
+        } else {
+          // If 'all' exists, remove it and add it to the beginning
+          sites = sites.filter(site => site !== 'all');
+          sites.unshift('all');
+        }
+        return sites;
+      } else {
+        console.error('Unexpected response format from /sites endpoint:', data);
+        // Fall back to default sites (alphabetized with 'all' first)
+        return ['all', 'eventbrite', 'oreilly', 'scifi_movies', 'verge'];
+      }
+    } catch (error) {
+      console.error('Error fetching sites:', error);
+      // Fall back to default sites if the request fails (alphabetized with 'all' first)
+      return ['all', 'eventbrite', 'oreilly', 'scifi_movies', 'verge'];
+    }
   }
 
   /**
