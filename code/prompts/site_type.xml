@@ -362,6 +362,7 @@
       </returnStruc>
     </Prompt>
 
+
     <Prompt ref="FindItemPrompt"> 
       <promptString>
         The user is looking for for an item named / described as: {item.name}

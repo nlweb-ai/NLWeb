@@ -97,6 +97,7 @@ class NLWebHandler:
         self.item_type = siteToItemType(self.site)
 
         # tool routing results
+
         self.tool_routing_results = []
 
         # the state of the handler. This is a singleton that holds the state of the handler.

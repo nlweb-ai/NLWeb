@@ -22,6 +22,7 @@ logger = get_configured_logger("item_details")
 
 FIND_ITEM_THRESHOLD = 70
 
+
 class ItemDetailsHandler():
     """Handler for finding and extracting details about specific items."""
     
@@ -100,6 +101,7 @@ class ItemDetailsHandler():
                 return {"score": 0, "explanation": "Prompt not found"}
             
             # Fill the prompt using the ranking prompt pattern (same as ranking.py)
+
             pr_dict = {"item.description": description, "request.details_requested": details_requested}
             prompt = fill_prompt(prompt_str, self.handler, pr_dict)
             

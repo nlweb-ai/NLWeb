@@ -747,7 +747,6 @@ export class ChatInterface {
    * @returns {string|null} - The image URL or null
    */
   extractImageInternal(image) {
-    console.log("extractImageInternal", image);
     if (typeof image === 'string') {
       return image;
     } else if (typeof image === 'object' && image.url) {

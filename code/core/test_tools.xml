@@ -83,12 +83,14 @@
         - Evaluating items against each other on specific criteria
         
         Assign a score from 0 to 100 for whether the compare tool is appropriate.
+
         If the score is above 74, provide the names of the two items being compared in the item1_name and item2_name fields.
         If there is a specific criteria for the comparison, provide it in the details_requested field.
       </prompt>
       <returnStruc>
         {
           "score": "integer between 0 and 100",
+
           "item1_name": "the name or identifier of the first item to compare",
           "item2_name": "the name or identifier of the second item to compare",
           "details_requested": "the details that the user is asking for"
