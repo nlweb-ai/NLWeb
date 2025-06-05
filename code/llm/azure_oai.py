@@ -95,8 +95,8 @@ class AzureOpenAIProvider(LLMProvider):
                     )
                     logger.debug("Azure OpenAI client initialized successfully")
                 except Exception as e:
-                    logger.exception("Failed to initialize Azure OpenAI client")
-                    raise
+                    logger.error("Failed to initialize Azure OpenAI client")
+                    return None
                
         return cls._client
 
@@ -135,7 +135,7 @@ class AzureOpenAIProvider(LLMProvider):
         if start_idx == -1 or end_idx == 0:
             error_msg = "No valid JSON object found in response"
             logger.error(f"{error_msg}, content: {response_text}")
-            raise ValueError(error_msg)
+            return {}
             
 
         json_str = response_text[start_idx:end_idx]
@@ -146,7 +146,7 @@ class AzureOpenAIProvider(LLMProvider):
         except json.JSONDecodeError as e:
             error_msg = f"Failed to parse response as JSON: {e}"
             logger.error(f"{error_msg}, content: {json_str}")
-            #raise ValueError(error_msg)
+            return {}
 
     async def get_completion(
         self,
@@ -208,7 +208,7 @@ class AzureOpenAIProvider(LLMProvider):
             # Safely extract content from response, handling potential None
             if not response or not hasattr(response, 'choices') or not response.choices:
                 logger.error("Invalid or empty response from Azure OpenAI")
-                raise ValueError("Invalid or empty response structure from Azure OpenAI")
+                return {}
                 
             # Check if message and content exist
             if not hasattr(response.choices[0], 'message') or not hasattr(response.choices[0].message, 'content'):
@@ -221,7 +221,7 @@ class AzureOpenAIProvider(LLMProvider):
             
         except asyncio.TimeoutError:
             logger.error(f"Azure OpenAI request timed out after {timeout} seconds")
-            raise
+            return {}
         except Exception as e:
             logger.error(f"Azure OpenAI completion failed: {type(e).__name__}: {str(e)}")
             raise

@@ -7,6 +7,13 @@ endpoints:
     index_name: embeddings1536
     db_type: azure_ai_search
 
+  azure_ai_search_backup:
+    api_key_env: AZURE_VECTOR_SEARCH_API_KEY_BACKUP
+    api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT_BACKUP
+    index_name: embeddings1536
+    db_type: azure_ai_search
+    name: NLWeb_Crawl_Backup
+
   # Milvus is still under development and not yet supported. 
   # milvus_1:
   #   database_path: ../milvus/milvus_prod.db
