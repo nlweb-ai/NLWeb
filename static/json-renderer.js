@@ -58,7 +58,6 @@ export class JsonRenderer {
   createJsonItemHtml(item) {
     // Check if there's a type-specific renderer
     // Handle array/list items by using first element
-    // Handle array/list items by using first element
 
     if (item.schema_object && Array.isArray(item.schema_object) && item.schema_object.length > 0) {
       item.schema_object = item.schema_object[0];
