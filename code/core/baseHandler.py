@@ -21,6 +21,7 @@ import core.fastTrack as fastTrack
 import core.post_ranking as post_ranking
 import core.router as router
 import core.item_details as item_details
+import core.compare_items as compare_items
 from core.state import NLWebHandlerState
 from utils.utils import get_param, siteToItemType, log
 from utils.logger import get_logger, LogLevel
@@ -96,7 +97,7 @@ class NLWebHandler:
         self.item_type = siteToItemType(self.site)
 
         # tool routing results
-        self.tool_routing_results = {}
+        self.tool_routing_results = []
 
         # the state of the handler. This is a singleton that holds the state of the handler.
         self.state = NLWebHandlerState(self)
@@ -302,9 +303,8 @@ class NLWebHandler:
             await item_details.ItemDetailsHandler(params, self).do()
         elif tool_name == "compare":
             print("Routing to comparison functionality")
-            # TODO: Implement comparison functionality
-            print("Comparison functionality not yet implemented, falling back to search")
-            await self.get_ranked_answers()
+            params = top_tool['result']
+            await compare_items.CompareItemsHandler(params, self).do()
         else:
             print(f"Unknown tool type: {tool_name}, defaulting to search")
             await self.get_ranked_answers()

@@ -260,9 +260,8 @@ export class ChatInterface {
     this.dotsStillThere = true;
  
     try {
-      console.log("generate_mode", this.generate_mode);
       const selectedSite = (this.site || (this.siteSelect && this.siteSelect.value));
-      const selectedDatabase = this.database || (this.dbSelect && this.dbSelect.value) || 'azure_ai_search_1';
+      const selectedDatabase = this.database || (this.dbSelect && this.dbSelect.value) || '' ;
       const prev = JSON.stringify(this.prevMessages);
       const generate_mode = this.generate_mode;
       const context_url = this.context_url && this.context_url.value ? this.context_url.value : '';
@@ -270,14 +269,15 @@ export class ChatInterface {
       // Generate a unique query ID
       const timestamp = new Date().getTime();
       const queryId = `query_${timestamp}_${Math.floor(Math.random() * 1000)}`;
-      console.log("Generated query ID:", queryId);
       
       // Build query parameters
       const queryParams = new URLSearchParams();
       queryParams.append('query_id', queryId);
       queryParams.append('query', message);
       queryParams.append('site', selectedSite);
-      queryParams.append('db', selectedDatabase);
+      if (selectedDatabase) {
+        queryParams.append('db', selectedDatabase);
+      }
       queryParams.append('generate_mode', generate_mode);
       queryParams.append('prev', prev);
       queryParams.append('item_to_remember', this.itemToRemember || '');
@@ -285,7 +285,6 @@ export class ChatInterface {
       
       const queryString = queryParams.toString();
       const url = `/ask?${queryString}`;
-      console.log("url", url);
       this.noResponse = true;
       this.eventSource = new ManagedEventSource(url);
       this.eventSource.query_id = queryId;
@@ -483,7 +482,6 @@ export class ChatInterface {
    * @param {Object} chatInterface - The chat interface instance
    */
   askUserMessage(message, chatInterface) { 
-    console.log("askUserMessage", message);
     const messageDiv = document.createElement('div');
     messageDiv.className = 'ask-user-message';
     // Use textContent for safe insertion
@@ -498,7 +496,6 @@ export class ChatInterface {
    * @param {Object} chatInterface - The chat interface instance
    */
   siteIsIrrelevantToQuery(message, chatInterface) { 
-    console.log("siteIsIrrelevantToQuery", message);
     const messageDiv = document.createElement('div');
     messageDiv.className = 'site-is-irrelevant-to-query';
     // Use textContent for safe insertion

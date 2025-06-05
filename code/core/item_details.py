@@ -11,8 +11,7 @@ Backwards compatibility is not guaranteed at this time.
 import asyncio
 import json
 from typing import List, Dict, Any, Optional, Union
-from prompts.prompt_runner import PromptRunner
-from prompts.prompts import find_prompt, fill_item_details_prompt
+from prompts.prompts import find_prompt, fill_prompt
 from utils.logging_config_helper import get_configured_logger
 from utils.trim import trim_json
 from retrieval.retriever import get_vector_db_client
@@ -23,16 +22,16 @@ logger = get_configured_logger("item_details")
 
 FIND_ITEM_THRESHOLD = 70
 
-class ItemDetailsHandler(PromptRunner):
+class ItemDetailsHandler():
     """Handler for finding and extracting details about specific items."""
     
     def __init__(self, params, handler):
-        super().__init__(handler)
         self.handler = handler
         self.params = params
         self.item_name = ""
         self.details_requested = ""
         self.found_items = []
+        self.sent_message = False
     
     async def do(self):
         """Main entry point following NLWeb module pattern."""
@@ -101,7 +100,8 @@ class ItemDetailsHandler(PromptRunner):
                 return {"score": 0, "explanation": "Prompt not found"}
             
             # Fill the prompt using the ranking prompt pattern (same as ranking.py)
-            prompt = fill_item_details_prompt(prompt_str, self.handler, description, details_requested)
+            pr_dict = {"item.description": description, "request.details_requested": details_requested}
+            prompt = fill_prompt(prompt_str, self.handler, pr_dict)
             
             response = await ask_llm(prompt, ans_struc, level="high")
             if response and "score" in response:

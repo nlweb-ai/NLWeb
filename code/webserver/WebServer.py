@@ -40,8 +40,18 @@ async def handle_client(reader, writer, fulfill_request):
         if not request_line:
             connection_alive = False
             return
-            
-        request_line = request_line.decode('utf-8', errors='replace').rstrip('\r\n')
+        
+        # Debug logging to see what we're receiving
+        logger.debug(f"[{request_id}] Raw request bytes: {request_line[:100]}")
+        
+        try:
+            request_line = request_line.decode('utf-8', errors='replace').rstrip('\r\n')
+        except Exception as decode_error:
+            logger.error(f"[{request_id}] Failed to decode request line: {decode_error}, raw bytes: {request_line[:100]}")
+            writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+            await writer.drain()
+            connection_alive = False
+            return
         words = request_line.split()
         if len(words) < 2:
             # Bad request
@@ -61,8 +71,13 @@ async def handle_client(reader, writer, fulfill_request):
                 header_line = await reader.readline()
                 if not header_line or header_line == b'\r\n':
                     break
+                
+                try:
+                    hdr = header_line.decode('utf-8', errors='replace').rstrip('\r\n')
+                except Exception as decode_error:
+                    logger.error(f"[{request_id}] Failed to decode header: {decode_error}, raw bytes: {header_line[:100]}")
+                    continue
                     
-                hdr = header_line.decode('utf-8').rstrip('\r\n')
                 if ":" not in hdr:
                     continue
                 name, value = hdr.split(":", 1)
@@ -90,7 +105,13 @@ async def handle_client(reader, writer, fulfill_request):
             try:
                 content_length = int(headers['content-length'])
                 body = await reader.read(content_length)
+                logger.debug(f"[{request_id}] Read body of {len(body) if body else 0} bytes")
             except (ValueError, ConnectionResetError, BrokenPipeError) as e:
+                logger.error(f"[{request_id}] Error reading body: {e}")
+                connection_alive = False
+                return
+            except Exception as e:
+                logger.error(f"[{request_id}] Unexpected error reading body: {e}")
                 connection_alive = False
                 return
         
@@ -461,8 +482,8 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
 
 def close_logs():
     """Close the log file when the application exits."""
-    if hasattr(logging, 'log_file'):
-        logging.log_file.close()
+    # This function is no longer needed with the new logging system
+    pass
 
 # Azure Web App specific: Check for the PORT environment variable
 def get_port():

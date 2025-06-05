@@ -3,6 +3,8 @@
  * Handles EventSource connections with retry logic and message processing
  */
 
+import { handleCompareItems } from './show_compare.js';
+
 export class ManagedEventSource {
   /**
    * Creates a new ManagedEventSource
@@ -186,6 +188,10 @@ export class ManagedEventSource {
       case "nlws":
         chatInterface.noResponse = false;
         this.handleNLWS(data, chatInterface);
+        break;
+      case "compare_items":
+        chatInterface.noResponse = false;
+        handleCompareItems(data, chatInterface);
         break;
       case "complete":
         chatInterface.resortResults();
