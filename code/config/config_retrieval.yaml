@@ -52,3 +52,27 @@ endpoints:
     index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
     db_type: snowflake_cortex_search
 
+  opensearch_knn:
+    # OpenSearch with k-NN plugin enabled (faster, native vector search)
+    api_endpoint_env: OPENSEARCH_ENDPOINT
+    # Authentication credentials (username:password for basic auth, or API key)
+    api_key_env: OPENSEARCH_CREDENTIALS
+    # Index name to search in
+    index_name: embeddings
+    # Database type
+    db_type: opensearch
+    # Use k-NN plugin for vector search
+    use_knn: true
+
+  opensearch_script:
+    # OpenSearch without k-NN plugin (fallback using script_score)
+    api_endpoint_env: OPENSEARCH_ENDPOINT
+    # Authentication credentials (username:password for basic auth, or API key)
+    api_key_env: OPENSEARCH_CREDENTIALS
+    # Index name to search in
+    index_name: embeddings
+    # Database type
+    db_type: opensearch
+    # Use script_score for vector similarity (slower but works without plugins)
+    use_knn: false
+
