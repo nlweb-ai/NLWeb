@@ -1,18 +1,20 @@
 # Stage 1: Build stage
 FROM python:3.13-slim AS builder
 
+# Install build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc python3-dev && \
+    pip install --no-cache-dir --upgrade pip && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy requirements file
 COPY code/requirements.txt .
 
-# Install build dependencies and Python packages
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc python3-dev && \
-    pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Install Python packages
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Runtime stage
 FROM python:3.13-slim
@@ -37,11 +39,7 @@ USER nlweb
 COPY code/ /app/
 COPY static/ /app/static/
 
-# Remove local logs and .env file
-RUN rm -r code/logs/* || true && \
-    rm -r code/.env || true
-
-    # Copy installed packages from builder stage
+# Copy installed packages from builder stage
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
