@@ -44,7 +44,7 @@ class HuggingFaceProvider(LLMProvider):
         Retrieve the Hugging Face API key from environment or raise an error.
         """
         # Get the API key from the preferred provider config
-        provider_config = CONFIG.llm_providers["huggingface"]
+        provider_config = CONFIG.llm_endpoints["huggingface"]
         api_key = provider_config.api_key
         return api_key
 
@@ -100,7 +100,7 @@ class HuggingFaceProvider(LLMProvider):
         # If model not provided, get it from config
         if model is None:
             print("No model provided, getting it from config")
-            provider_config = CONFIG.llm_providers["huggingface"]
+            provider_config = CONFIG.llm_endpoints["huggingface"]
             # Use the 'high' model for completions by default
             model = provider_config.models.high
 
