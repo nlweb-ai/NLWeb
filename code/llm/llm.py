@@ -38,7 +38,7 @@ _llm_type_providers = {
     "deepseek_azure": deepseek_provider,
     "inception": inception_provider,
     "snowflake": snowflake_provider,
-    "huggingface": huggingface_provider
+    "huggingface": huggingface_provider,
 }
 
 async def ask_llm(
