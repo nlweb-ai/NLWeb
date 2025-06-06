@@ -128,7 +128,7 @@ async def handle_client(reader, writer, fulfill_request):
                 writer.write(status_line.encode('utf-8'))
                 
                 # Add CORS headers if enabled
-                if CONFIG.server.enable_cors and 'Origin' in headers:
+                if CONFIG.server.enable_cors and 'origin' in headers:
                     response_headers['Access-Control-Allow-Origin'] = '*'
                     response_headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
                     response_headers['Access-Control-Allow-Headers'] = 'Content-Type'
