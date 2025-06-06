@@ -3,7 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: iunera/nlweb:latest
     container_name: nlweb
     ports:
       - "8000:8000"
