@@ -43,7 +43,8 @@ class RelevanceDetection(PromptRunner):
             message = {"message_type": "site_is_irrelevant_to_query", "message": self.explanation_for_irrelevance}
             self.handler.query_is_irrelevant = True
             self.handler.query_done = True
-            self.handler.abort_fast_track_event.set()  # Use event instead of flag
+            # Centralized abort checking will handle setting the event
+            self.handler.state.abort_fast_track_if_needed()
             await self.handler.send_message(message)
         else:
             self.handler.query_is_irrelevant = False
