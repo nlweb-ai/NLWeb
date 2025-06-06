@@ -32,7 +32,7 @@ The Docker image includes several security features:
 To build the Docker image for your current architecture:
 
 ```bash
-docker build -t iunera/nlweb:latest .
+docker build -t nlweb:latest .
 ```
 
 ### Multi-Architecture Build
@@ -40,7 +40,7 @@ docker build -t iunera/nlweb:latest .
 To build the Docker image for multiple architectures (ARM64 and AMD64), you can use Docker's buildx feature:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t iunera/nlweb:latest --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t nlweb:latest --push .
 ```
 
 Note: The `--push` flag is required for multi-architecture builds. If you want to build without pushing to a registry, you can use the `--load` flag instead, but it only works for single-platform builds.
@@ -50,7 +50,7 @@ Note: The `--push` flag is required for multi-architecture builds. If you want t
 To run the Docker container:
 
 ```bash
-docker run -p 8000:8000 iunera/nlweb:latest
+docker run -p 8000:8000 -v ./code/config:/app/config:ro -v -v ./data:/data nlweb:latest
 ```
 
 This will start the NLWeb application and expose it on port 8000.
@@ -71,10 +71,11 @@ The application requires several environment variables to be set. There are two 
    OPENAI_API_KEY=your-openai-key
 docker run -it -p 8000:8000 \
   -v ./data:/data \
+  -v ./code/config:/app/code/config:ro \
   -e AZURE_VECTOR_SEARCH_ENDPOINT=${AZURE_VECTOR_SEARCH_ENDPOINT} \
   -e AZURE_VECTOR_SEARCH_API_KEY=${AZURE_VECTOR_SEARCH_API_KEY} \
   -e OPENAI_API_KEY=${OPENAI_API_KEY} \
-  iunera/nlweb:latest
+  nlweb:latest
 ```
 
 This command exports all non-commented variables from the code/.env file to your current shell session. However, for Docker deployments, it's recommended to pass environment variables directly to the container as shown above.
@@ -131,7 +132,11 @@ docker-compose up -d
 
 ### Data Persistence with Docker Compose
 
-The `docker-compose.yaml` file is configured to mount a `./data` directory from your host to `/app/data` in the container. This allows data to persist between container restarts.
+The `docker-compose.yaml` file is configured with the following volume mounts:
+
+1. **Data Directory**: Mounts the `./data` directory from your host to `/app/data` in the container. This allows data to persist between container restarts.
+
+2. **Configuration Directory**: Mounts the `./code/config` directory from your host to `/app/config` in the container as read-only. This provides access to configuration files without allowing the container to modify them, ensuring configuration integrity and security.
 
 ### Loading Data with Docker Compose
 

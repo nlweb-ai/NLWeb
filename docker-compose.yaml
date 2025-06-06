@@ -13,6 +13,7 @@ services:
       - PORT=8000
     volumes:
       - ./data:/data
+      - ./code/config:/app/config:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000')\""]
       interval: 30s
