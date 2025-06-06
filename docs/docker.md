@@ -50,7 +50,7 @@ Note: The `--push` flag is required for multi-architecture builds. If you want t
 To run the Docker container:
 
 ```bash
-docker run -p 8000:8000 -v ./code/config:/app/config:ro -v -v ./data:/data nlweb:latest
+docker run -p 8000:8000 -v ./code/config:/app/config:ro -v ./data:/data nlweb:latest
 ```
 
 This will start the NLWeb application and expose it on port 8000.
