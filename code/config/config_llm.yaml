@@ -58,7 +58,6 @@ endpoints:
       high: deepseek-coder-33b
       low: deepseek-coder-7b
 
-      
   snowflake:
     api_key_env: SNOWFLAKE_PAT
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
@@ -67,3 +66,10 @@ endpoints:
     models:
       high: claude-3-5-sonnet
       low: llama3.1-8b
+
+  huggingface:
+    api_key_env: HF_TOKEN
+    llm_type: huggingface
+    models:
+      high: Qwen/Qwen2.5-72B-Instruct
+      low: Qwen/Qwen2.5-Coder-7B-Instruct
