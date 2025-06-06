@@ -144,7 +144,7 @@ docker-compose exec nlweb python -m tools.db_load <url> <name>
 For example:
 
 ```bash
-docker-compose exec nlweb python -m tools.db_load https://example.com/rss Example-Wiki
+docker-compose exec nlweb python -m tools.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
 ```
 
 ## Loading Data with Docker
@@ -158,7 +158,7 @@ docker exec -it <container_id> python -m tools.db_load <url> <name>
 For example:
 
 ```bash
-docker exec -it <container_id> python -m tools.db_load https://example.com/rss Example-Wiki
+docker exec -it <container_id> python -m tools.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
 ```
 
 ## Accessing the Application
@@ -168,21 +168,6 @@ Once the container is running, you can access the application at:
 ```
 http://localhost:8000
 ```
-
-## Pre-built Docker Image
-
-A pre-built Docker image is available on Docker Hub at [iunera/nlweb](https://hub.docker.com/repository/docker/iunera/nlweb/general). You can use this image directly without building it yourself:
-
-```bash
-docker pull iunera/nlweb:latest
-docker run -p 8000:8000 iunera/nlweb:latest
-```
-
-Note that while the pre-built image is convenient, you can always build your own Docker image using the instructions provided in the [Building the Docker Image](#building-the-docker-image) section if you need to customize it for your specific requirements.
-
-## Installation Guide
-
-For a detailed guide on installing and setting up NLWeb, check out our blog article: [NLWeb Enables AI-Powered Websites](https://www.iunera.com/kraken/machine-learning-ai/nlweb-enables-ai-powered-websites/). The article provides additional context and tips for getting started with NLWeb.
 
 ## Additional Information
 
