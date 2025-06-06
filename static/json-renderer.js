@@ -34,6 +34,7 @@ export class JsonRenderer {
    * @returns {string} - HTML representation of the JSON
    */
   render(json) {
+    // Print JSON to console for debugging
     try {
       const parsed = (typeof json === 'string') ? JSON.parse(json) : json;
       const formatted = this.formatObject(parsed);
@@ -56,14 +57,19 @@ export class JsonRenderer {
    */
   createJsonItemHtml(item) {
     // Check if there's a type-specific renderer
+    // Handle array/list items by using first element
+
+    if (item.schema_object && Array.isArray(item.schema_object) && item.schema_object.length > 0) {
+      item.schema_object = item.schema_object[0];
+    }
     if (item.schema_object && item.schema_object['@type']) {
       const type = item.schema_object['@type'];
-      if (Object.prototype.hasOwnProperty.call(this.typeRenderers, type) && typeof this.typeRenderers[type] === 'function') {
+      if (Object.prototype.hasOwnProperty.call(this.typeRenderers, type) && 
+             typeof this.typeRenderers[type] === 'function') {
         return this.typeRenderers[type](item, this);
-      }
+      } 
     }
     
-    // Use default renderer if no type-specific renderer exists
     return this.createDefaultItemHtml(item);
   }
   
@@ -88,7 +94,7 @@ export class JsonRenderer {
     // Description
     const description = document.createElement('div');
     // Use textContent for safe insertion of description
-    description.textContent = item.description || '';
+    description.textContent = item.description || item.details || '';
     description.className = 'item-description';
     contentDiv.appendChild(description);
 
@@ -123,27 +129,7 @@ export class JsonRenderer {
     titleLink.className = 'item-title-link';
     titleRow.appendChild(titleLink);
 
-    // Info icon
-    const infoIcon = document.createElement('span');
-    // Use a safer way to create the icon
-    const imgElement = document.createElement('img');
-    // FIX: Ensure the image source is safe
-    imgElement.src = this.sanitizeUrl('images/info.png');
-    imgElement.alt = 'Info';
-    infoIcon.appendChild(imgElement);
-    
-    infoIcon.className = 'item-info-icon';
-    // Sanitize tooltip content
-    //infoIcon.title = `${this.escapeHtml(item.explanation || '')} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
-    
-    // Decode any HTML entities so apostrophes etc. render correctly
-    const explanationText = item.explanation 
-     ? this.htmlUnescape(item.explanation) 
-     : '';
-    infoIcon.title = 
-     `${explanationText} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
-    titleRow.appendChild(infoIcon);
-
+   
     contentDiv.appendChild(titleRow);
   }
   
