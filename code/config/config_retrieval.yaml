@@ -1,4 +1,4 @@
-preferred_endpoint: opensearch_script
+preferred_endpoint: azure_ai_search
 
 endpoints:
   azure_ai_search:
@@ -26,7 +26,7 @@ endpoints:
   qdrant_url:
     # Connect to a Qdrant server at a specific URL
     api_endpoint_env: QDRANT_URL
-    # Optional API key for authenticationstill 
+    # Optional API key for authentication
     api_key_env: QDRANT_API_KEY
     # Set the collection name to use
     index_name: nlweb_collection
