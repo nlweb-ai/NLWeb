@@ -43,7 +43,7 @@ class SnowflakeProvider(LLMProvider):
         match = re.search(r"(\{.*\})", cleaned, re.S)
         if not match:
             logger.error("Failed to parse JSON from content: %r", content)
-            raise ValueError("No JSON object found in response")
+            return {}
         return json.loads(match.group(1))
 
     async def get_completion(
@@ -116,7 +116,11 @@ async def cortex_complete(
         },
         timeout,
     )
-    return SnowflakeProvider.clean_response(response.get("choices")[0].get("message").get("content").strip())
+    try:
+        return SnowflakeProvider.clean_response(response.get("choices")[0].get("message").get("content").strip())
+    except Exception as e:
+        logger.error(f"Error processing Snowflake response: {e}")
+        return {}
 
 async def post(api: str, request: dict, timeout: float) -> dict:
     cfg = CONFIG.llm_endpoints.get("snowflake")
@@ -132,7 +136,12 @@ async def post(api: str, request: dict, timeout: float) -> dict:
             timeout=timeout,
         )
         if response.status_code == 400:
-            raise Exception(response.json())
-        response.raise_for_status()
+            logger.error(f"Snowflake API error: {response.json()}")
+            return {}
+        try:
+            response.raise_for_status()
+        except Exception as e:
+            logger.error(f"Snowflake API request failed: {e}")
+            return {}
         return response.json()
 

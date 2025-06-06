@@ -586,7 +586,7 @@ export class ChatInterface {
     infoIcon.innerHTML = '<img src="images/info.png">';
     infoIcon.className = 'item-info-icon';
     infoIcon.title = item.explanation + "(score=" + item.score + ")" + "(Ranking time=" + item.time + ")";
-    titleRow.appendChild(infoIcon);
+   // titleRow.appendChild(infoIcon);
 
     contentDiv.appendChild(titleRow);
   }

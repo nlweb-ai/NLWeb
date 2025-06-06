@@ -82,7 +82,27 @@ class ManagedEventSource {
       } else if (data && data.message_type == "ask_user") {
         this.chatInterface.askUserMessage(data.message, this.chatInterface)    
       } else if (data && data.message_type == "item_details") {
-        this.chatInterface.itemDetailsMessage(data.message, this.chatInterface)    
+        // Extract schema object (handle both array and direct object formats)
+        const schema = Array.isArray(data.schema_object) ? data.schema_object[0] : data.schema_object;
+        const schemaTitle = schema && (schema.name || schema.headline || schema.title);
+        
+        // Convert item_details format to standard item format
+        const item = {
+          url: data.url,
+          name: schemaTitle || data.item_name,
+          site: data.site,
+          siteUrl: data.site,
+          score: data.match_score,
+          description: data.details, // Keep as array for proper list rendering
+          schema_object: data.schema_object,
+          explanation: data.match_explanation
+        };
+        
+        const domItem = this.chatInterface.createJsonItemHtml(item);
+        this.chatInterface.currentItems.push([item, domItem]);
+        this.chatInterface.bubble.appendChild(domItem);
+        this.chatInterface.num_results_sent++;
+        this.chatInterface.resortResults(this.chatInterface);    
       } else if (data && data.message_type == "result_batch") {
         for (const item of data.results) {
           const domItem = this.chatInterface.createJsonItemHtml(item)
@@ -351,8 +371,10 @@ class ChatInterface {
     }
   
     extractImage(schema_object) {
-      if (schema_object && schema_object.image) {
-        return this.extractImageInternal(schema_object.image);
+      // Handle case where schema_object is an array (like seriouseats)
+      const schema = Array.isArray(schema_object) ? schema_object[0] : schema_object;
+      if (schema && schema.image) {
+        return this.extractImageInternal(schema.image);
       }
     }
 
@@ -568,8 +590,24 @@ class ChatInterface {
   
       // Description
       const description = document.createElement('div');
-      description.textContent = item.description || '';
       description.style.fontSize = '0.9em';
+      
+      if (Array.isArray(item.description)) {
+        // Create bulleted list for arrays (like ingredients)
+        const list = document.createElement('ul');
+        list.style.marginLeft = '20px';
+        list.style.paddingLeft = '0';
+        item.description.forEach(item => {
+          const listItem = document.createElement('li');
+          listItem.textContent = item;
+          list.appendChild(listItem);
+        });
+        description.appendChild(list);
+      } else {
+        // Regular text for non-arrays
+        description.textContent = item.description || '';
+      }
+      
       contentDiv.appendChild(description);
 
       if (this.display_mode == "nlwebsearch") {
@@ -734,11 +772,118 @@ class ChatInterface {
 
   itemDetailsMessage(itemDetails, chatInterface) { 
      if (itemDetails) {
+         // Check if we have schema_object - if so, render as a full JSON item
+         if (typeof itemDetails === 'object' && itemDetails.schema_object) {
+           // Convert item_details format to result_batch item format
+           const item = {
+             url: itemDetails.url,
+             name: itemDetails.item_name,
+             site: itemDetails.site,
+             siteUrl: itemDetails.site,
+             score: itemDetails.match_score,
+             description: Array.isArray(itemDetails.details) ? itemDetails.details.join(', ') : itemDetails.details,
+             schema_object: itemDetails.schema_object,
+             explanation: itemDetails.match_explanation
+           };
+           
+           // Use existing JSON item renderer
+           const domItem = chatInterface.createJsonItemHtml(item);
+           
+           // Append to existing remembered content or create new
+           if (chatInterface.thisRoundRemembered) {
+             chatInterface.thisRoundRemembered.appendChild(document.createElement('br'));
+             chatInterface.thisRoundRemembered.appendChild(domItem);
+           } else {
+             chatInterface.thisRoundRemembered = document.createElement('div');
+             chatInterface.thisRoundRemembered.className = 'item-details-container';
+             chatInterface.thisRoundRemembered.appendChild(domItem);
+             chatInterface.bubble.appendChild(chatInterface.thisRoundRemembered);
+           }
+           return domItem;
+         } 
+         
+         // Fallback to original rendering for legacy formats
          const messageDiv = document.createElement('div');
-         messageDiv.className = `item-details-message`;
-         messageDiv.textContent = itemDetails;
-         chatInterface.thisRoundRemembered = messageDiv;
-         chatInterface.bubble.appendChild(messageDiv);
+         messageDiv.className = 'item-details-message';
+         
+         // Handle both object format (new) and string format (legacy)
+         if (typeof itemDetails === 'object' && itemDetails.details) {
+           // New format: {item_name, details, match_score, url, site}
+           
+           // Create title with item name and score
+           const titleDiv = document.createElement('div');
+           titleDiv.className = 'item-details-title';
+           const strongElement = document.createElement('strong');
+           strongElement.textContent = itemDetails.item_name || 'Item Details';
+           titleDiv.appendChild(strongElement);
+           
+           if (itemDetails.match_score) {
+             const scoreSpan = document.createElement('span');
+             scoreSpan.className = 'match-score';
+             scoreSpan.textContent = ` (Score: ${itemDetails.match_score})`;
+             titleDiv.appendChild(scoreSpan);
+           }
+           messageDiv.appendChild(titleDiv);
+           
+           // Create details content
+           const detailsDiv = document.createElement('div');
+           detailsDiv.className = 'item-details-content';
+           
+           // Handle different detail formats
+           if (Array.isArray(itemDetails.details)) {
+             // Ingredients list format
+             const list = document.createElement('ul');
+             list.className = 'ingredients-list';
+             itemDetails.details.forEach(ingredient => {
+               const listItem = document.createElement('li');
+               listItem.textContent = ingredient;
+               list.appendChild(listItem);
+             });
+             detailsDiv.appendChild(list);
+           } else {
+             // Plain text format
+             detailsDiv.textContent = itemDetails.details;
+           }
+           
+           messageDiv.appendChild(detailsDiv);
+           
+           // Add source link if available
+           if (itemDetails.url) {
+             const linkDiv = document.createElement('div');
+             linkDiv.className = 'item-details-source';
+             const link = document.createElement('a');
+             link.href = itemDetails.url;
+             link.target = '_blank';
+             link.textContent = `View on ${itemDetails.site || 'source'}`;
+             linkDiv.appendChild(link);
+             messageDiv.appendChild(linkDiv);
+           }
+           
+           // Add explanation if available
+           if (itemDetails.match_explanation) {
+             const explainDiv = document.createElement('div');
+             explainDiv.className = 'item-details-explanation';
+             const emElement = document.createElement('em');
+             emElement.textContent = itemDetails.match_explanation;
+             explainDiv.appendChild(emElement);
+             messageDiv.appendChild(explainDiv);
+           }
+         } else {
+           // Legacy string format
+           messageDiv.textContent = itemDetails;
+         }
+         
+         // Append to existing remembered content or create new
+         if (chatInterface.thisRoundRemembered) {
+           // Add some spacing between multiple items
+           chatInterface.thisRoundRemembered.appendChild(document.createElement('br'));
+           chatInterface.thisRoundRemembered.appendChild(messageDiv);
+         } else {
+           chatInterface.thisRoundRemembered = document.createElement('div');
+           chatInterface.thisRoundRemembered.className = 'item-details-container';
+           chatInterface.thisRoundRemembered.appendChild(messageDiv);
+           chatInterface.bubble.appendChild(chatInterface.thisRoundRemembered);
+         }
          return messageDiv;
      }
    }
