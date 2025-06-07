@@ -14,7 +14,7 @@ from typing import List, Dict, Any, Optional, Union
 from prompts.prompt_runner import PromptRunner
 from prompts.prompts import find_prompt, fill_prompt
 from utils.logging_config_helper import get_configured_logger
-from utils.trim import trim_json
+from utils.json_utils import trim_json
 from retrieval.retriever import get_vector_db_client
 from llm.llm import ask_llm
 
