@@ -13,6 +13,7 @@ try:
     from openai import OpenAI, AzureOpenAI
     from azure.core.credentials import AzureKeyCredential
     from azure.search.documents import SearchClient
+    from ollama import Client as OllamaClient # renamed the Client to OllamaClient to avoid using common name
     from config.config import CONFIG
 except ImportError as e:
     print(f"Error importing required libraries: {e}")
@@ -146,6 +147,31 @@ async def check_azure_openai_api():
         print(f"❌ Error connecting to Azure OpenAI API: {e}")
         return False
 
+async def check_ollama_api():
+    """Check Ollama API connectivity"""
+    print("\nChecking Ollama API connectivity...")
+    
+    # Check if Ollama is configured
+    if "ollama" not in CONFIG.llm_endpoints:
+        print("❌ Ollama provider not configured")
+        return False
+    
+    ollama_config = CONFIG.llm_endpoints["ollama"]
+    ollama_endpoint = ollama_config.endpoint
+    
+    if not ollama_endpoint:
+        print("❌ Endpoint for Ollama not configured")
+        return False
+    
+    try:
+        client = OllamaClient(host=ollama_endpoint)
+        models = client.ps()
+        print(f"✅ Successfully connected to Ollama API")
+        return True
+    except Exception as e:
+        print(f"❌ Error connecting to Ollama API: {e}")
+        return False
+
 async def check_embedding_api():
     """Check Azure Embedding API connectivity"""
     print("\nChecking Azure Embedding API connectivity...")
@@ -211,7 +237,8 @@ async def main():
         check_inception_api(),
         check_openai_api(),
         check_azure_openai_api(),
-        check_embedding_api()
+        check_embedding_api(),
+        check_ollama_api()
     ]
     
     results = await asyncio.gather(*tasks, return_exceptions=True)

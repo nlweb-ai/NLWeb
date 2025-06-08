@@ -114,6 +114,18 @@ async def get_embedding(
             )
             logger.debug(f"Snowflake Cortex embeddings received, dimension: {len(result)}")
             return result
+        
+        if provider == "ollama":
+            logger.debug("Getting Ollama embeddings")
+            # Import here to avoid potential circular imports
+            from embedding.ollama_embedding import get_ollama_embedding
+            # For Ollama, model_id is the model
+            result = await asyncio.wait_for(
+                get_ollama_embedding(text, model=model_id),
+                timeout=timeout
+            )
+            logger.debug(f"Ollama embeddings received, dimension: {len(result)}")
+            return result
 
         error_msg = f"No embedding implementation for provider '{provider}'"
         logger.error(error_msg)
@@ -221,6 +233,16 @@ async def batch_get_embeddings(
                 results.append(embedding)
             logger.debug(f"Gemini batch embeddings received, count: {len(results)}")
             return results
+        
+        if provider == "ollama":
+            logger.debug("Getting Ollama batch embeddings")
+            from embedding.ollama_embedding import get_ollama_batch_embeddings
+            result = await asyncio.wait_for(
+                get_ollama_batch_embeddings(texts, model=model_id),
+                timeout=timeout
+            )
+            logger.debug(f"Ollama batch embeddings received, count: {len(result)}")
+            return result
     
         # Default implementation if provider doesn't match any above
         logger.debug(f"No specific batch implementation for {provider}, processing sequentially")

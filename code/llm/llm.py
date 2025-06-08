@@ -25,6 +25,7 @@ from llm.azure_deepseek import provider as deepseek_provider
 from llm.inception import provider as inception_provider
 from llm.snowflake import provider as snowflake_provider
 from llm.huggingface import provider as huggingface_provider
+from llm.ollama import provider as ollama_provider
 from utils.logging_config_helper import get_configured_logger, LogLevel
 logger = get_configured_logger("llm_wrapper")
 
@@ -39,6 +40,7 @@ _llm_type_providers = {
     "inception": inception_provider,
     "snowflake": snowflake_provider,
     "huggingface": huggingface_provider,
+    "ollama": ollama_provider,
 }
 
 async def ask_llm(
