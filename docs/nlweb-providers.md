@@ -25,7 +25,7 @@ File updates:
 ```
 - **code\env.template:** Make sure that the environment variables that you added are also added to this file, with default values if appropriate, so that new users getting started know what environment variables they will need.
 - **code\llm\llm.py**: Add your model to the provider mapping here.
-- **Connectivity check** tool - please add this in [Azure-Connectivity](../code/azure-connectivity.py) for now; later this file will be updated to hold all connectivity checks.
+- **Connectivity check** tool - please add this in [Azure Connectivity](../code/azure_connectivity.py) for now; later this file will be updated to hold all connectivity checks.
 
 New files:
 - **docs\\setup-\<your-model-name>.md:** Add any model-specific documentation here.
