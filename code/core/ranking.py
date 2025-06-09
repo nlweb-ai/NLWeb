@@ -13,7 +13,7 @@ from llm.llm import ask_llm
 import asyncio
 import json
 from utils.trim import trim_json
-from prompts.prompts import find_prompt, fill_ranking_prompt
+from prompts.prompts import find_prompt, fill_prompt
 from utils.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("ranking_engine")
@@ -66,7 +66,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
         if not self.handler.connection_alive_event.is_set():
             logger.warning("Connection lost, skipping item ranking")
             return
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted, skipping item ranking")
             logger.info("Aborting fast track")
             return
@@ -74,7 +74,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             logger.debug(f"Ranking item: {name} from {site}")
             prompt_str, ans_struc = self.get_ranking_prompt()
             description = trim_json(json_str)
-            prompt = fill_ranking_prompt(prompt_str, self.handler, description)
+            prompt = fill_prompt(prompt_str, self.handler, {"item.description": description})
             
             logger.debug(f"Sending ranking request to LLM for item: {name}")
             ranking = await ask_llm(prompt, ans_struc, level="low", query_params=self.handler.query_params)
@@ -138,7 +138,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             print("Connection lost during ranking, skipping sending results")
             return
         
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted, not sending answers")
             return
               
@@ -169,7 +169,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             await self.handler.pre_checks_done_event.wait()
             
             # if we got here, prechecks are done. check once again for fast track abort
-            if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+            if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
                 logger.info("Fast track aborted after pre-checks")
                 return
             
@@ -244,7 +244,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
         # Wait for pre checks using event
         await self.handler.pre_checks_done_event.wait()
         
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted after ranking tasks completed")
             return
     

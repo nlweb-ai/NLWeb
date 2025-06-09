@@ -40,7 +40,8 @@ class RetrievalProviderConfig:
     api_endpoint: Optional[str] = None
     database_path: Optional[str] = None
     index_name: Optional[str] = None
-    db_type: Optional[str] = None  
+    db_type: Optional[str] = None
+    use_knn: Optional[bool] = None  
 
 @dataclass
 class SSLConfig:

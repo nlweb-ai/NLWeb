@@ -19,6 +19,9 @@ import traceback
 import pre_retrieval.relevance_detection as relevance_detection
 import core.fastTrack as fastTrack
 import core.post_ranking as post_ranking
+import core.router as router
+import core.item_details as item_details
+import core.compare_items as compare_items
 from core.state import NLWebHandlerState
 from utils.utils import get_param, siteToItemType, log
 from utils.logger import get_logger, LogLevel
@@ -92,6 +95,10 @@ class NLWebHandler:
 
         # the type of item that is being sought. e.g., recipe, movie, etc.
         self.item_type = siteToItemType(self.site)
+
+        # tool routing results
+
+        self.tool_routing_results = []
 
         # the state of the handler. This is a singleton that holds the state of the handler.
         self.state = NLWebHandlerState(self)
@@ -176,6 +183,7 @@ class NLWebHandler:
                     self.return_value[message["message_type"]] = val
                 logger.debug(f"Message added to return value store")
 
+
     async def runQuery(self):
         logger.info(f"Starting query execution for query_id: {self.query_id}")
         try:
@@ -185,10 +193,10 @@ class NLWebHandler:
                 log(f"query done prematurely")
                 return self.return_value
             if (not self.fastTrackWorked):
-                logger.info(f"Fast track did not work, proceeding with normal ranking")
-                log(f"Going to get ranked answers")
-                await self.get_ranked_answers()
-                log(f"ranked answers done")
+                logger.info(f"Fast track did not work, proceeding with routing logic")
+                log(f"Going to route query based on tool selection")
+                await self.route_query_based_on_tools()
+                log(f"query routing done")
             await self.post_ranking_tasks()
             self.return_value["query_id"] = self.query_id
             logger.info(f"Query execution completed for query_id: {self.query_id}")
@@ -212,6 +220,7 @@ class NLWebHandler:
         tasks.append(asyncio.create_task(relevance_detection.RelevanceDetection(self).do()))
         tasks.append(asyncio.create_task(memory.Memory(self).do()))
         tasks.append(asyncio.create_task(required_info.RequiredInfo(self).do()))
+        tasks.append(asyncio.create_task(router.ToolSelector(self).do()))
         
         try:
             logger.debug(f"Running {len(tasks)} preparation tasks concurrently")
@@ -271,6 +280,36 @@ class NLWebHandler:
             log(f"Error in get_ranked_answers: {e}")
             traceback.print_exc()
             raise
+
+    async def route_query_based_on_tools(self):
+        """Route the query based on tool selection results."""
+        logger.info("Routing query based on tool selection")
+
+        # Check if we have tool routing results
+        if not hasattr(self, 'tool_routing_results') or not self.tool_routing_results:
+            print("DEBUG: No tool routing results available, defaulting to search")
+            await self.get_ranked_answers()
+            return
+
+        top_tool = self.tool_routing_results[0] 
+        tool_name = top_tool['tool'].name
+        print("=" * 40)
+        
+        if tool_name == "search":
+            print("Routing to search functionality")
+            await self.get_ranked_answers()
+        elif tool_name == "details":
+            print("Routing to item details functionality")
+            params = top_tool['result']
+            await item_details.ItemDetailsHandler(params, self).do()
+        elif tool_name == "compare":
+            print("Routing to comparison functionality")
+            params = top_tool['result']
+            await compare_items.CompareItemsHandler(params, self).do()
+        else:
+            print(f"Unknown tool type: {tool_name}, defaulting to search")
+            await self.get_ranked_answers()
+
 
     async def post_ranking_tasks(self):
         logger.info("Starting post-ranking tasks")
