@@ -1,12 +1,7 @@
-azure-ai-inference>=1.0.0b9
-azure-core>=1.30.0
+# Core dependencies - always required
 azure-search-documents>=11.4.0
 azure-identity>=1.15.0
-anthropic>=0.18.1
 chardet>=5.2.0
-openai>=1.12.0
-google-genai>=0.7.1
-google-cloud-aiplatform>=1.38.0
 jsonschema>=4.19.1
 mcp>=1.0.0
 marshmallow<4.0.0
@@ -20,5 +15,28 @@ aiohttp>=3.9.1
 pyyaml>=6.0.1
 feedparser>=6.0.1
 httpx>=0.28.1
-huggingface_hub>=0.31.0
 seaborn>=0.13.0
+
+# Optional LLM provider dependencies
+# NOTE: These packages will be installed AUTOMATICALLY at runtime when you first use a provider.
+# You do NOT need to install them manually unless you want to pre-install them.
+# The system will detect missing packages and install them on-demand using pip.
+#
+# If you prefer to pre-install specific providers, you can uncomment the lines below:
+
+# For Anthropic Claude:
+# anthropic>=0.18.1
+
+# For OpenAI (including Azure OpenAI, Llama Azure, DeepSeek Azure):
+# openai>=1.12.0
+
+# For Google Gemini/Vertex AI:
+# google-genai>=0.7.1
+# google-cloud-aiplatform>=1.38.0
+
+# For Hugging Face:
+# huggingface_hub>=0.31.0
+
+# For Azure AI Inference:
+# azure-ai-inference>=1.0.0b9
+# azure-core>=1.30.0
