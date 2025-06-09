@@ -1,4 +1,4 @@
-preferred_endpoint: azure_ai_search
+preferred_endpoint: qdrant_url
 
 endpoints:
   azure_ai_search:

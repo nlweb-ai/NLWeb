@@ -417,6 +417,19 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
             await handle_mcp_request(query_params, body, send_response, send_chunk, streaming=use_streaming)
             return
         elif (path.find("ask") != -1):
+            # Parse JSON body for POST requests to extract query parameter
+            if method == "POST" and body:
+                try:
+                    body_data = json.loads(body.decode('utf-8'))
+                    if 'query' in body_data:
+                        # Add query from JSON body to query_params
+                        if 'query' not in query_params:
+                            query_params['query'] = []
+                        query_params['query'] = [body_data['query']]
+                        logger.debug(f"Extracted query from JSON body: {body_data['query']}")
+                except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                    logger.warning(f"Failed to parse JSON body: {e}")
+            
             # Handle site parameter validation for ask endpoint
             validated_query_params = handle_site_parameter(query_params)
             

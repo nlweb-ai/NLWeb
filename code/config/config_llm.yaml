@@ -15,7 +15,7 @@ endpoints:
     llm_type: openai
     models:
       high: gpt-4.1
-      low: gpt-4.1-mini
+      low: gpt-4.1
 
   anthropic:
     api_key_env: ANTHROPIC_API_KEY
@@ -38,7 +38,7 @@ endpoints:
     llm_type: azure_openai
     models:
       high: gpt-4.1
-      low: gpt-4.1-mini
+      low: gpt-4.1
 
   llama_azure:
     api_key_env: LLAMA_AZURE_API_KEY
