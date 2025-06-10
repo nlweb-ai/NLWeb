@@ -53,6 +53,19 @@ class OpenAIProvider(LLMProvider):
         return api_key
 
     @classmethod
+    def get_api_endpoint(cls) -> str:
+        """
+        Retrieve the OpenAI API endpoint from environment.
+
+        Note: useful when you use openai client to connect to compatible llm api
+        """
+        # Get the API key from the preferred provider config
+        provider_config = CONFIG.llm_endpoints["openai"]
+        endpoint = provider_config.endpoint
+        return endpoint
+
+
+    @classmethod
     def get_client(cls) -> AsyncOpenAI:
         """
         Configure and return an asynchronous OpenAI client.
@@ -60,7 +73,8 @@ class OpenAIProvider(LLMProvider):
         with cls._client_lock:  # Thread-safe client initialization
             if cls._client is None:
                 api_key = cls.get_api_key()
-                cls._client = AsyncOpenAI(api_key=api_key)
+                api_endpoint = cls.get_api_endpoint()
+                cls._client = AsyncOpenAI(api_key=api_key, endpoint=api_endpoint)
         return cls._client
 
     @classmethod
