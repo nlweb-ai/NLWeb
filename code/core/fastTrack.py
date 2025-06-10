@@ -67,9 +67,9 @@ class FastTrack:
             if decon_done:
                 logger.debug("Decontextualization is done")
                 
-                if (self.handler.requires_decontextualization):
-                    logger.info("Fast track aborted: decontextualization required")
-                    self.handler.abort_fast_track_event.set()
+                # Check all abort conditions using centralized method
+                if self.handler.state.abort_fast_track_if_needed():
+                    logger.info("Fast track aborted: abort conditions met")
                     return
                 elif (not self.handler.query_done and not self.handler.abort_fast_track_event.is_set()):
                     logger.info("Fast track proceeding: decontextualization not required")

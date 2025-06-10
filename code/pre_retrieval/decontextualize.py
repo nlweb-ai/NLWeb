@@ -66,7 +66,7 @@ class PrevQueryDecontextualizer(NoOpDecontextualizer):
             self.handler.decontextualized_query = response["decontextualized_query"]
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             message = {
-                "type": "decontextualized_query",
+                "message_type": "decontextualized_query",
                 "decontextualized_query": self.handler.decontextualized_query
             }
             logger.info(f"Sending decontextualized query: {self.handler.decontextualized_query}")

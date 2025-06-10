@@ -644,7 +644,7 @@ class AzureSearchClient:
         try:
             # Use a facet query to get distinct sites
             search_options = {
-                "facets": ["site"],
+                "facets": ["site,count:0"],
                 "search_text": "*",
                 "top": 0  # We only want facets, not actual documents
             }
