@@ -40,10 +40,10 @@ async def handle_client(reader, writer, fulfill_request):
         if not request_line:
             connection_alive = False
             return
-
+        
         # Debug logging to see what we're receiving
         logger.debug(f"[{request_id}] Raw request bytes: {request_line[:100]}")
-
+        
         try:
             request_line = request_line.decode('utf-8', errors='replace').rstrip('\r\n')
         except Exception as decode_error:
@@ -71,13 +71,13 @@ async def handle_client(reader, writer, fulfill_request):
                 header_line = await reader.readline()
                 if not header_line or header_line == b'\r\n':
                     break
-
+                
                 try:
                     hdr = header_line.decode('utf-8', errors='replace').rstrip('\r\n')
                 except Exception as decode_error:
                     logger.error(f"[{request_id}] Failed to decode header: {decode_error}, raw bytes: {header_line[:100]}")
                     continue
-
+                    
                 if ":" not in hdr:
                     continue
                 name, value = hdr.split(":", 1)
@@ -129,15 +129,19 @@ async def handle_client(reader, writer, fulfill_request):
                 
                 # Add CORS headers if enabled
                 if CONFIG.server.enable_cors and 'origin' in headers:
-                    origin = headers.get('origin', '')
 
-                    # If trusted origins list is empty or the origin is in the trusted origins list
                     if CONFIG.server.cors_trusted_origins:
+                        # If the origin header matches one of the defined origins in server.cors_trusted_origins
+                        origin = headers.get('origin', '')
                         if origin in CONFIG.server.cors_trusted_origins:
                             response_headers['Access-Control-Allow-Origin'] = origin
+                        # If the wildcard is set we use the wildcard anyways
                         if '*' in CONFIG.server.cors_trusted_origins:
                             response_headers['Access-Control-Allow-Origin'] = '*'
 
+                    response_headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+                    response_headers['Access-Control-Allow-Headers'] = 'Content-Type'
+                
                 # Send headers
                 for header_name, header_value in response_headers.items():
                     header_line = f"{header_name}: {header_value}\r\n"
@@ -376,16 +380,16 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
             try:
                 # Create a retriever client
                 retriever = get_vector_db_client(query_params=query_params)
-
+                
                 # Get the list of sites
                 sites = await retriever.get_sites()
-
+                
                 # Prepare the response with message-type
                 response_data = {
                     "message-type": "sites",
                     "sites": sites
                 }
-
+                
                 if streaming:
                     # Set proper headers for server-sent events (SSE)
                     response_headers = {
@@ -394,10 +398,10 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
                         'Connection': 'keep-alive',
                         'X-Accel-Buffering': 'no'  # Disable proxy buffering
                     }
-
+                    
                     # Send SSE headers
                     await send_response(200, response_headers)
-
+                    
                     # Send the sites data as an SSE event
                     await send_chunk(f"data: {json.dumps(response_data)}\n\n", end_response=True)
                 else:

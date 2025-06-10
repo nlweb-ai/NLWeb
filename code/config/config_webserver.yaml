@@ -12,7 +12,9 @@ mode: development # or production or testing.
 server:
   host: 0.0.0.0
   enable_cors: true
-  cors_trusted_origins: "*"  # Comma-separated list of trusted origins. Set "*" for wildcard. https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Allow-Origin
+  # List of trusted origins. Set "*" for wildcard.
+  cors_trusted_origins:
+    - '*'
   max_connections: 100
   timeout: 30  # seconds
   
