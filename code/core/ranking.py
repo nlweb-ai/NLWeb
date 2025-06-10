@@ -13,7 +13,7 @@ from llm.llm import ask_llm
 import asyncio
 import json
 from utils.trim import trim_json
-from prompts.prompts import find_prompt, fill_ranking_prompt
+from prompts.prompts import find_prompt, fill_prompt
 from utils.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("ranking_engine")
@@ -66,7 +66,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
         if not self.handler.connection_alive_event.is_set():
             logger.warning("Connection lost, skipping item ranking")
             return
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted, skipping item ranking")
             logger.info("Aborting fast track")
             return
@@ -74,10 +74,10 @@ The user's question is: {request.query}. The item's description is {item.descrip
             logger.debug(f"Ranking item: {name} from {site}")
             prompt_str, ans_struc = self.get_ranking_prompt()
             description = trim_json(json_str)
-            prompt = fill_ranking_prompt(prompt_str, self.handler, description)
+            prompt = fill_prompt(prompt_str, self.handler, {"item.description": description})
             
             logger.debug(f"Sending ranking request to LLM for item: {name}")
-            ranking = await ask_llm(prompt, ans_struc, level="low")
+            ranking = await ask_llm(prompt, ans_struc, level="low", query_params=self.handler.query_params)
             logger.debug(f"Received ranking score: {ranking.get('score', 'N/A')} for item: {name}")
             
             # Handle both string and dictionary inputs for json_str
@@ -110,18 +110,29 @@ The user's question is: {request.query}. The item's description is {item.descrip
             logger.error(f"Error in rankItem for {name}: {str(e)}")
             logger.debug(f"Full error trace: ", exc_info=True)
             print(f"Error in rankItem for {name}: {str(e)}")
+            # Import here to avoid circular import
+            from config.config import CONFIG
+            if CONFIG.should_raise_exceptions():
+                raise  # Re-raise in testing/development mode
 
     def shouldSend(self, result):
+        # Don't send if we've already reached the limit
+        if self.num_results_sent >= self.NUM_RESULTS_TO_SEND:
+            logger.debug(f"Not sending {result['name']} - already at limit ({self.num_results_sent}/{self.NUM_RESULTS_TO_SEND})")
+            return False
+            
         should_send = False
-        if (self.num_results_sent < self.NUM_RESULTS_TO_SEND - 5):
+        # Allow sending if we're still well below the limit
+        if (self.num_results_sent < self.NUM_RESULTS_TO_SEND - 3):
             should_send = True
         else:
+            # Near the limit - only send if this result is better than something we already sent
             for r in self.rankedAnswers:
                 if r["sent"] == True and r["ranking"]["score"] < result["ranking"]["score"]:
                     should_send = True
                     break
         
-        logger.debug(f"Should send result {result['name']}? {should_send} (sent: {self.num_results_sent})")
+        logger.debug(f"Should send result {result['name']}? {should_send} (sent: {self.num_results_sent}/{self.NUM_RESULTS_TO_SEND})")
         return should_send
     
     async def sendAnswers(self, answers, force=False):
@@ -130,7 +141,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             print("Connection lost during ranking, skipping sending results")
             return
         
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted, not sending answers")
             return
               
@@ -138,6 +149,11 @@ The user's question is: {request.query}. The item's description is {item.descrip
         logger.debug(f"Considering sending {len(answers)} answers (force: {force})")
         
         for result in answers:
+            # Additional safety check - never exceed the limit even when forced
+            if self.num_results_sent + len(json_results) >= self.NUM_RESULTS_TO_SEND:
+                logger.info(f"Stopping at {len(json_results)} results to avoid exceeding limit of {self.NUM_RESULTS_TO_SEND}")
+                break
+                
             if self.shouldSend(result) or force:
                 json_results.append({
                     "url": result["url"],
@@ -156,11 +172,18 @@ The user's question is: {request.query}. The item's description is {item.descrip
             await self.handler.pre_checks_done_event.wait()
             
             # if we got here, prechecks are done. check once again for fast track abort
-            if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+            if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
                 logger.info("Fast track aborted after pre-checks")
                 return
             
             try:
+                # Final safety check before sending
+                if self.num_results_sent + len(json_results) > self.NUM_RESULTS_TO_SEND:
+                    # Trim the results to not exceed the limit
+                    allowed_count = self.NUM_RESULTS_TO_SEND - self.num_results_sent
+                    json_results = json_results[:allowed_count]
+                    logger.warning(f"Trimmed results to {len(json_results)} to stay within limit of {self.NUM_RESULTS_TO_SEND}")
+                
                 if (self.ranking_type == Ranking.FAST_TRACK):
                     self.handler.fastTrackWorked = True
                     logger.info("Fast track ranking successful")
@@ -168,7 +191,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 to_send = {"message_type": "result_batch", "results": json_results, "query_id": self.handler.query_id}
                 await self.handler.send_message(to_send)
                 self.num_results_sent += len(json_results)
-                logger.info(f"Sent {len(json_results)} results, total sent: {self.num_results_sent}")
+                logger.info(f"Sent {len(json_results)} results, total sent: {self.num_results_sent}/{self.NUM_RESULTS_TO_SEND}")
             except (BrokenPipeError, ConnectionResetError) as e:
                 logger.error(f"Client disconnected while sending answers: {str(e)}")
                 log(f"Client disconnected while sending answers: {str(e)}")
@@ -224,7 +247,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
         # Wait for pre checks using event
         await self.handler.pre_checks_done_event.wait()
         
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.abort_fast_track_event.is_set()):
+        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted after ranking tasks completed")
             return
     
@@ -244,8 +267,14 @@ The user's question is: {request.query}. The item's description is {item.descrip
         sorted_results = sorted(results, key=lambda x: x['ranking']["score"], reverse=True)
         good_results = [x for x in sorted_results if x['ranking']["score"] > 51]
 
-        if (len(good_results) + self.num_results_sent >= self.NUM_RESULTS_TO_SEND):
-            tosend = good_results[:self.NUM_RESULTS_TO_SEND - self.num_results_sent + 1]
+        # Calculate how many more results we can send
+        remaining_slots = self.NUM_RESULTS_TO_SEND - self.num_results_sent
+        if remaining_slots <= 0:
+            logger.info(f"Already sent {self.num_results_sent} results, at or above limit of {self.NUM_RESULTS_TO_SEND}")
+            return
+            
+        if len(good_results) >= remaining_slots:
+            tosend = good_results[:remaining_slots]
         else:
             tosend = good_results
 

@@ -46,6 +46,14 @@ async def check_search() -> bool:
     resp = await client.search_all_sites("funny movies", top_n=1)
     return len(resp) > 0 and len(resp[0]) == 4
 
+async def list_sites() -> bool:
+    client = retriever.get_vector_db_client("snowflake_cortex_search_1")
+    sites = await client.get_sites()
+    if not sites:
+        raise Exception("No sites found in Snowflake Cortex Search Service")
+    print(f"Found {len(sites)} unique sites: {', '.join(sites)}")
+    return True
+
 async def main():
     """Run all connectivity checks"""
 
@@ -54,6 +62,7 @@ async def main():
         check_and_print(check_embedding),
         check_and_print(check_complete),
         check_and_print(check_search),
+        check_and_print(list_sites),
     ]
     print("Running Snowflake connectivity checks...")
     results = await asyncio.gather(*tasks, return_exceptions=True)

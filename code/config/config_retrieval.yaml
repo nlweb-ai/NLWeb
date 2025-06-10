@@ -1,12 +1,24 @@
 preferred_endpoint: azure_ai_search
 
 endpoints:
+  nlweb_west:
+    api_key_env: NLWEB_WEST_API_KEY
+    api_endpoint_env: NLWEB_WEST_ENDPOINT
+    index_name: embeddings1536
+    db_type: azure_ai_search
+
   azure_ai_search:
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536
     db_type: azure_ai_search
-    name: NLWeb_Crawl
+
+  azure_ai_search_backup:
+    api_key_env: AZURE_VECTOR_SEARCH_API_KEY_BACKUP
+    api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT_BACKUP
+    index_name: embeddings1536
+    db_type: azure_ai_search
+    name: NLWeb_Crawl_Backup
 
   # Milvus is still under development and not yet supported. 
   milvus:
@@ -40,4 +52,28 @@ endpoints:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
     db_type: snowflake_cortex_search
+
+  opensearch_knn:
+    # OpenSearch with k-NN plugin enabled (faster, native vector search)
+    api_endpoint_env: OPENSEARCH_ENDPOINT
+    # Authentication credentials (username:password for basic auth, or API key)
+    api_key_env: OPENSEARCH_CREDENTIALS
+    # Index name to search in
+    index_name: embeddings
+    # Database type
+    db_type: opensearch
+    # Use k-NN plugin for vector search
+    use_knn: true
+
+  opensearch_script:
+    # OpenSearch without k-NN plugin (fallback using script_score)
+    api_endpoint_env: OPENSEARCH_ENDPOINT
+    # Authentication credentials (username:password for basic auth, or API key)
+    api_key_env: OPENSEARCH_CREDENTIALS
+    # Index name to search in
+    index_name: embeddings
+    # Database type
+    db_type: opensearch
+    # Use script_score for vector similarity (slower but works without plugins)
+    use_knn: false
 

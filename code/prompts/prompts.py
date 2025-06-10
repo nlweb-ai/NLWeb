@@ -123,6 +123,16 @@ def get_prompt_variable_value(variable, handler):
         value = query
     elif variable == "request.answers":
         value = str(handler.final_ranked_answers)
+    elif variable == "tool.description":
+        value = getattr(handler.tool, 'description', '')
+    elif variable == "tools.description":
+        value = getattr(handler.tools, 'description', '')
+    elif variable == "request.top_k":
+        value = str(getattr(handler, 'top_k', 3))
+    elif variable == "request.item_name":
+        value = getattr(handler, 'item_name', '')
+    elif variable == "request.details_requested":
+        value = getattr(handler, 'details_requested', '')
     else:
         logger.warning(f"Unknown variable: {variable}")
         value = ""
@@ -130,7 +140,7 @@ def get_prompt_variable_value(variable, handler):
     logger.debug(f"Variable '{variable}' = '{str(value)[:100]}{'...' if len(str(value)) > 100 else ''}'")
     return value
 
-def fill_prompt(prompt_str, handler):
+def fill_prompt(prompt_str, handler, pr_dict={}):
     logger.debug(f"Filling prompt template (length: {len(prompt_str)})")
     
     try:
@@ -138,7 +148,15 @@ def fill_prompt(prompt_str, handler):
         logger.debug(f"Found {len(variables)} variables to fill")
         
         for variable in variables:
-            value = get_prompt_variable_value(variable, handler)        
+            if (variable in pr_dict):
+                value = pr_dict[variable]
+            else:
+                value = get_prompt_variable_value(variable, handler)
+            
+            # Ensure value is a string
+            if not isinstance(value, str):
+                value = str(value)
+                
             prompt_str = prompt_str.replace("{" + variable + "}", value)
         
         logger.debug(f"Prompt filled successfully (final length: {len(prompt_str)})")
@@ -148,38 +166,6 @@ def fill_prompt(prompt_str, handler):
         logger.debug("Error details:", exc_info=True)
         raise
 
-def fill_ranking_prompt(prompt_str, handler, description):
-    logger.debug(f"Filling ranking prompt template (length: {len(prompt_str)})")
-    
-    try:
-        variables = get_prompt_variables_from_prompt(prompt_str)
-        logger.debug(f"Found {len(variables)} variables to fill for ranking prompt")
-        
-        for variable in variables:
-            try:
-                if (variable == "item.description"):
-                    value = json.dumps(description)
-                    logger.debug(f"Filling item.description with JSON (length: {len(value)})")
-                else:
-                    value = get_prompt_variable_value(variable, handler)
-                
-                prompt_str = prompt_str.replace("{" + variable + "}", value)
-                
-            except Exception as e:
-                logger.error(f"Error processing variable '{variable}': {str(e)}")
-                print(f"Error processing variable '{variable}': {str(e)}")
-                # Use a placeholder to indicate error
-                prompt_str = prompt_str.replace("{" + variable + "}", f"[ERROR: {str(e)}]")
-        
-        logger.debug(f"Ranking prompt filled successfully (final length: {len(prompt_str)})")
-        return prompt_str
-        
-    except Exception as e:
-        logger.error(f"Error in fill_ranking_prompt: {str(e)}")
-        logger.debug("Error details:", exc_info=True)
-        print(f"Error in fill_ranking_prompt: {str(e)}")
-        # Return original prompt string with error message
-        return f"{prompt_str}\n[ERROR in fill_ranking_prompt: {str(e)}]"
 
 cached_prompts = {}
 def get_cached_values(site, item_type, prompt_name):

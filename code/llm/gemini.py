@@ -40,7 +40,7 @@ class GeminiProvider(LLMProvider):
     def get_gcp_project(cls) -> str:
         """Retrieve the GCP project ID from the environment or raise an error."""
         # Get the project ID from the preferred provider config
-        provider_config = CONFIG.llm_providers["gemini"]
+        provider_config = CONFIG.llm_endpoints["gemini"]
         
         # For Gemini, we need the GCP project ID, which might be stored in API_KEY_ENV or a specific field
         # First check if there's a specific project env var in the config
@@ -59,8 +59,8 @@ class GeminiProvider(LLMProvider):
     @classmethod
     def get_api_key(cls) -> Optional[str]:
         """Retrieve the API key if needed for Gemini API."""
-        preferred_provider = CONFIG.preferred_llm_provider
-        provider_config = CONFIG.llm_providers[preferred_provider]
+        preferred_endpoint = CONFIG.preferred_llm_endpoint
+        provider_config = CONFIG.llm_endpoints[preferred_endpoint]
         api_key_env_var = provider_config.api_key_env
         
         if api_key_env_var:
@@ -102,7 +102,7 @@ class GeminiProvider(LLMProvider):
         match = re.search(r"(\{.*\})", cleaned, re.S)
         if not match:
             logger.error("Failed to parse JSON from content: %r", content)
-            raise ValueError("No JSON object found in response")
+            return {}
         return json.loads(match.group(1))
 
     async def get_completion(
@@ -118,7 +118,7 @@ class GeminiProvider(LLMProvider):
         """Async chat completion using Vertex AI (Gemini)."""
         # If model not provided, get it from config
         if model is None:
-            provider_config = CONFIG.llm_providers["gemini"]
+            provider_config = CONFIG.llm_endpoints["gemini"]
             # Use the 'high' model for completions by default
             model = provider_config.models.high
         
@@ -149,7 +149,7 @@ class GeminiProvider(LLMProvider):
             )
         except asyncio.TimeoutError:
             logger.error("Completion request timed out after %s seconds", timeout)
-            raise
+            return {}
 
         # Extract the response text
         content = response.text

@@ -19,6 +19,7 @@ from utils.logger import LogLevel
 # Import client classes
 from retrieval.azure_search_client import AzureSearchClient
 from retrieval.milvus_client import MilvusVectorClient
+from retrieval.opensearch_client import OpenSearchClient
 from retrieval.qdrant import QdrantVectorClient
 from retrieval.snowflake_client import SnowflakeCortexSearchClient
 
@@ -108,6 +109,19 @@ class VectorDBClientInterface(ABC):
             List of search results
         """
         pass
+    
+    @abstractmethod
+    async def get_sites(self, **kwargs) -> List[str]:
+        """
+        Get list of all sites available in the database.
+        
+        Args:
+            **kwargs: Additional parameters
+            
+        Returns:
+            List of site names
+        """
+        pass
 
 
 class VectorDBClient:
@@ -170,6 +184,8 @@ class VectorDBClient:
                 client = AzureSearchClient(self.endpoint_name)
             elif self.db_type == "milvus":
                 client = MilvusVectorClient(self.endpoint_name)
+            elif self.db_type == "opensearch":
+                client = OpenSearchClient(self.endpoint_name)
             elif self.db_type == "qdrant":
                 client = QdrantVectorClient(self.endpoint_name)
             elif self.db_type == "snowflake_cortex_search":
@@ -266,7 +282,7 @@ class VectorDBClient:
         Returns:
             List of search results
         """
-
+        print(f"Searching for '{query[:50]}...' in site: {site}, num_results: {num_results}")
         if (site == "all"):
             sites = CONFIG.nlweb.sites
             if (len(sites) == 0 or sites == "all"):
@@ -418,6 +434,53 @@ class VectorDBClient:
                         "error_type": type(e).__name__,
                         "error_message": str(e),
                         "query": query[:50] + "..." if len(query) > 50 else query,
+                        "db_type": self.db_type,
+                        "endpoint": self.endpoint_name
+                    }
+                )
+                raise
+    
+    async def get_sites(self, endpoint_name: Optional[str] = None, **kwargs) -> List[str]:
+        """
+        Get list of all sites available in the database.
+        
+        Args:
+            endpoint_name: Optional endpoint name override
+            **kwargs: Additional parameters
+            
+        Returns:
+            List of site names
+        """
+        # If endpoint is specified, create a new client for that endpoint
+        if endpoint_name and endpoint_name != self.endpoint_name:
+            temp_client = VectorDBClient(endpoint_name=endpoint_name)
+            return await temp_client.get_sites(**kwargs)
+        
+        async with self._retrieval_lock:
+            logger.info("Retrieving list of sites from database")
+            
+            try:
+                client = await self.get_client()
+                sites = await client.get_sites(**kwargs)
+                
+                logger.log_with_context(
+                    LogLevel.INFO,
+                    "Sites retrieved",
+                    {
+                        "sites_count": len(sites),
+                        "db_type": self.db_type,
+                        "endpoint": self.endpoint_name
+                    }
+                )
+                return sites
+            except Exception as e:
+                logger.exception(f"Error retrieving sites: {e}")
+                logger.log_with_context(
+                    LogLevel.ERROR,
+                    "Sites retrieval failed",
+                    {
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
                         "db_type": self.db_type,
                         "endpoint": self.endpoint_name
                     }

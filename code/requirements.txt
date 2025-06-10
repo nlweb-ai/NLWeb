@@ -12,6 +12,7 @@ mcp>=1.0.0
 marshmallow<4.0.0
 packaging<24,>=16.8
 protobuf<5,>=3.20
+matplotlib>=3.8.0
 python-dotenv>=1.0.0
 pymilvus>=1.1.0
 qdrant-client>=1.14.0
@@ -19,4 +20,5 @@ aiohttp>=3.9.1
 pyyaml>=6.0.1
 feedparser>=6.0.1
 httpx>=0.28.1
-
+huggingface_hub>=0.31.0
+seaborn>=0.13.0

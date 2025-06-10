@@ -15,6 +15,7 @@ The prompts used for these calls are in the file site_types.xml. The behaviour o
 
 Given below is a sample prompt:
 
+```xml
 <Thing>
    <Prompt ref="DetectMemoryRequestPrompt">
       <promptString>
@@ -137,6 +138,7 @@ Similarly, descriptions can also be changed. Eg.
       </returnStruc>
    </Prompt>
  </Recipe>
+```
 
 ## Variables
 

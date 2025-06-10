@@ -1,82 +1,237 @@
 <html>
 <style>
- .chat-container {
+  :root {
+    --primary-color: #FFD12F;
+    --secondary-color: #1B4D7A;
+    --background-color: #f8f9fa;
+    --text-color: #333;
+    --shadow: 0 4px 12px rgba(0,0,0,0.1);
+    --transition: all 0.3s ease;
+  }
+
+  body {
+    margin: 0;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+
+  .chat-container {
     max-width: 800px;
     margin: 0 auto;
     padding: 20px;
-    font-family: sans-serif;
+  }
+
+  #ai-search-container {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    margin: 20px auto;
+  }
+
+  .search-box {
+    display: flex;
+    gap: 12px;
+    padding: 15px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+  }
+
+  .search-box:focus-within {
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+  }
+
+  #ai-search-input {
+    flex-grow: 1;
+    padding: 14px 16px;
+    border: 2px solid var(--primary-color);
+    border-radius: 10px;
+    font-size: 16px;
+    transition: var(--transition);
+    outline: none;
+  }
+
+  #ai-search-input:focus {
+    border-color: var(--secondary-color);
+  }
+
+  #ai-search-button {
+    padding: 14px 28px;
+    background: var(--primary-color);
+    border: none;
+    border-radius: 10px;
+    color: var(--secondary-color);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+
+  #ai-search-button:hover {
+    background: #ffd84d;
+    transform: translateY(-1px);
+  }
+
+  #ai-search-button:active {
+    transform: translateY(1px);
+  }
+
+  #chat-container {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: white;
+    box-shadow: var(--shadow);
+    border-radius: 12px;
+    margin-top: 12px;
+    height: 600px;
+    overflow: hidden;
+  }
+
+  .messages {
+    height: calc(100% - 80px);
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .message {
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .user-message {
+    align-items: flex-end;
+  }
+
+  .assistant-message {
+    align-items: flex-start;
+  }
+
+  .message-bubble {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: #f0f0f0;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .user-message .message-bubble {
+    background: var(--primary-color);
+    color: var(--secondary-color);
+  }
+
+  .assistant-message .message-bubble {
+    background: #f0f0f0;
+    color: var(--text-color);
+  }
+
+  #close-icon {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: var(--transition);
+    background: rgba(0,0,0,0.05);
+    z-index: 1001;
+  }
+
+  #close-icon:hover {
+    background: rgba(0,0,0,0.1);
+  }
+
+  @media (max-width: 768px) {
+    body {
+      padding: 10px;
+    }
+    
+    .search-box {
+      flex-direction: column;
+    }
+
+    #ai-search-button {
+      width: 100%;
+    }
+
+    .message-bubble {
+      max-width: 90%;
+    }
   }
 </style>
 <script type="module" src="/static/streaming.js"></script>
 <script type="module" src="/static/chat-init.js"></script>
 
 <body>
-  <div id="ai-search-container" style="position: relative; width: 100%; max-width: 800px; margin: 20px auto;">
-    <div class="search-box" style="display: flex; gap: 10px; padding: 10px;">
-         <input 
-              type="text" 
-              id="ai-search-input"
-              placeholder="Ask" 
-              style="flex-grow: 1; padding: 12px; border: 2px solid #FFD12F; border-radius: 8px; font-size: 16px;"
-         >
-         <button 
-              id="ai-search-button"
-              style="padding: 12px 24px; background: #FFD12F; border: none; border-radius: 8px; color: #1B4D7A; font-weight: bold; cursor: pointer;"
-         >
-              Ask
-         </button>
+  <div id="ai-search-container">
+    <div class="search-box">
+      <input 
+        type="text" 
+        id="ai-search-input"
+        placeholder="Ask" 
+      >
+      <button id="ai-search-button">
+        Ask
+      </button>
     </div>
-    <div id="chat-container" 
-         style="display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 8px; margin-top: 8px; height: 600px;">
-    <div id="close-icon" style="position: absolute; top: 10px; right: 10px; cursor: pointer; padding: 5px;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-           <line x1="18" y1="6" x2="6" y2="18"></line>
-           <line x1="6" y1="6" x2="18" y2="18"></line>
-         </svg>
+    <div id="chat-container">
+      <div id="close-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </div>
+      <script>
+        document.getElementById('close-icon').addEventListener('click', () => {
+          document.getElementById('chat-container').style.display = 'none';
+        });
+      </script>
     </div>
-    <script>
-         document.getElementById('close-icon').addEventListener('click', () => {
-              document.getElementById('chat-container').style.display = 'none';
-         });
-    </script>
-    </div>
-</div>
+  </div>
 
-<script type="module">
+  <script type="module">
     import { ChatInterface } from '/static/streaming.js';
     
     // Single global chat interface
     let chat_interface = null;
 
     document.addEventListener('DOMContentLoaded', () => {
-         const searchInput = document.getElementById('ai-search-input');
-         const searchButton = document.getElementById('ai-search-button');
-         const chatContainer = document.getElementById('chat-container');
-         
-         searchButton.addEventListener('click', handleSearch);
-         searchInput.addEventListener('keypress', (e) => {
-              if (e.key === 'Enter') {
-                   handleSearch();
-              }
-         });
+      const searchInput = document.getElementById('ai-search-input');
+      const searchButton = document.getElementById('ai-search-button');
+      const chatContainer = document.getElementById('chat-container');
+      
+      searchButton.addEventListener('click', handleSearch);
+      searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          handleSearch();
+        }
+      });
 
-         // Make available globally for other scripts
-         window.findChatInterface = function() {
-              if (chat_interface) {
-                  return chat_interface;
-              }
-              chat_interface = new ChatInterface('', 'nlwebsearch', 'list');
-              return chat_interface;
-         }
+      // Make available globally for other scripts
+      window.findChatInterface = function() {
+        if (chat_interface) {
+          return chat_interface;
+        }
+        chat_interface = new ChatInterface('', 'nlwebsearch', 'list');
+        return chat_interface;
+      }
 
-         function handleSearch() {
-              const query = searchInput.value.trim();
-              chatContainer.style.display = 'block';
-              chat_interface = findChatInterface();
-              searchInput.value = '';
-              chat_interface.sendMessage(query);
-         }
+      function handleSearch() {
+        const query = searchInput.value.trim();
+        chatContainer.style.display = 'block';
+        chat_interface = findChatInterface();
+        searchInput.value = '';
+        chat_interface.sendMessage(query);
+      }
     });
-</script>
+  </script>
 </body>
 </html>

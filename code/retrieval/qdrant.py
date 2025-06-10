@@ -706,3 +706,82 @@ class QdrantVectorClient:
         """
         # This is just a convenience wrapper around the regular search method with site="all"
         return await self.search(query, "all", num_results, collection_name, query_params)
+    
+    async def get_sites(self, collection_name: Optional[str] = None) -> List[str]:
+        """
+        Get a list of unique site names from the Qdrant collection.
+        
+        Args:
+            collection_name: Optional collection name (defaults to configured name)
+            
+        Returns:
+            List[str]: Sorted list of unique site names
+        """
+        collection_name = collection_name or self.default_collection_name
+        logger.info(f"Retrieving unique sites from collection: {collection_name}")
+        
+        try:
+            client = await self._get_qdrant_client()
+            
+            # Check if collection exists
+            if not await client.collection_exists(collection_name):
+                logger.warning(f"Collection '{collection_name}' does not exist")
+                return []
+            
+            # Use scroll to get all points with site field
+            sites = set()
+            offset = None
+            batch_size = 1000
+            
+            while True:
+                points, next_offset = await client.scroll(
+                    collection_name=collection_name,
+                    limit=batch_size,
+                    offset=offset,
+                    with_payload=["site"]
+                )
+                
+                if not points:
+                    break
+                
+                # Extract site values
+                for point in points:
+                    site = point.payload.get("site")
+                    if site:
+                        sites.add(site)
+                
+                offset = next_offset
+                if offset is None:
+                    break
+            
+            # Convert to sorted list
+            site_list = sorted(list(sites))
+            logger.info(f"Found {len(site_list)} unique sites in collection '{collection_name}'")
+            return site_list
+            
+        except Exception as e:
+            logger.exception(f"Error retrieving sites from collection '{collection_name}': {str(e)}")
+            
+            # Try fallback if we're using a URL endpoint and it fails
+            if self.api_endpoint and "Connection refused" in str(e):
+                logger.info("Connection to Qdrant server failed, trying fallback")
+                # Create a new client with local path as fallback
+                self.api_endpoint = None  # Disable URL for fallback
+                
+                # Clear client cache to force recreation
+                with self._client_lock:
+                    self._qdrant_clients = {}
+                    
+                # Try get_sites again with new local client
+                return await self.get_sites(collection_name)
+            
+            logger.log_with_context(
+                LogLevel.ERROR,
+                "Qdrant get_sites failed",
+                {
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "collection": collection_name,
+                }
+            )
+            raise
