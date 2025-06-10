@@ -21,6 +21,7 @@ from utils.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger(__name__)
 
+
 class OllamaProvider(LLMProvider):
     """Implementation of LLMProvider for Ollama."""
 
@@ -39,8 +40,9 @@ class OllamaProvider(LLMProvider):
                 endpoint = endpoint.strip('"')
                 logger.debug(f"Ollama endpoint found: {endpoint[:20]}...")
                 return endpoint
-        logger.warning("Ollama endpoint not found in config")
-        return None
+        error_msg = "Ollama endpoint not found in config"
+        logger.warning(error_msg)
+        raise ValueError(error_msg)
 
     @classmethod
     def get_client(cls) -> AsyncClient:
@@ -60,7 +62,7 @@ class OllamaProvider(LLMProvider):
                     logger.info("Ollama client initialized successfully")
                 except Exception as e:
                     logger.error("Failed to initialize Ollama client")
-                    return None
+                    raise RuntimeError("Failed to initialize Ollama client") from e
 
         return cls._client
 
@@ -102,9 +104,7 @@ class OllamaProvider(LLMProvider):
         if model is None:
             # Get model from config if not provided
             provider_config = CONFIG.llm_endpoints.get("ollama")
-            model = (
-                provider_config.models.high if provider_config else "llama3"
-            )
+            model = provider_config.models.high if provider_config else "llama3"
 
         logger.info(f"Getting Ollama completion with model: {model}")
         logger.debug(f"Temperature: {temperature}, Timeout: {timeout}s")
@@ -149,4 +149,4 @@ Only output the JSON object, no additional text or explanation."""
 provider = OllamaProvider()
 
 # For backwards compatibility
-get_llama_completion = provider.get_completion
+get_ollama_completion = provider.get_completion

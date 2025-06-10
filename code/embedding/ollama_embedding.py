@@ -32,7 +32,10 @@ def get_ollama_endpoint():
         if endpoint:
             endpoint = endpoint.strip('"')  # Remove quotes if present
             return endpoint
-    return None
+        
+    error_msg = "Ollama endpoint not found in config"
+    logger.error(error_msg)
+    raise ValueError(error_msg)
 
 
 def get_ollama_client():
@@ -58,7 +61,7 @@ def get_ollama_client():
 
 
 async def get_ollama_embedding(
-    text: str, model: Optional[str] = None, timeout: float = 30.0
+    text: str, model: Optional[str] = None, timeout: float = 300.0
 ) -> List[float]:
     """
     Generate embeddings using Ollama.
@@ -86,7 +89,9 @@ async def get_ollama_embedding(
     logger.debug(f"Text length: {len(text)} chars")
 
     try:
-        response = await client.embed(input=text, model=model)
+        response = await asyncio.wait_for(
+            client.embed(input=text, model=model), timeout=timeout
+        )
 
         embedding = response.embeddings[0]
 
@@ -108,7 +113,7 @@ async def get_ollama_embedding(
 
 
 async def get_ollama_batch_embeddings(
-    texts: List[str], model: str = None, timeout: float = 60.0
+    texts: List[str], model: str = None, timeout: float = 300.0
 ) -> List[List[float]]:
     """
     Generate embeddings for multiple texts using Ollama.
@@ -136,12 +141,14 @@ async def get_ollama_batch_embeddings(
     logger.debug(f"Batch size: {len(texts)} texts")
 
     try:
-        response = await client.embed(input=texts, model=model)
+        response = await asyncio.wait_for(
+            client.embed(input=texts, model=model), timeout=timeout
+        )
 
         # Extract embeddings in the same order as input texts
         # embeddings = response.embeddings
         embeddings = [data for data in response.embeddings]
-        
+
         logger.debug(f"Ollama batch embeddings generated, count: {len(embeddings)}")
         return embeddings
     except Exception as e:
