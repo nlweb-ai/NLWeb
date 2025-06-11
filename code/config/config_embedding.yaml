@@ -1,4 +1,4 @@
-preferred_provider: azure_openai
+preferred_provider: openai
 
 providers:
   openai:
