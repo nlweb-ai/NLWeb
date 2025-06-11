@@ -244,42 +244,35 @@ def parse_rss_2_0(root: ET.Element, feed_url: Optional[str] = None) -> List[Dict
         print("Warning: No channel element found in RSS feed")
         return result
     
-    # Extract podcast (feed) information
-    podcast_title = safe_get_text(channel.find('title'))
-    podcast_description = safe_get_text(channel.find('description'))
-    podcast_link = safe_get_text(channel.find('link'))
-    podcast_language = safe_get_text(channel.find('language'))
+    # Extract feed information
+    feed_title = safe_get_text(channel.find('title'))
+    feed_description = safe_get_text(channel.find('description'))
+    feed_link = safe_get_text(channel.find('link'))
+    feed_language = safe_get_text(channel.find('language'))
     
     # Extract image
-    podcast_image = None
+    feed_image = None
     image_elem = channel.find('image')
     if image_elem is not None:
         image_url = safe_get_text(image_elem.find('url'))
         if image_url:
-            podcast_image = {"@type": "ImageObject", "url": fix_url(image_url)}
+            feed_image = {"@type": "ImageObject", "url": fix_url(image_url)}
     
-    # iTunes image (higher quality)
-    for ns_prefix, ns_uri in NAMESPACES.items():
-        if ns_prefix == 'itunes':
-            itunes_image = channel.find(f".//{{{ns_uri}}}image")
-            if itunes_image is not None and 'href' in itunes_image.attrib:
-                podcast_image = {"@type": "ImageObject", "url": fix_url(itunes_image.get('href'))}
-    
-    # Create basic podcast series schema
-    podcast_series = {
-        "@type": "PodcastSeries",
-        "name": podcast_title,
-        "description": podcast_description,
-        "url": fix_url(podcast_link) or feed_url or ""
+    # Create basic portfolio series schema
+    portfolio_series = {
+        "@type": "CollectionPage",
+        "name": feed_title,
+        "description": feed_description,
+        "url": fix_url(feed_link) or feed_url or ""
     }
     
-    if podcast_image:
-        podcast_series["image"] = podcast_image
+    if feed_image:
+        portfolio_series["image"] = feed_image
     
-    if podcast_language:
-        podcast_series["inLanguage"] = podcast_language
+    if feed_language:
+        portfolio_series["inLanguage"] = feed_language
     
-    # Process each item (episode)
+    # Process each item (portfolio entry)
     for item in channel.findall('item'):
         try:
             # Basic fields
@@ -294,90 +287,44 @@ def parse_rss_2_0(root: ET.Element, feed_url: Optional[str] = None) -> List[Dict
                 # Skip items without any identifiable information
                 continue
             
-            # Create episode schema
-            episode = {
-                "@type": "PodcastEpisode",
+            # Create portfolio entry schema
+            entry = {
+                "@type": "WebPage",
                 "name": title,
                 "description": description,
                 "datePublished": pub_date
             }
             
             if url:
-                episode["url"] = url
+                entry["url"] = url
             
             # Add GUID if available
             guid = extract_guid(item)
             if guid and guid != url:
-                episode["identifier"] = guid
+                entry["identifier"] = guid
             
-            # Add enclosure (audio file)
-            enclosure = item.find('enclosure')
-            if enclosure is not None:
-                enclosure_url = enclosure.get('url')
-                enclosure_type = enclosure.get('type')
-                enclosure_length = enclosure.get('length')
-                
-                if enclosure_url:
-                    audio_object = {
-                        "@type": "AudioObject",
-                        "contentUrl": fix_url(enclosure_url)
-                    }
-                    
-                    if enclosure_type:
-                        audio_object["encodingFormat"] = enclosure_type
-                    
-                    if enclosure_length:
-                        try:
-                            audio_object["contentSize"] = int(enclosure_length)
-                        except ValueError:
-                            pass
-                    
-                    episode["associatedMedia"] = audio_object
-            
-            # Add iTunes specific fields
+            # Add content from content:encoded if available
             for ns_prefix, ns_uri in NAMESPACES.items():
-                if ns_prefix == 'itunes':
-                    # Duration
-                    duration_elem = item.find(f".//{{{ns_uri}}}duration")
-                    if duration_elem is not None and duration_elem.text:
-                        duration = extract_duration(duration_elem.text)
-                        if duration:
-                            episode["duration"] = duration
-                    
-                    # Episode number
-                    episode_number = item.find(f".//{{{ns_uri}}}episode")
-                    if episode_number is not None and episode_number.text:
-                        try:
-                            episode["episodeNumber"] = int(episode_number.text)
-                        except ValueError:
-                            pass
-                    
-                    # Season number
-                    season_number = item.find(f".//{{{ns_uri}}}season")
-                    if season_number is not None and season_number.text:
-                        try:
-                            episode["partOfSeason"] = {
-                                "@type": "PodcastSeason",
-                                "seasonNumber": int(season_number.text)
-                            }
-                        except ValueError:
-                            pass
+                if ns_prefix == 'content':
+                    content_elem = item.find(f".//{{{ns_uri}}}encoded")
+                    if content_elem is not None and content_elem.text:
+                        entry["text"] = content_elem.text
             
             # Add image if available
             for ns_prefix, ns_uri in NAMESPACES.items():
-                if ns_prefix == 'itunes':
-                    itunes_image = item.find(f".//{{{ns_uri}}}image")
-                    if itunes_image is not None and 'href' in itunes_image.attrib:
-                        episode["image"] = {
+                if ns_prefix == 'media':
+                    media_content = item.find(f".//{{{ns_uri}}}content")
+                    if media_content is not None and 'url' in media_content.attrib:
+                        entry["image"] = {
                             "@type": "ImageObject",
-                            "url": fix_url(itunes_image.get('href'))
+                            "url": fix_url(media_content.get('url'))
                         }
             
-            # Add podcast series reference
-            episode["partOf"] = podcast_series
+            # Add portfolio series reference
+            entry["isPartOf"] = portfolio_series
             
             # Add to result
-            result.append(episode)
+            result.append(entry)
         except Exception as e:
             print(f"Error processing RSS item: {str(e)}")
             traceback.print_exc()
