@@ -9,8 +9,11 @@ try:
     import sys
     import asyncio
     import time
+    import argparse
 
     from config.config import CONFIG
+    from llm.llm import ask_llm
+    from embedding.embedding import get_embedding
     from azure_connectivity import check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api
     from snowflake_connectivity import check_embedding, check_complete, check_search
     from inception_connectivity import check_inception_api
@@ -21,120 +24,117 @@ except ImportError as e:
     sys.exit(1)
 
 
+# Generic function to log unknown provider configurations
 async def log_unknown_provider(config_type, config_name):
     """Log an unknown provider configuration"""
     print(f"❌ Unknown {config_type} provider configuration: {config_name}. Please check your settings.")
     return False
 
-'''
-async def get_llm_check(llm_name):
-    """Get the LLM check function based on the provider name"""
-    match llm_name:
-        case "azure_openai":
-            return check_azure_openai_api
-        case "openai":
-            return check_openai_api
-        case "snowflake":
-            return check_complete
-        case "inception":
-            return check_inception_api
-        # TODO: add the rest of the providers as they are implemented
-        case _:
-            print(f"❌ Unknown LLM provider: {llm_name}. Please check your settings.")
-            return None
 
-async def get_all_providers():
-    """Get a list of all configured providers"""
-    providers = []
-    for provider_name, provider_config in CONFIG.llm_endpoints.items():
-        if provider_config and hasattr(provider_config, 'api_key') and provider_config.api_key:
-            providers.append(provider_name)
-    return providers
-'''
+# Function to check LLM API connectivity
+async def check_llm_api(llm_name) -> bool:
+    print(f"Checking LLM API connectivity for {llm_name}...")
+    if llm_name not in CONFIG.llm_endpoints:
+        log_unknown_provider("LLM", llm_name)
+        return False
+
+    try:
+        schema = {"capital": "string"}
+        test_prompt = "What is the capital of France?"
+        # Using a larger timeout than the default because we don't want to fail on slow responses
+        output = await ask_llm(test_prompt, schema=schema, provider=llm_name, timeout=20)
+        print(f"Output from {llm_name}: {output}")
+        if not output:
+            print(f"❌ LLM API connectivity check failed for {llm_name}: No valid output received.")
+            return False
+        elif str(output).__contains__("Paris") or str(output).__contains__("paris"):
+            print(f"✅ LLM API connectivity check successful for {llm_name}. Output contains expected answer.")
+            return True
+        else:
+            print(f"❌ LLM API connectivity check failed for {llm_name}: Output does not contain expected answer 'Paris'.  Please verify manually: {str(output)}")
+            return False
+    except Exception as e:
+        print(f"❌ LLM API connectivity check failed for {llm_name}: {type(e).__name__}: {str(e)}")
+        return False
+    
+
+# Function to check embedding API connectivity
+async def check_embedding_api(embedding_name) -> bool:
+    print(f"Checking embedding API connectivity for {embedding_name}...")
+    if embedding_name not in CONFIG.embedding_providers:
+        log_unknown_provider("embedding", embedding_name)
+        return False
+
+    try:
+        test_prompt = "What is the capital of France?"
+        output = await get_embedding(test_prompt, provider=embedding_name, model=CONFIG.embedding_providers[embedding_name].model, timeout=30)
+        #print(f"Output from {embedding_name}: {output}")
+        #print(str(output))
+        if not output:
+            print(f"❌ Embedding API connectivity check failed for {embedding_name}: No valid output received.")
+            return False
+        # Verify output is a list of floats
+        elif isinstance(output, list) and len(output) > 2 and all(isinstance(i, float) for i in output):
+            print(f"✅ Embedding API connectivity check successful for {embedding_name}. Output is list of floats.")
+            return True
+        else:
+            print(f"❌ Embedding API connectivity check failed for {embedding_name}: Output is not a list of floats.  Please verify manually: {str(output)}")
+            return False
+    except Exception as e:
+        print(f"❌ Embedding API connectivity check failed for {embedding_name}: {type(e).__name__}: {str(e)}")
+        return False
+
 
 async def main():
-    """Run all connectivity checks"""
-    print("Checking NLWeb configuration and connectivity...")
-    
-    # Retrieve preferred provider from config
-    model_config = CONFIG.preferred_llm_endpoint
-    print(f"Using configuration from preferred LLM provider: {model_config}")
-    
-    embedding_config = CONFIG.preferred_embedding_provider
-    print(f"Using configuration from preferred embedding provider: {embedding_config}")
-    
-    retrieval_config = CONFIG.preferred_retrieval_endpoint
-    retrieval_dbtype_config = CONFIG.retrieval_endpoints[CONFIG.preferred_retrieval_endpoint].db_type
-    print(f"Using configuration from preferred retrieval endpoint: {retrieval_config} with db_type {retrieval_dbtype_config}")  
-
-    start_time = time.time()
-    
     # Create and run all checks simultaneously
     tasks = []
 
-    '''
-    # TODO: implement support for "check all providers" option; this will be useful for testing
-    model_check = get_llm_check(model_config)
-    if model_check:
-        tasks.append(model_check)
-    else:
-        tasks.append(log_unknown_provider("LLM", model_config))
-
-    '''
-    match model_config:
-        case "azure_openai":
-            tasks.append(check_azure_openai_api())
-        case "openai":
-            tasks.append(check_openai_api())
-        case "snowflake":
-            tasks.append(check_complete())
-        case "inception":
-            tasks.append(check_inception_api())
-        # TODO: we need to add support for HuggingFace and other providers below
-        case "anthropic":
-            print("Anthropic provider is not yet implemented in connectivity checks.")
-            # tasks.append(check_anthropic_api())  # Uncomment when implemented
-        case "gemini":
-            print("Gemini provider is not yet implemented in connectivity checks.")
-            # tasks.append(check_gemini_api())  # Uncomment when implemented
-        case "huggingface":
-            print("HuggingFace provider is not yet implemented in connectivity checks.")
-            # tasks.append(check_huggingface_api())  # Uncomment when implemented
-        case "deepseek_azure":
-            print("DeepSeek Azure provider is not yet implemented in connectivity checks.")
-            # tasks.append(check_deepseek_azure_api())  # Uncomment when implemented
-        case "llama_azure":
-            print("Llama Azure provider is not yet implemented in connectivity checks.")
-            # tasks.append(check_llama_azure_api())  # Uncomment when implemented
-        case _:
-            tasks.append(log_unknown_provider("LLM", model_config))
-            #print(f"Unknown provider configuration: {model_config}  Please check your settings.")
-
-    match embedding_config:
-        case "azure_openai":
-            tasks.append(check_azure_embedding_api())
-        case "openai":
-            tasks.append(check_openai_api())
-        case "snowflake":
-            tasks.append(check_embedding())
-        case "gemini":
-            # TODO: implement Gemini embedding provider check
-            print("Gemini embedding provider is not yet implemented in connectivity checks.")
-            # tasks.append(check_gemini_embedding_api())  # Uncomment when implemented
-        case _:
-            tasks.append(log_unknown_provider("embedding", embedding_config))
-            #print(f"Unknown provider configuration: {embedding_config}  Please check your settings.")
-
-    match retrieval_dbtype_config:
-        case "azure_ai_search":
-            tasks.append(check_azure_search_api())
-        case "snowflake_cortex_search":
-            tasks.append(check_search())
-        # TODO: implement support for other retrieval providers: milvus, qdrant, opensearch
-        case _:
-            tasks.append(log_unknown_provider("retrieval", retrieval_config))
-            #print(f"Unknown provider configuration: {retrieval_config}  Please check your settings.")
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Check connectivity for all services required by NLWeb")
+    parser.add_argument("--all", action='store_true', default=False,
+                        help="Run all connectivity checks for every known provider",)
+    args = parser.parse_args()
     
+    start_time = time.time()
+
+    if args.all:
+        """Run all connectivity checks"""
+        print("Running NLWeb connectivity checks for all known providers...")
+        print("This may take a while, please be patient...")
+        for llm_provider in CONFIG.llm_endpoints:
+            tasks.append(check_llm_api(llm_provider))
+
+        for embedding_provider in CONFIG.embedding_providers:
+            tasks.append(check_embedding_api(embedding_provider))
+
+        # TODO: now do the same for retrieval providers
+    else:
+        print("Checking NLWeb configuration and connectivity...")
+    
+        # Retrieve preferred provider from config
+        model_config = CONFIG.preferred_llm_endpoint
+        print(f"Using configuration from preferred LLM provider: {model_config}")
+        tasks.append(check_llm_api(model_config))
+        
+        embedding_config = CONFIG.preferred_embedding_provider
+        print(f"Using configuration from preferred embedding provider: {embedding_config}")
+        tasks.append(check_embedding_api(embedding_config))
+        
+        retrieval_config = CONFIG.preferred_retrieval_endpoint
+        retrieval_dbtype_config = CONFIG.retrieval_endpoints[CONFIG.preferred_retrieval_endpoint].db_type
+        print(f"Using configuration from preferred retrieval endpoint: {retrieval_config} with db_type {retrieval_dbtype_config}")  
+    
+        match retrieval_dbtype_config:
+            case "azure_ai_search":
+                tasks.append(check_azure_search_api())
+            case "snowflake_cortex_search":
+                tasks.append(check_search())
+            # TODO: implement support for other retrieval providers: milvus, qdrant, opensearch
+            case _:
+                tasks.append(log_unknown_provider("retrieval", retrieval_config))
+                #print(f"Unknown provider configuration: {retrieval_config}  Please check your settings.")
+    
+    # Run all tasks concurrently
     results = await asyncio.gather(*tasks, return_exceptions=True)
     
     # Count successful connections
