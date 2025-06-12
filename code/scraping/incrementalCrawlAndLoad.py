@@ -41,16 +41,21 @@ logger = get_logger("incremental_crawl_and_load")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 
+# Suppress Azure SDK logging
+logging.getLogger("azure").setLevel(logging.WARNING)
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
+
 
 class IncrementalCrawler:
     """Incremental crawler that maintains state and processes URLs one by one."""
     
-    def __init__(self, domain: str, output_dir: str, db_name: str, max_retries: int = 3, database: str = None):
+    def __init__(self, domain: str, output_dir: str, db_name: str, max_retries: int = 3, database: str = None, reprocess_mode: bool = False):
         self.domain = domain
         self.output_dir = output_dir
         self.db_name = db_name
         self.max_retries = max_retries
         self.database = database  # Specific retrieval backend to use
+        self.reprocess_mode = reprocess_mode  # Whether to reprocess existing files
         
         # Set up directories
         self.urls_dir = os.path.join(output_dir, "urls")
@@ -72,6 +77,7 @@ class IncrementalCrawler:
             "failed": 0,
             "skipped": 0,
             "already_crawled": 0,
+            "reprocessed": 0,
             "total_json_size": 0,
             "total_schemas": 0,
             "total_documents_uploaded": 0,
@@ -156,13 +162,22 @@ class IncrementalCrawler:
         else:
             progress_pct = 0
             
-        status_line = (
-            f"\rProgress: {processed}/{total} ({progress_pct:.1f}%) | "
-            f"Success: {successful} | Failed: {failed} | "
-            f"Already crawled: {already_crawled} | "
-            f"JSON: {total_json_kb:.1f}KB | Schemas: {total_schemas} | "
-            f"Docs uploaded: {total_docs}"
-        )
+        if self.reprocess_mode:
+            status_line = (
+                f"\rProgress: {processed}/{total} ({progress_pct:.1f}%) | "
+                f"Reprocessed: {self.stats['reprocessed']} | Success: {successful} | "
+                f"Failed: {failed} | Skipped: {skipped} | "
+                f"JSON: {total_json_kb:.1f}KB | Schemas: {total_schemas} | "
+                f"Docs uploaded: {total_docs}"
+            )
+        else:
+            status_line = (
+                f"\rProgress: {processed}/{total} ({progress_pct:.1f}%) | "
+                f"Success: {successful} | Failed: {failed} | "
+                f"Already crawled: {already_crawled} | "
+                f"JSON: {total_json_kb:.1f}KB | Schemas: {total_schemas} | "
+                f"Docs uploaded: {total_docs}"
+            )
         
         # Add top schema types to status line
         if self.stats["schema_types"]:
@@ -211,12 +226,16 @@ class IncrementalCrawler:
         
         if file_exists:
             # Check if it's been fully processed
-            if url_hash in self.status and self.status[url_hash].get("uploaded", False):
+            if url_hash in self.status and self.status[url_hash].get("uploaded", False) and not self.reprocess_mode:
                 self.stats["already_crawled"] += 1
                 return True
             else:
-                # HTML exists but not fully processed, continue with extraction
-                logger.debug(f"HTML exists for {url}, continuing with processing")
+                # HTML exists but not fully processed, or we're in reprocess mode
+                if self.reprocess_mode:
+                    logger.debug(f"Reprocessing existing HTML for {url}")
+                    self.stats["reprocessed"] += 1
+                else:
+                    logger.debug(f"HTML exists for {url}, continuing with processing")
         
         # Initialize or update status entry
         if url_hash not in self.status:
@@ -230,6 +249,12 @@ class IncrementalCrawler:
         try:
             # Step 1: Fetch the page if not already downloaded
             if not file_exists:
+                if self.reprocess_mode:
+                    # In reprocess mode, skip URLs without existing HTML
+                    logger.debug(f"No HTML file for {url} in reprocess mode, skipping")
+                    self.stats["skipped"] += 1
+                    return True
+                    
                 result = await self._fetch_page(url)
                 if result is None:
                     self.status[url_hash]["error"] = "Failed to fetch page"
@@ -371,8 +396,13 @@ class IncrementalCrawler:
         print()
         
         # Print summary
-        logger.info(f"Crawl completed: {self.stats['successful']} successful, "
-                   f"{self.stats['failed']} failed, {self.stats['already_crawled']} already crawled")
+        if self.reprocess_mode:
+            logger.info(f"Reprocessing completed: {self.stats['reprocessed']} files reprocessed, "
+                       f"{self.stats['successful']} successful, {self.stats['failed']} failed, "
+                       f"{self.stats['skipped']} skipped (no HTML file)")
+        else:
+            logger.info(f"Crawl completed: {self.stats['successful']} successful, "
+                       f"{self.stats['failed']} failed, {self.stats['already_crawled']} already crawled")
         logger.info(f"Total JSON extracted: {self.stats['total_json_size'] / 1024:.1f}KB from {self.stats['total_schemas']} schemas")
         logger.info(f"Total documents uploaded to database: {self.stats['total_documents_uploaded']}")
         
@@ -426,6 +456,8 @@ Examples:
                        help="Maximum retries for failed requests (default: 3)")
     parser.add_argument("--no-resume", action="store_true",
                        help="Start fresh instead of resuming previous crawl")
+    parser.add_argument("--reprocess", action="store_true",
+                       help="Reprocess existing HTML files (skip download, recompute embeddings and upload)")
     parser.add_argument("--db-name", default=None,
                        help="Database name for loading (default: domain name)")
     parser.add_argument("--database", default=None,
@@ -461,13 +493,15 @@ Examples:
     
     logger.info(f"Starting incremental crawl for {domain}")
     logger.info(f"Output directory: {base_dir}")
+    if args.reprocess:
+        logger.info("REPROCESS MODE: Will skip downloading and reprocess existing HTML files")
     if args.database:
         logger.info(f"Using database endpoint: {args.database}")
     else:
         logger.info("Using default database endpoint from configuration")
     
     # Initialize crawler
-    crawler = IncrementalCrawler(domain, base_dir, db_name, args.max_retries, args.database)
+    crawler = IncrementalCrawler(domain, base_dir, db_name, args.max_retries, args.database, args.reprocess)
     
     # Step 1: Get URLs from sitemap
     urls_file = os.path.join(crawler.urls_dir, f"{domain}_urls.txt")

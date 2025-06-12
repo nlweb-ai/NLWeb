@@ -1,4 +1,4 @@
-preferred_endpoint: qdrant_local
+preferred_endpoint: nlweb_west
 
 endpoints:
   nlweb_west:

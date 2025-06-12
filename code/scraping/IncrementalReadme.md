@@ -36,6 +36,7 @@ python -m code.scraping.incrementalCrawlAndLoad example.com --database qdrant_lo
 - `--max-pages`: Maximum number of pages to crawl
 - `--max-retries`: Maximum retries for failed requests (default: 3)
 - `--no-resume`: Start fresh instead of resuming previous crawl
+- `--reprocess`: Reprocess existing HTML files (skip download, recompute embeddings)
 - `--db-name`: Database name/collection for loading (default: domain name)
 - `--database`: Specific database endpoint (e.g., azure_ai_search, qdrant_local)
 - `--verbose`: Enable verbose output
@@ -54,6 +55,12 @@ python -m code.scraping.incrementalCrawlAndLoad example.com --output-dir ./my-cr
 
 # Crawl with specific database and limit
 python -m code.scraping.incrementalCrawlAndLoad example.com --database azure_ai_search --max-pages 500
+
+# Reprocess existing HTML files with new embeddings
+python -m code.scraping.incrementalCrawlAndLoad example.com --reprocess
+
+# Reprocess and send to a different database
+python -m code.scraping.incrementalCrawlAndLoad example.com --reprocess --database qdrant_local
 ```
 
 ## Output Structure
@@ -152,6 +159,22 @@ The crawler is designed to be stopped and resumed:
   - Skip pages that have already been downloaded AND processed
   - Re-process pages that were downloaded but not uploaded
   - Continue with new pages
+
+## Reprocess Mode
+
+The `--reprocess` flag allows you to recompute embeddings and re-upload existing HTML files:
+
+- **Purpose**: Useful when you want to:
+  - Change the embedding model
+  - Upload to a different database
+  - Fix issues with previous uploads
+  - Update embeddings after configuration changes
+- **Behavior**:
+  - Skips downloading (won't fetch new pages)
+  - Only processes URLs that have existing HTML files
+  - Recomputes embeddings for all content
+  - Re-uploads to the specified database
+- **Note**: This will overwrite existing entries in the database
 
 ## Database Configuration
 
