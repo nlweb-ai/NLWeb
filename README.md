@@ -68,6 +68,7 @@ Most production deployments will:
 * [Modifying the User Interface](docs/user-interface.md)
 * [REST API](docs/nlweb-rest-api.md)
 * [Adding Memory](docs/nlweb-memory.md)
+* [Using the Check Connectivity Script to Test your Configuration](docs/nlweb-check-connectivity.md)
 
 ## License
 

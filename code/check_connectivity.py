@@ -14,6 +14,7 @@ try:
     from config.config import CONFIG
     from llm.llm import ask_llm
     from embedding.embedding import get_embedding
+    from retrieval.retriever import get_vector_db_client
     from azure_connectivity import check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api
     from snowflake_connectivity import check_embedding, check_complete, check_search
     from inception_connectivity import check_inception_api
@@ -43,7 +44,7 @@ async def check_llm_api(llm_name) -> bool:
         test_prompt = "What is the capital of France?"
         # Using a larger timeout than the default because we don't want to fail on slow responses
         output = await ask_llm(test_prompt, schema=schema, provider=llm_name, timeout=20)
-        print(f"Output from {llm_name}: {output}")
+        #print(f"Output from {llm_name}: {output}")
         if not output:
             print(f"❌ LLM API connectivity check failed for {llm_name}: No valid output received.")
             return False
@@ -83,6 +84,36 @@ async def check_embedding_api(embedding_name) -> bool:
     except Exception as e:
         print(f"❌ Embedding API connectivity check failed for {embedding_name}: {type(e).__name__}: {str(e)}")
         return False
+    
+
+# Function to check retriever connectivity
+async def check_retriever(retrieval_name) -> bool:
+    print(f"Checking retriever connectivity for {retrieval_name}...")
+    if retrieval_name not in CONFIG.retrieval_endpoints:
+        log_unknown_provider("retriever", retrieval_name)
+        return False
+
+    try:
+        client = get_vector_db_client(retrieval_name)
+        resp = await client.search("e", site="all", num_results=1)
+        good_output = len(resp) > 0 #and len(resp[0]) == 4
+        #print(f"Output from {retrieval_name}: {str(resp)}")
+        #print(f"Good Output from {retrieval_name}: {str(good_output)}")
+        if not resp:
+            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: No valid output received.")
+            return False
+        elif good_output:
+            print(f"✅ Retriever API connectivity check successful for {retrieval_name}. Output is in expected format.")
+            return True
+        elif not good_output:
+            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: Output is not in expected format.  Please verify manually: {str(resp)}")
+            return False
+        else:
+            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: What is happening here?  Please verify manually: {str(resp)}")
+            return False
+    except Exception as e:
+        print(f"❌ Retriever API connectivity check failed for {retrieval_name}: {type(e).__name__}: {str(e)}")
+        return False
 
 
 async def main():
@@ -107,8 +138,11 @@ async def main():
         for embedding_provider in CONFIG.embedding_providers:
             tasks.append(check_embedding_api(embedding_provider))
 
-        # TODO: now do the same for retrieval providers
+        for retrieval_provider in CONFIG.retrieval_endpoints:
+            tasks.append(check_retriever(retrieval_provider))
+            
     else:
+        """Run connectivity checks for preferred providers only"""
         print("Checking NLWeb configuration and connectivity...")
     
         # Retrieve preferred provider from config
@@ -123,16 +157,7 @@ async def main():
         retrieval_config = CONFIG.preferred_retrieval_endpoint
         retrieval_dbtype_config = CONFIG.retrieval_endpoints[CONFIG.preferred_retrieval_endpoint].db_type
         print(f"Using configuration from preferred retrieval endpoint: {retrieval_config} with db_type {retrieval_dbtype_config}")  
-    
-        match retrieval_dbtype_config:
-            case "azure_ai_search":
-                tasks.append(check_azure_search_api())
-            case "snowflake_cortex_search":
-                tasks.append(check_search())
-            # TODO: implement support for other retrieval providers: milvus, qdrant, opensearch
-            case _:
-                tasks.append(log_unknown_provider("retrieval", retrieval_config))
-                #print(f"Unknown provider configuration: {retrieval_config}  Please check your settings.")
+        tasks.append(check_retriever(retrieval_dbtype_config))
     
     # Run all tasks concurrently
     results = await asyncio.gather(*tasks, return_exceptions=True)
