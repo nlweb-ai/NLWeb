@@ -2,7 +2,7 @@
 
 ## Overview
 
-The incremental crawler (`incrementalCrawlAndLoad.py`) is designed to crawl websites one page at a time, extract schema.org markup, generate embeddings, and load the data into a vector database. Unlike the batch crawler, this tool processes URLs individually and maintains state, allowing you to stop and resume crawling at any time.
+The incremental crawler (`incrementalCrawlAndLoad.py`) is designed to crawl websites one page at a time, extract schema.org markup, generate embeddings, and load the data into a vector database. Unlike a batch crawler, this tool processes URLs individually and maintains state, allowing you to stop and resume crawling at any time.
 
 ## Key Features
 
@@ -16,16 +16,17 @@ The incremental crawler (`incrementalCrawlAndLoad.py`) is designed to crawl webs
 ## Usage
 
 ### Basic Usage
+Run this command from the "code" directory:
 
 ```bash
 # Crawl a website using default settings
-python -m code.scraping.incrementalCrawlAndLoad example.com
+python -m scraping.incrementalCrawlAndLoad example.com
 
 # Specify a maximum number of pages to crawl
-python -m code.scraping.incrementalCrawlAndLoad example.com --max-pages 100
+python -m scraping.incrementalCrawlAndLoad example.com --max-pages 100
 
 # Use a specific database backend
-python -m code.scraping.incrementalCrawlAndLoad example.com --database qdrant_local
+python -m scraping.incrementalCrawlAndLoad example.com --database qdrant_local
 ```
 
 ### Command Line Options
@@ -45,22 +46,22 @@ python -m code.scraping.incrementalCrawlAndLoad example.com --database qdrant_lo
 
 ```bash
 # Resume a previous crawl
-python -m code.scraping.incrementalCrawlAndLoad marketspice.com
+python -m scraping.incrementalCrawlAndLoad example.com
 
 # Start fresh (ignore previous progress)
-python -m code.scraping.incrementalCrawlAndLoad marketspice.com --no-resume
+python -m scraping.incrementalCrawlAndLoad example.com --no-resume
 
 # Use custom output directory
-python -m code.scraping.incrementalCrawlAndLoad example.com --output-dir ./my-crawl-data
+python -m scraping.incrementalCrawlAndLoad example.com --output-dir ./my-crawl-data
 
 # Crawl with specific database and limit
-python -m code.scraping.incrementalCrawlAndLoad example.com --database azure_ai_search --max-pages 500
+python -m scraping.incrementalCrawlAndLoad example.com --database azure_ai_search --max-pages 500
 
 # Reprocess existing HTML files with new embeddings
-python -m code.scraping.incrementalCrawlAndLoad example.com --reprocess
+python -m scraping.incrementalCrawlAndLoad example.com --reprocess
 
 # Reprocess and send to a different database
-python -m code.scraping.incrementalCrawlAndLoad example.com --reprocess --database qdrant_local
+python -m scraping.incrementalCrawlAndLoad example.com --reprocess --database qdrant_local
 ```
 
 ## Output Structure
