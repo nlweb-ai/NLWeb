@@ -36,7 +36,7 @@ async def log_unknown_provider(config_type, config_name):
 async def check_llm_api(llm_name) -> bool:
     print(f"Checking LLM API connectivity for {llm_name}...")
     if llm_name not in CONFIG.llm_endpoints:
-        log_unknown_provider("LLM", llm_name)
+        await log_unknown_provider("LLM", llm_name)
         return False
 
     try:
@@ -63,7 +63,7 @@ async def check_llm_api(llm_name) -> bool:
 async def check_embedding_api(embedding_name) -> bool:
     print(f"Checking embedding API connectivity for {embedding_name}...")
     if embedding_name not in CONFIG.embedding_providers:
-        log_unknown_provider("embedding", embedding_name)
+        await log_unknown_provider("embedding", embedding_name)
         return False
 
     try:
@@ -90,7 +90,7 @@ async def check_embedding_api(embedding_name) -> bool:
 async def check_retriever(retrieval_name) -> bool:
     print(f"Checking retriever connectivity for {retrieval_name}...")
     if retrieval_name not in CONFIG.retrieval_endpoints:
-        log_unknown_provider("retriever", retrieval_name)
+        await log_unknown_provider("retriever", retrieval_name)
         return False
 
     try:
@@ -140,7 +140,7 @@ async def main():
 
         for retrieval_provider in CONFIG.retrieval_endpoints:
             tasks.append(check_retriever(retrieval_provider))
-            
+
     else:
         """Run connectivity checks for preferred providers only"""
         print("Checking NLWeb configuration and connectivity...")
@@ -157,7 +157,7 @@ async def main():
         retrieval_config = CONFIG.preferred_retrieval_endpoint
         retrieval_dbtype_config = CONFIG.retrieval_endpoints[CONFIG.preferred_retrieval_endpoint].db_type
         print(f"Using configuration from preferred retrieval endpoint: {retrieval_config} with db_type {retrieval_dbtype_config}")  
-        tasks.append(check_retriever(retrieval_dbtype_config))
+        tasks.append(check_retriever(retrieval_config))
     
     # Run all tasks concurrently
     results = await asyncio.gather(*tasks, return_exceptions=True)
