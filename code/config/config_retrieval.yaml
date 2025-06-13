@@ -1,7 +1,3 @@
-# Multiple retrieval endpoints can now be enabled simultaneously
-# The system will query all enabled endpoints and aggregate results
-
-# Specify which endpoint should be used for write operations (delete, upload)
 write_endpoint: qdrant_local
 
 endpoints:
@@ -28,10 +24,11 @@ endpoints:
     name: NLWeb_Crawl_Backup
 
   # Milvus is still under development and not yet supported. 
-  # milvus_1:
-  #   database_path: ../milvus/milvus_prod.db
-  #   index_name: prod_collection
-  #   db_type: milvus
+  milvus:
+    api_endpoint_env: MILVUS_ENDPOINT
+    api_key_env: MILVUS_TOKEN
+    index_name: nlweb_collection
+    db_type: milvus
 
   # Option 1: Local file-based Qdrant storage
   qdrant_local:
