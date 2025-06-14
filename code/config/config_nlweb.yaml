@@ -26,3 +26,10 @@ chatbot_instructions:
     3. Include relevant details like location, date, and description after the link.
     Every result should be presented with the name as a clickable link, an image if available,
     and key information about the event.
+
+# Headers to include in API responses (sent before results)
+headers:
+  license: "This data is provided under MIT License. See https://opensource.org/license/mit for details."
+  data_retention: "Data provided may be retained for up to 1 day."
+  ui_component: "This field may be used to provide a link to the web components that can be used to display the results.
+  

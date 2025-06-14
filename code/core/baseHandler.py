@@ -122,6 +122,7 @@ class NLWebHandler:
         self.return_value = {}
 
         self.versionNumberSent = False
+        self.headersSent = False
         
         logger.info(f"NLWebHandler initialized with parameters:")
         logger.debug(f"site: {self.site}, query: {self.query}")
@@ -159,6 +160,23 @@ class NLWebHandler:
                     self.versionNumberSent = True
                     version_number_message = {"message_type": "api_version", "api_version": API_VERSION}
                   #  await self.http_handler.write_stream(version_number_message)
+                
+                # Send headers before any other content (but after version)
+                if not self.headersSent:
+                    self.headersSent = True
+                    try:
+                        # Get configured headers from CONFIG
+                        headers = CONFIG.get_headers()
+                        for header_key, header_value in headers.items():
+                            header_message = {
+                                "message_type": header_key,
+                                "message": header_value,
+                                "query_id": self.query_id
+                            }
+                            await self.http_handler.write_stream(header_message)
+                            logger.debug(f"Header '{header_key}' sent successfully")
+                    except Exception as e:
+                        logger.error(f"Error sending headers: {e}")
                     
                 try:
                     await self.http_handler.write_stream(message)
@@ -167,6 +185,18 @@ class NLWebHandler:
                     logger.error(f"Error streaming message: {e}")
                     self.connection_alive_event.clear()  # Use event instead of flag
             else:
+                # Add headers to non-streaming response if not already added
+                if not self.headersSent:
+                    self.headersSent = True
+                    try:
+                        # Get configured headers from CONFIG and add them to return_value
+                        headers = CONFIG.get_headers()
+                        for header_key, header_value in headers.items():
+                            self.return_value[header_key] = {"message": header_value}
+                            logger.debug(f"Header '{header_key}' added to return value")
+                    except Exception as e:
+                        logger.error(f"Error adding headers to return value: {e}")
+                
                 val = {}
                 message_type = message["message_type"]
                 if (message_type == "result_batch"):
