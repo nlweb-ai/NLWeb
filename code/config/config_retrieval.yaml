@@ -1,6 +1,14 @@
 write_endpoint: qdrant_local
 
 endpoints:
+
+  mahi_podcasts:
+    api_key_env: MAHI_PODCASTS_API_KEY
+    api_endpoint_env: MAHI_PODCASTS_ENDPOINT
+    index_name: embeddings1536
+    db_type: azure_ai_search
+
+
   nlweb_west:
     enabled: true
     api_key_env: NLWEB_WEST_API_KEY
@@ -9,7 +17,7 @@ endpoints:
     db_type: azure_ai_search
 
   azure_ai_search:
-    enabled: true
+    enabled: false
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536

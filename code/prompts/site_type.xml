@@ -27,10 +27,12 @@
     <Prompt ref="PrevQueryDecontextualizer">
       <promptString>
         The user is querying the site {request.site} which has {site.itemType}s.
-        Does answering this query require access to earlier queries? 
+        Does answering this query require access to earlier queries or 
+        previous answers?
         If so, rewrite the query to decontextualize it so that it can be answered 
         without reference to earlier queries. If not, don't change the query.
         The user's query is: {request.rawQuery}. Previous queries were: {request.previousQueries}.
+        Previous answers provided were: {request.prevAnswers}.
       </promptString>
       <returnStruc>
         {
@@ -44,8 +46,9 @@
       <promptString>
         The user is asking the following question: '{request.rawQuery}' in the context of 
         the an item with the following description: {request.contextDescription}. 
+        Previous answers provided were: {request.prevAnswers}.
         Rewrite the query to decontextualize it so that it can be answered 
-        without reference to earlier queries or to the item description.
+        without reference to earlier queries, previous answers, or to the item description.
       </promptString>
       <returnStruc>
         {
@@ -59,8 +62,9 @@
         The user is asking the following question: '{request.rawQuery}' in the context of 
         the an item with the following description: {request.contextDescription}. 
         Previous queries from the user were: {request.previousQueries}.
+        Previous answers provided were: {request.prevAnswers}.
         Rewrite the query to decontextualize it so that it can be answered 
-        without reference to earlier queries or to the item description.
+        without reference to earlier queries, previous answers, or to the item description.
       </promptString>
       <returnStruc>
         {
@@ -277,15 +281,25 @@
         
         The details tool gets specific information about a PARTICULAR named item and is best for:
         - Getting ingredients, instructions, or other details about a SPECIFIC recipe/item
-        = Getting the price, specifications, color, etc. for a specific product
+        - Getting the price, specifications, color, etc. for a specific product
         - Queries that mention a specific item name and ask for details about it
+        - Queries referring to items from previous answers (e.g., "tell me more about the papri", "what about the second item", "ingredients for that recipe")
         
-        The details tool should score HIGH (80-100) if the user names a specific item and wants details.
+        If the user is referring to an item from previous answers, check {request.prevAnswers} to find the item they're referring to.
+        Previous answers contain items with their URLs that can be used to retrieve exact details.
+        
+        The details tool should score HIGH (80-100) if:
+        - The user names a specific item and wants details
+        - The user refers to an item from previous answers (by name, position, or context)
+        
         The details tool should score LOW (0-30) if the user wants to find/search for items.
         
         Assign a score from 0 to 100 for whether the details tool is appropriate.
 
-        If the user is asking for details about a specific item, the item_name and details_requested fields should be populated.
+        If the user is asking for details about a specific item:
+        - Populate item_name with the name/identifier
+        - Populate details_requested with what details they want
+        - If referring to a previous item, populate item_url with the URL from previous answers
         
         {tool.description}
       </promptString>
@@ -293,7 +307,8 @@
         {
           "score": "integer between 0 and 100",
           "item_name": "the name or identifier of the specific item for which details are being sought",
-          "details_requested": "the details that the user is asking for"
+          "details_requested": "the details that the user is asking for",
+          "item_url": "URL of the item if referring to one from previous answers (optional)"
         }
       </returnStruc>
     </Prompt>
@@ -301,12 +316,27 @@
     <Prompt ref="CompareToolScoringPrompt">
       <promptString>
         The user has the following query: {request.query}.
-        Assign a score from 0 to 100 for whether the compare tool is
-        the appropriate tool to answer the user's query. The compare tool
-        compares two items side by side.
+        
+        The compare tool compares two items side by side and is best for:
+        - Comparing specific aspects between two named items
+        - Queries that ask about differences or similarities between items
+        - Queries referring to items from previous answers (e.g., "compare the first and second items", "what's the difference between the papri and the samosa")
+        
+        If the user is referring to items from previous answers, check {request.prevAnswers} to find the items they're referring to.
+        Previous answers contain items with their URLs that can be used for exact comparison.
+        
+        The compare tool should score HIGH (80-100) if:
+        - The user wants to compare two specific items
+        - The user refers to items from previous answers by name, position, or context
+        
+        The compare tool should score LOW (0-30) if the user wants to find/search for items.
+        
+        Assign a score from 0 to 100 for whether the compare tool is appropriate.
 
-        If the comparison is for a particular aspects of the items, 
-        specify the kind of aspect in the details_requested field.
+        If the user is asking to compare items:
+        - Populate item1 and item2 with the names/identifiers
+        - If referring to previous items, populate item1_url and item2_url with URLs from previous answers
+        - If the comparison is for particular aspects, specify in details_requested
         
         {tool.description}
       </promptString>
@@ -315,7 +345,9 @@
           "score": "integer between 0 and 100",
           "item1": "the name or identifier of the first item to compare",
           "item2": "the name or identifier of the second item to compare",
-          "details_requested": "the details that the user is asking for"
+          "item1_url": "URL of the first item if referring to one from previous answers (optional)",
+          "item2_url": "URL of the second item if referring to one from previous answers (optional)",
+          "details_requested": "the specific aspects to compare (optional)"
         }
       </returnStruc>
     </Prompt>
@@ -358,6 +390,34 @@
         {
           "score": "integer between 0 and 100",
           "item_details": "the specific details requested by the user"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="ExtractItemDetailsPrompt">
+      <promptString>
+        The user is requesting specific details about an item they previously saw.
+        
+        The user's query: {request.query}
+        The details requested: {request.details_requested}
+        
+        From the following item description, extract ONLY the specific details the user is asking for.
+        Be comprehensive but focused - include all relevant information for what they asked, but don't include unrelated details.
+        
+        For example:
+        - If they ask for "ingredients", include the full ingredients list
+        - If they ask for "price", include price and any pricing variations
+        - If they ask for "nutrition", include all nutritional information
+        - If they ask for "description", provide a clear summary of the item
+        - If they ask for "instructions" or "how to make", include step-by-step instructions
+        
+        Item description: {item.description}
+      </promptString>
+      <returnStruc>
+        {
+          "item_name": "the name of the item",
+          "requested_details": "the specific details requested by the user, formatted clearly",
+          "additional_context": "any important context about these details (optional)"
         }
       </returnStruc>
     </Prompt>

@@ -48,6 +48,9 @@ class NLWebHandler:
         # the previous queries that the user has entered
         self.prev_queries = get_param(query_params, "prev", list, [])
 
+        # the last answers (title and url) from previous queries
+        self.last_answers = get_param(query_params, "last_ans", list, [])
+
         # the model that is being used
         self.model = get_param(query_params, "model", str, "gpt-4o-mini")
 
@@ -129,6 +132,7 @@ class NLWebHandler:
         logger.debug(f"generate_mode: {self.generate_mode}, query_id: {self.query_id}")
         logger.debug(f"context_url: {self.context_url}")
         logger.debug(f"Previous queries: {self.prev_queries}")
+        logger.debug(f"Last answers: {self.last_answers}")
         
         log(f"NLWebHandler initialized with site: {self.site}, query: {self.query}, prev_queries: {self.prev_queries}, mode: {self.generate_mode}, query_id: {self.query_id}, context_url: {self.context_url}")
     

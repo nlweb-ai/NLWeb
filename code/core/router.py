@@ -178,6 +178,28 @@ class ToolSelector:
             tool_results.sort(key=lambda x: x["score"], reverse=True)
             tool_results = tool_results[:3]
             self.handler.tool_routing_results = tool_results
+            
+            # Send tool selection results as a message
+            if tool_results:
+                tools_info = []
+                for i, tool_result in enumerate(tool_results):
+                    tool_info = {
+                        'rank': i + 1,
+                        'name': tool_result['tool'].name,
+                        'score': tool_result['score'],
+                        'schema_type': tool_result['tool'].schema_type,
+                        'parameters': tool_result['result']
+                    }
+                    tools_info.append(tool_info)
+                
+                message = {
+                    "message_type": "tool_selection",
+                    "tools": tools_info,
+                    "query": query,
+                    "selected_tool": tool_results[0]['tool'].name if tool_results else None,
+                    "selected_tool_response": tool_results[0]['result'] if tool_results else None
+                }
+                await self.handler.send_message(message)
                 
         except Exception as e:
             logger.error(f"Error in tool selection: {e}")
@@ -189,8 +211,11 @@ class ToolSelector:
         if not tool.prompt:
             return {"score": 0, "justification": "No prompt defined"}
         
-        # Fill prompt with query
-        filled_prompt = tool.prompt.replace("{request.query}", query)
+        # Import fill_prompt to use proper prompt filling
+        from prompts.prompts import fill_prompt
+        
+        # Fill prompt using the proper mechanism that includes all context
+        filled_prompt = fill_prompt(tool.prompt, self.handler)
         
         try:
             response = await ask_llm(filled_prompt, tool.return_structure, level="high")

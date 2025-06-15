@@ -24,6 +24,7 @@ export class ChatInterface {
     this.eventSource = null;
     this.dotsStillThere = false;
     this.debug_mode = false;
+    this.lastAnswers = [];
     
     // Create JSON renderer
     this.jsonRenderer = new JsonRenderer();
@@ -82,6 +83,7 @@ export class ChatInterface {
     this.itemToRemember = [];
     this.thisRoundSummary = null;
     this.num_results_sent = 0;
+    this.lastAnswers = [];
   }
 
   /**
@@ -282,6 +284,11 @@ export class ChatInterface {
       queryParams.append('prev', prev);
       queryParams.append('item_to_remember', this.itemToRemember || '');
       queryParams.append('context_url', context_url);
+      
+      // Add last_ans parameter
+      if (this.lastAnswers && this.lastAnswers.length > 0) {
+        queryParams.append('last_ans', JSON.stringify(this.lastAnswers));
+      }
       
       const queryString = queryParams.toString();
       const url = `/ask?${queryString}`;

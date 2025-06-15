@@ -31,26 +31,29 @@ class CompareItemsHandler():
         self.params = params
         self.item_name = ""
         self.details_requested = ""
+        self.item1_url = ""
+        self.item2_url = ""
         self.found_items = {}
     
     async def do(self):
         """Main entry point following NLWeb module pattern."""
         try:
-            print(f"Comparing items: {self.params}")
             self.item1_name = self.params.get('item1', '')
             self.item2_name = self.params.get('item2', '')
+            self.item1_url = self.params.get('item1_url', '')
+            self.item2_url = self.params.get('item2_url', '')
             self.details_requested = self.params.get('details_requested', '')
 
             if not self.item1_name or not self.item2_name:
                 logger.warning("Item names not found in tool routing results")
-                print(f"No items found for {self.item1_name} or {self.item2_name}")
                 await self._send_no_items_found_message()
                 return
 
             # Find matching items for both searches in parallel
+            # Use URL-based retrieval if URLs are provided, otherwise use vector search
             matching_tasks = [
-                self._find_matching_items(self.item1_name),
-                self._find_matching_items(self.item2_name)
+                self._get_item_by_url(self.item1_url, self.item1_name) if self.item1_url else self._find_matching_items(self.item1_name),
+                self._get_item_by_url(self.item2_url, self.item2_name) if self.item2_url else self._find_matching_items(self.item2_name)
             ]
             await asyncio.gather(*matching_tasks)
 
@@ -59,7 +62,7 @@ class CompareItemsHandler():
                                    self.found_items[self.item2_name]['item'],
                                    self.details_requested)
             else:
-                print(f"No items found for {self.item1_name} or {self.item2_name}")
+                logger.warning(f"No items found for {self.item1_name} or {self.item2_name}")
                 await self._send_no_items_found_message()
                 return
         
@@ -73,7 +76,7 @@ class CompareItemsHandler():
 
         client = get_vector_db_client(query_params=self.handler.query_params)   
         candidate_items = await client.search(item_name, self.handler.site, num_results=20)
-        print(f"{item_name}")
+        logger.info(f"Searching for item: {item_name}")
         # Create tasks for parallel evaluation
         tasks = []
         for item in candidate_items:
@@ -82,7 +85,7 @@ class CompareItemsHandler():
         
         # Wait for all evaluations to complete
         results = [r for r in await asyncio.gather(*tasks, return_exceptions=True) if r is not None]
-        print(f"Results: {len(results)} {item_name}")
+        logger.info(f"Found {len(results)} matches for {item_name}")
         if results:
             results.sort(key=lambda x: x["score"], reverse=True)
             self.found_items[item_name] = results[0]
@@ -149,5 +152,35 @@ class CompareItemsHandler():
         except Exception as e:
             logger.error(f"Error evaluating item match: {e}")
             return {"score": 0, "explanation": f"Error: {e}"}
+
+    async def _get_item_by_url(self, item_url, item_name):
+        """Get item using URL-based retrieval."""
+        try:
+            client = get_vector_db_client(query_params=self.handler.query_params)
+            results = await client.search_by_url(item_url)
+            
+            if not results or len(results) == 0:
+                logger.warning(f"No item found for URL: {item_url}")
+                return None
+            
+            # Store the item in found_items
+            item = results[0]
+            self.found_items[item_name] = {"score": 100, "item": item}
+            logger.info(f"Retrieved item by URL for: {item_name}")
+            
+        except Exception as e:
+            logger.error(f"Error in _get_item_by_url: {e}")
+            # Fall back to vector search if URL retrieval fails
+            await self._find_matching_items(item_name)
+    
+    async def _send_no_items_found_message(self):
+        """Send message when items cannot be found for comparison."""
+        message = {
+            "message_type": "compare_items",
+            "comparison": f"Could not find one or both items: '{self.item1_name}' and '{self.item2_name}' on {self.handler.site}.",
+            "item1": {"name": self.item1_name, "url": "", "schema_object": {}},
+            "item2": {"name": self.item2_name, "url": "", "schema_object": {}}
+        }
+        await self.handler.send_message(message)
 
 

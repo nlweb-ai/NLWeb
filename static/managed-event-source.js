@@ -200,6 +200,26 @@ export class ManagedEventSource {
           const noResultsMessage = chatInterface.createIntermediateMessageHtml("No results were found");
           chatInterface.bubble.appendChild(noResultsMessage);
         }
+        
+        // Compile last answers from current items
+        const newAnswers = [];
+        for (const [item, domItem] of chatInterface.currentItems) {
+          if (item.title && item.url) {
+            newAnswers.push({
+              title: item.title,
+              url: item.url
+            });
+          } else if (item.name && item.url) {
+            newAnswers.push({
+              title: item.name,
+              url: item.url
+            });
+          }
+        }
+        
+        // Update lastAnswers array (keep only last 20)
+        chatInterface.lastAnswers = [...newAnswers, ...chatInterface.lastAnswers].slice(0, 20);
+        
         chatInterface.scrollDiv.scrollIntoView();
         this.close();
         break;
