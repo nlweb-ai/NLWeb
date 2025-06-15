@@ -181,23 +181,13 @@ class ToolSelector:
             
             # Send tool selection results as a message
             if tool_results:
-                tools_info = []
-                for i, tool_result in enumerate(tool_results):
-                    tool_info = {
-                        'rank': i + 1,
-                        'name': tool_result['tool'].name,
-                        'score': tool_result['score'],
-                        'schema_type': tool_result['tool'].schema_type,
-                        'parameters': tool_result['result']
-                    }
-                    tools_info.append(tool_info)
-                
+                selected_tool = tool_results[0]
                 message = {
                     "message_type": "tool_selection",
-                    "tools": tools_info,
-                    "query": query,
-                    "selected_tool": tool_results[0]['tool'].name if tool_results else None,
-                    "selected_tool_response": tool_results[0]['result'] if tool_results else None
+                    "selected_tool": selected_tool['tool'].name,
+                    "score": selected_tool['score'],
+                    "parameters": selected_tool['result'],
+                    "query": query
                 }
                 await self.handler.send_message(message)
                 

@@ -84,6 +84,9 @@ export class ManagedEventSource {
       chatInterface.messagesArea.appendChild(messageDiv);
       chatInterface.currentItems = [];
       chatInterface.thisRoundRemembered = null;
+      chatInterface.thisRoundDecontextQuery = null;
+      chatInterface.debugMessages = [];  // Reset debug messages for new response
+      chatInterface.pendingResultBatches = [];  // Collect result batches
     }
     
     // Parse the JSON data
@@ -119,6 +122,15 @@ export class ManagedEventSource {
     }
     
     const messageType = data.message_type;
+    
+    // Store all messages for debug mode
+    if (chatInterface.debugMessages) {
+      chatInterface.debugMessages.push({
+        type: messageType,
+        data: data,
+        timestamp: new Date().toISOString()
+      });
+    }
     
     switch(messageType) {
       case "query_analysis":
@@ -168,7 +180,12 @@ export class ManagedEventSource {
         break;
       case "result_batch":
         chatInterface.noResponse = false;
+        // Process results immediately for display
         this.handleResultBatch(data, chatInterface);
+        // Also collect for debug output
+        if (chatInterface.pendingResultBatches && data.results) {
+          chatInterface.pendingResultBatches.push(...data.results);
+        }
         break;
       case "intermediate_message":
         // Ensure message is a string
@@ -193,7 +210,51 @@ export class ManagedEventSource {
         chatInterface.noResponse = false;
         handleCompareItems(data, chatInterface);
         break;
+      case "decontextualized_query":
+        // Display the decontextualized query in the chat
+        if (data.decontextualized_query && data.original_query && 
+            data.decontextualized_query !== data.original_query) {
+          const message = `Query interpreted as: "${data.decontextualized_query}"`;
+          const decontextDiv = chatInterface.createIntermediateMessageHtml(message);
+          decontextDiv.style.fontStyle = 'italic';
+          decontextDiv.style.color = '#666';
+          decontextDiv.style.marginBottom = '10px';
+          // Store it so it survives resort
+          chatInterface.thisRoundDecontextQuery = decontextDiv;
+          chatInterface.bubble.appendChild(decontextDiv);
+        }
+        break;
+      case "tool_selection":
+        // Display tool selection info
+        if (data.selected_tool) {
+          const toolMessage = `Using ${data.selected_tool} tool`;
+          const toolDiv = chatInterface.createIntermediateMessageHtml(toolMessage);
+          toolDiv.style.fontSize = '0.9em';
+          toolDiv.style.color = '#888';
+          toolDiv.style.fontStyle = 'italic';
+          toolDiv.style.marginBottom = '8px';
+          
+          // Store it so it survives resort
+          chatInterface.thisRoundToolSelection = toolDiv;
+          chatInterface.bubble.appendChild(toolDiv);
+        }
+        break;
       case "complete":
+        // Add merged results to debug messages if any were collected
+        if (chatInterface.pendingResultBatches && chatInterface.pendingResultBatches.length > 0) {
+          if (chatInterface.debugMessages) {
+            chatInterface.debugMessages.push({
+              type: 'merged_results',
+              data: {
+                message_type: 'merged_results',
+                results: chatInterface.pendingResultBatches,
+                count: chatInterface.pendingResultBatches.length
+              },
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+        
         chatInterface.resortResults();
         // Add this check to display a message when no results found
         if (chatInterface.noResponse) {
