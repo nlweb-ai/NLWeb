@@ -22,7 +22,8 @@ _provider_locks = {
     "openai": threading.Lock(),
     "gemini": threading.Lock(),
     "azure_openai": threading.Lock(),
-    "snowflake": threading.Lock()
+    "snowflake": threading.Lock(),
+    "sentence-transformers": threading.Lock()
 }
 
 async def get_embedding(
@@ -113,6 +114,17 @@ async def get_embedding(
                 timeout=timeout
             )
             logger.debug(f"Snowflake Cortex embeddings received, dimension: {len(result)}")
+            return result
+
+        if provider == "sentence-transformers":
+            logger.debug("Getting SentenceTransformer embeddings")
+            # Import here to avoid potential circular imports
+            from embedding.sentence_transformer_embedding import get_sentence_transformer_embedding
+            result = await asyncio.wait_for(
+                get_sentence_transformer_embedding(text, model=model_id),
+                timeout=timeout
+            )
+            logger.debug(f"SentenceTransformer embeddings received, dimension: {len(result)}")
             return result
 
         error_msg = f"No embedding implementation for provider '{provider}'"

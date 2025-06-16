@@ -21,3 +21,6 @@ providers:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     api_version_env: "2024-10-01"
     model: snowflake-arctic-embed-m-v1.5
+
+  sentence-transformers:
+    model: all-MiniLM-L6-v2   

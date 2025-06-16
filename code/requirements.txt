@@ -22,3 +22,4 @@ feedparser>=6.0.1
 httpx>=0.28.1
 huggingface_hub>=0.31.0
 seaborn>=0.13.0
+sentence-transformers>=4.1.0
