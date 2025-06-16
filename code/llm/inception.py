@@ -59,7 +59,7 @@ class InceptionProvider(LLMProvider):
         cleaned = re.sub(r"```(?:json)?\s*", "", content).strip()
         match = re.search(r"(\{.*\})", cleaned, re.S)
         if not match:
-            raise ValueError("No JSON object found in response")
+            return {}
         return json.loads(match.group(1))
 
     async def get_completion(
@@ -114,21 +114,28 @@ class InceptionProvider(LLMProvider):
         if diffusing:
             payload["diffusing"] = True
 
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                self.API_URL, 
-                headers=HEADERS, 
-                json=payload, 
-                timeout=timeout
-            ) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                content = data["choices"][0]["message"]["content"]
-                
-                # If schema was provided, parse the response as JSON
-                if schema:
-                    return self.clean_response(content)
-                return content
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.API_URL, 
+                    headers=HEADERS, 
+                    json=payload, 
+                    timeout=timeout
+                ) as resp:
+                    resp.raise_for_status()
+                    data = await resp.json()
+                    content = data["choices"][0]["message"]["content"]
+                    
+                    # If schema was provided, parse the response as JSON
+                    if schema:
+                        return self.clean_response(content)
+                    return content
+        except Exception as e:
+            # Log the error and return empty response
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Inception API error: {e}")
+            return {} if schema else ""
 
 
 # Create a singleton instance

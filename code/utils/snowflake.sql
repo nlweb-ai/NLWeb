@@ -12,7 +12,7 @@
 
 USE WAREHOUSE <% WAREHOUSE %>;
 -- Copy the data file into Snowflake temporarily
-PUT file://<% DATA_DIR %>/sites/scifi_movies/jsonl/scifi_movies_schemas.txt @~/dataset OVERWRITE=TRUE;
+PUT file://<% DATA_DIR %>/json/scifi_movies_schemas.txt @~/dataset OVERWRITE=TRUE;
 -- Create a table from it
 CREATE OR REPLACE TABLE SCIFI_MOVIES(URL STRING, SCHEMA_JSON STRING);
 COPY INTO SCIFI_MOVIES
