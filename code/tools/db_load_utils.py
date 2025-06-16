@@ -145,19 +145,12 @@ def get_item_name(item: Dict[str, Any]) -> str:
     elif "@id" in item:
         url = item["@id"]
     
-    if not url:
-        return ""
-        
-    # Extract name from URL
-    parts = url.replace('https://', '').replace('http://', '').split('/', 1)
-    if len(parts) > 1:
-        path = parts[1]
-        path_parts = path.split('/')
-        longest_part = max(path_parts, key=len) if path_parts else ""
-        name = ' '.join(word.capitalize() for word in longest_part.replace('-', ' ').split())
-        return name
-        
-    return ""
+    if url:
+        # Just return the URL as the name
+        return url
+    
+    # If no URL found either, return a default name
+    return "Unnamed Item"
 
 # ---------- Document Preparation Functions ----------
 
@@ -234,23 +227,43 @@ def documents_from_csv_line(line, site):
         print(f"Error processing line: {str(e)}")
         return []
     
+    # Skip if trim_schema_json returned None
+    if js is None:
+        return []
+    
     documents = []
     if not isinstance(js, list):
         js = [js]
     
     for i, item in enumerate(js):
+        # Skip None items in the list
+        if item is None:
+            continue
+            
         # No longer filtering by should_include_item - trimming already handles this
         item_url = url if i == 0 else f"{url}#{i}"
         name = get_item_name(item)
         
-        documents.append({
+        # Ensure no None values in the document
+        doc = {
             "id": str(int64_hash(item_url)),
             "embedding": embedding,
             "schema_json": json.dumps(item),
-            "url": item_url,
-            "name": name,
-            "site": site
-        })
+            "url": item_url or "",
+            "name": name or "Unnamed Item",
+            "site": site or "unknown"
+        }
+        
+        # Additional validation to ensure no None values
+        for key, value in doc.items():
+            if value is None:
+                print(f"Warning: None value found for field '{key}' in document")
+                if key == "embedding":
+                    doc[key] = []
+                else:
+                    doc[key] = ""
+        
+        documents.append(doc)
     
     return documents
 

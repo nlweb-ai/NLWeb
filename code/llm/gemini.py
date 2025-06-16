@@ -102,7 +102,7 @@ class GeminiProvider(LLMProvider):
         match = re.search(r"(\{.*\})", cleaned, re.S)
         if not match:
             logger.error("Failed to parse JSON from content: %r", content)
-            raise ValueError("No JSON object found in response")
+            return {}
         return json.loads(match.group(1))
 
     async def get_completion(
@@ -149,7 +149,7 @@ class GeminiProvider(LLMProvider):
             )
         except asyncio.TimeoutError:
             logger.error("Completion request timed out after %s seconds", timeout)
-            raise
+            return {}
 
         # Extract the response text
         content = response.text

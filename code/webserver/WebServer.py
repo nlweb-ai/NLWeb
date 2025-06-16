@@ -24,6 +24,7 @@ from webserver.static_file_handler import send_static_file
 from config.config import CONFIG
 from core.baseHandler import NLWebHandler
 from utils.logging_config_helper import get_configured_logger
+from retrieval.retriever import get_vector_db_client
 
 # Initialize module logger
 logger = get_configured_logger("webserver")
@@ -39,8 +40,18 @@ async def handle_client(reader, writer, fulfill_request):
         if not request_line:
             connection_alive = False
             return
-            
-        request_line = request_line.decode('utf-8', errors='replace').rstrip('\r\n')
+        
+        # Debug logging to see what we're receiving
+        logger.debug(f"[{request_id}] Raw request bytes: {request_line[:100]}")
+        
+        try:
+            request_line = request_line.decode('utf-8', errors='replace').rstrip('\r\n')
+        except Exception as decode_error:
+            logger.error(f"[{request_id}] Failed to decode request line: {decode_error}, raw bytes: {request_line[:100]}")
+            writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\n")
+            await writer.drain()
+            connection_alive = False
+            return
         words = request_line.split()
         if len(words) < 2:
             # Bad request
@@ -60,8 +71,13 @@ async def handle_client(reader, writer, fulfill_request):
                 header_line = await reader.readline()
                 if not header_line or header_line == b'\r\n':
                     break
+                
+                try:
+                    hdr = header_line.decode('utf-8', errors='replace').rstrip('\r\n')
+                except Exception as decode_error:
+                    logger.error(f"[{request_id}] Failed to decode header: {decode_error}, raw bytes: {header_line[:100]}")
+                    continue
                     
-                hdr = header_line.decode('utf-8').rstrip('\r\n')
                 if ":" not in hdr:
                     continue
                 name, value = hdr.split(":", 1)
@@ -89,7 +105,13 @@ async def handle_client(reader, writer, fulfill_request):
             try:
                 content_length = int(headers['content-length'])
                 body = await reader.read(content_length)
+                logger.debug(f"[{request_id}] Read body of {len(body) if body else 0} bytes")
             except (ValueError, ConnectionResetError, BrokenPipeError) as e:
+                logger.error(f"[{request_id}] Error reading body: {e}")
+                connection_alive = False
+                return
+            except Exception as e:
+                logger.error(f"[{request_id}] Unexpected error reading body: {e}")
                 connection_alive = False
                 return
         
@@ -106,7 +128,7 @@ async def handle_client(reader, writer, fulfill_request):
                 writer.write(status_line.encode('utf-8'))
                 
                 # Add CORS headers if enabled
-                if CONFIG.server.enable_cors and 'Origin' in headers:
+                if CONFIG.server.enable_cors and 'origin' in headers:
                     response_headers['Access-Control-Allow-Origin'] = '*'
                     response_headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
                     response_headers['Access-Control-Allow-Headers'] = 'Content-Type'
@@ -344,6 +366,60 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
             await send_response(200, {'Content-Type': 'application/json'})
             await send_chunk(json.dumps(retval), end_response=True)
             return
+        elif (path.find("sites") != -1):
+            # Handle /sites endpoint
+            try:
+                # Create a retriever client
+                retriever = get_vector_db_client(query_params=query_params)
+                
+                # Get the list of sites
+                sites = await retriever.get_sites()
+                
+                # Prepare the response with message-type
+                response_data = {
+                    "message-type": "sites",
+                    "sites": sites
+                }
+                
+                if streaming:
+                    # Set proper headers for server-sent events (SSE)
+                    response_headers = {
+                        'Content-Type': 'text/event-stream',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'X-Accel-Buffering': 'no'  # Disable proxy buffering
+                    }
+                    
+                    # Send SSE headers
+                    await send_response(200, response_headers)
+                    
+                    # Send the sites data as an SSE event
+                    await send_chunk(f"data: {json.dumps(response_data)}\n\n", end_response=True)
+                else:
+                    # Non-streaming mode - return as JSON
+                    await send_response(200, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps(response_data), end_response=True)
+            except Exception as e:
+                logger.error(f"Error getting sites: {str(e)}")
+                error_data = {
+                    "message-type": "error",
+                    "error": f"Failed to get sites: {str(e)}"
+                }
+                if streaming:
+                    # Send error as SSE event
+                    if not (hasattr(send_response, 'headers_sent') and send_response.headers_sent):
+                        response_headers = {
+                            'Content-Type': 'text/event-stream',
+                            'Cache-Control': 'no-cache',
+                            'Connection': 'keep-alive',
+                            'X-Accel-Buffering': 'no'
+                        }
+                        await send_response(500, response_headers)
+                    await send_chunk(f"data: {json.dumps(error_data)}\n\n", end_response=True)
+                else:
+                    await send_response(500, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps(error_data), end_response=True)
+            return
         elif (path.find("mcp") != -1):
             # Handle MCP health check
             if path == "/mcp/health" or path == "/mcp/healthz":
@@ -406,8 +482,8 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
 
 def close_logs():
     """Close the log file when the application exits."""
-    if hasattr(logging, 'log_file'):
-        logging.log_file.close()
+    # This function is no longer needed with the new logging system
+    pass
 
 # Azure Web App specific: Check for the PORT environment variable
 def get_port():
@@ -426,6 +502,20 @@ def get_port():
         return CONFIG.port
 
 if __name__ == "__main__":
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="NLWeb Server")
+    parser.add_argument('--mode', choices=['development', 'production', 'testing'], 
+                       help='Override the application mode from config')
+    parser.add_argument('command', nargs='?', help='Optional command (e.g., https)')
+    args = parser.parse_args()
+    
+    # Override mode if specified
+    if args.mode:
+        CONFIG.set_mode(args.mode)
+        print(f"Mode overridden to: {args.mode}")
+    
     try:
         port = get_port()
         
@@ -448,7 +538,7 @@ if __name__ == "__main__":
         if use_https:
             print("Starting HTTPS server")
             # If using command line, use default cert files
-            if len(sys.argv) > 1 and sys.argv[1] == "https":
+            if args.command == "https":
                 ssl_cert_file = 'fullchain.pem'
                 ssl_key_file = 'privkey.pem'
             else:

@@ -135,7 +135,7 @@ async def run_single_turn_benchmark(generate_mode, streaming, num_runs=1):
             avg_time = sum(valid_times) / len(valid_times) if valid_times else None
             results.append({
                 'query': query,
-                'provider': CONFIG.preferred_llm_provider,
+                'provider': CONFIG.preferred_llm_endpoint,
                 'times': times,
                 'errors': errors,
                 'avg_time': avg_time
@@ -147,13 +147,13 @@ async def run_multiturn_benchmark(generate_mode, streaming):
     """Run multi-turn benchmark and return results."""
     multiturn_results = []
     for conv_idx, conversation in enumerate(MULTITURN_CONVERSATIONS):
-        print(f"\n--- Conversation {conv_idx+1} | Provider: {CONFIG.preferred_llm_provider} ---")
+        print(f"\n--- Conversation {conv_idx+1} | Provider: {CONFIG.preferred_llm_endpoint} ---")
         site = "scifi_movies"
         handler = NLWebHandler({
             "site": [site],
             "streaming": [str(streaming)],
             "generate_mode": [generate_mode],
-            "query_id": [f"multiturn_{conv_idx}_0_{CONFIG.preferred_llm_provider}"],
+            "query_id": [f"multiturn_{conv_idx}_0_{CONFIG.preferred_llm_endpoint}"],
             "prev": []
         }, http_handler=None)
         handler.site = site
@@ -163,7 +163,7 @@ async def run_multiturn_benchmark(generate_mode, streaming):
         for turn_idx, user_query in enumerate(conversation):
             print(f"\nTurn {turn_idx+1}: '{user_query}'")
             handler.query = user_query
-            handler.query_id = f"multiturn_{conv_idx}_{turn_idx}_{CONFIG.preferred_llm_provider}"
+            handler.query_id = f"multiturn_{conv_idx}_{turn_idx}_{CONFIG.preferred_llm_endpoint}"
             if turn_idx == 0:
                 handler.prev_queries = []
                 handler.prev_answers = []
@@ -179,7 +179,7 @@ async def run_multiturn_benchmark(generate_mode, streaming):
                 multiturn_result = {
                     'conversation': conv_idx+1,
                     'turn': turn_idx+1,
-                    'provider': CONFIG.preferred_llm_provider,
+                    'provider': CONFIG.preferred_llm_endpoint,
                     'elapsed': elapsed,
                     'answer': result['summary']['message'],
                     'error': None,
@@ -195,7 +195,7 @@ async def run_multiturn_benchmark(generate_mode, streaming):
                 multiturn_result = {
                     'conversation': conv_idx+1,
                     'turn': turn_idx+1,
-                    'provider': CONFIG.preferred_llm_provider,
+                    'provider': CONFIG.preferred_llm_endpoint,
                     'elapsed': None,
                     'error': str(e),
                     'query': user_query,
@@ -206,11 +206,11 @@ async def run_multiturn_benchmark(generate_mode, streaming):
             handler.prev_queries.append(user_query)
         conv_end = time.time()
         total_conv_time = conv_end - conv_start
-        print(f"Total time for conversation {conv_idx+1} ({CONFIG.preferred_llm_provider}): {total_conv_time:.3f} seconds")
+        print(f"Total time for conversation {conv_idx+1} ({CONFIG.preferred_llm_endpoint}): {total_conv_time:.3f} seconds")
         multiturn_results.append({
             'conversation': conv_idx+1,
             'turn': 'ALL',
-            'provider': CONFIG.preferred_llm_provider,
+            'provider': CONFIG.preferred_llm_endpoint,
             'elapsed': total_conv_time,
             'error': None,
             'query': 'TOTAL_CONVERSATION_TIME',
@@ -264,7 +264,7 @@ async def run_benchmark():
 
     if RUN_SINGLE_TURN:
         all_results = await run_single_turn_benchmark(generate_mode, streaming, num_runs)
-        with open('../data/benchmark_results/single_turn_results.json', 'w') as f:
+        with open('./benchmark/benchmark_results/single_turn_results.json', 'w') as f:
             json.dump(all_results, f, indent=2)
         print_single_turn_stats_by_provider(all_results)
         plot_results(
@@ -273,23 +273,23 @@ async def run_benchmark():
                 for r in all_results for t in r['times'] if t is not None
             ],
             title='Single-turn Benchmark Timing by Provider',
-            filename=f"../data/benchmark_results/single_turn_benchmark_{CONFIG.preferred_llm_provider}.png"
+            filename=f"./benchmark/benchmark_results/single_turn_benchmark_{CONFIG.preferred_llm_endpoint}.png"
         )
     if RUN_MULTI_TURN:
         multiturn_results = await run_multiturn_benchmark(generate_mode, streaming)
-        with open('../data/benchmark_results/multiturn_results.json', 'w') as f:
+        with open('./benchmark/benchmark_results/multiturn_results.json', 'w') as f:
             json.dump(multiturn_results, f, indent=2)
         print_multiturn_stats_by_provider(multiturn_results)
         print_multiturn_conversation_stats_by_provider(multiturn_results)
         plot_results(
             [r for r in multiturn_results if r['turn'] != 'ALL'],
             title='Multi-turn Benchmark Timing by Provider',
-            filename=f'./benchmark/data/results/multiturn_benchmark_{CONFIG.preferred_llm_provider}.png'
+            filename=f'./benchmark/benchmark_results/multiturn_benchmark_{CONFIG.preferred_llm_endpoint}.png'
         )
         plot_total_conversation_time(
             multiturn_results,
             title='Total Conversation Time by Provider',
-            filename=f'./benchmark/data/results/multiturn_total_conversation_time_{CONFIG.preferred_llm_provider}.png'
+            filename=f'./benchmark/benchmark_results/multiturn_total_conversation_time_{CONFIG.preferred_llm_endpoint}.png'
         )
 
 if __name__ == "__main__":

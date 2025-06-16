@@ -229,6 +229,191 @@
     </Prompt>
 
 
+    <Prompt ref="ToolScoringPrompt">
+      <promptString>
+        The user has the following query: {request.query}.
+        Assign a score from 0 to 100 for whether the following tool is
+        the appropriate tool to answer the user's query. Pay careful attention
+        to the example use cases of this tool.
+        
+        {tool.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "justification": "brief explanation of why this score was assigned"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="SearchToolScoringPrompt">
+      <promptString>
+        The user has the following query: {request.query}.
+
+        The query is being done against a corpus of items.
+        
+        The search can be used find a list of items that match certain requirements, such as
+        - Finding recipes/movies/books/products that match certain requirements
+       
+        
+        The search tool is NOT the best choice if the user is asking for specific details 
+        about a PARTICULAR named item (like ingredients, instructions, etc.).
+        
+        Assign a score from 0 to 100 for whether the search tool is appropriate.
+        
+        {tool.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "search_query": "the search query that should be passed to the tool"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="DetailsToolScoringPrompt">
+      <promptString>
+        The user has the following query: {request.query}.
+        
+        The details tool gets specific information about a PARTICULAR named item and is best for:
+        - Getting ingredients, instructions, or other details about a SPECIFIC recipe/item
+        = Getting the price, specifications, color, etc. for a specific product
+        - Queries that mention a specific item name and ask for details about it
+        
+        The details tool should score HIGH (80-100) if the user names a specific item and wants details.
+        The details tool should score LOW (0-30) if the user wants to find/search for items.
+        
+        Assign a score from 0 to 100 for whether the details tool is appropriate.
+
+        If the user is asking for details about a specific item, the item_name and details_requested fields should be populated.
+        
+        {tool.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "item_name": "the name or identifier of the specific item for which details are being sought",
+          "details_requested": "the details that the user is asking for"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="CompareToolScoringPrompt">
+      <promptString>
+        The user has the following query: {request.query}.
+        Assign a score from 0 to 100 for whether the compare tool is
+        the appropriate tool to answer the user's query. The compare tool
+        compares two items side by side.
+
+        If the comparison is for a particular aspects of the items, 
+        specify the kind of aspect in the details_requested field.
+        
+        {tool.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "item1": "the name or identifier of the first item to compare",
+          "item2": "the name or identifier of the second item to compare",
+          "details_requested": "the details that the user is asking for"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="ToolRankingPrompt">
+      <promptString>
+        The user has the following query: {request.query}
+
+        Please rank the following tools based on how appropriate they are for answering this query. 
+        Return the top {request.top_k} tools with scores from 0 to 100, where 100 means perfectly appropriate 
+        and 0 means completely inappropriate.
+
+        {tools.description}
+
+        Rank them and provide scores for the top {request.top_k} most appropriate tools.
+      </promptString>
+      <returnStruc>
+        {
+          "rankings": "array of objects with tool_name, score, and explanation for each ranked tool"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="ItemMatchingPrompt">
+      <promptString>
+        The user is looking for some details about: {request.item_name}
+        
+        Assign a score between 0 and 100 for whether the following item description
+        matches what the user is looking for. A score of 100 means this is exactly
+        the item they want, 0 means it's completely unrelated.
+
+        If the score is above 75, also extract the details that the user is looking for.
+        Include only the details that the user is explicitly asking for.
+
+        The details requested are: {request.details_requested}. 
+        
+        Item description: {item.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "item_details": "the specific details requested by the user"
+        }
+      </returnStruc>
+    </Prompt>
+
+
+    <Prompt ref="FindItemPrompt"> 
+      <promptString>
+        The user is looking for for an item named / described as: {item.name}
+        Assign a score between 0 and 100 for whether the following item description
+        matches the items the user is looking for. A score of 100 means this is exactly
+        the item they want, 0 means it's completely unrelated.
+        Item description: {item.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100"
+        }
+      </returnStruc>
+    </Prompt>
+
+    
+    
+    <Prompt ref="CompareItemsPrompt">
+      <promptString>
+      The user is looking for a comparison between two items with the following descriptions:
+      Item 1: {request.item1_description} 
+      vs
+      Item 2: {request.item2_description} 
+      The user is asking for the following details: {request.details_requested}
+      Provide a comparison of the two items, highlighting the differences and similarities.
+      The user's query is: {request.query}.
+      </promptString>
+      <returnStruc>
+        {
+          "comparison": "Comparison of the two items"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="CompareItemDetailsPrompt">
+      <promptString>
+      The user is looking for a comparison between two items with the following descriptions:
+      Item 1: {request.item1_description} 
+      and
+      Item 2: {request.item2_description} 
+      The user is asking for the following details: {request.details_requested}
+      Provide a comparison of the two items, highlighting the differences and similarities.
+      The user's query is: {request.query}.
+      </promptString>
+      <returnStruc>
+        {
+          "comparison": "Comparison of the two items"
+        }
+      </returnStruc>
+    </Prompt>
+
   </Thing>
 
   <Recipe>
@@ -250,6 +435,34 @@
         }
       </returnStruc>
     </Prompt>
+
+ <Prompt ref="ItemMatchingPrompt">
+      <promptString>
+        The user is looking for some details about: {request.item_name} and the users query is: {request.query}.
+        Assign a score between 0 and 100 for whether the following item description
+        matches what the user is looking for. A score of 100 means this is exactly
+        the item they want, 0 means it's completely unrelated.
+
+        If the score is above 75, also extract the details that the user is looking for.
+        Include only the details that the user is explicitly asking for.
+        If they asked for ingredients, provide only the ingredients list.
+        If they asked for instructions, provide only the cooking steps.
+        If they asked for nutrition info, provide only nutritional details.
+        
+        Be direct and specific - extract exactly what they asked for from the data.
+        The details requested are: {request.details_requested}. 
+        
+        Item description: {item.description}
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "item_details": "the specific details requested by the user"
+        }
+      </returnStruc>
+    </Prompt>
+
+
   </Recipe>
 
   <RealEstate>
