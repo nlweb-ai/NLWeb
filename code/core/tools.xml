@@ -225,6 +225,48 @@
         }
       </returnStruc>
     </Tool>
+
+    <Tool name="accompaniment">
+      <path>/api/accompaniment</path>
+      <method>url</method>
+      <argument name="search_query">Type of accompaniment to search for</argument>
+      <argument name="main_item">Main item to find accompaniments for</argument>
+      <example>what salad would go best with an eggplant lasagna</example>
+      <example>give me a sauce that would balance out a bitter melon dish</example>
+      <example>wines that would pair with a pear dessert</example>
+      <example>what side dishes go well with roast turkey</example>
+      <prompt>
+        The user has the following query: {request.query}.
+        
+        The accompaniment tool finds items that complement or pair well with a main item. It is best for:
+        - Finding wines that pair with specific dishes
+        - Suggesting side dishes or salads for main courses
+        - Recommending sauces or condiments that balance flavors
+        - Finding complementary items where one enhances the other
+        
+        This tool should score HIGH (80-100) when the user:
+        - Asks what goes well with a specific dish
+        - Wants pairing recommendations (wine, sides, sauces)
+        - Needs something to complement or balance another item
+        
+        This tool should score LOW (0-30) when the user:
+        - Just wants a recipe for something
+        - Is looking for ingredient substitutions
+        - Wants nutritional information
+        
+        Assign a score from 0 to 100 for whether this tool is appropriate.
+        If the score is above 74, provide:
+        - search_query: the type of accompaniment (e.g., "salad", "sauce", "wine")
+        - main_item: what it should pair with (e.g., "eggplant lasagna", "bitter melon")
+      </prompt>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "search_query": "the decontextualized search term for the accompaniment type only",
+          "main_item": "the main item to find accompaniments for"
+        }
+      </returnStruc>
+    </Tool>
   </Recipe>
 
   <Movie>

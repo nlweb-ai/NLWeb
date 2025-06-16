@@ -22,6 +22,8 @@ import core.post_ranking as post_ranking
 import core.router as router
 import core.item_details as item_details
 import core.compare_items as compare_items
+import core.accompaniment as accompaniment
+import core.substitution as substitution
 from core.state import NLWebHandlerState
 from utils.utils import get_param, siteToItemType, log
 from utils.logger import get_logger, LogLevel
@@ -287,27 +289,34 @@ class NLWebHandler:
 
         # Check if we have tool routing results
         if not hasattr(self, 'tool_routing_results') or not self.tool_routing_results:
-            print("DEBUG: No tool routing results available, defaulting to search")
+            logger.debug("No tool routing results available, defaulting to search")
             await self.get_ranked_answers()
             return
 
         top_tool = self.tool_routing_results[0] 
         tool_name = top_tool['tool'].name
-        print("=" * 40)
         
         if tool_name == "search":
-            print("Routing to search functionality")
+            logger.info("Routing to search functionality")
             await self.get_ranked_answers()
         elif tool_name == "details":
-            print("Routing to item details functionality")
+            logger.info("Routing to item details functionality")
             params = top_tool['result']
             await item_details.ItemDetailsHandler(params, self).do()
         elif tool_name == "compare":
-            print("Routing to comparison functionality")
+            logger.info("Routing to comparison functionality")
             params = top_tool['result']
             await compare_items.CompareItemsHandler(params, self).do()
+        elif tool_name == "accompaniment":
+            logger.info("Routing to accompaniment functionality")
+            params = top_tool['result']
+            await accompaniment.AccompanimentHandler(params, self).do()
+        elif tool_name == "recipe_substitutions":
+            logger.info("Routing to substitution functionality")
+            params = top_tool['result']
+            await substitution.SubstitutionHandler(params, self).do()
         else:
-            print(f"Unknown tool type: {tool_name}, defaulting to search")
+            logger.info(f"Unknown tool type: {tool_name}, defaulting to search")
             await self.get_ranked_answers()
 
 
