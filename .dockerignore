@@ -1,0 +1,70 @@
+# Version control
+.git
+.github
+.gitignore
+
+# IDE and editor files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+myenv/
+venv/
+ENV/
+env/
+.env
+
+# Logs and databases
+logs/
+*.log
+*.sqlite3
+*.db
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Documentation and non-essential files
+docs/
+images/
+demo/
+*.md
+!README.md
+!CONTRIBUTING.md
+
+# Other project-specific files
+untitled/
+iunera/
+
+# Keep necessary files
+!code/
+!static/
+
+# Remove local configuration from code directory
+code/.env
+code/logs/
