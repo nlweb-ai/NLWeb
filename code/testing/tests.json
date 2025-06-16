@@ -1,0 +1,29 @@
+[
+  {
+    "query": "spicy crunchy snacks",
+    "prev": "",
+    "site": "all",
+    "generate_mode": "list",
+    "streaming": "false",
+    "db": "azure_ai_search",
+    "llm_provider": "all"
+  },
+  {
+    "query": "with more protein",
+    "prev": "spicy crunchy snacks",
+    "site": "all", 
+    "generate_mode": "list",
+    "streaming": "false",
+    "db": "azure_ai_search",
+    "llm_provider": "inception"
+  },
+  {
+    "query": "I am vegetarian",
+    "prev": "spicy crunchy snacks, with more protein",
+    "site": "all",
+    "generate_mode": "list",
+    "streaming": "false",
+    "db": "azure_ai_search",
+    "llm_provider": "openai"
+  }
+]

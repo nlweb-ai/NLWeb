@@ -29,6 +29,15 @@ class SnowflakeCortexSearchClient:
 
     async def search_all_sites(self, query: str, num_results: int = 50, **kwargs) -> List[List[str]]:
         return await search(query, top_n=num_results, cfg=self._cfg)
+    
+    async def get_sites(self, **kwargs) -> List[str]:
+        """
+        Get a list of unique site names from the Snowflake Cortex Search Service.
+        
+        Returns:
+            List[str]: Sorted list of unique site names
+        """
+        return await get_unique_sites(cfg=self._cfg)
 
 
 def get_cortex_search_service(cfg: RetrievalProviderConfig) -> Tuple[str,str,str]:
@@ -103,3 +112,44 @@ def _name_from_schema_json(schema_json: str) -> str:
         return json.loads(schema_json).get("name", "")
     except Exception as e:
         return ""
+
+async def get_unique_sites(cfg: RetrievalProviderConfig) -> List[str]:
+    """
+    Get unique site values from the Snowflake Cortex Search Service using CORTEX_SEARCH_DATA_SCAN.
+    
+    Args:
+        cfg: The Snowflake configuration
+        
+    Returns:
+        List[str]: Sorted list of unique site names
+    """
+    if not cfg:
+        raise snowflake.ConfigurationError("Unable to determine Snowflake configuration")
+    
+    # Get the service configuration
+    (database, schema, service) = get_cortex_search_service(cfg)
+    
+    # Use CORTEX_SEARCH_DATA_SCAN as recommended by sfc-gh-ashankar
+    query = f"SELECT DISTINCT site FROM TABLE(CORTEX_SEARCH_DATA_SCAN(SERVICE_NAME=>'{database}.{schema}.{service}')) ORDER BY site"
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            snowflake.get_account_url(cfg) + "/api/v2/statements",
+            json={
+                "statement": query,
+                "timeout": 60,
+            },
+            headers={
+                "Authorization": f"Bearer {snowflake.get_pat(cfg)}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            timeout=60,
+        )
+        
+        if response.status_code == 400:
+            raise Exception(response.json())
+        response.raise_for_status()
+        
+        # Use concise list comprehension as recommended by sfc-gh-ashankar
+        return [x[0] for x in response.json().get("data", [])]
