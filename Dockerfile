@@ -47,6 +47,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 EXPOSE 8000
 
 # Set environment variables
+ENV NLWEB_OUTPUT_DIR=/app
 ENV PYTHONPATH=/app
 ENV PORT=8000
 
