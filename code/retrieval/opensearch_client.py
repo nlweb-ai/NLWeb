@@ -33,7 +33,7 @@ class OpenSearchClient:
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
-        self.endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+        self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         self._client_lock = threading.Lock()
         
         # Get endpoint configuration
