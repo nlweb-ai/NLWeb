@@ -9,7 +9,7 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 import retrieval.retriever as retriever
-from utils.json_utils import trim_json
+from utils.trim import trim_json
 import json
 from prompts.prompt_runner import PromptRunner
 from utils.logger import get_logger

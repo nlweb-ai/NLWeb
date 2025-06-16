@@ -15,7 +15,7 @@ from llm.llm import ask_llm
 from prompts.prompt_runner import PromptRunner
 import retrieval.retriever as retriever
 from prompts.prompts import find_prompt, fill_prompt
-from utils.json_utils import trim_json, trim_json_hard
+from utils.trim import trim_json, trim_json_hard
 from utils.logging_config_helper import get_configured_logger
 from utils.utils import log
 import pre_retrieval.analyze_query as analyze_query
