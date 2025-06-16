@@ -9,7 +9,7 @@ try:
     import time
     from llm import llm
     from embedding import embedding
-    from retrieval import retriever
+    from retrieval.retriever import search, search_all_sites, get_sites as get_sites_wrapper
     import sys
     import traceback
 except ImportError as e:
@@ -42,13 +42,11 @@ async def check_complete() -> bool:
     return resp.get("answer", None) is not None
 
 async def check_search() -> bool:
-    client = retriever.get_vector_db_client("snowflake_cortex_search_1")
-    resp = await client.search_all_sites("funny movies", top_n=1)
+    resp = await search_all_sites("funny movies", top_n=1, endpoint_name="snowflake_cortex_search_1")
     return len(resp) > 0 and len(resp[0]) == 4
 
 async def list_sites() -> bool:
-    client = retriever.get_vector_db_client("snowflake_cortex_search_1")
-    sites = await client.get_sites()
+    sites = await get_sites_wrapper(endpoint_name="snowflake_cortex_search_1")
     if not sites:
         raise Exception("No sites found in Snowflake Cortex Search Service")
     print(f"Found {len(sites)} unique sites: {', '.join(sites)}")

@@ -15,7 +15,7 @@ from prompts.prompt_runner import PromptRunner
 from prompts.prompts import find_prompt, fill_prompt
 from utils.logging_config_helper import get_configured_logger
 from utils.json_utils import trim_json
-from retrieval.retriever import get_vector_db_client
+from retrieval.retriever import search
 from llm.llm import ask_llm
 
 
@@ -71,8 +71,12 @@ class CompareItemsHandler():
     async def _find_matching_items(self, item_name):
         """Find items that match the requested item using parallel LLM calls."""
 
-        client = get_vector_db_client(query_params=self.handler.query_params)   
-        candidate_items = await client.search(item_name, self.handler.site, num_results=20)
+        candidate_items = await search(
+            item_name, 
+            self.handler.site, 
+            num_results=20,
+            query_params=self.handler.query_params
+        )
         print(f"{item_name}")
         # Create tasks for parallel evaluation
         tasks = []

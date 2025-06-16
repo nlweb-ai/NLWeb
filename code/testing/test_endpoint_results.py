@@ -12,7 +12,7 @@ from collections import defaultdict
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from retrieval.retriever import get_vector_db_client
+from retrieval.retriever import search
 from utils.logger import logger
 
 
@@ -50,8 +50,7 @@ async def run_query_with_stats(query: str, site: str = "all", num_results: int =
     
     try:
         # Run query
-        retriever = get_vector_db_client()
-        results = await retriever.search(query, site, num_results)
+        results = await search(query, site, num_results)
         
         # Extract stats
         endpoint_stats = dict(stats_handler.stats)

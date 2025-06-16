@@ -29,7 +29,7 @@ from .extractMarkup import extract_schema_markup, extract_canonical_url
 # Import database and embedding modules
 from tools.db_load_utils import prepare_documents_from_json
 from embedding.embedding import batch_get_embeddings
-from retrieval.retriever import get_vector_db_client
+from retrieval.retriever import upload_documents
 
 # Import common utilities
 from utils.logger import get_logger
@@ -349,11 +349,10 @@ class IncrementalCrawler:
                 # Upload to database
                 # Use specified database or default
                 query_params = {"db": [self.database]} if self.database else None
-                client = get_vector_db_client(query_params=query_params)
-                await client.upload_documents(documents_to_upload)
+                await upload_documents(documents_to_upload, query_params=query_params)
                 
                 # Log successful upload
-                logger.debug(f"Uploaded {len(documents_to_upload)} documents from {url} to {client.db_type}")
+                logger.debug(f"Uploaded {len(documents_to_upload)} documents from {url}")
                 
                 self.status[url_hash]["uploaded_at"] = datetime.now().isoformat()
                 self.status[url_hash]["documents_uploaded"] = len(documents_to_upload)

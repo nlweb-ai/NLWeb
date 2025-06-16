@@ -817,3 +817,143 @@ def get_vector_db_client(endpoint_name: Optional[str] = None,
         Configured VectorDBClient instance
     """
     return VectorDBClient(endpoint_name=endpoint_name, query_params=query_params)
+
+
+async def search(query: str, 
+                site: str = "all",
+                num_results: int = 10,
+                endpoint_name: Optional[str] = None,
+                query_params: Optional[Dict[str, Any]] = None,
+                **kwargs) -> List[Dict[str, Any]]:
+    """
+    Simplified search interface that combines client creation and search in one call.
+    
+    Args:
+        query: The search query
+        site: Site to search in (default: "all")
+        num_results: Number of results to return (default: 10)
+        endpoint_name: Optional name of the endpoint to use
+        query_params: Optional query parameters for overriding endpoint
+        **kwargs: Additional parameters passed to the search method
+        
+    Returns:
+        List of search results
+        
+    Example:
+        results = await search("climate change", site="example.com", num_results=5)
+    """
+    client = get_vector_db_client(endpoint_name=endpoint_name, query_params=query_params)
+    return await client.search(query, site, num_results, **kwargs)
+
+
+async def search_all_sites(query: str,
+                          top_n: int = 10,
+                          endpoint_name: Optional[str] = None,
+                          query_params: Optional[Dict[str, Any]] = None,
+                          **kwargs) -> List[Dict[str, Any]]:
+    """
+    Search across all sites using a simplified interface.
+    
+    Args:
+        query: The search query
+        top_n: Number of results to return (default: 10)
+        endpoint_name: Optional name of the endpoint to use
+        query_params: Optional query parameters for overriding endpoint
+        **kwargs: Additional parameters passed to the search_all_sites method
+        
+    Returns:
+        List of search results from all sites
+        
+    Example:
+        results = await search_all_sites("climate change", top_n=20)
+    """
+    client = get_vector_db_client(endpoint_name=endpoint_name, query_params=query_params)
+    return await client.search_all_sites(query, top_n, **kwargs)
+
+
+async def get_sites(endpoint_name: Optional[str] = None,
+                   query_params: Optional[Dict[str, Any]] = None) -> List[str]:
+    """
+    Get list of available sites from the database.
+    
+    Args:
+        endpoint_name: Optional name of the endpoint to use
+        query_params: Optional query parameters for overriding endpoint
+        
+    Returns:
+        List of site names available in the database
+        
+    Example:
+        sites = await get_sites()
+    """
+    client = get_vector_db_client(endpoint_name=endpoint_name, query_params=query_params)
+    return await client.get_sites()
+
+
+async def search_by_url(url: str,
+                       endpoint_name: Optional[str] = None,
+                       query_params: Optional[Dict[str, Any]] = None,
+                       **kwargs) -> Optional[List[str]]:
+    """
+    Retrieve a document by its exact URL.
+    
+    Args:
+        url: URL to search for
+        endpoint_name: Optional name of the endpoint to use
+        query_params: Optional query parameters for overriding endpoint
+        **kwargs: Additional parameters passed to the search_by_url method
+        
+    Returns:
+        Document data or None if not found
+        
+    Example:
+        document = await search_by_url("https://example.com/article")
+    """
+    client = get_vector_db_client(endpoint_name=endpoint_name, query_params=query_params)
+    return await client.search_by_url(url, **kwargs)
+
+
+async def upload_documents(documents: List[Dict[str, Any]],
+                          endpoint_name: Optional[str] = None,
+                          query_params: Optional[Dict[str, Any]] = None,
+                          **kwargs) -> int:
+    """
+    Upload documents to the database using the configured write endpoint.
+    
+    Args:
+        documents: List of document objects to upload
+        endpoint_name: Optional name of the endpoint to use (overrides write_endpoint)
+        query_params: Optional query parameters for overriding endpoint
+        **kwargs: Additional parameters passed to the upload_documents method
+        
+    Returns:
+        Number of documents uploaded
+        
+    Example:
+        count = await upload_documents(documents)
+    """
+    client = get_vector_db_client(endpoint_name=endpoint_name, query_params=query_params)
+    return await client.upload_documents(documents, **kwargs)
+
+
+async def delete_documents_by_site(site: str,
+                                  endpoint_name: Optional[str] = None,
+                                  query_params: Optional[Dict[str, Any]] = None,
+                                  **kwargs) -> int:
+    """
+    Delete all documents for a specific site from the database.
+    
+    Args:
+        site: Site identifier to delete documents for
+        endpoint_name: Optional name of the endpoint to use (overrides write_endpoint)
+        query_params: Optional query parameters for overriding endpoint
+        **kwargs: Additional parameters passed to the delete_documents_by_site method
+        
+    Returns:
+        Number of documents deleted
+        
+    Example:
+        count = await delete_documents_by_site("example.com")
+    """
+    client = get_vector_db_client(endpoint_name=endpoint_name, query_params=query_params)
+    return await client.delete_documents_by_site(site, **kwargs)

@@ -13,7 +13,7 @@ import asyncio
 from core.baseHandler import NLWebHandler
 from llm.llm import ask_llm
 from prompts.prompt_runner import PromptRunner
-import retrieval.retriever as retriever
+from retrieval.retriever import search
 from prompts.prompts import find_prompt, fill_prompt
 from utils.json_utils import trim_json, trim_json_hard
 from utils.logging_config_helper import get_configured_logger
@@ -119,8 +119,11 @@ class GenerateAnswer(NLWebHandler):
         try:
             # Wait for retrieval to be done if not already
             logger.info("Retrieving items for query")
-            client = retriever.get_vector_db_client(query_params=self.query_params)
-            top_embeddings = await client.search(self.decontextualized_query, self.site)
+            top_embeddings = await search(
+                self.decontextualized_query, 
+                self.site,
+                query_params=self.query_params
+            )
             self.items = top_embeddings  # Store all retrieved items
             logger.debug(f"Retrieved {len(top_embeddings)} items from database")
             # Rank each item

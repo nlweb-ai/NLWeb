@@ -12,16 +12,16 @@ from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from retrieval.retriever import get_vector_db_client
+from retrieval.retriever import search
 
 
 class QueryAnalyzer:
     def __init__(self):
-        self.retriever = get_vector_db_client()
+        pass  # No longer need to store a client instance
         
     async def analyze_query(self, query: str, site: str = "all", num_results: int = 50):
         """Analyze a single query for duplicates and source distribution"""
-        results = await self.retriever.search(query, site, num_results)
+        results = await search(query, site, num_results)
         
         # Data structures for analysis
         url_to_results = defaultdict(list)
