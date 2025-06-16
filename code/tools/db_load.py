@@ -32,6 +32,10 @@ from retrieval.retriever import get_vector_db_client
 # Import RSS to Schema converter
 import tools.rss2schema as rss2schema
 
+# Injected constants for aiohttp session limits
+AIOHTTP_CLIENTSESSION_MAX_LINE_SIZE = 32_768      # 32 KB per header line
+AIOHTTP_CLIENTSESSION_MAX_FIELD_SIZE = 32_768     # 32 KB per header field
+
 # Define URL extractor function since json_url_extractor module is not available
 def process_line(line):
     """
@@ -169,8 +173,8 @@ async def fetch_url(url: str) -> Tuple[str, Optional[str]]:
     
     try:
         async with aiohttp.ClientSession(
-            max_line_size=32_768,      # 32 KB per header line
-            max_field_size=32_768      # 32 KB per header field
+            max_line_size=AIOHTTP_CLIENTSESSION_MAX_LINE_SIZE,
+            max_field_size=AIOHTTP_CLIENTSESSION_MAX_FIELD_SIZE
         ) as session:
             async with session.get(url) as response:
                 if response.status != 200:
