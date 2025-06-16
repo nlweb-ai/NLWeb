@@ -14,8 +14,8 @@ from core.baseHandler import NLWebHandler
 from llm.llm import ask_llm
 from prompts.prompt_runner import PromptRunner
 import retrieval.retriever as retriever
-from prompts.prompts import find_prompt, fill_ranking_prompt
-from utils.trim import trim_json, trim_json_hard
+from prompts.prompts import find_prompt, fill_prompt
+from utils.json_utils import trim_json, trim_json_hard
 from utils.logging_config_helper import get_configured_logger
 from utils.utils import log
 import pre_retrieval.analyze_query as analyze_query
@@ -92,7 +92,7 @@ class GenerateAnswer(NLWebHandler):
             logger.debug(f"Ranking item: {name} from {site}")
             prompt_str, ans_struc = find_prompt(site, self.item_type, self.RANKING_PROMPT_NAME)
             description = trim_json_hard(json_str)
-            prompt = fill_ranking_prompt(prompt_str, self, description)
+            prompt = fill_prompt(prompt_str, self, {"item.description": description})
             logger.debug(f"Sending ranking request to LLM for item: {name}")
             ranking = await ask_llm(prompt, ans_struc, level="low", query_params=self.query_params)
             logger.debug(f"Received ranking score: {ranking.get('score', 'N/A')} for item: {name}")

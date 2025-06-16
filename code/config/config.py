@@ -40,7 +40,9 @@ class RetrievalProviderConfig:
     api_endpoint: Optional[str] = None
     database_path: Optional[str] = None
     index_name: Optional[str] = None
-    db_type: Optional[str] = None  
+    db_type: Optional[str] = None
+    use_knn: Optional[bool] = None
+    enabled: bool = False  
 
 @dataclass
 class SSLConfig:
@@ -228,9 +230,11 @@ class AppConfig:
                 "endpoints": {}
             }
 
-        # Changed from preferred_provider to preferred_endpoint
-        self.preferred_retrieval_endpoint: str = data["preferred_endpoint"]
+        # No longer using preferred_endpoint - now using enabled field on each endpoint
         self.retrieval_endpoints: Dict[str, RetrievalProviderConfig] = {}
+        
+        # Get the write endpoint for database modifications
+        self.write_endpoint: str = data.get("write_endpoint", None)
 
         # Changed from providers to endpoints
         for name, cfg in data.get("endpoints", {}).items():
@@ -240,7 +244,8 @@ class AppConfig:
                 api_endpoint=self._get_config_value(cfg.get("api_endpoint_env")),
                 database_path=self._get_config_value(cfg.get("database_path")),
                 index_name=self._get_config_value(cfg.get("index_name")),
-                db_type=self._get_config_value(cfg.get("db_type"))  # Add db_type
+                db_type=self._get_config_value(cfg.get("db_type")),  # Add db_type
+                enabled=cfg.get("enabled", False)  # Add enabled field
             )
     
     def load_webserver_config(self, path: str = "config_webserver.yaml"):

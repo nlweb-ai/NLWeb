@@ -20,4 +20,5 @@ aiohttp>=3.9.1
 pyyaml>=6.0.1
 feedparser>=6.0.1
 httpx>=0.28.1
+huggingface_hub>=0.31.0
 seaborn>=0.13.0
