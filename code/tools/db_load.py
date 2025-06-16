@@ -167,7 +167,10 @@ async def fetch_url(url: str) -> Tuple[str, Optional[str]]:
     print(f"Fetching content from URL: {url}")
     
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(
+            max_line_size=32_768,      # 32 KB per header line
+            max_field_size=32_768      # 32 KB per header field
+        ) as session:
             async with session.get(url) as response:
                 if response.status != 200:
                     raise ValueError(f"Failed to fetch URL {url}: HTTP {response.status}")
