@@ -75,7 +75,7 @@ def get_async_client() -> AsyncOpenAI:
             try:
                 api_key = get_openai_api_key()
                 endpoint = get_openai_api_endpoint()
-                openai_client = AsyncOpenAI(api_key=api_key, endpoint=endpoint)
+                openai_client = AsyncOpenAI(api_key=api_key, base_url=endpoint)
                 logger.debug("OpenAI client initialized successfully")
             except Exception as e:
                 logger.exception("Failed to initialize OpenAI client")
