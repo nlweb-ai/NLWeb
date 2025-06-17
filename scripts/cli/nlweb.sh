@@ -50,7 +50,7 @@ function run(){
 
 function check(){
     pushd "$REPO_DIR/code" > /dev/null || exit 1
-        python azure-connectivity.py 
+        python azure_connectivity.py 
     popd || exit 1
 }
 

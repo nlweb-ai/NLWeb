@@ -1,5 +1,6 @@
 # Core dependencies - always required
 azure-search-documents>=11.4.0
+# Core dependencies - always required
 azure-identity>=1.15.0
 chardet>=5.2.0
 jsonschema>=4.19.1
@@ -9,8 +10,6 @@ packaging<24,>=16.8
 protobuf<5,>=3.20
 matplotlib>=3.8.0
 python-dotenv>=1.0.0
-pymilvus>=1.1.0
-qdrant-client>=1.14.0
 aiohttp>=3.9.1
 pyyaml>=6.0.1
 feedparser>=6.0.1
@@ -40,3 +39,24 @@ seaborn>=0.13.0
 # For Azure AI Inference:
 # azure-ai-inference>=1.0.0b9
 # azure-core>=1.30.0
+
+# Optional Retrieval Backend dependencies
+# NOTE: These packages will also be installed AUTOMATICALLY at runtime when you first use a backend.
+# You do NOT need to install them manually unless you want to pre-install them.
+# The system will detect missing packages and install them on-demand using pip.
+#
+# If you prefer to pre-install specific backends, you can uncomment the lines below:
+
+# For Azure AI Search:
+# azure-core>=1.30.0
+# azure-search-documents>=11.4.0
+
+# For Milvus:
+# pymilvus>=1.1.0
+# numpy
+
+# For Qdrant:
+# qdrant-client>=1.14.0
+
+# For OpenSearch or Snowflake (both use httpx):
+# httpx>=0.28.1

@@ -5,6 +5,7 @@
 Milvus Vector Database Client - Interface for Milvus operations.
 """
 
+import os
 import sys
 import threading
 import asyncio
@@ -35,21 +36,24 @@ class MilvusVectorClient:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
         self.endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+        logger.info(f"Initialized MilvusVectorClient for endpoint: {self.endpoint_name}")
+
         self._client_lock = threading.Lock()
         self._milvus_clients = {}  # Cache for Milvus clients
         
         # Get endpoint configuration
         self.endpoint_config = self._get_endpoint_config()
-        self.database_path = self.endpoint_config.database_path
-        self.default_collection_name = self.endpoint_config.index_name or "prod_collection"
         
-        if not self.database_path:
-            error_msg = f"database_path is not set for endpoint: {self.endpoint_name}"
+        self.uri = self.endpoint_config.api_endpoint
+        self.token = self.endpoint_config.api_key
+
+        if not self.uri:
+            error_msg = f"Milvus URI is empty. Please check if you have set MILVUS_ENDPOINT env var or milvus.api_endpoint_env in config_retrieval.yaml properly."
             logger.error(error_msg)
             raise ValueError(error_msg)
+        logger.info(f"Using Milvus deployed at : {self.uri}")
             
-        logger.info(f"Initialized MilvusVectorClient for endpoint: {self.endpoint_name}")
-        logger.info(f"Using database path: {self.database_path}")
+        self.default_collection_name = self.endpoint_config.index_name or "prod_collection"
         logger.info(f"Default collection name: {self.default_collection_name}")
     
     def _get_endpoint_config(self):
@@ -86,16 +90,16 @@ class MilvusVectorClient:
                 logger.debug(f"Creating Milvus client for {client_key}")
                 
                 # Initialize the client
-                self._milvus_clients[client_key] = MilvusClient(self.database_path)
-                logger.info(f"Created Milvus client for {client_key} at {self.database_path}")
+                self._milvus_clients[client_key] = MilvusClient(self.uri, self.token)
+                logger.info(f"Created Milvus client for {client_key} at {self.uri}")
                 
                 # Test client connection with a simple search
                 try:
-                    logger.debug("Performing test search to verify connection")
+                    logger.debug("Testing connection to Milvus")
                     self._milvus_clients[client_key].list_collections()
                     logger.info(f"Connection verified for {client_key}")
                 except Exception as e:
-                    logger.error(f"Failed to connect to Milvus at {self.database_path}: {str(e)}")
+                    logger.error(f"Failed to connect to Milvus at {self.uri}: {str(e)}")
                     raise
                     
         return self._milvus_clients[client_key]
@@ -392,8 +396,13 @@ class MilvusVectorClient:
             if res and len(res) > 0:
                 for item in res[0]:
                     ent = item["entity"]
-                    txt = json.dumps(ent["text"])
-                    retval.append([ent["url"], txt, ent["name"], ent["site"]])
+                    try:
+                        # Parse text field as JSON
+                        schema_json = json.loads(ent["text"])
+                        retval.append([ent["url"], schema_json, ent["name"], ent["site"]])
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Failed to parse text field as JSON: {str(e)}")
+                        continue
             
             logger.info(f"Retrieved {len(retval)} items from Milvus")
             logger.debug(f"First result URL: {retval[0][0] if retval else 'No results'}")
@@ -453,9 +462,14 @@ class MilvusVectorClient:
             return None
         
         item = res[0]
-        txt = json.dumps(item["text"])
-        logger.info(f"Successfully retrieved item for URL: {url}")
-        return [item["url"], txt, item["name"], item["site"]]
+        try:
+            # Parse text field as JSON
+            schema_json = json.loads(item["text"])
+            logger.info(f"Successfully retrieved item for URL: {url}")
+            return [item["url"], schema_json, item["name"], item["site"]]
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse text field as JSON: {str(e)}")
+            return None
     
     async def search_all_sites(self, query: str, num_results: int = 50, 
                              collection_name: Optional[str] = None,
