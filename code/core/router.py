@@ -71,6 +71,12 @@ class ToolSelector:
                 tools_in_schema = schema_elem.findall('Tool')
                 
                 for tool_elem in tools_in_schema:
+                    # Check if tool is enabled (default to true if not specified)
+                    enabled = tool_elem.get('enabled', 'true').lower() == 'true'
+                    if not enabled:
+                        logger.info(f"Skipping disabled tool: {tool_elem.get('name', 'unnamed')}")
+                        continue
+                    
                     name = tool_elem.get('name', '')
                     path = tool_elem.findtext('path', '').strip()
                     method = tool_elem.findtext('method', '').strip()
@@ -179,16 +185,23 @@ class ToolSelector:
             tool_results.sort(key=lambda x: x["score"], reverse=True)
             tool_results = tool_results[:3]
             
+            # If the top tool is not search, abort fast track
+            if tool_results and tool_results[0]['tool'].name != "search":
+                self.handler.abort_fast_track_event.set()
+                logger.info(f"Aborting fast track - top tool is '{tool_results[0]['tool'].name}', not 'search'")
+            
             # Log tool selection results
             logger.info(f"Tool selection results for query: {query}")
             for i, result in enumerate(tool_results):
                 logger.info(f"{i+1}. Tool: {result['tool'].name} - Score: {result['score']}")
+            
             
             self.handler.tool_routing_results = tool_results
                 
         except Exception as e:
             logger.error(f"Error in tool selection: {e}")
         finally:
+            
             await self.handler.state.precheck_step_done(self.STEP_NAME)
     
     async def _evaluate_tool(self, query: str, tool: Tool) -> dict:

@@ -44,16 +44,27 @@ export class RecipeRenderer {
       const schema = item.schema_object;
       
       // Add author if available
-      if (schema.author && schema.author.length > 0) {
+      if (schema.author) {
         const authorDiv = document.createElement('div');
         authorDiv.className = 'recipe-author';
         
         // Safe user data handling: properly fetch and validate the author name
         let authorName = '';
-        if (schema.author[0] && typeof schema.author[0] === 'object' && typeof schema.author[0].name === 'string') {
-          authorName = schema.author[0].name;
-        } else if (typeof schema.author[0] === 'string') {
-          authorName = schema.author[0];
+        
+        // Handle different author formats
+        if (typeof schema.author === 'string') {
+          // Author is a simple string
+          authorName = schema.author;
+        } else if (Array.isArray(schema.author) && schema.author.length > 0) {
+          // Author is an array
+          if (typeof schema.author[0] === 'object' && schema.author[0].name) {
+            authorName = schema.author[0].name;
+          } else if (typeof schema.author[0] === 'string') {
+            authorName = schema.author[0];
+          }
+        } else if (typeof schema.author === 'object' && schema.author.name) {
+          // Author is an object with name property
+          authorName = schema.author.name;
         }
         
         if (authorName) {

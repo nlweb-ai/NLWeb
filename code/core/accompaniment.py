@@ -31,6 +31,7 @@ class AccompanimentHandler():
     async def do(self):
         """Main entry point following NLWeb module pattern."""
         try:
+            
             if not self.search_query:
                 logger.warning("No search query found in tool routing results")
                 await self._send_no_results_message()
@@ -38,8 +39,10 @@ class AccompanimentHandler():
                 
             # Step 1: Retrieve items using the decontextualized query
             logger.info(f"Searching for '{self.search_query}' as accompaniment for '{self.main_item}'")
+            
             client = get_vector_db_client(query_params=self.handler.query_params)
             candidate_items = await client.search(self.search_query, self.handler.site)
+            
             
             if not candidate_items:
                 logger.warning(f"No items found for search query: {self.search_query}")
@@ -51,12 +54,16 @@ class AccompanimentHandler():
             original_query = self.handler.query
             
             # Set the query to include pairing context for ranking
-            self.handler.query = f"{self.search_query} that would go well with {self.main_item}"
+            contextualized_query = f"{self.search_query} that would go well with {self.main_item}"
+            self.handler.query = contextualized_query
+            
             
             # Step 3: Use the Ranking class to rank items with the contextualized query
             logger.info(f"Ranking {len(candidate_items)} items for pairing compatibility")
+            
             ranking = Ranking(self.handler, candidate_items, ranking_type=Ranking.REGULAR_TRACK)
             await ranking.do()
+            
             
             # Restore original query
             self.handler.query = original_query

@@ -23,7 +23,7 @@ import core.router as router
 import core.item_details as item_details
 import core.compare_items as compare_items
 import core.accompaniment as accompaniment
-import core.substitution as substitution
+import core.recipe_substitution as substitution
 from core.state import NLWebHandlerState
 from utils.utils import get_param, siteToItemType, log
 from utils.logger import get_logger, LogLevel
@@ -196,9 +196,7 @@ class NLWebHandler:
                 return self.return_value
             if (not self.fastTrackWorked):
                 logger.info(f"Fast track did not work, proceeding with routing logic")
-                log(f"Going to route query based on tool selection")
                 await self.route_query_based_on_tools()
-                log(f"query routing done")
             await self.post_ranking_tasks()
             self.return_value["query_id"] = self.query_id
             logger.info(f"Query execution completed for query_id: {self.query_id}")
@@ -295,6 +293,7 @@ class NLWebHandler:
 
         top_tool = self.tool_routing_results[0] 
         tool_name = top_tool['tool'].name
+        log(f"Selected tool: {tool_name}")
         
         if tool_name == "search":
             logger.info("Routing to search functionality")
