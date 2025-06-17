@@ -43,6 +43,28 @@ def get_openai_api_key() -> str:
     
     return api_key
 
+
+def get_openai_api_endpoint() -> str:
+    """
+    Retrieve the OpenAI API key from configuration.
+    """
+    # Get the API key from the embedding provider config
+    provider_config = CONFIG.get_embedding_provider("openai")
+    if provider_config and provider_config.endpoint:
+        endpoint = provider_config.endpoint
+        if endpoint:
+            return endpoint
+    
+    # Fallback to environment variable
+    endpoint = os.getenv("OPENAI_ENDPOINT")
+    if not endpoint:
+        error_msg = "OpenAI API endpoint not found in configuration or environment"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
+    return endpoint
+
+
 def get_async_client() -> AsyncOpenAI:
     """
     Configure and return an asynchronous OpenAI client.
@@ -52,7 +74,8 @@ def get_async_client() -> AsyncOpenAI:
         if openai_client is None:
             try:
                 api_key = get_openai_api_key()
-                openai_client = AsyncOpenAI(api_key=api_key)
+                endpoint = get_openai_api_endpoint()
+                openai_client = AsyncOpenAI(api_key=api_key, endpoint=endpoint)
                 logger.debug("OpenAI client initialized successfully")
             except Exception as e:
                 logger.exception("Failed to initialize OpenAI client")
