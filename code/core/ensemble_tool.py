@@ -1,7 +1,7 @@
 import asyncio
 import json
 from typing import List, Dict, Any, Optional
-from retrieval.retriever import get_vector_db_client
+from retrieval.retriever import search
 from utils.trim import trim_json_hard
 from llm.llm import ask_llm
 import logging
@@ -42,8 +42,18 @@ class EnsembleToolHandler:
             # Select top results per query
             top_results = self._select_top_results_from_ranked(ranked_results_per_query, num_per_query=3)
             
-            # Trim the top results
-            trimmed_results = [trim_json_hard(item['item']) for item in top_results]
+            # Trim the top results - extract and trim JSON from tuples
+            trimmed_results = []
+            for item_data in top_results:
+                # item_data['item'] is the original 4-tuple (url, json_str, name, site)
+                url, json_str, name, site = item_data['item']
+                try:
+                    item_dict = json.loads(json_str) if isinstance(json_str, str) else json_str
+                    trimmed_item = trim_json_hard(item_dict)
+                    trimmed_results.append(trimmed_item)
+                except:
+                    logger.warning(f"Failed to trim item: {name}")
+                    continue
             
             # Generate ensemble recommendations using LLM
             ensemble_response = await self._generate_ensemble_recommendations(
@@ -70,60 +80,75 @@ class EnsembleToolHandler:
                 "error": str(e)
             }
     
+    async def _retrieve_and_rank_for_query(self, query: str, query_idx: int, queries_count: int, query_params: Dict[str, Any], original_query: str) -> List[Dict]:
+        """Retrieve and rank results for a single query."""
+        try:
+            # Execute search with appropriate limit per query
+            # Aim for ~60 total results across all queries
+            results_per_query = max(10, 60 // queries_count)
+            
+            # Get site from handler or query_params
+            site = self.handler.site if hasattr(self, 'handler') and self.handler else query_params.get('site', 'all')
+            
+            # Use the search abstraction from retriever.py
+            results = await search(
+                query=query,
+                site=site,
+                num_results=results_per_query,
+                query_params=query_params
+            )
+            
+            # Immediately rank the results for this query
+            ranked_results = await self._rank_query_results(results, original_query, query, query_idx)
+            
+            return ranked_results
+            
+        except Exception as e:
+            logger.error(f"Error in retrieve and rank for query '{query}': {str(e)}")
+            return []
+    
     async def _execute_parallel_retrieval_and_ranking(self, queries: List[str], query_params: Dict[str, Any], original_query: str) -> List[List[Dict]]:
         """Execute retrieval and ranking in parallel for all queries."""
-        async def retrieve_and_rank_for_query(query: str, query_idx: int):
-            try:
-                # Get retrieval client
-                client = get_vector_db_client(query_params=query_params)
-                
-                # Execute search with appropriate limit per query
-                # Aim for ~60 total results across all queries
-                results_per_query = max(10, 60 // len(queries))
-                
-                # Get site from handler or query_params
-                site = self.handler.site if hasattr(self, 'handler') and self.handler else query_params.get('site', 'all')
-                
-                # Retrieve results
-                results = await client.search(
-                    query=query,
-                    site=site,
-                    num_results=results_per_query
-                )
-                
-                # Immediately rank the results for this query
-                ranked_results = await self._rank_query_results(results, original_query, query, query_idx)
-                
-                return ranked_results
-                
-            except Exception as e:
-                logger.error(f"Error in retrieve and rank for query '{query}': {str(e)}")
-                return []
-        
         # Execute retrieval and ranking for all queries in parallel
-        tasks = [retrieve_and_rank_for_query(query, idx) for idx, query in enumerate(queries)]
+        tasks = [self._retrieve_and_rank_for_query(query, idx, len(queries), query_params, original_query) for idx, query in enumerate(queries)]
         ranked_results_per_query = await asyncio.gather(*tasks)
         
         return ranked_results_per_query
     
-    async def _rank_query_results(self, results: List[Dict], original_query: str, search_query: str, query_idx: int) -> List[Dict]:
-        """Rank results from a single query."""
+    async def _rank_query_results(self, results: List[tuple], original_query: str, search_query: str, query_idx: int) -> List[Dict]:
+        """Rank results from a single query.
+        
+        Args:
+            results: List of 4-tuples (url, json_str, name, site) from search
+            original_query: The original user query
+            search_query: The specific search query used
+            query_idx: Index of this query in the ensemble
+        """
         # First, deduplicate within this query's results
         seen_ids = set()
         unique_results = []
         
-        for item in results:
-            item_id = self._get_item_identifier(item)
+        for result_tuple in results:
+            # Unpack the 4-tuple
+            url, json_str, name, site = result_tuple
+            
+            # Parse JSON string to dict for processing
+            try:
+                item_dict = json.loads(json_str) if isinstance(json_str, str) else json_str
+            except:
+                item_dict = {}
+            
+            item_id = self._get_item_identifier(item_dict)
             if item_id and item_id not in seen_ids:
                 seen_ids.add(item_id)
-                unique_results.append(item)
+                unique_results.append(result_tuple)
             elif not item_id:
-                unique_results.append(item)
+                unique_results.append(result_tuple)
         
         # Rank each unique result
         ranking_tasks = []
-        for idx, item in enumerate(unique_results):
-            task = self._rank_single_item(item, original_query, idx)
+        for idx, result_tuple in enumerate(unique_results):
+            task = self._rank_single_item(result_tuple, original_query, idx)
             ranking_tasks.append(task)
         
         # Execute all ranking tasks in parallel
@@ -131,9 +156,10 @@ class EnsembleToolHandler:
         
         # Create ranked results with metadata
         ranked_results = []
-        for item, score in zip(unique_results, scores):
+        for result_tuple, score in zip(unique_results, scores):
+            url, json_str, name, site = result_tuple
             ranked_results.append({
-                'item': item,
+                'item': result_tuple,  # Store the original tuple
                 'relevance_score': score,
                 'source_query_idx': query_idx,
                 'search_query': search_query
@@ -164,15 +190,30 @@ class EnsembleToolHandler:
         return None
     
     
-    async def _rank_single_item(self, item: Dict, original_query: str, idx: int) -> float:
-        """Rank a single item for relevance to the query."""
+    async def _rank_single_item(self, result_tuple: tuple, original_query: str, idx: int) -> float:
+        """Rank a single item for relevance to the query.
+        
+        Args:
+            result_tuple: 4-tuple (url, json_str, name, site)
+            original_query: The original user query
+            idx: Index of the item
+        """
         try:
+            # Unpack the tuple
+            url, json_str, name, site = result_tuple
+            
+            # Parse JSON to get item details
+            try:
+                item_dict = json.loads(json_str) if isinstance(json_str, str) else json_str
+            except:
+                item_dict = {}
+            
             # Create a concise representation of the item for ranking
             item_summary = {
-                'name': item.get('name', 'Unknown'),
-                'type': item.get('@type', 'Unknown'),
-                'description': item.get('description', '')[:200],  # First 200 chars
-                'url': item.get('url', '')
+                'name': name or item_dict.get('name', 'Unknown'),
+                'type': item_dict.get('@type', 'Unknown'),
+                'description': item_dict.get('description', '')[:200],  # First 200 chars
+                'url': url or item_dict.get('url', '')
             }
             
             ranking_prompt = f"""Given the user's query: "{original_query}"
@@ -188,7 +229,7 @@ Consider:
 - Is it the right type of item (e.g., restaurant vs attraction)?
 - Does it match any specific criteria mentioned in the query?
 
-Provide only a numeric score."""
+Provide your response as a JSON object with a 'score' field containing the relevance score."""
             
             response_structure = {
                 "score": "integer between 0 and 100"
@@ -217,7 +258,14 @@ Provide only a numeric score."""
                 if selected_count >= num_per_query:
                     break
                     
-                item_id = self._get_item_identifier(item['item'])
+                # Extract item dict from the tuple for ID checking
+                url, json_str, name, site = item['item']
+                try:
+                    item_dict = json.loads(json_str) if isinstance(json_str, str) else json_str
+                except:
+                    item_dict = {}
+                
+                item_id = self._get_item_identifier(item_dict)
                 
                 # Add if not seen globally
                 if item_id and item_id not in seen_ids:
@@ -254,7 +302,6 @@ Provide only a numeric score."""
                 "recommendations": "array of recommended items with explanations",
                 "summary": "brief summary of the ensemble"
             }
-            print(f"Full prompt: {full_prompt}")
             response = await ask_llm(full_prompt, response_structure, level="high", timeout=30)
             
             if response:

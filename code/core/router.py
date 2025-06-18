@@ -188,6 +188,13 @@ class ToolSelector:
                 await self.handler.state.precheck_step_done(self.STEP_NAME)
                 return
             
+            # Skip tool selection if generate_mode is summarize or generate
+            generate_mode = getattr(self.handler, 'generate_mode', 'none')
+            if generate_mode in ['summarize', 'generate']:
+                logger.info(f"Skipping tool selection because generate_mode is '{generate_mode}'")
+                await self.handler.state.precheck_step_done(self.STEP_NAME)
+                return
+            
             # Wait for decontextualization
             await self.handler.state.wait_for_decontextualization()
             
@@ -238,11 +245,11 @@ class ToolSelector:
             # Sort by score
             tool_results.sort(key=lambda x: x["score"], reverse=True)
             
-            # Print minimal tool ranking summary
+            # Log tool ranking summary (instead of printing to console)
             if tool_results:
-                print(f"\nTool scores for: {query}")
+                logger.debug(f"Tool scores for: {query}")
                 for i, result in enumerate(tool_results):
-                    print(f"  {result['tool'].name}: {result['score']}")
+                    logger.debug(f"  {result['tool'].name}: {result['score']}")
             
             # Check if top tool is not search and abort fastTrack if needed
             if tool_results and tool_results[0]['tool'].name != 'search':

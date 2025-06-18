@@ -200,6 +200,12 @@ class NLWebHandler:
             if (not self.fastTrackWorked):
                 logger.info(f"Fast track did not work, proceeding with routing logic")
                 await self.route_query_based_on_tools()
+            
+            # Check if query is done regardless of whether FastTrack worked
+            if (self.query_done):
+                logger.info(f"Query completed by tool handler")
+                return self.return_value
+                
             await self.post_ranking_tasks()
             self.return_value["query_id"] = self.query_id
             logger.info(f"Query execution completed for query_id: {self.query_id}")
@@ -308,6 +314,11 @@ class NLWebHandler:
             try:
                 logger.info(f"Routing to {tool_name} functionality via {tool.handler_class}")
                 
+                # For non-search tools, clear any items that FastTrack might have populated
+                if tool_name != "search":
+                    self.final_retrieved_items = []
+                    self.retrieved_items = []
+                
                 # Dynamic import of handler module and class
                 module_path, class_name = tool.handler_class.rsplit('.', 1)
                 module = importlib.import_module(module_path)
@@ -318,6 +329,10 @@ class NLWebHandler:
                 
                 # Special handling for ensemble tool which has different method signature
                 if tool_name == "ensemble":
+                    # Clear any items that FastTrack might have populated
+                    self.final_retrieved_items = []
+                    self.retrieved_items = []
+                    
                     result = await handler_instance.handle_ensemble_request(
                         queries=params.get('queries', []),
                         ensemble_type=params.get('ensemble_type', 'general'),
@@ -327,6 +342,9 @@ class NLWebHandler:
                         "message_type": "ensemble_result",
                         "result": result
                     })
+                    # Mark query as done to prevent further processing
+                    self.query_done = True
+                    return
                 else:
                     # Standard handler pattern with do() method
                     await handler_instance.do()
