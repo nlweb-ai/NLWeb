@@ -14,7 +14,7 @@ from typing import List, Dict, Any, Optional, Union
 from prompts.prompts import find_prompt, fill_prompt
 from utils.logging_config_helper import get_configured_logger
 from utils.json_utils import trim_json
-from retrieval.retriever import search
+from retrieval.retriever import search, search_by_url
 from llm.llm import ask_llm
 
 
@@ -31,31 +31,46 @@ class ItemDetailsHandler():
         self.params = params
         self.item_name = ""
         self.details_requested = ""
+        self.item_url = ""
         self.found_items = []
         self.sent_message = False
     
     async def do(self):
         """Main entry point following NLWeb module pattern."""
         try:
-           
             self.item_name = self.params.get('item_name', '')
             self.details_requested = self.params.get('details_requested', '')
-            if not self.item_name or not self.details_requested:
-                logger.warning("No item name found in tool routing results")
+            self.item_url = self.params.get('item_url', '')
+            
+            if not self.details_requested:
+                logger.warning("No details requested found in tool routing results")
                 await self._send_no_items_found_message()
                 return
-         
-            candidate_items = await search(
-                self.item_name, 
-                self.handler.site,
-                query_params=self.handler.query_params
-            )
-            await self._find_matching_items(candidate_items, self.details_requested)
-        
-            if not self.found_items:
-                logger.warning(f"No matching items found for: {self.item_name}")
-                await self._send_no_items_found_message()
-                return
+            
+            # If item_url is provided, use direct URL retrieval
+            if self.item_url:
+                logger.info(f"Using URL-based retrieval for: {self.item_url}")
+                await self._get_item_by_url()
+            else:
+                # Otherwise use vector search
+                if not self.item_name:
+                    logger.warning("No item name found in tool routing results")
+                    await self._send_no_items_found_message()
+                    return
+                
+                logger.info(f"Using vector search for item: {self.item_name}")
+                    
+                candidate_items = await search(
+                    self.item_name, 
+                    self.handler.site,
+                    query_params=self.handler.query_params
+                )
+                await self._find_matching_items(candidate_items, self.details_requested)
+            
+                if not self.found_items:
+                    logger.warning(f"No matching items found for: {self.item_name}")
+                    await self._send_no_items_found_message()
+                    return
         except Exception as e:
             logger.error(f"Error in ItemDetailsHandler.do(): {e}")
             await self._send_no_items_found_message()
@@ -64,7 +79,6 @@ class ItemDetailsHandler():
     async def _find_matching_items(self, candidate_items: List[Dict[str, Any]], details_requested: str):
         """Find items that match the requested item using parallel LLM calls."""
         logger.info(f"Evaluating {len(candidate_items)} candidate items for '{self.item_name} {details_requested}'")
-        print(f"Evaluating {len(candidate_items)} candidate items for '{self.item_name} {details_requested}'")
 
         # Create tasks for parallel evaluation
         tasks = []
@@ -143,6 +157,72 @@ class ItemDetailsHandler():
             return {"score": 0, "explanation": f"Error: {str(e)}"}
     
     
+    
+    async def _get_item_by_url(self):
+        """Get item details using URL-based retrieval."""
+        try:
+            results = await search_by_url(
+                self.item_url,
+                query_params=self.handler.query_params
+            )
+            
+            if not results or len(results) == 0:
+                logger.warning(f"No item found for URL: {self.item_url}")
+                await self._send_no_items_found_message()
+                return
+            
+            # Extract the item from search results
+            item = results[0]
+            if isinstance(item, list) and len(item) >= 4:
+                url, json_str, name, site = item[0], item[1], item[2], item[3]
+                
+                # Use ExtractItemDetailsPrompt to extract the requested details
+                prompt_str, ans_struc = find_prompt(self.handler.site, self.handler.item_type, "ExtractItemDetailsPrompt")
+                if not prompt_str:
+                    logger.error("ExtractItemDetailsPrompt not found")
+                    # Fallback to sending the whole schema
+                    message = {
+                        "message_type": "item_details",
+                        "name": name,
+                        "details": trim_json(json_str),
+                        "url": url,
+                        "site": site,
+                        "schema_object": json.loads(json_str)
+                    }
+                    await self.handler.send_message(message)
+                    return
+                
+                # Fill the prompt with item description and details requested
+                pr_dict = {
+                    "item.description": trim_json(json_str),
+                    "request.details_requested": self.details_requested,
+                    "request.query": self.handler.query
+                }
+                prompt = fill_prompt(prompt_str, self.handler, pr_dict)
+                
+                response = await ask_llm(prompt, ans_struc, level="high")
+                if response:
+                    message = {
+                        "message_type": "item_details",
+                        "name": response.get("item_name", name),
+                        "details": response.get("requested_details", "Details not found"),
+                        "additional_context": response.get("additional_context", ""),
+                        "url": url,
+                        "site": site,
+                        "schema_object": json.loads(json_str)
+                    }
+                    await self.handler.send_message(message)
+                    logger.info(f"Sent item details for URL: {self.item_url}")
+                else:
+                    logger.error("No response from ExtractItemDetailsPrompt")
+                    await self._send_no_items_found_message()
+            else:
+                logger.error(f"Invalid item format from search_by_url: {item}")
+                await self._send_no_items_found_message()
+                
+        except Exception as e:
+            logger.error(f"Error in _get_item_by_url: {e}")
+            await self._send_no_items_found_message()
     
     async def _send_no_items_found_message(self):
         """Send message when no matching items are found."""
