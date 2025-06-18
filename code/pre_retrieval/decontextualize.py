@@ -13,6 +13,7 @@ from utils.json_utils import trim_json
 import json
 from prompts.prompt_runner import PromptRunner
 from utils.logger import get_logger
+from config.config import CONFIG
 
 logger = get_logger("Decontextualizer")
 
@@ -26,6 +27,14 @@ class NoOpDecontextualizer(PromptRunner):
         self.handler.state.start_precheck_step(self.STEP_NAME)
     
     async def do(self):
+        # Check if decontextualization is enabled in config
+        if not CONFIG.is_decontextualize_enabled():
+            logger.info("Decontextualization is disabled in config, skipping")
+            self.handler.decontextualized_query = self.handler.query
+            self.handler.requires_decontextualization = False
+            await self.handler.state.precheck_step_done(self.STEP_NAME)
+            return
+        
         self.handler.decontextualized_query = self.handler.query
         self.handler.requires_decontextualization = False
         await self.handler.state.precheck_step_done(self.STEP_NAME)
@@ -40,6 +49,14 @@ class PrevQueryDecontextualizer(NoOpDecontextualizer):
         super().__init__(handler)
 
     async def do(self):
+        # Check if decontextualization is enabled in config
+        if not CONFIG.is_decontextualize_enabled():
+            logger.info("Decontextualization is disabled in config, skipping")
+            self.handler.decontextualized_query = self.handler.query
+            self.handler.requires_decontextualization = False
+            await self.handler.state.precheck_step_done(self.STEP_NAME)
+            return
+        
         response = await self.run_prompt(self.DECONTEXTUALIZE_QUERY_PROMPT_NAME, level="high")
         logger.info(f"response: {response}")
         if response is None:
@@ -91,6 +108,14 @@ class ContextUrlDecontextualizer(PrevQueryDecontextualizer):
         return retriever.DBItemRetriever(self.handler)  
 
     async def do(self):
+        # Check if decontextualization is enabled in config
+        if not CONFIG.is_decontextualize_enabled():
+            logger.info("Decontextualization is disabled in config, skipping")
+            self.handler.decontextualized_query = self.handler.query
+            self.handler.requires_decontextualization = False
+            await self.handler.state.precheck_step_done(self.STEP_NAME)
+            return
+        
         response = await self.run_prompt(self.DECONTEXTUALIZE_QUERY_PROMPT_NAME, level="high")
         if response is None:
             self.handler.requires_decontextualization = False

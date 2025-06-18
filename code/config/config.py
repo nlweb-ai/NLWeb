@@ -77,6 +77,11 @@ class NLWebConfig:
     json_data_folder: str = "./data/json"  # Default folder for JSON data
     json_with_embeddings_folder: str = "./data/json_with_embeddings"  # Default folder for JSON with embeddings
     chatbot_instructions: Dict[str, str] = field(default_factory=dict)  # Dictionary of chatbot instructions
+    tool_selection_enabled: bool = True  # Enable or disable tool selection
+    memory_enabled: bool = False  # Enable or disable memory functionality
+    analyze_query_enabled: bool = False  # Enable or disable query analysis
+    decontextualize_enabled: bool = True  # Enable or disable decontextualization
+    required_info_enabled: bool = True  # Enable or disable required info checking
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
                    "config_webserver.yaml", "config_nlweb.yaml"]
@@ -361,6 +366,21 @@ class AppConfig:
         # Load chatbot instructions from config
         chatbot_instructions = data.get("chatbot_instructions", {})
         
+        # Load tool selection enabled flag
+        tool_selection_enabled = self._get_config_value(data.get("tool_selection_enabled"), True)
+        
+        # Load memory enabled flag
+        memory_enabled = self._get_config_value(data.get("memory_enabled"), False)
+        
+        # Load analyze query enabled flag
+        analyze_query_enabled = self._get_config_value(data.get("analyze_query_enabled"), False)
+        
+        # Load decontextualize enabled flag
+        decontextualize_enabled = self._get_config_value(data.get("decontextualize_enabled"), True)
+        
+        # Load required info enabled flag
+        required_info_enabled = self._get_config_value(data.get("required_info_enabled"), True)
+        
         # Convert relative paths to use NLWEB_OUTPUT_DIR if available
         base_output_dir = self.base_output_directory
         if base_output_dir:
@@ -377,7 +397,12 @@ class AppConfig:
             sites=sites_list,
             json_data_folder=json_data_folder,
             json_with_embeddings_folder=json_with_embeddings_folder,
-            chatbot_instructions=chatbot_instructions
+            chatbot_instructions=chatbot_instructions,
+            tool_selection_enabled=tool_selection_enabled,
+            memory_enabled=memory_enabled,
+            analyze_query_enabled=analyze_query_enabled,
+            decontextualize_enabled=decontextualize_enabled,
+            required_info_enabled=required_info_enabled
         )
     
     def get_chatbot_instructions(self, instruction_type: str = "search_results") -> str:
@@ -450,6 +475,26 @@ class AppConfig:
         if not allowed_sites or allowed_sites == ['all']:
             return True
         return site in allowed_sites
+    
+    def is_tool_selection_enabled(self) -> bool:
+        """Check if tool selection is enabled."""
+        return self.nlweb.tool_selection_enabled if hasattr(self, 'nlweb') else True
+    
+    def is_memory_enabled(self) -> bool:
+        """Check if memory functionality is enabled."""
+        return self.nlweb.memory_enabled if hasattr(self, 'nlweb') else False
+    
+    def is_analyze_query_enabled(self) -> bool:
+        """Check if query analysis is enabled."""
+        return self.nlweb.analyze_query_enabled if hasattr(self, 'nlweb') else False
+    
+    def is_decontextualize_enabled(self) -> bool:
+        """Check if decontextualization is enabled."""
+        return self.nlweb.decontextualize_enabled if hasattr(self, 'nlweb') else True
+    
+    def is_required_info_enabled(self) -> bool:
+        """Check if required info checking is enabled."""
+        return self.nlweb.required_info_enabled if hasattr(self, 'nlweb') else True
     
     def get_embedding_provider(self, provider_name: Optional[str] = None) -> Optional[EmbeddingProviderConfig]:
         """Get the specified embedding provider config or the preferred one if not specified."""

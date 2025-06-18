@@ -11,6 +11,7 @@ Backwards compatibility is not guaranteed at this time.
 
 from prompts.prompt_runner import PromptRunner
 import asyncio
+from config.config import CONFIG
 
 class Memory(PromptRunner):
 
@@ -22,6 +23,9 @@ class Memory(PromptRunner):
         self.handler.state.start_precheck_step(self.STEP_NAME)
 
     async def do(self):
+        if not CONFIG.is_memory_enabled():
+            await self.handler.state.precheck_step_done(self.STEP_NAME)
+            return
         response = await self.run_prompt(self.MEMORY_PROMPT_NAME, level="high")
         if (not response):
             await self.handler.state.precheck_step_done(self.STEP_NAME)

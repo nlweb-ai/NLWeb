@@ -10,6 +10,7 @@ Backwards compatibility is not guaranteed at this time.
 
 from utils.logger import get_logger, LogLevel
 from prompts.prompt_runner import PromptRunner
+from config.config import CONFIG
 
 # Create a logger for this module
 logger = get_logger("required_info")
@@ -28,6 +29,14 @@ class RequiredInfo(PromptRunner):
         logger.info(f"Started precheck step: {self.STEP_NAME}")
 
     async def do(self):
+        # Check if required info checking is enabled in config
+        if not CONFIG.is_required_info_enabled():
+            logger.info("Required info checking is disabled in config, skipping")
+            self.handler.required_info_found = True
+            self.handler.user_question = ""
+            await self.handler.state.precheck_step_done(self.STEP_NAME)
+            return
+        
         logger.info(f"Running required info check with prompt: {self.REQUIRED_INFO_PROMPT_NAME}")
         response = await self.run_prompt(self.REQUIRED_INFO_PROMPT_NAME, level="high")
         
