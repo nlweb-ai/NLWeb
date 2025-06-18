@@ -4,7 +4,7 @@
 <!-- This file contains all the tools that can be used to process queries for different schema.org types. -->
 
   <Thing>
-    <Tool name="search">
+    <Tool name="search" enabled="true">
       <path>/api/search</path>
       <method>url</method>
       <argument name="query">User's search query</argument>
@@ -34,7 +34,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="details">
+    <Tool name="details" enabled="true">
       <path>/api/details</path>
       <method>url</method>
       <handler>core.item_details.ItemDetailsHandler</handler>
@@ -66,7 +66,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="compare">
+    <Tool name="compare" enabled="true">
       <path>/api/compare</path>
       <method>url</method>
       <handler>core.compare_items.CompareItemsHandler</handler>
@@ -102,7 +102,7 @@
   </Thing>
 
   <Recipe>
-    <Tool name="search">
+    <Tool name="search" enabled="true">
       <path>/api/recipes/search</path>
       <method>url</method>
       <argument name="query">User's search query for recipes</argument>
@@ -132,7 +132,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="details">
+    <Tool name="details" enabled="true">
       <path>/api/recipes/details</path>
       <method>url</method>
       <argument name="item">Name or identifier of the recipe</argument>
@@ -164,7 +164,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="compare">
+    <Tool name="compare" enabled="true">
       <path>/api/recipes/compare</path>
       <method>url</method>
       <argument name="item1">First recipe name or identifier</argument>
@@ -193,9 +193,10 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="recipe_substitutions">
+    <Tool name="recipe_substitutions" enabled="true">
       <path>/api/recipes/substitutions</path>
       <method>url</method>
+      <handler>core.recipe_substitution.SubstitutionHandler</handler>
       <argument name="recipe_name">Name of the recipe to modify</argument>
       <argument name="dietary_need">Specific dietary requirement (dairy-free, nut-free, low-sodium, etc.)</argument>
       <argument name="unavailable_ingredient">Ingredient that needs to be substituted</argument>
@@ -216,6 +217,9 @@
         Assign a score from 0 to 100 for whether the recipe substitutions tool is appropriate.
         If appropriate, identify the recipe, dietary need, or ingredient substitution being requested.
         Only fill out the fields that are explicitly mentioned in the user's query.
+        
+        IMPORTANT: If the user mentions a specific food item or recipe (e.g., "chocolate chip cookies", "chocolate cake", "pasta"), 
+        include it in the recipe_name field even if they don't explicitly say "recipe".
       </prompt>
       <returnStruc>
         {
@@ -227,10 +231,53 @@
         }
       </returnStruc>
     </Tool>
+
+    <Tool name="accompaniment" enabled="true">
+      <path>/api/accompaniment</path>
+      <method>url</method>
+      <handler>core.accompaniment.AccompanimentHandler</handler>
+      <argument name="search_query">Type of accompaniment to search for</argument>
+      <argument name="main_item">Main item to find accompaniments for</argument>
+      <example>what salad would go best with an eggplant lasagna</example>
+      <example>give me a sauce that would balance out a bitter melon dish</example>
+      <example>wines that would pair with a pear dessert</example>
+      <example>what side dishes go well with roast turkey</example>
+      <prompt>
+        The user has the following query: {request.query}.
+        
+        The accompaniment tool finds items that complement or pair well with a main item. It is best for:
+        - Finding wines that pair with specific dishes
+        - Suggesting side dishes or salads for main courses
+        - Recommending sauces or condiments that balance flavors
+        - Finding complementary items where one enhances the other
+        
+        This tool should score HIGH (80-100) when the user:
+        - Asks what goes well with a specific dish
+        - Wants pairing recommendations (wine, sides, sauces)
+        - Needs something to complement or balance another item
+        
+        This tool should score LOW (0-30) when the user:
+        - Just wants a recipe for something
+        - Is looking for ingredient substitutions
+        - Wants nutritional information
+        
+        Assign a score from 0 to 100 for whether this tool is appropriate.
+        If the score is above 74, provide:
+        - search_query: the type of accompaniment (e.g., "salad", "sauce", "wine")
+        - main_item: what it should pair with (e.g., "eggplant lasagna", "bitter melon")
+      </prompt>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "search_query": "the decontextualized search term for the accompaniment type only",
+          "main_item": "the main item to find accompaniments for"
+        }
+      </returnStruc>
+    </Tool>
   </Recipe>
 
   <Movie>
-    <Tool name="search">
+    <Tool name="search" enabled="true">
       <path>/api/movies/search</path>
       <method>url</method>
       <argument name="query">User's search query for movies</argument>
@@ -260,7 +307,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="details">
+    <Tool name="details" enabled="true">
       <path>/api/movies/details</path>
       <method>url</method>
       <argument name="item">Title or identifier of the movie</argument>
@@ -292,7 +339,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="compare">
+    <Tool name="compare" enabled="true">
       <path>/api/movies/compare</path>
       <method>url</method>
       <argument name="item1">First movie title or identifier</argument>
@@ -321,7 +368,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="filmography_search">
+    <Tool name="filmography_search" enabled="true">
       <path>/api/movies/filmography</path>
       <method>url</method>
       <argument name="person_name">Name of the actor or director</argument>
@@ -356,7 +403,7 @@
   </Movie>
 
   <Product>
-    <Tool name="search">
+    <Tool name="search" enabled="true">
       <path>/api/products/search</path>
       <method>url</method>
       <argument name="query">User's search query for products</argument>
@@ -386,7 +433,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="details">
+    <Tool name="details" enabled="true">
       <path>/api/products/details</path>
       <method>url</method>
       <argument name="item">Name or identifier of the product</argument>
@@ -418,7 +465,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="compare">
+    <Tool name="compare" enabled="true">
       <path>/api/products/compare</path>
       <method>url</method>
       <argument name="item1">First product name or identifier</argument>
@@ -449,7 +496,7 @@
   </Product>
 
   <Restaurant>
-    <Tool name="search">
+    <Tool name="search" enabled="true">
       <path>/api/restaurants/search</path>
       <method>url</method>
       <argument name="query">User's search query for restaurants</argument>
@@ -479,7 +526,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="details">
+    <Tool name="details" enabled="true">
       <path>/api/restaurants/details</path>
       <method>url</method>
       <argument name="item">Name or identifier of the restaurant</argument>
@@ -511,7 +558,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="compare">
+    <Tool name="compare" enabled="true">
       <path>/api/restaurants/compare</path>
       <method>url</method>
       <argument name="item1">First restaurant name or identifier</argument>
@@ -540,7 +587,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="restaurant_menu">
+    <Tool name="restaurant_menu" enabled="true">
       <path>/api/restaurants/menu</path>
       <method>url</method>
       <argument name="restaurant_name">Name of the restaurant</argument>
@@ -575,7 +622,7 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="restaurant_nearby">
+    <Tool name="restaurant_nearby" enabled="true">
       <path>/api/restaurants/nearby</path>
       <method>url</method>
       <argument name="reference_location">Specific place, landmark, or address</argument>

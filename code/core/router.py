@@ -44,7 +44,7 @@ class ToolSelector:
         
         # Load tools if not already cached
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        tools_xml_path = os.path.join(current_dir, "test_tools.xml")
+        tools_xml_path = os.path.join(current_dir, "tools.xml")
         self._load_tools_if_needed(tools_xml_path)
         
     def _load_tools_if_needed(self, tools_xml_path: str):
@@ -72,6 +72,12 @@ class ToolSelector:
                 tools_in_schema = schema_elem.findall('Tool')
                 
                 for tool_elem in tools_in_schema:
+                    # Check if tool is enabled (default to true if not specified)
+                    enabled = tool_elem.get('enabled', 'true').lower() == 'true'
+                    if not enabled:
+                        logger.info(f"Skipping disabled tool: {tool_elem.get('name', 'unnamed')}")
+                        continue
+                    
                     name = tool_elem.get('name', '')
                     path = tool_elem.findtext('path', '').strip()
                     method = tool_elem.findtext('method', '').strip()
@@ -130,7 +136,7 @@ class ToolSelector:
     def get_tools_by_type(self, schema_type: str) -> List[Tool]:
         """Get tools for a specific schema type, including inherited tools from parent types."""
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        tools_xml_path = os.path.join(current_dir, "test_tools.xml")
+        tools_xml_path = os.path.join(current_dir, "tools.xml")
         
         all_tools = _tools_cache.get(tools_xml_path, [])
         
@@ -189,6 +195,7 @@ class ToolSelector:
             # Get tools for this type
             tools = self.get_tools_by_type(schema_type)
             
+            
             # Evaluate tools in parallel
             tasks = []
             for tool in tools:
@@ -216,7 +223,7 @@ class ToolSelector:
                         # Log tool score
                         logger.debug(f"{tool.name} tool score: {score}")
                     else:
-                        logger.debug(f"{tool.name} tool: No result")
+                        logger.debug(f"No result for tool {tool.name}: {result}")
                         
                 except Exception as e:
                     logger.error(f"Error processing result for tool {tool.name}: {e}")
@@ -237,6 +244,12 @@ class ToolSelector:
                 self.handler.abort_fast_track_event.set()
             
             tool_results = tool_results[:3]
+            
+            # Log tool selection results
+            logger.info(f"Tool selection results for query: {query}")
+            for i, result in enumerate(tool_results):
+                logger.info(f"{i+1}. Tool: {result['tool'].name} - Score: {result['score']}")
+            
             self.handler.tool_routing_results = tool_results
             
             # Send tool selection results as a message
@@ -254,6 +267,7 @@ class ToolSelector:
         except Exception as e:
             logger.error(f"Error in tool selection: {e}")
         finally:
+            
             await self.handler.state.precheck_step_done(self.STEP_NAME)
     
     async def _evaluate_tool(self, query: str, tool: Tool) -> dict:

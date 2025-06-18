@@ -21,6 +21,8 @@ import pre_retrieval.relevance_detection as relevance_detection
 import core.fastTrack as fastTrack
 import core.post_ranking as post_ranking
 import core.router as router
+import core.accompaniment as accompaniment
+import core.recipe_substitution as substitution
 from core.state import NLWebHandlerState
 from utils.utils import get_param, siteToItemType, log
 from utils.logger import get_logger, LogLevel
@@ -197,9 +199,7 @@ class NLWebHandler:
                 return self.return_value
             if (not self.fastTrackWorked):
                 logger.info(f"Fast track did not work, proceeding with routing logic")
-                log(f"Going to route query based on tool selection")
                 await self.route_query_based_on_tools()
-                log(f"query routing done")
             await self.post_ranking_tasks()
             self.return_value["query_id"] = self.query_id
             logger.info(f"Query execution completed for query_id: {self.query_id}")
@@ -293,7 +293,7 @@ class NLWebHandler:
 
         # Check if we have tool routing results
         if not hasattr(self, 'tool_routing_results') or not self.tool_routing_results:
-            print("DEBUG: No tool routing results available, defaulting to search")
+            logger.debug("No tool routing results available, defaulting to search")
             await self.get_ranked_answers()
             return
 
@@ -301,12 +301,12 @@ class NLWebHandler:
         tool = top_tool['tool']
         tool_name = tool.name
         params = top_tool['result']
-        print("=" * 40)
+        log(f"Selected tool: {tool_name}")
         
         # Check if tool has a handler class defined
         if tool.handler_class:
             try:
-                print(f"Routing to {tool_name} functionality via {tool.handler_class}")
+                logger.info(f"Routing to {tool_name} functionality via {tool.handler_class}")
                 
                 # Dynamic import of handler module and class
                 module_path, class_name = tool.handler_class.rsplit('.', 1)
@@ -333,16 +333,15 @@ class NLWebHandler:
                     
             except Exception as e:
                 logger.error(f"Error loading handler for tool {tool_name}: {e}")
-                print(f"Error loading handler {tool.handler_class}: {e}")
                 # Fall back to search
                 await self.get_ranked_answers()
         else:
             # Default behavior for tools without handlers (like search)
             if tool_name == "search":
-                print("Routing to search functionality")
+                logger.info("Routing to search functionality")
                 await self.get_ranked_answers()
             else:
-                print(f"No handler defined for tool: {tool_name}, defaulting to search")
+                logger.info(f"No handler defined for tool: {tool_name}, defaulting to search")
                 await self.get_ranked_answers()
 
 

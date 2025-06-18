@@ -131,7 +131,6 @@ class CompareItemsHandler():
             desc2 = trim_json(item2[1])
             pr_dict = {"request.item1_description": desc1, "request.item2_description": desc2, "request.details_requested": details_requested}
             prompt = fill_prompt(prompt_str, self.handler, pr_dict)
-        #    print(f"Prompt: {prompt}")
             response = await ask_llm(prompt, ans_struc, level="high")
        
             if response :
@@ -149,7 +148,6 @@ class CompareItemsHandler():
                     "url" : item2[0]
                     }
             }
-         #   print(f"Message: {message}")
             await self.handler.send_message(message)
             return message
       
