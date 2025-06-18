@@ -53,6 +53,16 @@ logging:
       env_var: "DECONTEXTUALIZER_LOG_LEVEL"
       default_level: ERROR
       log_file: "decontextualizer.log"
+    
+    memory:
+      env_var: "MEMORY_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "memory.log"
+    
+    analyze_query:
+      env_var: "ANALYZE_QUERY_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "analyze_query.log"
 
     required_info:
       env_var: "REQUIRED_INFO_LOG_LEVEL"

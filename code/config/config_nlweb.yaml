@@ -29,7 +29,7 @@ decontextualize_enabled: true
 
 # Enable or disable required info checking
 # When set to false, the system will not check if required information is present before processing queries
-required_info_enabled: true
+required_info_enabled: false
 
 # Chatbot formatting instructions
 chatbot_instructions:

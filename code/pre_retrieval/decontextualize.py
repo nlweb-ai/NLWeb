@@ -12,10 +12,10 @@ import retrieval.retriever as retriever
 from utils.trim import trim_json
 import json
 from prompts.prompt_runner import PromptRunner
-from utils.logger import get_logger
+from utils.logging_config_helper import get_configured_logger
 from config.config import CONFIG
 
-logger = get_logger("Decontextualizer")
+logger = get_configured_logger("decontextualizer")
 
 class NoOpDecontextualizer(PromptRunner):
   
@@ -66,7 +66,6 @@ class PrevQueryDecontextualizer(NoOpDecontextualizer):
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return
         elif "requires_decontextualization" not in response:
-            from config.config import CONFIG
             error_msg = f"Missing 'requires_decontextualization' key in response: {response}"
             logger.error(error_msg)
             if CONFIG.should_raise_exceptions():
