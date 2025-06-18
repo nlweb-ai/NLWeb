@@ -13,8 +13,8 @@ import json
 from typing import List, Dict, Any, Optional, Union
 from prompts.prompts import find_prompt, fill_prompt
 from utils.logging_config_helper import get_configured_logger
-from utils.trim import trim_json
-from retrieval.retriever import get_vector_db_client
+from utils.json_utils import trim_json
+from retrieval.retriever import search
 from llm.llm import ask_llm
 
 
@@ -45,8 +45,11 @@ class ItemDetailsHandler():
                 await self._send_no_items_found_message()
                 return
          
-            client = get_vector_db_client(query_params=self.handler.query_params)
-            candidate_items = await client.search(self.item_name, self.handler.site)
+            candidate_items = await search(
+                self.item_name, 
+                self.handler.site,
+                query_params=self.handler.query_params
+            )
             await self._find_matching_items(candidate_items, self.details_requested)
         
             if not self.found_items:
