@@ -7,10 +7,10 @@ This project has been adapted to run on Azure Web App. This README provides guid
 ```
 code/
 ├── app-file.py                   # Entry point for Azure Web App
-├── azure-connectivity.py         # Connectivity check utility (no longer just Azure)
+├── azure_connectivity.py         # Connectivity check utility (no longer just Azure)
 ├── .env.template                 # Template for environment variables
 ├── requirements.txt              # Python dependencies
-├── snowflake-connectivity.py     # Will in future be in single connectivity checker 
+├── snowflake_connectivity.py     # Will in future be in single connectivity checker 
 ├── config/
 |   ├── config_embedding.yaml     #
 |   ├── config_llm.yaml           #

@@ -13,33 +13,129 @@ from typing import Optional, Dict, Any
 from config.config import CONFIG
 import asyncio
 import threading
+import subprocess
+import sys
 
 
-# Import provider instances
-from llm.anthropic import provider as anthropic_provider
-from llm.azure_oai import provider as azure_openai_provider
-from llm.openai import provider as openai_provider
-from llm.gemini import provider as gemini_provider
-from llm.azure_llama import provider as llama_provider
-from llm.azure_deepseek import provider as deepseek_provider
-from llm.inception import provider as inception_provider
-from llm.snowflake import provider as snowflake_provider
-from llm.huggingface import provider as huggingface_provider
 from utils.logging_config_helper import get_configured_logger, LogLevel
 logger = get_configured_logger("llm_wrapper")
 
-# LLM type to provider mapping
-_llm_type_providers = {
-    "openai": openai_provider,
-    "anthropic": anthropic_provider,
-    "gemini": gemini_provider,
-    "azure_openai": azure_openai_provider,
-    "llama_azure": llama_provider,
-    "deepseek_azure": deepseek_provider,
-    "inception": inception_provider,
-    "snowflake": snowflake_provider,
-    "huggingface": huggingface_provider,
+# Cache for loaded providers
+_loaded_providers = {}
+
+# Mapping of LLM types to their required pip packages
+_llm_type_packages = {
+    "openai": ["openai>=1.12.0"],
+    "anthropic": ["anthropic>=0.18.1"],
+    "gemini": ["google-cloud-aiplatform>=1.38.0"],
+    "azure_openai": ["openai>=1.12.0"],
+    "llama_azure": ["openai>=1.12.0"],
+    "deepseek_azure": ["openai>=1.12.0"],
+    "inception": ["aiohttp>=3.9.1"],
+    "snowflake": ["httpx>=0.28.1"],
+    "huggingface": ["huggingface_hub>=0.31.0"],
 }
+
+# Cache for installed packages
+_installed_packages = set()
+
+def _ensure_package_installed(llm_type: str):
+    """
+    Ensure the required packages for an LLM type are installed.
+    
+    Args:
+        llm_type: The type of LLM provider
+    """
+    if llm_type not in _llm_type_packages:
+        return
+    
+    packages = _llm_type_packages[llm_type]
+    for package in packages:
+        # Extract package name without version for caching
+        package_name = package.split(">=")[0].split("==")[0]
+        
+        if package_name in _installed_packages:
+            continue
+            
+        try:
+            # Try to import the package first
+            if package_name == "google-cloud-aiplatform":
+                __import__("vertexai")
+            elif package_name == "huggingface_hub":
+                __import__("huggingface_hub")
+            else:
+                __import__(package_name)
+            _installed_packages.add(package_name)
+            logger.debug(f"Package {package_name} is already installed")
+        except ImportError:
+            # Package not installed, install it
+            logger.info(f"Installing {package} for {llm_type} provider...")
+            try:
+                subprocess.check_call([
+                    sys.executable, "-m", "pip", "install", package, "--quiet"
+                ])
+                _installed_packages.add(package_name)
+                logger.info(f"Successfully installed {package}")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to install {package}: {e}")
+                raise ValueError(f"Failed to install required package {package} for {llm_type}")
+
+def _get_provider(llm_type: str):
+    """
+    Lazily load and return the provider for the given LLM type.
+    
+    Args:
+        llm_type: The type of LLM provider to load
+        
+    Returns:
+        The provider instance
+        
+    Raises:
+        ValueError: If the LLM type is unknown
+    """
+    # Return cached provider if already loaded
+    if llm_type in _loaded_providers:
+        return _loaded_providers[llm_type]
+    
+    # Ensure required packages are installed
+    _ensure_package_installed(llm_type)
+    
+    # Import the appropriate provider module
+    try:
+        if llm_type == "openai":
+            from llm.openai import provider as openai_provider
+            _loaded_providers[llm_type] = openai_provider
+        elif llm_type == "anthropic":
+            from llm.anthropic import provider as anthropic_provider
+            _loaded_providers[llm_type] = anthropic_provider
+        elif llm_type == "gemini":
+            from llm.gemini import provider as gemini_provider
+            _loaded_providers[llm_type] = gemini_provider
+        elif llm_type == "azure_openai":
+            from llm.azure_oai import provider as azure_openai_provider
+            _loaded_providers[llm_type] = azure_openai_provider
+        elif llm_type == "llama_azure":
+            from llm.azure_llama import provider as llama_provider
+            _loaded_providers[llm_type] = llama_provider
+        elif llm_type == "deepseek_azure":
+            from llm.azure_deepseek import provider as deepseek_provider
+            _loaded_providers[llm_type] = deepseek_provider
+        elif llm_type == "inception":
+            from llm.inception import provider as inception_provider
+            _loaded_providers[llm_type] = inception_provider
+        elif llm_type == "snowflake":
+            from llm.snowflake import provider as snowflake_provider
+            _loaded_providers[llm_type] = snowflake_provider
+        elif llm_type == "huggingface":
+            from llm.huggingface import provider as huggingface_provider
+            _loaded_providers[llm_type] = huggingface_provider
+        else:
+            raise ValueError(f"Unknown LLM type: {llm_type}")
+            
+        return _loaded_providers[llm_type]
+    except ImportError as e:
+        logger.error(f"Failed to import provider for {llm_type}: {e}")
+        raise ValueError(f"Failed to load provider for {llm_type}: {e}")
 
 async def ask_llm(
     prompt: str,
@@ -113,12 +209,12 @@ async def ask_llm(
     try:
 
         # Get the provider instance based on llm_type
-        if llm_type not in _llm_type_providers:
-            error_msg = f"No implementation for LLM type '{llm_type}'"
+        try:
+            provider_instance = _get_provider(llm_type)
+        except ValueError as e:
+            error_msg = str(e)
             logger.error(error_msg)
             return {}
-            
-        provider_instance = _llm_type_providers[llm_type]
         
         # Simply call the provider's get_completion method without locking
         # Each provider should handle thread-safety internally
