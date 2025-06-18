@@ -87,13 +87,23 @@ class ManagedEventSource {
         const schemaTitle = schema && (schema.name || schema.headline || schema.title);
         
         // Convert item_details format to standard item format
+        let parsedDetails = data.details;
+        // Parse details if it's a JSON string
+        if (typeof data.details === 'string' && data.details.startsWith('[')) {
+          try {
+            parsedDetails = JSON.parse(data.details);
+          } catch (e) {
+            console.error('Failed to parse details JSON:', e);
+          }
+        }
+        
         const item = {
           url: data.url,
           name: schemaTitle || data.item_name,
           site: data.site,
           siteUrl: data.site,
           score: data.match_score,
-          description: data.details, // Keep as array for proper list rendering
+          description: parsedDetails, // Now properly parsed as array
           schema_object: data.schema_object,
           explanation: data.match_explanation
         };
@@ -593,16 +603,33 @@ class ChatInterface {
       description.style.fontSize = '0.9em';
       
       if (Array.isArray(item.description)) {
-        // Create bulleted list for arrays (like ingredients)
-        const list = document.createElement('ul');
-        list.style.marginLeft = '20px';
-        list.style.paddingLeft = '0';
-        item.description.forEach(item => {
-          const listItem = document.createElement('li');
-          listItem.textContent = item;
-          list.appendChild(listItem);
+        // Create table for arrays (like ingredients)
+        const table = document.createElement('table');
+        table.style.cssText = 'width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.9em;';
+        
+        // Create header
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const headerCell = document.createElement('th');
+        headerCell.textContent = 'Ingredients';
+        headerCell.style.cssText = 'text-align: left; padding: 10px; background-color: #f0f0f0; border: 1px solid #ddd; font-weight: 600;';
+        headerRow.appendChild(headerCell);
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        // Create body with alternating row colors
+        const tbody = document.createElement('tbody');
+        item.description.forEach((ingredient, index) => {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.textContent = ingredient;
+          cell.style.cssText = `padding: 8px 10px; border: 1px solid #ddd; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f9f9f9;'}`;
+          row.appendChild(cell);
+          tbody.appendChild(row);
         });
-        description.appendChild(list);
+        table.appendChild(tbody);
+        
+        description.appendChild(table);
       } else {
         // Regular text for non-arrays
         description.textContent = item.description || '';

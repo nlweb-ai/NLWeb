@@ -153,18 +153,17 @@ export class ManagedEventSource {
         }
         break;
       case "item_details":
-        // Ensure message is a string
-        console.log('item_details: data:', data);
         chatInterface.noResponse = false;
-        if (typeof data.details === 'object') {
-          data.details = JSON.stringify(data.details);
-        }
-        console.log('item_details: data:', data);
+        // Map details to description for proper rendering
+        const mappedData = {
+          ...data,
+          description: data.details  // Map details to description
+        };
+        
         const items = {
-          "results": [data]
+          "results": [mappedData]
         }
         this.handleResultBatch(items, chatInterface);
-          //chatInterface.itemDetailsMessage(data.message, chatInterface);
         break;
       case "result_batch":
         chatInterface.noResponse = false;
