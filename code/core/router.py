@@ -43,7 +43,7 @@ class ToolSelector:
         
         # Load tools if not already cached
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        tools_xml_path = os.path.join(current_dir, "test_tools.xml")
+        tools_xml_path = os.path.join(current_dir, "tools.xml")
         self._load_tools_if_needed(tools_xml_path)
         
     def _load_tools_if_needed(self, tools_xml_path: str):
@@ -71,6 +71,12 @@ class ToolSelector:
                 tools_in_schema = schema_elem.findall('Tool')
                 
                 for tool_elem in tools_in_schema:
+                    # Check if tool is enabled (default to true if not specified)
+                    enabled = tool_elem.get('enabled', 'true').lower() == 'true'
+                    if not enabled:
+                        logger.info(f"Skipping disabled tool: {tool_elem.get('name', 'unnamed')}")
+                        continue
+                    
                     name = tool_elem.get('name', '')
                     path = tool_elem.findtext('path', '').strip()
                     method = tool_elem.findtext('method', '').strip()
@@ -120,7 +126,7 @@ class ToolSelector:
     def get_tools_by_type(self, schema_type: str) -> List[Tool]:
         """Get tools for a specific schema type."""
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        tools_xml_path = os.path.join(current_dir, "test_tools.xml")
+        tools_xml_path = os.path.join(current_dir, "tools.xml")
         
         all_tools = _tools_cache.get(tools_xml_path, [])
         type_tools = [tool for tool in all_tools if tool.schema_type == schema_type]
@@ -155,6 +161,7 @@ class ToolSelector:
             # Get tools for this type
             tools = self.get_tools_by_type(schema_type)
             
+            
             # Evaluate tools in parallel
             tasks = []
             for tool in tools:
@@ -178,17 +185,30 @@ class ToolSelector:
                             "result": result
                         })
                     else:
-                        print(f"No result for tool {tool.name}")
+                        logger.debug(f"No result for tool {tool.name}: {result}")
                 except Exception as e:
                     logger.error(f"Error processing result for tool {tool.name}: {e}")
             # Sort by score and take top 3
             tool_results.sort(key=lambda x: x["score"], reverse=True)
             tool_results = tool_results[:3]
+            
+            # If the top tool is not search, abort fast track
+            if tool_results and tool_results[0]['tool'].name != "search":
+                self.handler.abort_fast_track_event.set()
+                logger.info(f"Aborting fast track - top tool is '{tool_results[0]['tool'].name}', not 'search'")
+            
+            # Log tool selection results
+            logger.info(f"Tool selection results for query: {query}")
+            for i, result in enumerate(tool_results):
+                logger.info(f"{i+1}. Tool: {result['tool'].name} - Score: {result['score']}")
+            
+            
             self.handler.tool_routing_results = tool_results
                 
         except Exception as e:
             logger.error(f"Error in tool selection: {e}")
         finally:
+            
             await self.handler.state.precheck_step_done(self.STEP_NAME)
     
     async def _evaluate_tool(self, query: str, tool: Tool) -> dict:
@@ -196,8 +216,23 @@ class ToolSelector:
         if not tool.prompt:
             return {"score": 0, "justification": "No prompt defined"}
         
-        # Fill prompt with query
-        filled_prompt = tool.prompt.replace("{request.query}", query)
+        # Check if prompt is a reference to a prompt in site_type.xml
+        if not tool.prompt.startswith("The user"):
+            # This is a prompt reference, need to load from prompts
+            from prompts.prompts import find_prompt, fill_prompt
+            prompt_str, ans_struc = find_prompt(self.handler.site, self.handler.item_type, tool.prompt)
+            if prompt_str:
+                filled_prompt = fill_prompt(prompt_str, self.handler, {"tool.description": ""})
+                # Use ans_struc from the prompt if available
+                if ans_struc:
+                    tool.return_structure = ans_struc
+            else:
+                # Fallback to the prompt text as-is
+                filled_prompt = tool.prompt.replace("{request.query}", query)
+        else:
+            # Fill prompt with query
+            filled_prompt = tool.prompt.replace("{request.query}", query)
+        
         
         try:
             response = await ask_llm(filled_prompt, tool.return_structure, level="high")

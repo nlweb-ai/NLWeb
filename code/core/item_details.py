@@ -61,7 +61,6 @@ class ItemDetailsHandler():
     async def _find_matching_items(self, candidate_items: List[Dict[str, Any]], details_requested: str):
         """Find items that match the requested item using parallel LLM calls."""
         logger.info(f"Evaluating {len(candidate_items)} candidate items for '{self.item_name} {details_requested}'")
-        print(f"Evaluating {len(candidate_items)} candidate items for '{self.item_name} {details_requested}'")
 
         # Create tasks for parallel evaluation
         tasks = []
