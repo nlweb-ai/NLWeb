@@ -36,14 +36,12 @@ class CompareItemsHandler():
     async def do(self):
         """Main entry point following NLWeb module pattern."""
         try:
-            print(f"Comparing items: {self.params}")
             self.item1_name = self.params.get('item1', '')
             self.item2_name = self.params.get('item2', '')
             self.details_requested = self.params.get('details_requested', '')
 
             if not self.item1_name or not self.item2_name:
                 logger.warning("Item names not found in tool routing results")
-                print(f"No items found for {self.item1_name} or {self.item2_name}")
                 await self._send_no_items_found_message()
                 return
 
@@ -59,7 +57,6 @@ class CompareItemsHandler():
                                    self.found_items[self.item2_name]['item'],
                                    self.details_requested)
             else:
-                print(f"No items found for {self.item1_name} or {self.item2_name}")
                 await self._send_no_items_found_message()
                 return
         
@@ -73,7 +70,6 @@ class CompareItemsHandler():
 
         client = get_vector_db_client(query_params=self.handler.query_params)   
         candidate_items = await client.search(item_name, self.handler.site, num_results=20)
-        print(f"{item_name}")
         # Create tasks for parallel evaluation
         tasks = []
         for item in candidate_items:
@@ -82,7 +78,6 @@ class CompareItemsHandler():
         
         # Wait for all evaluations to complete
         results = [r for r in await asyncio.gather(*tasks, return_exceptions=True) if r is not None]
-        print(f"Results: {len(results)} {item_name}")
         if results:
             results.sort(key=lambda x: x["score"], reverse=True)
             self.found_items[item_name] = results[0]
@@ -124,7 +119,6 @@ class CompareItemsHandler():
             desc2 = trim_json(item2[1])
             pr_dict = {"request.item1_description": desc1, "request.item2_description": desc2, "request.details_requested": details_requested}
             prompt = fill_prompt(prompt_str, self.handler, pr_dict)
-        #    print(f"Prompt: {prompt}")
             response = await ask_llm(prompt, ans_struc, level="high")
        
             if response :
@@ -142,7 +136,6 @@ class CompareItemsHandler():
                     "url" : item2[0]
                     }
             }
-         #   print(f"Message: {message}")
             await self.handler.send_message(message)
             return message
       
