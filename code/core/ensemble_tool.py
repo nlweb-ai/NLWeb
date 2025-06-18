@@ -1,9 +1,9 @@
 import asyncio
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from retrieval.retriever import get_vector_db_client
 from utils.trim import trim_json_hard
-from utils.text_embedding import get_openai_client
+from llm.llm import ask_llm
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,8 +14,10 @@ class EnsembleToolHandler:
     Examples: meal courses, travel itineraries, outfits, etc.
     """
     
-    def __init__(self):
-        self.openai_client = get_openai_client()
+    def __init__(self, params, handler):
+        # Store handler reference and params
+        self.handler = handler
+        self.params = params
         
     async def handle_ensemble_request(self, queries: List[str], ensemble_type: str, query_params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -30,25 +32,35 @@ class EnsembleToolHandler:
             Dict containing the ensemble recommendations
         """
         try:
-            # Execute all queries in parallel
-            results = await self._execute_parallel_queries(queries, query_params)
+            original_query = query_params.get('query', '')
             
-            # Trim results to reduce token usage
-            trimmed_results = self._trim_results(results)
+            # Execute retrieval and ranking in parallel for each query
+            ranked_results_per_query = await self._execute_parallel_retrieval_and_ranking(
+                queries, query_params, original_query
+            )
+            
+            # Select top results per query
+            top_results = self._select_top_results_from_ranked(ranked_results_per_query, num_per_query=3)
+            
+            # Trim the top results
+            trimmed_results = [trim_json_hard(item['item']) for item in top_results]
             
             # Generate ensemble recommendations using LLM
             ensemble_response = await self._generate_ensemble_recommendations(
                 trimmed_results, 
                 queries, 
                 ensemble_type,
-                query_params.get('query', '')
+                original_query
             )
+            
+            # Calculate total items retrieved
+            total_items = sum(len(results) for results in ranked_results_per_query)
             
             return {
                 "success": True,
                 "ensemble_type": ensemble_type,
                 "recommendations": ensemble_response,
-                "total_items_retrieved": sum(len(r) for r in results)
+                "total_items_retrieved": total_items
             }
             
         except Exception as e:
@@ -58,45 +70,169 @@ class EnsembleToolHandler:
                 "error": str(e)
             }
     
-    async def _execute_parallel_queries(self, queries: List[str], query_params: Dict[str, Any]) -> List[List[Dict]]:
-        """Execute multiple search queries in parallel."""
-        async def execute_single_query(query: str):
+    async def _execute_parallel_retrieval_and_ranking(self, queries: List[str], query_params: Dict[str, Any], original_query: str) -> List[List[Dict]]:
+        """Execute retrieval and ranking in parallel for all queries."""
+        async def retrieve_and_rank_for_query(query: str, query_idx: int):
             try:
                 # Get retrieval client
-                client = get_vector_db_client(query_params)
+                client = get_vector_db_client(query_params=query_params)
                 
                 # Execute search with appropriate limit per query
                 # Aim for ~60 total results across all queries
                 results_per_query = max(10, 60 // len(queries))
                 
+                # Get site from handler or query_params
+                site = self.handler.site if hasattr(self, 'handler') and self.handler else query_params.get('site', 'all')
+                
+                # Retrieve results
                 results = await client.search(
                     query=query,
-                    limit=results_per_query,
-                    filters=query_params.get('filters', {})
+                    site=site,
+                    num_results=results_per_query
                 )
                 
-                return results
+                # Immediately rank the results for this query
+                ranked_results = await self._rank_query_results(results, original_query, query, query_idx)
+                
+                return ranked_results
+                
             except Exception as e:
-                logger.error(f"Error executing query '{query}': {str(e)}")
+                logger.error(f"Error in retrieve and rank for query '{query}': {str(e)}")
                 return []
         
-        # Execute all queries concurrently
-        tasks = [execute_single_query(query) for query in queries]
-        results = await asyncio.gather(*tasks)
+        # Execute retrieval and ranking for all queries in parallel
+        tasks = [retrieve_and_rank_for_query(query, idx) for idx, query in enumerate(queries)]
+        ranked_results_per_query = await asyncio.gather(*tasks)
         
-        return results
+        return ranked_results_per_query
     
-    def _trim_results(self, results: List[List[Dict]]) -> List[Dict]:
-        """Trim results to reduce token usage."""
-        trimmed_all = []
+    async def _rank_query_results(self, results: List[Dict], original_query: str, search_query: str, query_idx: int) -> List[Dict]:
+        """Rank results from a single query."""
+        # First, deduplicate within this query's results
+        seen_ids = set()
+        unique_results = []
         
-        for query_results in results:
+        for item in results:
+            item_id = self._get_item_identifier(item)
+            if item_id and item_id not in seen_ids:
+                seen_ids.add(item_id)
+                unique_results.append(item)
+            elif not item_id:
+                unique_results.append(item)
+        
+        # Rank each unique result
+        ranking_tasks = []
+        for idx, item in enumerate(unique_results):
+            task = self._rank_single_item(item, original_query, idx)
+            ranking_tasks.append(task)
+        
+        # Execute all ranking tasks in parallel
+        scores = await asyncio.gather(*ranking_tasks)
+        
+        # Create ranked results with metadata
+        ranked_results = []
+        for item, score in zip(unique_results, scores):
+            ranked_results.append({
+                'item': item,
+                'relevance_score': score,
+                'source_query_idx': query_idx,
+                'search_query': search_query
+            })
+        
+        # Sort by relevance score
+        ranked_results.sort(key=lambda x: x['relevance_score'], reverse=True)
+        
+        logger.info(f"Ranked {len(ranked_results)} items for query '{search_query}'")
+        return ranked_results
+    
+    
+    def _get_item_identifier(self, item: Dict) -> Optional[str]:
+        """Extract a unique identifier from an item."""
+        if not isinstance(item, dict):
+            return None
+            
+        # Try different fields that might contain unique identifiers
+        if 'url' in item and item['url']:
+            return item['url']
+        elif '@id' in item and item['@id']:
+            return item['@id']
+        elif 'identifier' in item and item['identifier']:
+            return item['identifier']
+        elif 'name' in item and '@type' in item:
+            # Fallback to name + type combination
+            return f"{item.get('name', '')}|{item.get('@type', '')}"
+        return None
+    
+    
+    async def _rank_single_item(self, item: Dict, original_query: str, idx: int) -> float:
+        """Rank a single item for relevance to the query."""
+        try:
+            # Create a concise representation of the item for ranking
+            item_summary = {
+                'name': item.get('name', 'Unknown'),
+                'type': item.get('@type', 'Unknown'),
+                'description': item.get('description', '')[:200],  # First 200 chars
+                'url': item.get('url', '')
+            }
+            
+            ranking_prompt = f"""Given the user's query: "{original_query}"
+
+And this item:
+Name: {item_summary['name']}
+Type: {item_summary['type']}
+Description: {item_summary['description']}
+
+Rate how relevant this item is for answering the user's query on a scale of 0-100.
+Consider:
+- Does this item directly address what the user is looking for?
+- Is it the right type of item (e.g., restaurant vs attraction)?
+- Does it match any specific criteria mentioned in the query?
+
+Provide only a numeric score."""
+            
+            response_structure = {
+                "score": "integer between 0 and 100"
+            }
+            
+            result = await ask_llm(ranking_prompt, response_structure, level="low", timeout=5)
+            
+            if result and 'score' in result:
+                return float(result['score'])
+            else:
+                return 0.0
+                
+        except Exception as e:
+            logger.error(f"Error ranking item {idx}: {str(e)}")
+            return 0.0
+    
+    def _select_top_results_from_ranked(self, ranked_results_per_query: List[List[Dict]], num_per_query: int = 3) -> List[Dict]:
+        """Select top N results from each query's ranked results."""
+        selected_results = []
+        seen_ids = set()  # Track globally to avoid duplicates across queries
+        
+        for query_results in ranked_results_per_query:
+            # Take top N items for this query
+            selected_count = 0
             for item in query_results:
-                # Use hard trimming to aggressively reduce size
-                trimmed_item = trim_json_hard(item)
-                trimmed_all.append(trimmed_item)
+                if selected_count >= num_per_query:
+                    break
+                    
+                item_id = self._get_item_identifier(item['item'])
+                
+                # Add if not seen globally
+                if item_id and item_id not in seen_ids:
+                    seen_ids.add(item_id)
+                    selected_results.append(item)
+                    selected_count += 1
+                elif not item_id:
+                    # Include items without identifiers
+                    selected_results.append(item)
+                    selected_count += 1
+            
+            if query_results:
+                logger.info(f"Selected {selected_count} items from query '{query_results[0]['search_query']}'")
         
-        return trimmed_all
+        return selected_results
     
     async def _generate_ensemble_recommendations(self, 
                                                  trimmed_results: List[Dict], 
@@ -109,24 +245,22 @@ class EnsembleToolHandler:
         prompt = self._build_ensemble_prompt(ensemble_type, queries, trimmed_results, original_query)
         
         try:
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant that creates cohesive recommendations from search results."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1500
-            )
+            # Use the existing ask_llm function
+            system_prompt = "You are a helpful assistant that creates cohesive recommendations from search results."
+            full_prompt = f"{system_prompt}\n\n{prompt}"
             
-            # Parse the response
-            content = response.choices[0].message.content
+            # Define expected response structure
+            response_structure = {
+                "recommendations": "array of recommended items with explanations",
+                "summary": "brief summary of the ensemble"
+            }
+            print(f"Full prompt: {full_prompt}")
+            response = await ask_llm(full_prompt, response_structure, level="high", timeout=30)
             
-            # Try to parse as JSON, fallback to text if not valid JSON
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError:
-                return {"recommendations": content}
+            if response:
+                return response
+            else:
+                return {"recommendations": "Unable to generate recommendations"}
                 
         except Exception as e:
             logger.error(f"Error generating ensemble recommendations: {str(e)}")

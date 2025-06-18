@@ -115,6 +115,10 @@ class ToolSelector:
                         handler_class=handler_class
                     )
                     tools.append(tool)
+                    
+                    # Debug: Log when ensemble tool is loaded
+                    if name == "ensemble":
+                        logger.info(f"Loaded ENSEMBLE tool for schema type: {schema_type}")
                 
             logger.info(f"Loaded {len(tools)} tools")
             return tools
@@ -124,17 +128,48 @@ class ToolSelector:
             return []
     
     def get_tools_by_type(self, schema_type: str) -> List[Tool]:
-        """Get tools for a specific schema type."""
+        """Get tools for a specific schema type, including inherited tools from parent types."""
         current_dir = os.path.dirname(os.path.abspath(__file__))
         tools_xml_path = os.path.join(current_dir, "test_tools.xml")
         
         all_tools = _tools_cache.get(tools_xml_path, [])
-        type_tools = [tool for tool in all_tools if tool.schema_type == schema_type]
         
-        # Fall back to Thing if no tools found
-        if not type_tools:
-            type_tools = [tool for tool in all_tools if tool.schema_type == "Thing"]
-            
+        # Define schema.org type hierarchy (simplified)
+        # All types inherit from Thing
+        type_hierarchy = {
+            "Recipe": ["Thing"],
+            "Movie": ["Thing"],
+            "Product": ["Thing"],
+            "Restaurant": ["Thing"],
+            # Add more types as needed
+        }
+        
+        # Get all parent types including the current type
+        types_to_check = [schema_type]
+        if schema_type in type_hierarchy:
+            types_to_check.extend(type_hierarchy[schema_type])
+        elif schema_type != "Thing":
+            # If type not in hierarchy, assume it inherits from Thing
+            types_to_check.append("Thing")
+        
+        # Collect tools from all relevant types
+        tools_by_name = {}
+        
+        # Process types from most general (Thing) to most specific
+        # This ensures specific type tools override general ones
+        for type_name in reversed(types_to_check):
+            type_tools = [tool for tool in all_tools if tool.schema_type == type_name]
+            for tool in type_tools:
+                # More specific type tools override more general ones
+                tools_by_name[tool.name] = tool
+        
+        # Convert back to list
+        type_tools = list(tools_by_name.values())
+        
+        # Debug logging
+        logger.debug(f"Schema type: {schema_type}, checking types: {types_to_check}")
+        logger.debug(f"Found {len(type_tools)} tools: {[t.name for t in type_tools]}")
+        
         return type_tools
     
     async def do(self):
@@ -165,6 +200,7 @@ class ToolSelector:
             
             # Process results
             tool_results = []
+            
             for i, (tool, _) in enumerate(tasks):
                 try:
                     result = results[i]
@@ -176,12 +212,30 @@ class ToolSelector:
                             "score": score,
                             "result": result
                         })
+                        
+                        # Log tool score
+                        logger.debug(f"{tool.name} tool score: {score}")
                     else:
-                        print(f"No result for tool {tool.name}")
+                        logger.debug(f"{tool.name} tool: No result")
+                        
                 except Exception as e:
                     logger.error(f"Error processing result for tool {tool.name}: {e}")
-            # Sort by score and take top 3
+            
+            # Sort by score
             tool_results.sort(key=lambda x: x["score"], reverse=True)
+            
+            # Print minimal tool ranking summary
+            if tool_results:
+                print(f"\nTool scores for: {query}")
+                for i, result in enumerate(tool_results):
+                    print(f"  {result['tool'].name}: {result['score']}")
+            
+            # Check if top tool is not search and abort fastTrack if needed
+            if tool_results and tool_results[0]['tool'].name != 'search':
+                logger.info(f"FastTrack aborted: Top tool is '{tool_results[0]['tool'].name}', not 'search'")
+                # Abort fast track using the proper event mechanism
+                self.handler.abort_fast_track_event.set()
+            
             tool_results = tool_results[:3]
             self.handler.tool_routing_results = tool_results
                 

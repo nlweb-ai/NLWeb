@@ -611,7 +611,6 @@
     </Tool>
   </Restaurant>
 
-  <!-- ENSEMBLE TOOL DISABLED
   <Thing>
     <Tool name="ensemble">
       <path>/api/ensemble</path>
@@ -653,6 +652,5 @@
       </returnStruc>
     </Tool>
   </Thing>
-  -->
 
 </Tools>

@@ -193,6 +193,10 @@ export class ManagedEventSource {
         chatInterface.noResponse = false;
         handleCompareItems(data, chatInterface);
         break;
+      case "ensemble_result":
+        chatInterface.noResponse = false;
+        this.handleEnsembleResult(data, chatInterface);
+        break;
       case "complete":
         chatInterface.resortResults();
         // Add this check to display a message when no results found
@@ -291,6 +295,155 @@ export class ManagedEventSource {
         chatInterface.bubble.appendChild(domItem);
       }
     }
+  }
+  
+  /**
+   * Handles ensemble result messages
+   * 
+   * @param {Object} data - The message data containing ensemble recommendations
+   * @param {Object} chatInterface - The chat interface instance
+   */
+  handleEnsembleResult(data, chatInterface) {
+    // Validate data
+    if (!data || !data.result || !data.result.recommendations) {
+      console.error('Invalid ensemble result data');
+      return;
+    }
+    
+    const result = data.result;
+    const recommendations = result.recommendations;
+    
+    // Create ensemble result container
+    const container = document.createElement('div');
+    container.className = 'ensemble-result-container';
+    container.style.cssText = 'background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 10px 0;';
+    
+    // Add theme header
+    if (recommendations.theme) {
+      const themeHeader = document.createElement('h3');
+      themeHeader.textContent = recommendations.theme;
+      themeHeader.style.cssText = 'color: #333; margin-bottom: 20px; font-size: 1.2em;';
+      container.appendChild(themeHeader);
+    }
+    
+    // Add items
+    if (recommendations.items && Array.isArray(recommendations.items)) {
+      const itemsContainer = document.createElement('div');
+      itemsContainer.style.cssText = 'display: grid; gap: 15px;';
+      
+      recommendations.items.forEach(item => {
+        const itemCard = this.createEnsembleItemCard(item);
+        itemsContainer.appendChild(itemCard);
+      });
+      
+      container.appendChild(itemsContainer);
+    }
+    
+    // Add overall tips
+    if (recommendations.overall_tips && Array.isArray(recommendations.overall_tips)) {
+      const tipsSection = document.createElement('div');
+      tipsSection.style.cssText = 'margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;';
+      
+      const tipsHeader = document.createElement('h4');
+      tipsHeader.textContent = 'Planning Tips';
+      tipsHeader.style.cssText = 'color: #555; margin-bottom: 10px; font-size: 1.1em;';
+      tipsSection.appendChild(tipsHeader);
+      
+      const tipsList = document.createElement('ul');
+      tipsList.style.cssText = 'margin: 0; padding-left: 20px;';
+      
+      recommendations.overall_tips.forEach(tip => {
+        const tipItem = document.createElement('li');
+        tipItem.textContent = tip;
+        tipItem.style.cssText = 'color: #666; margin-bottom: 5px;';
+        tipsList.appendChild(tipItem);
+      });
+      
+      tipsSection.appendChild(tipsList);
+      container.appendChild(tipsSection);
+    }
+    
+    // Add to chat interface
+    chatInterface.bubble.appendChild(container);
+  }
+  
+  /**
+   * Creates a card for an ensemble item
+   * 
+   * @param {Object} item - The item data
+   * @returns {HTMLElement} The item card element
+   */
+  createEnsembleItemCard(item) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+    
+    // Category badge
+    const categoryBadge = document.createElement('span');
+    categoryBadge.textContent = item.category;
+    categoryBadge.style.cssText = `
+      display: inline-block;
+      padding: 4px 12px;
+      background-color: ${item.category === 'Garden' ? '#28a745' : '#007bff'};
+      color: white;
+      border-radius: 20px;
+      font-size: 0.85em;
+      margin-bottom: 10px;
+    `;
+    card.appendChild(categoryBadge);
+    
+    // Name
+    const name = document.createElement('h4');
+    name.textContent = item.name;
+    name.style.cssText = 'margin: 10px 0; color: #333;';
+    card.appendChild(name);
+    
+    // Description
+    const description = document.createElement('p');
+    description.textContent = item.description;
+    description.style.cssText = 'color: #666; margin: 10px 0; line-height: 1.5;';
+    card.appendChild(description);
+    
+    // Why recommended
+    const whySection = document.createElement('div');
+    whySection.style.cssText = 'background-color: #e8f4f8; padding: 10px; border-radius: 4px; margin: 10px 0;';
+    
+    const whyLabel = document.createElement('strong');
+    whyLabel.textContent = 'Why recommended: ';
+    whyLabel.style.cssText = 'color: #0066cc;';
+    
+    const whyText = document.createElement('span');
+    whyText.textContent = item.why_recommended;
+    whyText.style.cssText = 'color: #555;';
+    
+    whySection.appendChild(whyLabel);
+    whySection.appendChild(whyText);
+    card.appendChild(whySection);
+    
+    // Details
+    if (item.details && Object.keys(item.details).length > 0) {
+      const detailsSection = document.createElement('div');
+      detailsSection.style.cssText = 'margin-top: 10px; font-size: 0.9em;';
+      
+      Object.entries(item.details).forEach(([key, value]) => {
+        const detailLine = document.createElement('div');
+        detailLine.style.cssText = 'color: #777; margin: 3px 0;';
+        
+        const detailKey = document.createElement('strong');
+        detailKey.textContent = `${key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}: `;
+        detailKey.style.cssText = 'color: #555;';
+        
+        const detailValue = document.createElement('span');
+        detailValue.textContent = value;
+        
+        detailLine.appendChild(detailKey);
+        detailLine.appendChild(detailValue);
+        detailsSection.appendChild(detailLine);
+      });
+      
+      card.appendChild(detailsSection);
+    }
+    
+    return card;
   }
 
   /**

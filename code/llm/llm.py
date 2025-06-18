@@ -124,7 +124,7 @@ async def ask_llm(
         # Each provider should handle thread-safety internally
         logger.debug(f"Calling {llm_type} provider completion for endpoint {provider_name}")
         result = await asyncio.wait_for(
-            provider_instance.get_completion(prompt, schema, model=model_id),
+            provider_instance.get_completion(prompt, schema, model=model_id, timeout=timeout),
             timeout=timeout
         )
         logger.debug(f"{provider_name} response received, size: {len(str(result))} chars")
