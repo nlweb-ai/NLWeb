@@ -8,6 +8,8 @@ This module provides abstract base classes and concrete implementations for data
 
 import time
 import asyncio
+import subprocess
+import sys
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Union, Tuple, Type
 import json
@@ -18,18 +20,66 @@ from utils.logging_config_helper import get_configured_logger
 from utils.logger import LogLevel
 from utils.json_utils import merge_json_array
 
-# Import client classes
-from retrieval.azure_search_client import AzureSearchClient
-from retrieval.milvus_client import MilvusVectorClient
-from retrieval.opensearch_client import OpenSearchClient
-from retrieval.qdrant import QdrantVectorClient
-from retrieval.snowflake_client import SnowflakeCortexSearchClient
-
 logger = get_configured_logger("retriever")
 
 # Client cache for reusing instances
 _client_cache = {}
 _client_cache_lock = asyncio.Lock()
+
+# Mapping of database types to their required pip packages
+_db_type_packages = {
+    "azure_ai_search": ["azure-core", "azure-search-documents>=11.4.0"],
+    "milvus": ["pymilvus>=1.1.0", "numpy"],
+    "opensearch": ["httpx>=0.28.1"],
+    "qdrant": ["qdrant-client>=1.14.0"],
+    "snowflake_cortex_search": ["httpx>=0.28.1"],
+}
+
+# Cache for installed packages
+_installed_packages = set()
+
+def _ensure_package_installed(db_type: str):
+    """
+    Ensure the required packages for a database type are installed.
+    
+    Args:
+        db_type: The type of database backend
+    """
+    if db_type not in _db_type_packages:
+        return
+    
+    packages = _db_type_packages[db_type]
+    for package in packages:
+        # Extract package name without version for caching
+        package_name = package.split(">=")[0].split("==")[0]
+        
+        if package_name in _installed_packages:
+            continue
+            
+        try:
+            # Try to import the package first
+            if package_name == "azure-core":
+                __import__("azure.core")
+            elif package_name == "azure-search-documents":
+                __import__("azure.search.documents")
+            elif package_name == "qdrant-client":
+                __import__("qdrant_client")
+            else:
+                __import__(package_name)
+            _installed_packages.add(package_name)
+            logger.debug(f"Package {package_name} is already installed")
+        except ImportError:
+            # Package not installed, install it
+            logger.info(f"Installing {package} for {db_type} backend...")
+            try:
+                subprocess.check_call([
+                    sys.executable, "-m", "pip", "install", package, "--quiet"
+                ])
+                _installed_packages.add(package_name)
+                logger.info(f"Successfully installed {package}")
+            except subprocess.CalledProcessError as e:
+                logger.error(f"Failed to install {package}: {e}")
+                raise ValueError(f"Failed to install required package {package} for {db_type}")
 
 
 class VectorDBClientInterface(ABC):
@@ -325,23 +375,35 @@ class VectorDBClient:
             if cache_key in _client_cache:
                 return _client_cache[cache_key]
             
-            # Create the appropriate client
+            # Ensure required packages are installed
+            _ensure_package_installed(db_type)
+            
+            # Create the appropriate client with dynamic imports
             logger.debug(f"Creating new client for {db_type} with endpoint {endpoint_name}")
             
-            if db_type == "azure_ai_search":
-                client = AzureSearchClient(endpoint_name)
-            elif db_type == "milvus":
-                client = MilvusVectorClient(endpoint_name)
-            elif db_type == "opensearch":
-                client = OpenSearchClient(endpoint_name)
-            elif db_type == "qdrant":
-                client = QdrantVectorClient(endpoint_name)
-            elif db_type == "snowflake_cortex_search":
-                client = SnowflakeCortexSearchClient(endpoint_name)
-            else:
-                error_msg = f"Unsupported database type: {db_type}"
-                logger.error(error_msg)
-                raise ValueError(error_msg)
+            try:
+                if db_type == "azure_ai_search":
+                    from retrieval.azure_search_client import AzureSearchClient
+                    client = AzureSearchClient(endpoint_name)
+                elif db_type == "milvus":
+                    from retrieval.milvus_client import MilvusVectorClient
+                    client = MilvusVectorClient(endpoint_name)
+                elif db_type == "opensearch":
+                    from retrieval.opensearch_client import OpenSearchClient
+                    client = OpenSearchClient(endpoint_name)
+                elif db_type == "qdrant":
+                    from retrieval.qdrant import QdrantVectorClient
+                    client = QdrantVectorClient(endpoint_name)
+                elif db_type == "snowflake_cortex_search":
+                    from retrieval.snowflake_client import SnowflakeCortexSearchClient
+                    client = SnowflakeCortexSearchClient(endpoint_name)
+                else:
+                    error_msg = f"Unsupported database type: {db_type}"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+            except ImportError as e:
+                logger.error(f"Failed to import client for {db_type}: {e}")
+                raise ValueError(f"Failed to load client for {db_type}: {e}")
             
             # Store in cache and return
             _client_cache[cache_key] = client

@@ -12,6 +12,7 @@
 myenv
 venv
 .env
+data/
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
