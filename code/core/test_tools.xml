@@ -37,6 +37,7 @@
     <Tool name="details">
       <path>/api/details</path>
       <method>url</method>
+      <handler>core.item_details.ItemDetailsHandler</handler>
       <argument name="item">Name or identifier of the item</argument>
       <example>What are the ingredients in Chicken Alfredo?</example>
       <example>Who directed The Dark Knight?</example>
@@ -68,6 +69,7 @@
     <Tool name="compare">
       <path>/api/compare</path>
       <method>url</method>
+      <handler>core.compare_items.CompareItemsHandler</handler>
       <argument name="item1">First item name or identifier</argument>
       <argument name="item2">Second item name or identifier</argument>
       <example>Compare pizza margherita vs pepperoni pizza</example>
@@ -608,5 +610,47 @@
       </returnStruc>
     </Tool>
   </Restaurant>
+
+  <Thing>
+    <Tool name="ensemble">
+      <path>/api/ensemble</path>
+      <method>url</method>
+      <handler>core.ensemble_tool.EnsembleToolHandler</handler>
+      <argument name="queries">List of related queries to search for</argument>
+      <argument name="ensemble_type">Type of ensemble request (e.g., meal_course, travel_itinerary, outfit, etc.)</argument>
+      <example>Give me an appetizer, main and dessert for an Asian fusion dinner</example>
+      <example>I am spending a few hours in Barcelona. Give some museums I can go to and nearby restaurants</example>
+      <example>Suggest the right footwear, jacket, etc. for hiking in the Grand Canyon in January</example>
+      <example>Plan a romantic date night with dinner, activity, and dessert</example>
+      <prompt>
+        The user has the following query: {request.query}.
+        
+        The ensemble tool handles requests where users ask for multiple related items that go together as a set or collection. It's designed for:
+        - Meal planning (appetizer + main + dessert combinations)
+        - Travel itineraries (attractions + restaurants + activities in a location)
+        - Outfit recommendations (clothing + accessories for specific occasions/weather)
+        - Event planning (venue + catering + entertainment)
+        - Any request asking for multiple complementary items
+        
+        The ensemble tool should score HIGH (80-100) if the user wants multiple related items that form a cohesive set.
+        The ensemble tool should score LOW (0-30) if the user wants just one specific item or unrelated items.
+        
+        Assign a score from 0 to 100 for whether the ensemble tool is appropriate.
+        
+        If the score is above 74, extract the individual queries that should be searched for.
+        For example:
+        - "Asian fusion dinner" → ["Asian fusion appetizer", "Asian fusion main course", "Asian fusion dessert"]
+        - "Museums and restaurants in Barcelona" → ["museums in Barcelona", "restaurants near museums in Barcelona"]
+        - "Hiking outfit for Grand Canyon in January" → ["hiking boots for cold weather", "winter hiking jacket", "cold weather hiking accessories"]
+      </prompt>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "queries": "array of search queries to retrieve related items",
+          "ensemble_type": "type of ensemble being requested"
+        }
+      </returnStruc>
+    </Tool>
+  </Thing>
 
 </Tools>

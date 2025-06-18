@@ -10,6 +10,7 @@ Backwards compatibility is not guaranteed at this time.
 
 from retrieval.retriever import get_vector_db_client
 import asyncio
+import importlib
 import pre_retrieval.decontextualize as decontextualize
 import pre_retrieval.analyze_query as analyze_query
 import pre_retrieval.memory as memory   
@@ -20,8 +21,6 @@ import pre_retrieval.relevance_detection as relevance_detection
 import core.fastTrack as fastTrack
 import core.post_ranking as post_ranking
 import core.router as router
-import core.item_details as item_details
-import core.compare_items as compare_items
 from core.state import NLWebHandlerState
 from utils.utils import get_param, siteToItemType, log
 from utils.logger import get_logger, LogLevel
@@ -292,23 +291,52 @@ class NLWebHandler:
             return
 
         top_tool = self.tool_routing_results[0] 
-        tool_name = top_tool['tool'].name
+        tool = top_tool['tool']
+        tool_name = tool.name
+        params = top_tool['result']
         print("=" * 40)
         
-        if tool_name == "search":
-            print("Routing to search functionality")
-            await self.get_ranked_answers()
-        elif tool_name == "details":
-            print("Routing to item details functionality")
-            params = top_tool['result']
-            await item_details.ItemDetailsHandler(params, self).do()
-        elif tool_name == "compare":
-            print("Routing to comparison functionality")
-            params = top_tool['result']
-            await compare_items.CompareItemsHandler(params, self).do()
+        # Check if tool has a handler class defined
+        if tool.handler_class:
+            try:
+                print(f"Routing to {tool_name} functionality via {tool.handler_class}")
+                
+                # Dynamic import of handler module and class
+                module_path, class_name = tool.handler_class.rsplit('.', 1)
+                module = importlib.import_module(module_path)
+                handler_class = getattr(module, class_name)
+                
+                # Instantiate and execute handler
+                handler_instance = handler_class(params, self)
+                
+                # Special handling for ensemble tool which has different method signature
+                if tool_name == "ensemble":
+                    result = await handler_instance.handle_ensemble_request(
+                        queries=params.get('queries', []),
+                        ensemble_type=params.get('ensemble_type', 'general'),
+                        query_params=self.query_params
+                    )
+                    await self.send_message({
+                        "message_type": "ensemble_result",
+                        "result": result
+                    })
+                else:
+                    # Standard handler pattern with do() method
+                    await handler_instance.do()
+                    
+            except Exception as e:
+                logger.error(f"Error loading handler for tool {tool_name}: {e}")
+                print(f"Error loading handler {tool.handler_class}: {e}")
+                # Fall back to search
+                await self.get_ranked_answers()
         else:
-            print(f"Unknown tool type: {tool_name}, defaulting to search")
-            await self.get_ranked_answers()
+            # Default behavior for tools without handlers (like search)
+            if tool_name == "search":
+                print("Routing to search functionality")
+                await self.get_ranked_answers()
+            else:
+                print(f"No handler defined for tool: {tool_name}, defaulting to search")
+                await self.get_ranked_answers()
 
 
     async def post_ranking_tasks(self):
