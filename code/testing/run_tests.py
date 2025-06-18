@@ -32,7 +32,7 @@ def get_config_defaults() -> Dict[str, Any]:
         'site': 'all',
         'model': 'gpt-4o-mini',
         'generate_mode': 'list', 
-        'retrieval_backend': CONFIG.preferred_retrieval_endpoint,
+        'retrieval_backend': CONFIG.write_endpoint,
         'prev': []
     }
     

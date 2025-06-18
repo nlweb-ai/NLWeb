@@ -417,7 +417,7 @@ class IncrementalCrawler:
         if self.database:
             logger.info(f"Data uploaded to: {self.database}")
         else:
-            logger.info(f"Data uploaded to: {CONFIG.preferred_retrieval_endpoint} (default)")
+            logger.info(f"Data uploaded to: {CONFIG.write_endpoint} (default)")
 
 
 async def main():

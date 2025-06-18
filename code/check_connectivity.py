@@ -154,8 +154,8 @@ async def main():
         print(f"Using configuration from preferred embedding provider: {embedding_config}")
         tasks.append(check_embedding_api(embedding_config))
         
-        retrieval_config = CONFIG.preferred_retrieval_endpoint
-        retrieval_dbtype_config = CONFIG.retrieval_endpoints[CONFIG.preferred_retrieval_endpoint].db_type
+        retrieval_config = CONFIG.write_endpoint
+        retrieval_dbtype_config = CONFIG.retrieval_endpoints[CONFIG.write_endpoint].db_type
         print(f"Using configuration from preferred retrieval endpoint: {retrieval_config} with db_type {retrieval_dbtype_config}")  
         tasks.append(check_retriever(retrieval_config))
     

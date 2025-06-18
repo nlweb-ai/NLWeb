@@ -107,7 +107,7 @@ async def delete_site_from_database(site: str, database: str = None):
         Number of entries deleted
     """
     # Use specified database or fall back to preferred endpoint
-    endpoint_name = database or CONFIG.preferred_retrieval_endpoint
+    endpoint_name = database or CONFIG.write_endpoint
     
     # Ensure the endpoint exists in configuration
     if endpoint_name not in CONFIG.retrieval_endpoints:
@@ -611,7 +611,7 @@ async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int 
                         resolved_path = embeddings_path
         
         # Use specified database or fall back to preferred endpoint
-        endpoint_name = database or CONFIG.preferred_retrieval_endpoint
+        endpoint_name = database or CONFIG.write_endpoint
         
         print(f"Loading data with embeddings from {resolved_path} for site {site} using database endpoint '{endpoint_name}'")
         
@@ -719,7 +719,7 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
                     resolved_path = file_path
         
         # Use specified database or fall back to preferred endpoint
-        endpoint_name = database or CONFIG.preferred_retrieval_endpoint
+        endpoint_name = database or CONFIG.write_endpoint
         
         print(f"Loading data from {original_path} (resolved to {resolved_path}) for site {site} using database endpoint '{endpoint_name}'")
         
@@ -919,7 +919,7 @@ async def loadUrlListToDB(file_path: str, site: str, batch_size: int = 100, dele
         Total number of documents loaded
     """
     # Use specified database or fall back to preferred endpoint
-    endpoint_name = database or CONFIG.preferred_retrieval_endpoint
+    endpoint_name = database or CONFIG.write_endpoint
     
     # Check if the file_path is a URL
     is_url_list_remote = await is_url(file_path)
