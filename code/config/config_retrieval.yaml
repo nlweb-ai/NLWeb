@@ -2,7 +2,7 @@ write_endpoint: qdrant_local
 
 endpoints:
   nlweb_west:
-    enabled: true
+    enabled: false
     api_key_env: NLWEB_WEST_API_KEY
     api_endpoint_env: NLWEB_WEST_ENDPOINT
     index_name: embeddings1536
@@ -25,6 +25,7 @@ endpoints:
 
   # Milvus is still under development and not yet supported. 
   milvus:
+    enabled: false
     api_endpoint_env: MILVUS_ENDPOINT
     api_key_env: MILVUS_TOKEN
     index_name: nlweb_collection
