@@ -331,21 +331,15 @@ class VectorDBClient:
         """
         db_type = config.db_type
         
-        if db_type in ["azure_ai_search", "snowflake_cortex_search"]:
+        if db_type in ["azure_ai_search", "snowflake_cortex_search", "opensearch", "milvus"]:
             # These require API key and endpoint
             return bool(config.api_key and config.api_endpoint)
-        elif db_type == "opensearch":
-            # OpenSearch requires endpoint and credentials (api_key)
-            return bool(config.api_endpoint and config.api_key)
         elif db_type == "qdrant":
             # Qdrant can use either local path or remote URL
             if config.database_path:
                 return True  # Local file-based storage
             else:
                 return bool(config.api_endpoint)  # Remote server (api_key is optional)
-        elif db_type == "milvus":
-            # Milvus requires database path
-            return bool(config.database_path)
         else:
             logger.warning(f"Unknown database type {db_type} for endpoint {name}")
             return False
