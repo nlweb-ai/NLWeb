@@ -138,15 +138,13 @@ class ItemDetailsHandler():
             logger.error(f"Error evaluating item match: {e}")
             return {"score": 0, "explanation": f"Error: {str(e)}"}
     
-    
-    
     async def _send_no_items_found_message(self):
         """Send message when no matching items are found."""
         message = {
             "message_type": "item_details",
             "item_name": self.item_name,
             "details": f"Could not find any items matching '{self.item_name}' on {self.handler.site}.",
-            "match_score": 0,
+            "score": 0,
             "url": "",
             "site": self.handler.site
         }
