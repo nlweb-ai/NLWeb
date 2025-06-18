@@ -1,22 +1,19 @@
-write_endpoint: qdrant_local
+preferred_endpoint: nlweb_west
 
 endpoints:
   nlweb_west:
-    enabled: true
     api_key_env: NLWEB_WEST_API_KEY
     api_endpoint_env: NLWEB_WEST_ENDPOINT
     index_name: embeddings1536
     db_type: azure_ai_search
 
   azure_ai_search:
-    enabled: false
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536
     db_type: azure_ai_search
 
   azure_ai_search_backup:
-    enabled: false
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY_BACKUP
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT_BACKUP
     index_name: embeddings1536
@@ -32,7 +29,6 @@ endpoints:
 
   # Option 1: Local file-based Qdrant storage
   qdrant_local:
-    enabled: true
     # Use local file-based storage with a specific path
     database_path: "../data/db"
     # Set the collection name to use
@@ -42,7 +38,6 @@ endpoints:
     
   # Option 2: Remote Qdrant server
   qdrant_url:
-    enabled: false
     # Connect to a Qdrant server at a specific URL
     api_endpoint_env: QDRANT_URL
     # Optional API key for authentication
@@ -53,14 +48,12 @@ endpoints:
     db_type: qdrant
 
   snowflake_cortex_search_1:
-    enabled: false
     api_key_env: SNOWFLAKE_PAT
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
     db_type: snowflake_cortex_search
 
   opensearch_knn:
-    enabled: false
     # OpenSearch with k-NN plugin enabled (faster, native vector search)
     api_endpoint_env: OPENSEARCH_ENDPOINT
     # Authentication credentials (username:password for basic auth, or API key)
@@ -73,7 +66,6 @@ endpoints:
     use_knn: true
 
   opensearch_script:
-    enabled: false
     # OpenSearch without k-NN plugin (fallback using script_score)
     api_endpoint_env: OPENSEARCH_ENDPOINT
     # Authentication credentials (username:password for basic auth, or API key)

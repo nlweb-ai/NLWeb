@@ -12,6 +12,7 @@
 myenv
 venv
 .env
+data/
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
@@ -437,9 +438,5 @@ static/.DS_Store
 
 \#README.md\#
 myenv/
-
-nlw2.zip
-
 /code/data/everydaysouthwest_com
 /data
-

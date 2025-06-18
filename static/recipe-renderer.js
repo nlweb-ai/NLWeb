@@ -29,7 +29,6 @@ export class RecipeRenderer {
     render(item) {
       // Use the default item HTML as a base
       const element = this.jsonRenderer.createDefaultItemHtml(item);
-      console.log(item.schema_object)
       
       // Find the content div
       const contentDiv = element.querySelector('.item-content');
