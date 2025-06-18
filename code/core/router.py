@@ -31,6 +31,7 @@ class Tool:
     schema_type: str
     prompt: str
     return_structure: Optional[Dict[str, Any]] = None
+    handler_class: Optional[str] = None
 
 class ToolSelector:
     """Simple tool selector that loads tools and evaluates them for queries."""
@@ -98,6 +99,10 @@ class ToolSelector:
                         except json.JSONDecodeError as e:
                             logger.error(f"Failed to parse return structure for tool {name}: {e}")
                     
+                    # Parse handler class
+                    handler_elem = tool_elem.find('handler')
+                    handler_class = handler_elem.text.strip() if handler_elem is not None and handler_elem.text else None
+                    
                     tool = Tool(
                         name=name,
                         path=path,
@@ -106,7 +111,8 @@ class ToolSelector:
                         examples=examples,
                         schema_type=schema_type,
                         prompt=prompt,
-                        return_structure=return_structure
+                        return_structure=return_structure,
+                        handler_class=handler_class
                     )
                     tools.append(tool)
                 
