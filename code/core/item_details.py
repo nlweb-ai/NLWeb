@@ -156,6 +156,7 @@ class ItemDetailsHandler():
             logger.error(f"Error evaluating item match: {e}")
             return {"score": 0, "explanation": f"Error: {str(e)}"}
     
+
     async def _get_item_by_url(self):
         """Get item details using URL-based retrieval."""
         try:
@@ -221,7 +222,7 @@ class ItemDetailsHandler():
         except Exception as e:
             logger.error(f"Error in _get_item_by_url: {e}")
             await self._send_no_items_found_message()
-    
+
     async def _send_no_items_found_message(self):
         """Send message when no matching items are found."""
         message = {

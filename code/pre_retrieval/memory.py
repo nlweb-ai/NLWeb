@@ -16,6 +16,7 @@ from utils.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("memory")
 
+
 class Memory(PromptRunner):
 
     MEMORY_PROMPT_NAME = "DetectMemoryRequestPrompt"
