@@ -188,13 +188,14 @@ class ToolSelector:
                 await self.handler.state.precheck_step_done(self.STEP_NAME)
                 return
             
+
             # Skip tool selection if generate_mode is summarize or generate
             generate_mode = getattr(self.handler, 'generate_mode', 'none')
             if generate_mode in ['summarize', 'generate']:
                 logger.info(f"Skipping tool selection because generate_mode is '{generate_mode}'")
                 await self.handler.state.precheck_step_done(self.STEP_NAME)
                 return
-            
+
             # Wait for decontextualization
             await self.handler.state.wait_for_decontextualization()
             

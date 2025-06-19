@@ -8,12 +8,12 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from utils.logger import get_logger, LogLevel
+from utils.logging_config_helper import get_configured_logger
 from prompts.prompt_runner import PromptRunner
 from config.config import CONFIG
 
 # Create a logger for this module
-logger = get_logger("required_info")
+logger = get_configured_logger("required_info")
 
 class RequiredInfo(PromptRunner):
     """For some sites, we will need to make sure that we have enough information, either from the user

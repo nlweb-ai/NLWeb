@@ -11,8 +11,14 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 from prompts.prompt_runner import PromptRunner
+
 import asyncio
 from config.config import CONFIG
+
+from utils.logging_config_helper import get_configured_logger
+
+logger = get_configured_logger("analyze_query")
+
 
 class DetectItemType(PromptRunner):
     ITEM_TYPE_PROMPT_NAME = "DetectItemTypePrompt"
@@ -26,10 +32,14 @@ class DetectItemType(PromptRunner):
     async def do(self):
         if not CONFIG.is_analyze_query_enabled():
             await self.handler.state.precheck_step_done(self.STEP_NAME)
+            logger.info("Analyze query is disabled in config, skipping DetectItemType")
             return
         response = await self.run_prompt(self.ITEM_TYPE_PROMPT_NAME, level="low")
         if (response):
+            logger.debug(f"DetectItemType response: {response}")
             self.handler.item_type = response['item_type']
+        else:
+            logger.warning("No response from DetectItemTypePrompt, item_type will not be set")
         await self.handler.state.precheck_step_done(self.STEP_NAME)
         return response
 
@@ -44,8 +54,10 @@ class DetectMultiItemTypeQuery(PromptRunner):
     async def do(self):
         if not CONFIG.is_analyze_query_enabled():
             await self.handler.state.precheck_step_done(self.STEP_NAME)
+            logger.info("Analyze query is disabled in config, skipping DetectMultiItemTypeQuery")
             return
         response = await self.run_prompt(self.MULTI_ITEM_TYPE_QUERY_PROMPT_NAME, level="low")
+        logger.debug(f"DetectMultiItemTypeQuery response: {response}")
         await self.handler.state.precheck_step_done(self.STEP_NAME)
         return response
 
@@ -60,7 +72,9 @@ class DetectQueryType(PromptRunner):
     async def do(self):
         if not CONFIG.is_analyze_query_enabled():
             await self.handler.state.precheck_step_done(self.STEP_NAME)
+            logger.info("Analyze query is disabled in config, skipping DetectQueryType")
             return
         response = await self.run_prompt(self.DETECT_QUERY_TYPE_PROMPT_NAME, level="low")
+        logger.debug(f"DetectQueryType response: {response}")
         await self.handler.state.precheck_step_done(self.STEP_NAME)
         return response
