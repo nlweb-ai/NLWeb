@@ -34,6 +34,7 @@ _llm_type_packages = {
     "inception": ["aiohttp>=3.9.1"],
     "snowflake": ["httpx>=0.28.1"],
     "huggingface": ["huggingface_hub>=0.31.0"],
+    "ollama": ["ollama>=0.5.1"],
 }
 
 # Cache for installed packages
@@ -129,6 +130,9 @@ def _get_provider(llm_type: str):
         elif llm_type == "huggingface":
             from llm.huggingface import provider as huggingface_provider
             _loaded_providers[llm_type] = huggingface_provider
+        elif llm_type == "ollama":
+            from llm.ollama import provider as ollama_provider
+            _loaded_providers[llm_type] = ollama_provider
         else:
             raise ValueError(f"Unknown LLM type: {llm_type}")
             
