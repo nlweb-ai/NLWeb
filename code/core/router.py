@@ -140,6 +140,13 @@ class ToolSelector:
     async def do(self):
         """Main method that evaluates tools and stores results."""
         try:
+            # Check if tool selection is enabled in config
+            from config.config import CONFIG
+            if not CONFIG.is_tool_selection_enabled():
+                logger.info("Tool selection is disabled in config, skipping")
+                await self.handler.state.precheck_step_done(self.STEP_NAME)
+                return
+            
             # Wait for decontextualization
             await self.handler.state.wait_for_decontextualization()
             
