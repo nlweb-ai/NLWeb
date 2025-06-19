@@ -5,9 +5,7 @@
 
   <Thing>
     <Tool name="search" enabled="true">
-      <path>/api/search</path>
-      <method>url</method>
-      <argument name="query">User's search query</argument>
+      <method>builtin</method>
       <example>Find Italian restaurants near me</example>
       <example>Show me action movies from the 1990s</example>
       <example>I need vegetarian pasta recipes</example>
@@ -35,10 +33,8 @@
     </Tool>
 
     <Tool name="details" enabled="true">
-      <path>/api/details</path>
-      <method>url</method>
+      <method>code</method>
       <handler>core.item_details.ItemDetailsHandler</handler>
-      <argument name="item">Name or identifier of the item</argument>
       <example>What are the ingredients in Chicken Alfredo?</example>
       <example>Who directed The Dark Knight?</example>
       <example>What's the price of the iPhone 15 Pro?</example>
@@ -67,11 +63,8 @@
     </Tool>
 
     <Tool name="compare" enabled="true">
-      <path>/api/compare</path>
-      <method>url</method>
+      <method>code</method>
       <handler>core.compare_items.CompareItemsHandler</handler>
-      <argument name="item1">First item name or identifier</argument>
-      <argument name="item2">Second item name or identifier</argument>
       <example>Compare pizza margherita vs pepperoni pizza</example>
       <example>Which is better: iPhone vs Samsung Galaxy?</example>
       <example>Compare The Dark Knight vs The Dark Knight Rises</example>
@@ -103,9 +96,7 @@
 
   <Recipe>
     <Tool name="search" enabled="true">
-      <path>/api/recipes/search</path>
-      <method>url</method>
-      <argument name="query">User's search query for recipes</argument>
+      <method>builtin</method>
       <example>Find quick vegetarian pasta recipes under 30 minutes</example>
       <example>Show me gluten-free dessert recipes</example>
       <example>I need chicken recipes that take less than 45 minutes</example>
@@ -133,9 +124,7 @@
     </Tool>
 
     <Tool name="details" enabled="true">
-      <path>/api/recipes/details</path>
-      <method>url</method>
-      <argument name="item">Name or identifier of the recipe</argument>
+      <method>code</method>
       <example>What are the nutritional facts for Chicken Alfredo?</example>
       <example>Show me the ingredients for Beef Stroganoff</example>
       <example>How long does it take to make Homemade Lasagna?</example>
@@ -165,10 +154,7 @@
     </Tool>
 
     <Tool name="compare" enabled="true">
-      <path>/api/recipes/compare</path>
-      <method>url</method>
-      <argument name="item1">First recipe name or identifier</argument>
-      <argument name="item2">Second recipe name or identifier</argument>
+      <method>code</method>
       <example>Compare the calories in pizza margherita vs pepperoni pizza</example>
       <example>Which has more protein: grilled chicken or salmon teriyaki?</example>
       <example>Compare cooking time between homemade bread and no-knead bread</example>
@@ -194,13 +180,8 @@
     </Tool>
 
     <Tool name="recipe_substitutions" enabled="true">
-      <path>/api/recipes/substitutions</path>
-      <method>url</method>
+      <method>code</method>
       <handler>core.recipe_substitution.SubstitutionHandler</handler>
-      <argument name="recipe_name">Name of the recipe to modify</argument>
-      <argument name="dietary_need">Specific dietary requirement (dairy-free, nut-free, low-sodium, etc.)</argument>
-      <argument name="unavailable_ingredient">Ingredient that needs to be substituted</argument>
-      <argument name="preference">Taste or texture preference for substitution</argument>
       <example>How can I make chocolate cake dairy-free?</example>
       <example>What can I substitute for eggs in cookie dough?</example>
       <example>Make this pasta recipe gluten-free</example>
@@ -233,11 +214,8 @@
     </Tool>
 
     <Tool name="accompaniment" enabled="true">
-      <path>/api/accompaniment</path>
-      <method>url</method>
+      <method>code</method>
       <handler>core.accompaniment.AccompanimentHandler</handler>
-      <argument name="search_query">Type of accompaniment to search for</argument>
-      <argument name="main_item">Main item to find accompaniments for</argument>
       <example>what salad would go best with an eggplant lasagna</example>
       <example>give me a sauce that would balance out a bitter melon dish</example>
       <example>wines that would pair with a pear dessert</example>
@@ -278,9 +256,7 @@
 
   <Movie>
     <Tool name="search" enabled="true">
-      <path>/api/movies/search</path>
-      <method>url</method>
-      <argument name="query">User's search query for movies</argument>
+      <method>builtin</method>
       <example>Find action movies from the 1990s</example>
       <example>Show me highly rated comedies from 2020-2023</example>
       <example>I want to watch sci-fi movies with good ratings</example>
@@ -308,9 +284,7 @@
     </Tool>
 
     <Tool name="details" enabled="true">
-      <path>/api/movies/details</path>
-      <method>url</method>
-      <argument name="item">Title or identifier of the movie</argument>
+      <method>code</method>
       <example>Who directed The Dark Knight?</example>
       <example>What's the plot of Inception?</example>
       <example>How long is Avengers Endgame?</example>
@@ -340,10 +314,7 @@
     </Tool>
 
     <Tool name="compare" enabled="true">
-      <path>/api/movies/compare</path>
-      <method>url</method>
-      <argument name="item1">First movie title or identifier</argument>
-      <argument name="item2">Second movie title or identifier</argument>
+      <method>code</method>
       <example>Compare The Dark Knight vs The Dark Knight Rises</example>
       <example>Which made more money: Avengers or Avatar?</example>
       <example>Compare the ratings of Inception vs Interstellar</example>
@@ -369,12 +340,7 @@
     </Tool>
 
     <Tool name="filmography_search" enabled="true">
-      <path>/api/movies/filmography</path>
-      <method>url</method>
-      <argument name="person_name">Name of the actor or director</argument>
-      <argument name="role">Role type (actor, director, producer, writer)</argument>
-      <argument name="year_range">Filter by release year range</argument>
-      <argument name="genre">Filter by genre</argument>
+      <method>code</method>
       <example>What movies has Leonardo DiCaprio been in?</example>
       <example>Show me all Christopher Nolan films</example>
       <example>Find all Tom Hanks movies from the 1990s</example>
@@ -404,9 +370,7 @@
 
   <Product>
     <Tool name="search" enabled="true">
-      <path>/api/products/search</path>
-      <method>url</method>
-      <argument name="query">User's search query for products</argument>
+      <method>builtin</method>
       <example>Find laptops under $1000 with good ratings</example>
       <example>Show me Nike running shoes in size 10</example>
       <example>I need a wireless Bluetooth speaker under $200</example>
@@ -434,9 +398,7 @@
     </Tool>
 
     <Tool name="details" enabled="true">
-      <path>/api/products/details</path>
-      <method>url</method>
-      <argument name="item">Name or identifier of the product</argument>
+      <method>code</method>
       <example>What colors does the iPhone 15 Pro come in?</example>
       <example>What's the price of the Samsung 65-inch QLED TV?</example>
       <example>Show me customer reviews for the Keurig K-Elite</example>
@@ -466,10 +428,7 @@
     </Tool>
 
     <Tool name="compare" enabled="true">
-      <path>/api/products/compare</path>
-      <method>url</method>
-      <argument name="item1">First product name or identifier</argument>
-      <argument name="item2">Second product name or identifier</argument>
+      <method>code</method>
       <example>Compare iPhone 15 vs Samsung Galaxy S24 prices and features</example>
       <example>Which is better: Sony WH-1000XM5 or Bose QuietComfort headphones?</example>
       <example>Compare these three laptops for gaming performance</example>
@@ -497,9 +456,7 @@
 
   <Restaurant>
     <Tool name="search" enabled="true">
-      <path>/api/restaurants/search</path>
-      <method>url</method>
-      <argument name="query">User's search query for restaurants</argument>
+      <method>builtin</method>
       <example>Find Italian restaurants near downtown with outdoor seating</example>
       <example>Show me highly rated sushi places within 5 miles</example>
       <example>I need cheap eats near the airport</example>
@@ -527,9 +484,7 @@
     </Tool>
 
     <Tool name="details" enabled="true">
-      <path>/api/restaurants/details</path>
-      <method>url</method>
-      <argument name="item">Name or identifier of the restaurant</argument>
+      <method>code</method>
       <example>What are the hours for Olive Garden?</example>
       <example>Show me the menu for Joe's Pizza</example>
       <example>What's the rating for The French Laundry?</example>
@@ -559,10 +514,7 @@
     </Tool>
 
     <Tool name="compare" enabled="true">
-      <path>/api/restaurants/compare</path>
-      <method>url</method>
-      <argument name="item1">First restaurant name or identifier</argument>
-      <argument name="item2">Second restaurant name or identifier</argument>
+      <method>code</method>
       <example>Compare Olive Garden vs Carrabba's Italian Grill</example>
       <example>Which is more expensive: Ruth's Chris or Morton's?</example>
       <example>Compare the ratings of In-N-Out vs Five Guys</example>
@@ -588,13 +540,7 @@
     </Tool>
 
     <Tool name="restaurant_menu" enabled="true">
-      <path>/api/restaurants/menu</path>
-      <method>url</method>
-      <argument name="restaurant_name">Name of the restaurant</argument>
-      <argument name="restaurant_id">Unique identifier of the restaurant</argument>
-      <argument name="dietary_constraint">Dietary restrictions (vegetarian, vegan, gluten-free, keto, etc.)</argument>
-      <argument name="meal_type">Type of meal (breakfast, lunch, dinner, appetizers, desserts)</argument>
-      <argument name="allergens">Food allergies to avoid</argument>
+      <method>code</method>
       <example>What vegetarian options does Olive Garden have?</example>
       <example>Show me gluten-free dishes at this Italian restaurant</example>
       <example>What can I order at McDonald's if I'm on keto?</example>
@@ -623,13 +569,7 @@
     </Tool>
 
     <Tool name="restaurant_nearby" enabled="true">
-      <path>/api/restaurants/nearby</path>
-      <method>url</method>
-      <argument name="reference_location">Specific place, landmark, or address</argument>
-      <argument name="radius">Search radius in miles or kilometers</argument>
-      <argument name="cuisine">Preferred cuisine type</argument>
-      <argument name="open_now">Filter for currently open restaurants</argument>
-      <argument name="price_preference">Preferred price range</argument>
+      <method>code</method>
       <example>Find restaurants near the Eiffel Tower</example>
       <example>What's good to eat near Times Square?</example>
       <example>Show me restaurants within walking distance of the hotel</example>
@@ -660,11 +600,8 @@
 
   <Thing>
     <Tool name="ensemble">
-      <path>/api/ensemble</path>
-      <method>url</method>
+      <method>code</method>
       <handler>core.ensemble_tool.EnsembleToolHandler</handler>
-      <argument name="queries">List of related queries to search for</argument>
-      <argument name="ensemble_type">Type of ensemble request (e.g., meal_course, travel_itinerary, outfit, etc.)</argument>
       <example>Give me an appetizer, main and dessert for an Asian fusion dinner</example>
       <example>I am spending a few hours in Barcelona. Give some museums I can go to and nearby restaurants</example>
       <example>Suggest the right footwear, jacket, etc. for hiking in the Grand Canyon in January</example>
