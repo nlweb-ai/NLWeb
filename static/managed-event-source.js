@@ -193,6 +193,25 @@ export class ManagedEventSource {
         chatInterface.noResponse = false;
         handleCompareItems(data, chatInterface);
         break;
+      case "substitution_suggestions":
+        chatInterface.noResponse = false;
+        this.handleSubstitutionSuggestions(data, chatInterface);
+        break;
+      case "no_results":
+        chatInterface.noResponse = false;
+        if (typeof data.message === 'string') {
+          const noResultsMessage = chatInterface.createIntermediateMessageHtml(data.message);
+          chatInterface.bubble.appendChild(noResultsMessage);
+        }
+        break;
+      case "error":
+        chatInterface.noResponse = false;
+        if (typeof data.message === 'string') {
+          const errorMessage = chatInterface.createIntermediateMessageHtml(`Error: ${data.message}`);
+          errorMessage.style.color = '#d32f2f';
+          chatInterface.bubble.appendChild(errorMessage);
+        }
+        break;
       case "complete":
         chatInterface.resortResults();
         // Add this check to display a message when no results found
@@ -291,6 +310,93 @@ export class ManagedEventSource {
         chatInterface.bubble.appendChild(domItem);
       }
     }
+  }
+
+  /**
+   * Handles substitution suggestions messages
+   * 
+   * @param {Object} data - The message data
+   * @param {Object} chatInterface - The chat interface instance
+   */
+  handleSubstitutionSuggestions(data, chatInterface) {
+    // Basic validation
+    if (!data || typeof data !== 'object') return;
+    
+    // Clear any loading indicators
+    while (chatInterface.bubble.firstChild) {
+      chatInterface.bubble.removeChild(chatInterface.bubble.firstChild);
+    }
+    
+    // Create container for substitution content
+    const containerDiv = document.createElement('div');
+    containerDiv.className = 'substitution-suggestions-container';
+    
+    // Add the HTML content if available
+    if (typeof data.content === 'string') {
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'substitution-content';
+      // Add styling to reduce text size
+      contentDiv.style.cssText = 'font-size: 0.9em; line-height: 1.5;';
+      // Content is already HTML from the backend
+      contentDiv.innerHTML = data.content;
+      
+      // Apply additional styling to specific elements
+      const h2Elements = contentDiv.querySelectorAll('h2');
+      h2Elements.forEach(h2 => {
+        h2.style.cssText = 'font-size: 1.3em; margin-top: 15px; margin-bottom: 10px;';
+      });
+      
+      const h3Elements = contentDiv.querySelectorAll('h3');
+      h3Elements.forEach(h3 => {
+        h3.style.cssText = 'font-size: 1.1em; margin-top: 12px; margin-bottom: 8px; color: #333;';
+      });
+      
+      const paragraphs = contentDiv.querySelectorAll('p');
+      paragraphs.forEach(p => {
+        p.style.cssText = 'margin: 8px 0; color: #555;';
+      });
+      
+      const lists = contentDiv.querySelectorAll('ul');
+      lists.forEach(ul => {
+        ul.style.cssText = 'margin: 8px 0; padding-left: 25px;';
+      });
+      
+      const listItems = contentDiv.querySelectorAll('li');
+      listItems.forEach(li => {
+        li.style.cssText = 'margin: 5px 0; line-height: 1.4;';
+      });
+      
+      containerDiv.appendChild(contentDiv);
+    }
+    
+    // Add reference recipes if available using the recipe renderer
+    if (data.reference_recipes && Array.isArray(data.reference_recipes)) {
+      // Add a heading for reference recipes
+      const recipesHeading = document.createElement('h3');
+      recipesHeading.textContent = 'Recipes Used for Reference';
+      recipesHeading.style.marginTop = '20px';
+      containerDiv.appendChild(recipesHeading);
+      
+      // Create recipe items using the JSON item renderer
+      for (const recipe of data.reference_recipes) {
+        if (!recipe || typeof recipe !== 'object') continue;
+        
+        // Create a recipe item in the format expected by createJsonItemHtml
+        const recipeItem = {
+          name: recipe.name,
+          url: recipe.url,
+          schema_object: recipe.schema_object,
+          score: 100, // High score to indicate relevance
+          description: "Reference recipe for substitution suggestions"
+        };
+        
+        // Use the chat interface's existing recipe rendering
+        const domItem = chatInterface.createJsonItemHtml(recipeItem);
+        containerDiv.appendChild(domItem);
+      }
+    }
+    
+    chatInterface.bubble.appendChild(containerDiv);
   }
 
   /**
