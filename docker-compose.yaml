@@ -1,0 +1,24 @@
+services:
+  nlweb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nlweb
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./code/.env
+    environment:
+      - PYTHONPATH=/app
+      - PORT=8000
+    volumes:
+      - ./data:/data
+      - ./code/config:/app/config:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    user: nlweb
