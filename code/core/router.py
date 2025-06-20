@@ -37,6 +37,7 @@ class ToolSelector:
     """Simple tool selector that loads tools and evaluates them for queries."""
     
     STEP_NAME = "ToolSelector"
+    MIN_TOOL_SCORE_THRESHOLD = 70  # Minimum score required to select a tool
     
     def __init__(self, handler):
         self.handler = handler
@@ -210,11 +211,6 @@ class ToolSelector:
             # Get tools for this type
             tools = self.get_tools_by_type(schema_type)
             
-            # Print how many tools are being evaluated
-            print(f"Evaluating {len(tools)} tools for schema type '{schema_type}'")
-            if tools:
-                print(f"Tools to evaluate: {[tool.name for tool in tools]}")
-            
             # Evaluate tools in parallel
             tasks = []
             for tool in tools:
@@ -256,6 +252,21 @@ class ToolSelector:
                 for i, result in enumerate(tool_results):
                     logger.debug(f"  {result['tool'].name}: {result['score']}")
             
+            # Filter out tools below threshold
+            original_results = tool_results[:]
+            tool_results = [r for r in tool_results if r['score'] >= self.MIN_TOOL_SCORE_THRESHOLD]
+            
+            # If no tools meet threshold, fall back to search if available
+            if not tool_results and original_results:
+                logger.info(f"No tools meet minimum threshold of {self.MIN_TOOL_SCORE_THRESHOLD}, checking for search fallback")
+                # Look for search tool in original results
+                search_result = next((r for r in original_results if r['tool'].name == 'search'), None)
+                if search_result:
+                    logger.info(f"Falling back to search tool (score: {search_result['score']})")
+                    tool_results = [search_result]
+                else:
+                    logger.info("No search tool available as fallback")
+            
             # Check if top tool is not search and abort fastTrack if needed
             if tool_results and tool_results[0]['tool'].name != 'search':
                 logger.info(f"FastTrack aborted: Top tool is '{tool_results[0]['tool'].name}', not 'search'")
@@ -282,6 +293,25 @@ class ToolSelector:
                     "query": query
                 }
                 await self.handler.send_message(message)
+            else:
+                # No tools selected - default to search
+                logger.info(f"No tools selected (all below threshold {self.MIN_TOOL_SCORE_THRESHOLD}), defaulting to search")
+                message = {
+                    "message_type": "tool_selection",
+                    "selected_tool": "search",
+                    "score": 0,
+                    "parameters": {"score": 0, "justification": "Default fallback - no tools met threshold"},
+                    "query": query
+                }
+                await self.handler.send_message(message)
+                # Create a dummy search tool result for the handler
+                search_tool = next((t for t in tools if t.name == 'search'), None)
+                if search_tool:
+                    self.handler.tool_routing_results = [{
+                        "tool": search_tool,
+                        "score": 0,
+                        "result": {"score": 0, "justification": "Default fallback"}
+                    }]
                 
         except Exception as e:
             logger.error(f"Error in tool selection: {e}")

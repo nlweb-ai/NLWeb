@@ -885,7 +885,7 @@ def get_vector_db_client(endpoint_name: Optional[str] = None,
 
 async def search(query: str, 
                 site: str = "all",
-                num_results: int = 10,
+                num_results: int = 50,
                 endpoint_name: Optional[str] = None,
                 query_params: Optional[Dict[str, Any]] = None,
                 **kwargs) -> List[Dict[str, Any]]:

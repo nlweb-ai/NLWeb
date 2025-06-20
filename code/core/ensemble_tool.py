@@ -538,7 +538,7 @@ class EnsembleToolHandler:
         
         try:
             # Use the existing ask_llm function
-            response = await ask_llm(filled_prompt, return_struc, level="high", timeout=AGGREGATION_CALL_TIMEOUT)
+            response = await ask_llm(filled_prompt, return_struc, level="high", timeout=AGGREGATION_CALL_TIMEOUT, max_length=2056)
             
             if response:
                 logger.info(f"LLM ensemble response structure: {list(response.keys()) if isinstance(response, dict) else type(response)}")

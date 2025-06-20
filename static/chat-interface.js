@@ -87,6 +87,14 @@ export class ChatInterface {
     this.num_results_sent = 0;
     this.lastAnswers = [];
     this.debugMessages = [];  // Store all messages for debug mode
+    
+    // Clear additional variables that were missing
+    this.sourcesMessage = null;
+    this.thisRoundRemembered = null;
+    this.pendingResultBatches = [];
+    this.noResponse = true;
+    this.decontextualizedQuery = null;
+    this.bubble = null;
   }
 
   /**
