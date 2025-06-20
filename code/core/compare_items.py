@@ -38,8 +38,8 @@ class CompareItemsHandler():
     async def do(self):
         """Main entry point following NLWeb module pattern."""
         try:
-            self.item1_name = self.params.get('item1', '')
-            self.item2_name = self.params.get('item2', '')
+            self.item1_name = self.params.get('item1_name', '')
+            self.item2_name = self.params.get('item2_name', '')
             self.item1_url = self.params.get('item1_url', '')
             self.item2_url = self.params.get('item2_url', '')
             self.details_requested = self.params.get('details_requested', '')
