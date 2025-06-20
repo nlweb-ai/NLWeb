@@ -4,9 +4,14 @@ from typing import List, Dict, Any, Optional
 from retrieval.retriever import search
 from utils.trim import trim_json_hard
 from llm.llm import ask_llm
+from prompts.prompts import find_prompt, fill_prompt
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Total number of results to send for ensemble building
+NUM_RESULTS_FOR_ENSEMBLE_BUILDING = 9
+AGGREGATION_CALL_TIMEOUT = 60
 
 class EnsembleToolHandler:
     """
@@ -18,67 +23,199 @@ class EnsembleToolHandler:
         # Store handler reference and params
         self.handler = handler
         self.params = params
+        self.queries = params.get('queries', [])
+        self.ensemble_type = params.get('ensemble_type', 'general')
         
-    async def handle_ensemble_request(self, queries: List[str], ensemble_type: str, query_params: Dict[str, Any]) -> Dict[str, Any]:
+    async def do(self):
         """
+        Main entry point following NLWeb module pattern.
         Execute multiple parallel queries and combine results using LLM.
-        
-        Args:
-            queries: List of search queries to execute
-            ensemble_type: Type of ensemble request (meal_course, travel_itinerary, outfit, etc.)
-            query_params: Parameters for the retrieval backend
-            
-        Returns:
-            Dict containing the ensemble recommendations
         """
+        print(f"Ensemble type: {self.ensemble_type} params: {self.handler.query_params}")
         try:
-            original_query = query_params.get('query', '')
+            original_query = self.handler.query
             
             # Execute retrieval and ranking in parallel for each query
             ranked_results_per_query = await self._execute_parallel_retrieval_and_ranking(
-                queries, query_params, original_query
+                self.queries, self.handler.query_params, original_query
             )
             
-            # Select top results per query
-            top_results = self._select_top_results_from_ranked(ranked_results_per_query, num_per_query=3)
+            # Calculate number of results per query based on total desired and number of queries
+            num_queries = len(self.queries)
+            results_per_query = max(1, NUM_RESULTS_FOR_ENSEMBLE_BUILDING // num_queries)
             
-            # Trim the top results - extract and trim JSON from tuples
+            # Select top results per query
+            top_results = self._select_top_results_from_ranked(ranked_results_per_query, num_per_query=results_per_query)
+            
+            # Process the top results - extract JSON and add schema_object field
             trimmed_results = []
+            url_to_schema_map = {}  # Map URLs to schema objects for later matching
+            name_to_schema_map = {}  # Map names to schema objects for fallback matching
+            
             for item_data in top_results:
-                # item_data['item'] is the original 4-tuple (url, json_str, name, site)
+                # item_data has 'item' (4-tuple) and 'schema_object' from _select_top_results_from_ranked
                 url, json_str, name, site = item_data['item']
+                # Use the schema_object that was added in _select_top_results_from_ranked
+                item_dict = item_data.get('schema_object', {})
+                if not item_dict:
+                    try:
+                        item_dict = json.loads(json_str) if isinstance(json_str, str) else json_str
+                    except:
+                        item_dict = {}
+                
                 try:
-                    item_dict = json.loads(json_str) if isinstance(json_str, str) else json_str
                     trimmed_item = trim_json_hard(item_dict)
+                    # Add the full schema object to the trimmed item
+                    trimmed_item['schema_object'] = item_dict
+                    # Ensure URL is in the trimmed item for matching
+                    trimmed_item['url'] = url or item_dict.get('url', '')
+                    # Ensure name is in the trimmed item for matching
+                    # Handle case where name might be a list from collateObjAttr
+                    trimmed_name = trimmed_item.get('name')
+                    if isinstance(trimmed_name, list):
+                        trimmed_name = trimmed_name[0] if trimmed_name else None
+                    
+                    dict_name = item_dict.get('name')
+                    if isinstance(dict_name, list):
+                        dict_name = dict_name[0] if dict_name else None
+                    
+                    trimmed_item['name'] = trimmed_name or dict_name or name
+                    
                     trimmed_results.append(trimmed_item)
-                except:
-                    logger.warning(f"Failed to trim item: {name}")
+                    
+                    # Store mappings for later use
+                    if trimmed_item['url']:
+                        url_to_schema_map[trimmed_item['url']] = item_dict
+                    if trimmed_item.get('name'):
+                        name_for_key = trimmed_item['name']
+                        # Handle case where name might be a list
+                        if isinstance(name_for_key, list):
+                            name_for_key = name_for_key[0] if name_for_key else ''
+                        name_key = str(name_for_key).lower().strip()
+                        name_to_schema_map[name_key] = item_dict
+                except Exception as e:
+                    logger.warning(f"Failed to trim item: {name}, error: {e}")
                     continue
             
             # Generate ensemble recommendations using LLM
             ensemble_response = await self._generate_ensemble_recommendations(
                 trimmed_results, 
-                queries, 
-                ensemble_type,
+                self.queries, 
+                self.ensemble_type,
                 original_query
             )
             
+            logger.info(f"LLM response type: {type(ensemble_response)}")
+            if isinstance(ensemble_response, dict):
+                logger.info(f"LLM response keys: {list(ensemble_response.keys())}")
+                if 'items' in ensemble_response:
+                    logger.info(f"Number of items in LLM response: {len(ensemble_response.get('items', []))}")
+            
             # Calculate total items retrieved
             total_items = sum(len(results) for results in ranked_results_per_query)
+            # Add schema objects to ensemble response items
+            # Check for either 'items' or 'recommendations' key
+            items_key = None
+            if isinstance(ensemble_response, dict):
+                if 'items' in ensemble_response:
+                    items_key = 'items'
+                elif 'recommendations' in ensemble_response and isinstance(ensemble_response['recommendations'], list):
+                    items_key = 'recommendations'
+                elif 'recommendations' in ensemble_response and isinstance(ensemble_response['recommendations'], dict) and 'items' in ensemble_response['recommendations']:
+                    # Handle nested structure
+                    ensemble_response = ensemble_response['recommendations']
+                    items_key = 'items'
             
-            return {
+            if items_key and isinstance(ensemble_response, dict) and items_key in ensemble_response:
+                logger.info(f"Processing {len(ensemble_response[items_key])} items in ensemble response")
+                matched_count = 0
+                
+                for item in ensemble_response[items_key]:
+                    # Try to match by URL first
+                    if 'url' in item and item['url'] in url_to_schema_map:
+                        item['schema_object'] = url_to_schema_map[item['url']]
+                        matched_count += 1
+                        logger.debug(f"Matched item by URL: {item['url']}")
+                    else:
+                        # Fallback: try to match by name
+                        item_name_raw = item.get('name', '')
+                        # Handle case where name might be a list
+                        if isinstance(item_name_raw, list):
+                            item_name = item_name_raw[0] if item_name_raw else ''
+                        else:
+                            item_name = item_name_raw
+                        item_name = str(item_name).lower().strip()
+                        matched = False
+                        
+                        for result in trimmed_results:
+                            result_name_raw = result.get('name', '')
+                            # Handle case where name might be a list
+                            if isinstance(result_name_raw, list):
+                                result_name = result_name_raw[0] if result_name_raw else ''
+                            else:
+                                result_name = result_name_raw
+                            result_name = str(result_name).lower().strip()
+                            
+                            # Also check the schema object for name
+                            if 'schema_object' in result and 'name' in result['schema_object']:
+                                schema_name_raw = result['schema_object'].get('name', '')
+                                # Handle case where name might be a list
+                                if isinstance(schema_name_raw, list):
+                                    schema_name = schema_name_raw[0] if schema_name_raw else ''
+                                else:
+                                    schema_name = schema_name_raw
+                                schema_name = str(schema_name).lower().strip()
+                            else:
+                                schema_name = ''
+                            
+                            # Match by name similarity
+                            if (item_name and result_name and (item_name in result_name or result_name in item_name)) or \
+                               (item_name and schema_name and (item_name in schema_name or schema_name in item_name)):
+                                if 'schema_object' in result:
+                                    item['schema_object'] = result['schema_object']
+                                    matched_count += 1
+                                    matched = True
+                                    logger.debug(f"Matched item by name: {item_name} -> {result_name or schema_name}")
+                                    break
+                        
+                        if not matched:
+                            logger.warning(f"Could not match item: {item.get('name', 'Unknown')} with URL: {item.get('url', 'None')}")
+                
+                logger.info(f"Successfully matched {matched_count}/{len(ensemble_response[items_key])} items with schema objects")
+            else:
+                logger.warning(f"Ensemble response is not in expected format. Type: {type(ensemble_response)}, Keys: {list(ensemble_response.keys()) if isinstance(ensemble_response, dict) else 'N/A'}")
+            # Ensure the response has the expected structure
+            if not isinstance(ensemble_response, dict):
+                ensemble_response = {"items": [], "theme": "Error: Invalid response format"}
+            
+            # Clean up the response to remove circular references before sending
+            cleaned_response = self._clean_for_json(ensemble_response)
+            
+            # Send the result as a message
+            result = {
                 "success": True,
-                "ensemble_type": ensemble_type,
-                "recommendations": ensemble_response,
+                "ensemble_type": self.ensemble_type,
+                "recommendations": cleaned_response,
                 "total_items_retrieved": total_items
             }
             
+            await self.handler.send_message({
+                "message_type": "ensemble_result",
+                "result": result
+            })
+            
+            # Mark query as done to prevent further processing
+            self.handler.query_done = True
+            
         except Exception as e:
             logger.error(f"Error in ensemble request: {str(e)}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            await self.handler.send_message({
+                "message_type": "ensemble_result",
+                "result": {
+                    "success": False,
+                    "error": str(e)
+                }
+            })
     
     async def _retrieve_and_rank_for_query(self, query: str, query_idx: int, queries_count: int, query_params: Dict[str, Any], original_query: str) -> List[Dict]:
         """Retrieve and rank results for a single query."""
@@ -189,6 +326,44 @@ class EnsembleToolHandler:
             return f"{item.get('name', '')}|{item.get('@type', '')}"
         return None
     
+    def _clean_for_json(self, obj, seen=None):
+        """Remove circular references and clean object for JSON serialization."""
+        if seen is None:
+            seen = set()
+        
+        # Handle None, bool, int, float, str
+        if obj is None or isinstance(obj, (bool, int, float, str)):
+            return obj
+        
+        # Handle lists
+        if isinstance(obj, list):
+            return [self._clean_for_json(item, seen) for item in obj]
+        
+        # Handle dictionaries
+        if isinstance(obj, dict):
+            # Check if we've seen this object before (circular reference)
+            obj_id = id(obj)
+            if obj_id in seen:
+                return {"_circular_reference": True}
+            
+            seen.add(obj_id)
+            
+            cleaned = {}
+            for key, value in obj.items():
+                # Skip certain problematic keys that often contain circular references
+                if key in ['_parent', '_root', '__dict__', '_cache']:
+                    continue
+                    
+                try:
+                    cleaned[key] = self._clean_for_json(value, seen.copy())
+                except Exception as e:
+                    logger.debug(f"Skipping key {key} due to error: {e}")
+                    
+            return cleaned
+        
+        # For other types, convert to string
+        return str(obj)
+    
     
     async def _rank_single_item(self, result_tuple: tuple, original_query: str, idx: int) -> float:
         """Rank a single item for relevance to the query.
@@ -208,34 +383,57 @@ class EnsembleToolHandler:
             except:
                 item_dict = {}
             
+            # Ensure item_dict is a dictionary, not a list
+            if isinstance(item_dict, list):
+                item_dict = item_dict[0] if item_dict else {}
+            
+            if not isinstance(item_dict, dict):
+                item_dict = {}
+            
             # Create a concise representation of the item for ranking
+            # Handle cases where fields might be lists due to collateObjAttr
+            name_value = item_dict.get('name', name) if isinstance(item_dict, dict) else name
+            if isinstance(name_value, list):
+                name_value = name_value[0] if name_value else 'Unknown'
+            
+            type_value = item_dict.get('@type', 'Unknown') if isinstance(item_dict, dict) else 'Unknown'
+            if isinstance(type_value, list):
+                type_value = type_value[0] if type_value else 'Unknown'
+            
+            desc_value = item_dict.get('description', '') if isinstance(item_dict, dict) else ''
+            if isinstance(desc_value, list):
+                desc_value = desc_value[0] if desc_value else ''
+            desc_value = str(desc_value)[:200]  # First 200 chars
+            
+            url_value = item_dict.get('url', url) if isinstance(item_dict, dict) else url
+            if isinstance(url_value, list):
+                url_value = url_value[0] if url_value else ''
+            
             item_summary = {
-                'name': name or item_dict.get('name', 'Unknown'),
-                'type': item_dict.get('@type', 'Unknown'),
-                'description': item_dict.get('description', '')[:200],  # First 200 chars
-                'url': url or item_dict.get('url', '')
+                'name': name_value or 'Unknown',
+                'type': type_value,
+                'description': desc_value,
+                'url': url_value or ''
             }
             
-            ranking_prompt = f"""Given the user's query: "{original_query}"
-
-And this item:
-Name: {item_summary['name']}
-Type: {item_summary['type']}
-Description: {item_summary['description']}
-
-Rate how relevant this item is for answering the user's query on a scale of 0-100.
-Consider:
-- Does this item directly address what the user is looking for?
-- Is it the right type of item (e.g., restaurant vs attraction)?
-- Does it match any specific criteria mentioned in the query?
-
-Provide your response as a JSON object with a 'score' field containing the relevance score."""
+            # Get the ranking prompt from XML
+            prompt_str, return_struc = find_prompt(self.handler.site, self.handler.item_type, "EnsembleItemRankingPrompt")
             
-            response_structure = {
-                "score": "integer between 0 and 100"
+            if not prompt_str:
+                logger.error("EnsembleItemRankingPrompt not found")
+                return 0.0
+            
+            # Prepare variables for prompt filling
+            pr_dict = {
+                "item.name": item_summary['name'],
+                "item.type": item_summary['type'],
+                "item.description": item_summary['description']
             }
             
-            result = await ask_llm(ranking_prompt, response_structure, level="low", timeout=5)
+            # Fill the prompt with variables
+            filled_prompt = fill_prompt(prompt_str, self.handler, pr_dict)
+            
+            result = await ask_llm(filled_prompt, return_struc, level="low", timeout=5)
             
             if result and 'score' in result:
                 return float(result['score'])
@@ -247,7 +445,16 @@ Provide your response as a JSON object with a 'score' field containing the relev
             return 0.0
     
     def _select_top_results_from_ranked(self, ranked_results_per_query: List[List[Dict]], num_per_query: int = 3) -> List[Dict]:
-        """Select top N results from each query's ranked results."""
+        """Select top N results from each query's ranked results.
+        
+        Returns:
+            List of dicts, each containing:
+            - item: the original 4-tuple (url, json_str, name, site)
+            - relevance_score: the ranking score
+            - source_query_idx: which query this came from
+            - search_query: the query that found this item
+            - schema_object: the full parsed JSON object
+        """
         selected_results = []
         seen_ids = set()  # Track globally to avoid duplicates across queries
         
@@ -270,10 +477,13 @@ Provide your response as a JSON object with a 'score' field containing the relev
                 # Add if not seen globally
                 if item_id and item_id not in seen_ids:
                     seen_ids.add(item_id)
+                    # Add the schema_object to the item data
+                    item['schema_object'] = item_dict
                     selected_results.append(item)
                     selected_count += 1
                 elif not item_id:
                     # Include items without identifiers
+                    item['schema_object'] = item_dict
                     selected_results.append(item)
                     selected_count += 1
             
@@ -289,114 +499,55 @@ Provide your response as a JSON object with a 'score' field containing the relev
                                                  original_query: str) -> Dict[str, Any]:
         """Generate ensemble recommendations using LLM."""
         
-        # Build prompt based on ensemble type
-        prompt = self._build_ensemble_prompt(ensemble_type, queries, trimmed_results, original_query)
+        # Map ensemble types to prompt names
+        prompt_name_map = {
+            "meal planning": "EnsembleMealPlanningPrompt",
+            "travel_itinerary": "EnsembleTravelItineraryPrompt",
+            "outfit": "EnsembleOutfitPrompt"
+        }
+        
+        # Get the appropriate prompt name, defaulting to generic
+        prompt_name = prompt_name_map.get(ensemble_type, "EnsembleGenericPrompt")
+        
+        # Get prompt from XML
+        prompt_str, return_struc = find_prompt(self.handler.site, self.handler.item_type, prompt_name)
+        
+        if not prompt_str:
+            logger.warning(f"Could not find prompt {prompt_name}, using base prompt")
+            prompt_str, return_struc = find_prompt(self.handler.site, self.handler.item_type, "EnsembleBasePrompt")
+        
+        if not prompt_str:
+            logger.error("No ensemble prompts found")
+            return {"recommendations": "Unable to generate recommendations - no prompts found"}
+        
+        # Prepare variables for prompt filling - exclude schema_object from LLM prompt to save tokens
+        trimmed_for_llm = []
+        for result in trimmed_results:
+            result_copy = result.copy()
+            # Remove schema_object from the copy sent to LLM
+            result_copy.pop('schema_object', None)
+            trimmed_for_llm.append(result_copy)
+        
+        pr_dict = {
+            "ensemble.queries": json.dumps(queries),
+            "ensemble.results": json.dumps(trimmed_for_llm, indent=2)
+        }
+        
+        # Fill the prompt with variables
+        filled_prompt = fill_prompt(prompt_str, self.handler, pr_dict)
         
         try:
             # Use the existing ask_llm function
-            system_prompt = "You are a helpful assistant that creates cohesive recommendations from search results."
-            full_prompt = f"{system_prompt}\n\n{prompt}"
-            
-            # Define expected response structure
-            response_structure = {
-                "recommendations": "array of recommended items with explanations",
-                "summary": "brief summary of the ensemble"
-            }
-            response = await ask_llm(full_prompt, response_structure, level="high", timeout=30)
+            response = await ask_llm(filled_prompt, return_struc, level="high", timeout=AGGREGATION_CALL_TIMEOUT)
             
             if response:
+                logger.info(f"LLM ensemble response structure: {list(response.keys()) if isinstance(response, dict) else type(response)}")
                 return response
             else:
-                return {"recommendations": "Unable to generate recommendations"}
+                return {"items": [], "theme": "Unable to generate recommendations"}
                 
         except Exception as e:
             logger.error(f"Error generating ensemble recommendations: {str(e)}")
             raise
     
-    def _build_ensemble_prompt(self, ensemble_type: str, queries: List[str], results: List[Dict], original_query: str) -> str:
-        """Build appropriate prompt based on ensemble type."""
-        
-        base_prompt = f"""
-Based on the user's request: "{original_query}"
-
-I searched for: {', '.join(queries)}
-
-Here are the search results:
-{json.dumps(results, indent=2)}
-
-Please create a cohesive recommendation that addresses the user's request.
-"""
-        
-        type_specific_prompts = {
-            "meal_course": """
-Create a complete meal recommendation with:
-1. Appetizer/Starter
-2. Main Course
-3. Dessert
-
-For each course, provide:
-- Name of the dish
-- Brief description
-- Why it complements the other courses
-- Any relevant details (prep time, difficulty, dietary info)
-
-Ensure the courses work well together in terms of flavors, textures, and overall dining experience.
-""",
-            
-            "travel_itinerary": """
-Create a travel itinerary recommendation with:
-1. Attractions/Museums to visit
-2. Nearby restaurants for meals
-3. Suggested order/timing
-
-For each recommendation, provide:
-- Name and location
-- Why it's worth visiting
-- Time needed
-- How it connects to other recommendations
-- Any practical tips (hours, tickets, reservations)
-""",
-            
-            "outfit": """
-Create a complete outfit recommendation with:
-1. Essential items (footwear, jacket, base layers)
-2. Accessories
-3. Additional considerations
-
-For each item, provide:
-- Specific type recommended
-- Why it's suitable for the conditions
-- Key features to look for
-- Any alternatives
-
-Consider weather, activity level, and safety.
-"""
-        }
-        
-        # Get type-specific prompt or use a generic one
-        type_prompt = type_specific_prompts.get(ensemble_type, """
-Create a cohesive set of recommendations that work well together.
-For each item, explain why it's recommended and how it complements the other items.
-""")
-        
-        full_prompt = base_prompt + type_prompt + """
-
-Format your response as a JSON object with the following structure:
-{
-  "theme": "Brief description of the overall recommendation theme",
-  "items": [
-    {
-      "category": "Category name (e.g., Appetizer, Museum, Footwear)",
-      "name": "Specific item name",
-      "description": "Detailed description",
-      "why_recommended": "Why this item fits the request",
-      "details": {
-        // Any relevant details specific to the item type
-      }
-    }
-  ],
-  "overall_tips": ["Any general tips or considerations"]
-}
-"""
-        
-        return full_prompt
+    # Note: _build_ensemble_prompt method has been removed as prompts are now loaded from XML

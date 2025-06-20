@@ -327,27 +327,8 @@ class NLWebHandler:
                 # Instantiate and execute handler
                 handler_instance = handler_class(params, self)
                 
-                # Special handling for ensemble tool which has different method signature
-                if tool_name == "ensemble":
-                    # Clear any items that FastTrack might have populated
-                    self.final_retrieved_items = []
-                    self.retrieved_items = []
-                    
-                    result = await handler_instance.handle_ensemble_request(
-                        queries=params.get('queries', []),
-                        ensemble_type=params.get('ensemble_type', 'general'),
-                        query_params=self.query_params
-                    )
-                    await self.send_message({
-                        "message_type": "ensemble_result",
-                        "result": result
-                    })
-                    # Mark query as done to prevent further processing
-                    self.query_done = True
-                    return
-                else:
-                    # Standard handler pattern with do() method
-                    await handler_instance.do()
+                # Standard handler pattern with do() method
+                await handler_instance.do()
                     
             except Exception as e:
                 logger.error(f"Error loading handler for tool {tool_name}: {e}")

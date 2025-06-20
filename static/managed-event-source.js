@@ -467,6 +467,62 @@ export class ManagedEventSource {
   }
   
   /**
+   * Extracts an image URL from a schema object
+   * 
+   * @param {Object} schema_object - The schema object
+   * @returns {string|null} - The image URL or null
+   */
+  extractImageUrl(schema_object) {
+    if (!schema_object) return null;
+    
+    // Check various possible image fields
+    if (schema_object.image) {
+      return this.extractImageUrlFromField(schema_object.image);
+    } else if (schema_object.images && Array.isArray(schema_object.images) && schema_object.images.length > 0) {
+      return this.extractImageUrlFromField(schema_object.images[0]);
+    } else if (schema_object.thumbnailUrl) {
+      return this.extractImageUrlFromField(schema_object.thumbnailUrl);
+    } else if (schema_object.thumbnail) {
+      return this.extractImageUrlFromField(schema_object.thumbnail);
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Extracts an image URL from various image field formats
+   * 
+   * @param {*} imageField - The image field data
+   * @returns {string|null} - The image URL or null
+   */
+  extractImageUrlFromField(imageField) {
+    // Handle string URLs
+    if (typeof imageField === 'string') {
+      return imageField;
+    }
+    
+    // Handle object with url property
+    if (typeof imageField === 'object' && imageField !== null) {
+      if (imageField.url) {
+        return imageField.url;
+      }
+      if (imageField.contentUrl) {
+        return imageField.contentUrl;
+      }
+      if (imageField['@id']) {
+        return imageField['@id'];
+      }
+    }
+    
+    // Handle array of images
+    if (Array.isArray(imageField) && imageField.length > 0) {
+      return this.extractImageUrlFromField(imageField[0]);
+    }
+    
+    return null;
+  }
+
+  /**
    * Creates a card for an ensemble item
    * 
    * @param {Object} item - The item data
@@ -475,6 +531,14 @@ export class ManagedEventSource {
   createEnsembleItemCard(item) {
     const card = document.createElement('div');
     card.style.cssText = 'background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+    
+    // Create a flex container for content and image
+    const flexContainer = document.createElement('div');
+    flexContainer.style.cssText = 'display: flex; gap: 15px; align-items: center;';
+    
+    // Content container (goes first, on the left)
+    const contentContainer = document.createElement('div');
+    contentContainer.style.cssText = 'flex-grow: 1;';
     
     // Category badge
     const categoryBadge = document.createElement('span');
@@ -488,19 +552,36 @@ export class ManagedEventSource {
       font-size: 0.85em;
       margin-bottom: 10px;
     `;
-    card.appendChild(categoryBadge);
+    contentContainer.appendChild(categoryBadge);
     
-    // Name
-    const name = document.createElement('h4');
-    name.textContent = item.name;
-    name.style.cssText = 'margin: 10px 0; color: #333;';
-    card.appendChild(name);
+    // Name with hyperlink
+    const nameContainer = document.createElement('h4');
+    nameContainer.style.cssText = 'margin: 10px 0;';
+    
+    // Get URL from item or schema_object
+    const itemUrl = item.url || (item.schema_object && item.schema_object.url);
+    
+    if (itemUrl) {
+      const nameLink = document.createElement('a');
+      nameLink.href = itemUrl;
+      nameLink.textContent = item.name;
+      nameLink.target = '_blank';
+      nameLink.style.cssText = 'color: #0066cc; text-decoration: none; font-weight: bold;';
+      nameLink.onmouseover = function() { this.style.textDecoration = 'underline'; };
+      nameLink.onmouseout = function() { this.style.textDecoration = 'none'; };
+      nameContainer.appendChild(nameLink);
+    } else {
+      nameContainer.textContent = item.name;
+      nameContainer.style.color = '#333';
+    }
+    
+    contentContainer.appendChild(nameContainer);
     
     // Description
     const description = document.createElement('p');
     description.textContent = item.description;
     description.style.cssText = 'color: #666; margin: 10px 0; line-height: 1.5;';
-    card.appendChild(description);
+    contentContainer.appendChild(description);
     
     // Why recommended
     const whySection = document.createElement('div');
@@ -516,7 +597,7 @@ export class ManagedEventSource {
     
     whySection.appendChild(whyLabel);
     whySection.appendChild(whyText);
-    card.appendChild(whySection);
+    contentContainer.appendChild(whySection);
     
     // Details
     if (item.details && Object.keys(item.details).length > 0) {
@@ -539,8 +620,59 @@ export class ManagedEventSource {
         detailsSection.appendChild(detailLine);
       });
       
-      card.appendChild(detailsSection);
+      contentContainer.appendChild(detailsSection);
     }
+    
+    // Additional info from schema_object
+    if (item.schema_object) {
+      // Price
+      if (item.schema_object.price || (item.schema_object.offers && item.schema_object.offers.price)) {
+        const priceDiv = document.createElement('div');
+        priceDiv.style.cssText = 'margin-top: 10px; font-weight: bold; color: #28a745;';
+        const price = item.schema_object.price || item.schema_object.offers.price;
+        priceDiv.textContent = `Price: ${typeof price === 'object' ? price.value : price}`;
+        contentContainer.appendChild(priceDiv);
+      }
+      
+      // Rating
+      if (item.schema_object.aggregateRating) {
+        const rating = item.schema_object.aggregateRating;
+        const ratingValue = rating.ratingValue || rating.value;
+        const reviewCount = rating.reviewCount || rating.ratingCount || rating.count;
+        
+        if (ratingValue) {
+          const ratingDiv = document.createElement('div');
+          ratingDiv.style.cssText = 'margin-top: 5px; color: #f39c12;';
+          const stars = '★'.repeat(Math.round(ratingValue));
+          const reviewText = reviewCount ? ` (${reviewCount} reviews)` : '';
+          ratingDiv.innerHTML = `Rating: ${stars} ${ratingValue}/5${reviewText}`;
+          contentContainer.appendChild(ratingDiv);
+        }
+      }
+    }
+    
+    // Append content container to flex container
+    flexContainer.appendChild(contentContainer);
+    
+    // Add image from schema_object if available (on the right side)
+    if (item.schema_object) {
+      const imageUrl = this.extractImageUrl(item.schema_object);
+      
+      if (imageUrl) {
+        const imageContainer = document.createElement('div');
+        imageContainer.style.cssText = 'flex-shrink: 0; display: flex; align-items: center;';
+        
+        const image = document.createElement('img');
+        image.src = imageUrl;
+        image.alt = item.name;
+        image.style.cssText = 'width: 120px; height: 120px; object-fit: cover; border-radius: 6px;';
+        imageContainer.appendChild(image);
+        flexContainer.appendChild(imageContainer);
+      }
+    }
+    
+    // Append flex container to card
+    card.appendChild(flexContainer);
     
     return card;
   }

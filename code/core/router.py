@@ -210,6 +210,10 @@ class ToolSelector:
             # Get tools for this type
             tools = self.get_tools_by_type(schema_type)
             
+            # Print how many tools are being evaluated
+            print(f"Evaluating {len(tools)} tools for schema type '{schema_type}'")
+            if tools:
+                print(f"Tools to evaluate: {[tool.name for tool in tools]}")
             
             # Evaluate tools in parallel
             tasks = []
