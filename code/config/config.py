@@ -82,6 +82,7 @@ class NLWebConfig:
     analyze_query_enabled: bool = False  # Enable or disable query analysis
     decontextualize_enabled: bool = True  # Enable or disable decontextualization
     required_info_enabled: bool = True  # Enable or disable required info checking
+    headers: Dict[str, str] = field(default_factory=dict)  # HTTP headers to send
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
                    "config_webserver.yaml", "config_nlweb.yaml"]
@@ -381,6 +382,9 @@ class AppConfig:
         # Load required info enabled flag
         required_info_enabled = self._get_config_value(data.get("required_info_enabled"), True)
         
+        # Load headers from config
+        headers = data.get("headers", {})
+        
         # Convert relative paths to use NLWEB_OUTPUT_DIR if available
         base_output_dir = self.base_output_directory
         if base_output_dir:
@@ -402,7 +406,8 @@ class AppConfig:
             memory_enabled=memory_enabled,
             analyze_query_enabled=analyze_query_enabled,
             decontextualize_enabled=decontextualize_enabled,
-            required_info_enabled=required_info_enabled
+            required_info_enabled=required_info_enabled,
+            headers=headers
         )
     
     def get_chatbot_instructions(self, instruction_type: str = "search_results") -> str:

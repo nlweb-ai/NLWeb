@@ -117,6 +117,7 @@ class NLWebHandler:
         self._send_lock = asyncio.Lock()
         
         self.fastTrackRanker = None
+        self.headersSent = False  # Track if headers have been sent
         self.fastTrackWorked = False
         self.sites_in_embeddings_sent = False
 
@@ -160,11 +161,40 @@ class NLWebHandler:
                 
             if (self.streaming and self.http_handler is not None):
                 message["query_id"] = self.query_id
-                if not self.versionNumberSent:
-                    self.versionNumberSent = True
-                    version_number_message = {"message_type": "api_version", "api_version": API_VERSION}
-                  #  await self.http_handler.write_stream(version_number_message)
+                
+                # Send headers on first message if not already sent
+                if not self.headersSent:
+                    self.headersSent = True
                     
+                    # Send version number first
+                    if not self.versionNumberSent:
+                        self.versionNumberSent = True
+                        version_number_message = {"message_type": "api_version", "api_version": API_VERSION, "query_id": self.query_id}
+                        try:
+                            await self.http_handler.write_stream(version_number_message)
+                            logger.info(f"Sent API version: {API_VERSION}")
+                        except Exception as e:
+                            logger.error(f"Error sending API version: {e}")
+                    
+                    # Send headers from config as messages
+                    if hasattr(CONFIG.nlweb, 'headers') and CONFIG.nlweb.headers:
+                        logger.info(f"Sending headers: {CONFIG.nlweb.headers}")
+                        for header_key, header_value in CONFIG.nlweb.headers.items():
+                            header_message = {
+                                "message_type": header_key,
+                                "content": header_value,
+                                "query_id": self.query_id
+                            }
+                            try:
+                                await self.http_handler.write_stream(header_message)
+                                logger.info(f"Sent header message: {header_key} = {header_value}")
+                            except Exception as e:
+                                logger.error(f"Error sending header {header_key}: {e}")
+                                self.connection_alive_event.clear()
+                                return
+                    else:
+                        logger.warning("No headers found in CONFIG.nlweb.headers")
+                
                 try:
                     await self.http_handler.write_stream(message)
                     logger.debug(f"Message streamed successfully")
@@ -187,6 +217,13 @@ class NLWebHandler:
                             val[key] = message[key]
                     self.return_value[message["message_type"]] = val
                 logger.debug(f"Message added to return value store")
+                
+                # Also add headers to return value in non-streaming mode if not already sent
+                if not self.headersSent:
+                    self.headersSent = True
+                    if hasattr(CONFIG.nlweb, 'headers') and CONFIG.nlweb.headers:
+                        for header_key, header_value in CONFIG.nlweb.headers.items():
+                            self.return_value[header_key] = header_value
 
 
     async def runQuery(self):
