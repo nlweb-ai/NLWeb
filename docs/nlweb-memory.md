@@ -4,6 +4,7 @@ One of the pre-retrieval steps (implemented using the DetectMemoryRequestPrompt 
 
 The memory pre retrieval step, like other pre retrieval steps (and ranking) is implemented with a prompt, which can be specialized. For example, here is the generic memory prompt:
 
+```
 <Prompt ref="DetectMemoryRequestPrompt">
       <promptString>
         Analyze the following statement from the user.
@@ -20,9 +21,11 @@ The memory pre retrieval step, like other pre retrieval steps (and ranking) is i
         }
       </returnStruc>
     </Prompt>
+```
 
 And here is one specific for recipes:
 
+```
 <Prompt ref="DetectMemoryRequestPrompt">
       <promptString>
         Analyze the following statement from the user.
@@ -41,3 +44,4 @@ And here is one specific for recipes:
         }
       </returnStruc>
     </Prompt>
+```
