@@ -26,6 +26,45 @@ logger = get_configured_logger("retriever")
 _client_cache = {}
 _client_cache_lock = asyncio.Lock()
 
+# Preloaded client modules
+_preloaded_modules = {}
+
+def init():
+    """Initialize retrieval clients based on configuration."""
+    print("=== Retrieval initialization starting ===")
+    
+    # Preload modules for enabled endpoints
+    for endpoint_name, endpoint_config in CONFIG.retrieval_endpoints.items():
+        if endpoint_config.enabled and endpoint_config.db_type:
+            db_type = endpoint_config.db_type
+            print(f"Preloading retrieval client module for: {endpoint_name} (type: {db_type})")
+            try:
+                # Ensure packages are installed
+                _ensure_package_installed(db_type)
+                
+                # Preload the module
+                if db_type == "azure_ai_search":
+                    from retrieval.azure_search_client import AzureSearchClient
+                    _preloaded_modules[db_type] = AzureSearchClient
+                elif db_type == "milvus":
+                    from retrieval.milvus_client import MilvusVectorClient
+                    _preloaded_modules[db_type] = MilvusVectorClient
+                elif db_type == "opensearch":
+                    from retrieval.opensearch_client import OpenSearchClient
+                    _preloaded_modules[db_type] = OpenSearchClient
+                elif db_type == "qdrant":
+                    from retrieval.qdrant import QdrantVectorClient
+                    _preloaded_modules[db_type] = QdrantVectorClient
+                elif db_type == "snowflake_cortex_search":
+                    from retrieval.snowflake_client import SnowflakeCortexSearchClient
+                    _preloaded_modules[db_type] = SnowflakeCortexSearchClient
+                
+                print(f"Successfully preloaded {db_type} client module")
+            except Exception as e:
+                print(f"Failed to preload {db_type} client module: {e}")
+    
+    print("=== Retrieval initialization complete ===")
+
 # Mapping of database types to their required pip packages
 _db_type_packages = {
     "azure_ai_search": ["azure-core", "azure-search-documents>=11.4.0"],
@@ -384,7 +423,11 @@ class VectorDBClient:
             logger.debug(f"Creating new client for {db_type} with endpoint {endpoint_name}")
             
             try:
-                if db_type == "azure_ai_search":
+                # Use preloaded module if available, otherwise load on demand
+                if db_type in _preloaded_modules:
+                    client_class = _preloaded_modules[db_type]
+                    client = client_class(endpoint_name)
+                elif db_type == "azure_ai_search":
                     from retrieval.azure_search_client import AzureSearchClient
                     client = AzureSearchClient(endpoint_name)
                 elif db_type == "milvus":

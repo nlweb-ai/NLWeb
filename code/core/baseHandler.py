@@ -36,9 +36,14 @@ API_VERSION = "0.1"
 class NLWebHandler:
 
     def __init__(self, query_params, http_handler): 
+        import time
         logger.info("Initializing NLWebHandler")
         self.http_handler = http_handler
         self.query_params = query_params
+        
+        # Track initialization time for time-to-first-result
+        self.init_time = time.time()
+        self.first_result_sent = False
 
         # the site that is being queried
         self.site = get_param(query_params, "site", str, "all")  
@@ -152,6 +157,7 @@ class NLWebHandler:
    
 
     async def send_message(self, message):
+        import time
         logger.debug(f"Sending message of type: {message.get('message_type', 'unknown')}")
         async with self._send_lock:  # Protect send operation with lock
             # Check connection before sending
@@ -161,6 +167,24 @@ class NLWebHandler:
                 
             if (self.streaming and self.http_handler is not None):
                 message["query_id"] = self.query_id
+                
+                # Check if this is the first result_batch and add time-to-first-result header
+                if message.get("message_type") == "result_batch" and not self.first_result_sent:
+                    self.first_result_sent = True
+                    time_to_first_result = time.time() - self.init_time
+                    
+                    # Send time-to-first-result as a header message
+                    ttfr_message = {
+                        "message_type": "header",
+                        "header_name": "time-to-first-result",
+                        "header_value": f"{time_to_first_result:.3f}s",
+                        "query_id": self.query_id
+                    }
+                    try:
+                        await self.http_handler.write_stream(ttfr_message)
+                        logger.info(f"Sent time-to-first-result header: {time_to_first_result:.3f}s")
+                    except Exception as e:
+                        logger.error(f"Error sending time-to-first-result header: {e}")
                 
                 # Send headers on first message if not already sent
                 if not self.headersSent:

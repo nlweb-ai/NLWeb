@@ -23,6 +23,24 @@ logger = get_configured_logger("llm_wrapper")
 # Cache for loaded providers
 _loaded_providers = {}
 
+def init():
+    """Initialize LLM providers based on configuration."""
+    print("=== LLM initialization starting ===")
+    
+    # Get all configured LLM endpoints
+    for endpoint_name, endpoint_config in CONFIG.llm_endpoints.items():
+        llm_type = endpoint_config.llm_type
+        if llm_type and endpoint_name == CONFIG.preferred_llm_endpoint:
+            print(f"Preloading preferred LLM provider: {endpoint_name} (type: {llm_type})")
+            try:
+                # Use _get_provider which will load and cache the provider
+                _get_provider(llm_type)
+                print(f"Successfully loaded {llm_type} provider")
+            except Exception as e:
+                print(f"Failed to load {llm_type} provider: {e}")
+    
+    print("=== LLM initialization complete ===")
+
 # Mapping of LLM types to their required pip packages
 _llm_type_packages = {
     "openai": ["openai>=1.12.0"],
@@ -100,7 +118,7 @@ def _get_provider(llm_type: str):
     # Ensure required packages are installed
     _ensure_package_installed(llm_type)
     
-    # Import the appropriate provider module
+    # Import the appropriate provider module if not already loaded
     try:
         if llm_type == "openai":
             from llm.openai import provider as openai_provider

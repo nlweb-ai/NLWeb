@@ -17,9 +17,9 @@ Depending on the request parameters, control of the results that are returned ca
 
 3. Tool Selection: Based on the manifest in tools.xml, LLM calls are made to determine which tool is most appropriate for the query. The LLM also extracts the parameters required for that tool, which is then invoked. Tools may search the underlying vector database and make calls to LLMs as needed.
 
-4. Tool Execution: The selected tool is executed with the extracted parameters. We describe the processing for three key tools:
+4. Tool Execution: The selected tool is executed with the extracted parameters. To give a flavor for how tools may process the request, we describe how three tools work:
 
-    **Search Tool**: This follows the traditional search flow:
+    **Search Tool**: This loosely follows the traditional search flow:
     - The (decontextualized) query is sent to a database service to retrieve potential answers
     - Typically uses a vector database with retrieval based on tfidf scores on embeddings and structured data constraints
     - Results are returned as json objects encoded in schema.org schema

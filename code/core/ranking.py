@@ -161,6 +161,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
                     "score": result["ranking"]["score"],
                     "description": result["ranking"]["description"],
                     "schema_object": result["schema_object"],
+                    "ranking_type": self.ranking_type_str
                 })
                 
                 result["sent"] = True
