@@ -1,4 +1,6 @@
-# Stage 1: Build stage
+# Base Dockerfile for NLWeb development and production
+# This serves as the foundation for both development containers and production builds
+
 FROM python:3.13-slim AS builder
 
 # Install build dependencies
@@ -16,7 +18,7 @@ COPY code/requirements.txt .
 # Install Python packages
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Stage 2: Runtime stage
+# Create runtime stage
 FROM python:3.13-slim
 
 # Apply security updates
@@ -28,28 +30,16 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# Create a non-root user and set permissions
-RUN groupadd -r nlweb && \
-    useradd -r -g nlweb -d /app -s /bin/bash nlweb && \
-    chown -R nlweb:nlweb /app
-
-USER nlweb
-
-# Copy application code
-COPY code/ /app/
-COPY static/ /app/static/
+# We'll use the host user's UID/GID via devcontainer.json
+# This allows for better file permission handling between host and container
 
 # Copy installed packages from builder stage
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Expose the port the app runs on
-EXPOSE 8000
-
 # Set environment variables
-ENV NLWEB_OUTPUT_DIR=/app
 ENV PYTHONPATH=/app
 ENV PORT=8000
 
-# Command to run the application
-CMD ["python", "app-file.py"]
+# Tag the image
+LABEL org.opencontainers.image.description="NLWeb Base Image for Dev Containers"
