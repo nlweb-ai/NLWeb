@@ -321,7 +321,7 @@ class ToolSelector:
             tools = self.get_tools_by_type(schema_type)
             
             # Evaluate tools with early termination strategy
-            tool_results = await self._evaluate_tools_with_early_termination(query, tools, threshold=79)
+            tool_results = await self._evaluate_tools_with_early_termination(query, tools, threshold=90)
             
             # Sort by score
             tool_results.sort(key=lambda x: x["score"], reverse=True)
@@ -349,7 +349,7 @@ class ToolSelector:
             
             # Check if top tool is not search and abort fastTrack if needed
             if tool_results and tool_results[0]['tool'].name != 'search':
-                logger.info(f"FastTrack aborted: Top tool is '{tool_results[0]['tool'].name}', not 'search'")
+                print(f"FastTrack aborted: Top tool is '{tool_results[0]['tool'].name}', not 'search'")
                 # Abort fast track using the proper event mechanism
                 self.handler.abort_fast_track_event.set()
             
@@ -412,8 +412,8 @@ class ToolSelector:
         filled_prompt = fill_prompt(tool.prompt, self.handler)
         
         try:
-            # Determine LLM level based on tool name
-            level = "low" if tool.name == "search" else "high"
+            # Use high level for all tools to ensure fair evaluation timing
+            level = "high"
             start_time = time.time()
             response = await ask_llm(filled_prompt, tool.return_structure, level=level)
             end_time = time.time()

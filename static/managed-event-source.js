@@ -306,6 +306,14 @@ export class ManagedEventSource {
         chatInterface.scrollDiv.scrollIntoView();
         this.close();
         break;
+      // Header messages - handle silently
+      case "api_version":
+      case "user_agent":
+      case "data_retention":
+      case "header":
+      case "time-to-first-result":
+        // These are header/metadata messages, no action needed
+        break;
       default:
         console.log("Unknown message type:", messageType);
         break;
