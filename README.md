@@ -1,4 +1,4 @@
-# What is NLWeb ?
+# What is NLWeb?
 
 **NLWeb** simplifies the process of building conversational interfaces for websites. It natively supports MCP (Model Context Protocol), allowing the same natural language APIs to serve both humans and AI agents.
 
