@@ -74,16 +74,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: left var(--transition);
+      transition: left var(--transition), border-radius var(--transition);
       z-index: 10;
+      box-shadow: var(--shadow-sm);
     }
     
-    .sidebar.collapsed ~ .sidebar-toggle {
+    .sidebar-toggle.sidebar-collapsed {
       left: 0;
+      border-radius: 0 6px 6px 0;
+      box-shadow: 2px 0 6px rgba(0,0,0,0.1);
     }
     
     .sidebar-toggle:hover {
       background-color: var(--hover-bg);
+      box-shadow: var(--shadow-md);
     }
     
     .sidebar-toggle svg {
@@ -92,7 +96,7 @@
       transition: transform 0.2s ease;
     }
     
-    .sidebar.collapsed ~ .sidebar-toggle svg {
+    .sidebar-toggle.sidebar-collapsed svg {
       transform: rotate(180deg);
     }
 
@@ -867,6 +871,6 @@
   <!-- Data Commons script for web components -->
   <script src="https://datacommons.org/datacommons.js"></script>
   
-  <script type="module" src="./modern-chat-interface.js"></script>
+  <script type="module" src="./fp-chat-interface.js"></script>
 </body>
 </html>

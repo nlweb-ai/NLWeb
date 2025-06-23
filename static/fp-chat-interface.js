@@ -59,6 +59,7 @@ class ModernChatInterface {
     const isCollapsed = localStorage.getItem('nlweb-sidebar-collapsed') === 'true';
     if (isCollapsed) {
       this.elements.sidebar.classList.add('collapsed');
+      this.elements.sidebarToggle.classList.add('sidebar-collapsed');
     }
     
     // Bind events
@@ -72,6 +73,7 @@ class ModernChatInterface {
     // Sidebar toggle
     this.elements.sidebarToggle.addEventListener('click', () => {
       this.elements.sidebar.classList.toggle('collapsed');
+      this.elements.sidebarToggle.classList.toggle('sidebar-collapsed');
       
       // Save state to localStorage
       const isCollapsed = this.elements.sidebar.classList.contains('collapsed');
