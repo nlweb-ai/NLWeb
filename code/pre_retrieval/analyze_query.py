@@ -34,6 +34,16 @@ class DetectItemType(PromptRunner):
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             logger.info("Analyze query is disabled in config, skipping DetectItemType")
             return
+        # Check if item_type is already set to Statistics from site mapping
+        current_item_type = getattr(self.handler, 'item_type', '')
+        if isinstance(current_item_type, str) and '}' in current_item_type:
+            current_item_type = current_item_type.split('}')[1]
+            
+        if current_item_type == "Statistics":
+            logger.info(f"Item type already set to Statistics from site mapping, skipping DetectItemType")
+            await self.handler.state.precheck_step_done(self.STEP_NAME)
+            return {"item_type": "Statistics"}
+            
         response = await self.run_prompt(self.ITEM_TYPE_PROMPT_NAME, level="low")
         if (response):
             logger.debug(f"DetectItemType response: {response}")

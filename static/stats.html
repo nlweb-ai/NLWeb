@@ -167,13 +167,14 @@
     }
   }
 </style>
+<!-- Import the Data Commons script -->
+<script src="https://datacommons.org/datacommons.js"></script>
 <!-- Import styles module -->
 <script type="module">
   import { applyStyles } from './styles.js';
   // Apply styles immediately
   applyStyles();
 </script>
-
 <body>
   <div id="ai-search-container">
     <div class="search-box">
@@ -225,7 +226,7 @@
         if (chat_interface) {
           return chat_interface;
         }
-        chat_interface = new ChatInterface('', 'nlwebsearch', 'list');
+        chat_interface = new ChatInterface('datacommons', "single_site", "list");
         return chat_interface;
       }
 

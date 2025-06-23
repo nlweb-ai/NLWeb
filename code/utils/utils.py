@@ -2,7 +2,7 @@
 recipe_sites = ['seriouseats', 'hebbarskitchen', 'latam_recipes',
                 'woksoflife', 'cheftariq',  'spruce', 'nytimes']
 
-all_sites = recipe_sites + ["imdb", "npr podcasts", "neurips", "backcountry", "tripadvisor"]
+all_sites = recipe_sites + ["imdb", "npr podcasts", "neurips", "backcountry", "tripadvisor", "DataCommons"]
 
 def siteToItemType(site):
     # For any single site's deployment, this can stay in code. But for the
@@ -23,6 +23,8 @@ def siteToItemType(site):
         et = "Restaurant"
     elif site == "zillow":
         et = "RealEstate"
+    elif site.lower() == "datacommons":
+        et = "Statistics"
     else:
         et = "Items"
     return f"{{{namespace}}}{et}"

@@ -29,18 +29,26 @@ export class ManagedEventSource {
    * @param {Object} chatInterface - The chat interface instance
    */
   connect(chatInterface) {
+    console.log('=== ManagedEventSource.connect called ===');
+    console.log('URL:', this.url);
+    
     if (this.isStopped) {
+      console.log('Connection stopped, not connecting');
       return;
     }
     
     this.eventSource = new EventSource(this.url);
     this.eventSource.chatInterface = chatInterface;
     
+    console.log('EventSource created:', this.eventSource);
+    
     this.eventSource.onopen = () => {
+      console.log('EventSource connection opened');
       this.retryCount = 0; // Reset retry count on successful connection
     };
 
     this.eventSource.onerror = (error) => {
+      console.error('EventSource error:', error);
       if (this.eventSource.readyState === EventSource.CLOSED) {
         console.log('Connection was closed');
         
@@ -67,6 +75,9 @@ export class ManagedEventSource {
    * @param {Event} event - The message event
    */
   handleMessage(event) {
+    console.log('=== handleMessage called ===');
+    console.log('Raw event data:', event.data);
+    
     const chatInterface = this.eventSource.chatInterface;
     
     // Handle first message by removing loading dots
@@ -131,6 +142,8 @@ export class ManagedEventSource {
         timestamp: new Date().toISOString()
       });
     }
+    
+    console.log('Processing message type:', messageType);
     
     switch(messageType) {
       case "query_analysis":
@@ -246,6 +259,10 @@ export class ManagedEventSource {
         chatInterface.noResponse = false;
         this.handleSubstitutionSuggestions(data, chatInterface);
         break;
+      case "chart_result":
+        chatInterface.noResponse = false;
+        this.handleChartResult(data, chatInterface);
+        break;
       case "no_results":
         chatInterface.noResponse = false;
         if (typeof data.message === 'string') {
@@ -308,6 +325,7 @@ export class ManagedEventSource {
         break;
       default:
         console.log("Unknown message type:", messageType);
+        console.log("Full message data:", data);
         break;
     }
   }
@@ -675,6 +693,46 @@ export class ManagedEventSource {
     card.appendChild(flexContainer);
     
     return card;
+  }
+
+  /**
+   * Handles chart result messages (Data Commons web components)
+   * 
+   * @param {Object} data - The message data containing chart HTML
+   * @param {Object} chatInterface - The chat interface instance
+   */
+  handleChartResult(data, chatInterface) {
+    console.log('=== Chart Result Handler Called ===');
+    console.log('Received data:', data);
+    
+    // Validate data
+    if (!data || typeof data.html !== 'string') {
+      console.error('Invalid chart result data');
+      return;
+    }
+    
+    console.log('HTML content to insert:', data.html);
+    
+    // Create container for the chart
+    const chartContainer = document.createElement('div');
+    chartContainer.className = 'chart-result-container';
+    chartContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px;';
+    
+    // Parse and inject the HTML content
+    // The HTML should contain the Data Commons web component and script tag
+    chartContainer.innerHTML = data.html;
+    
+    console.log('Container element created:', chartContainer);
+    console.log('Container innerHTML after setting:', chartContainer.innerHTML);
+    
+    // Append to chat interface
+    chatInterface.bubble.appendChild(chartContainer);
+    
+    console.log('Chart container appended to bubble');
+    console.log('Bubble contents:', chatInterface.bubble.innerHTML);
+    
+    // The Data Commons script should automatically initialize the web component
+    // when it's added to the DOM
   }
 
   /**

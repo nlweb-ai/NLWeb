@@ -147,7 +147,7 @@ class ToolSelector:
     }
     
     # Pre-cache these types for faster lookup
-    PRE_CACHE_TYPES = ["Thing", "Recipe", "Movie", "Product", "Restaurant", "Event", "Podcast"]
+    PRE_CACHE_TYPES = ["Thing", "Recipe", "Movie", "Product", "Restaurant", "Event", "Podcast", "Statistics"]
     
     # Class-level cache for get_tools_by_type results
     _type_tools_cache: Dict[str, List[Tool]] = {}

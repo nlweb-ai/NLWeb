@@ -637,4 +637,166 @@
     </Tool>
   </Thing>
 
+  <Statistics>
+    <Tool name="search" enabled="true">
+      <method>builtin</method>
+      <example>Find statistical reports about climate change</example>
+      <example>Search for data visualization tools</example>
+      <prompt>
+        The user has the following query: {request.query}.
+        
+        IMPORTANT: In the Statistics context, this is a specialized search tool that should ONLY find documents and reports,
+        NOT retrieve actual statistical data. The statistics_query tool handles all data retrieval.
+        
+        If the query contains words like "correlation", "median", "population", "income", "age", "compare", "ranking", "top", "highest", 
+        "lowest", or mentions any US geographic places (counties, cities, states), immediately return a score of 5 or less.
+        
+        The search tool should score VERY LOW (0-10) for:
+        - Queries asking for specific statistical values (population, income, etc.)
+        - Queries about demographic or economic data for specific places
+        - Any query that can be answered with data from Data Commons
+        - Correlation queries between variables (e.g., "correlation between X and Y")
+        - Ranking queries (e.g., "top counties by X")
+        - Comparison queries between places (e.g., "compare X between county A and B")
+        
+        The search tool should score HIGH (80-100) only for:
+        - Finding statistical reports or documents
+        - Searching for analysis tools or methodologies
+        - General exploration without specific data requests
+        
+        Assign a score from 0 to 100 for whether the search tool is appropriate.
+        Also provide the search query that should be passed to the tool.
+      </prompt>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "search_query": "the search query that should be passed to the tool"
+        }
+      </returnStruc>
+    </Tool>
+    
+    <Tool name="details" enabled="true">
+      <method>code</method>
+      <handler>core.item_details.ItemDetailsHandler</handler>
+      <example>What are the hours for the statistics office?</example>
+      <example>Show me details about the Data Commons organization</example>
+      <prompt>
+        The user has the following query: {request.query}.
+        
+        This is a Statistics-type query context. The details tool is NOT appropriate for statistical queries
+        about demographic or economic data. It should only be used for non-statistical details about 
+        organizations or offices.
+        
+        The details tool should score VERY LOW (0-10) for:
+        - Any query asking about statistical values (population, income, demographics)
+        - Any query about data for geographic places
+        - Any query with statistical variables
+        
+        The details tool should score HIGH only for:
+        - Details about organizations (not their statistics)
+        - Operating hours, contact information, etc.
+        
+        Assign a score from 0 to 100 for whether the details tool is appropriate.
+      </prompt>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "item_name": "the name or identifier of the specific item for which details are being sought",
+          "details_requested": "the details that the user is asking for"
+        }
+      </returnStruc>
+    </Tool>
+    
+    <Tool name="statistics_query" enabled="true">
+      <method>code</method>
+      <handler>core.statistics_handler.StatisticsHandler</handler>
+      <example>What is the median income in San Francisco county?</example>
+      <example>Which county has the highest population?</example>
+      <example>What is the correlation between median age and median income across counties?</example>
+      <example>How does population in Los Angeles county compare to San Diego county?</example>
+      <example>What are the top 5 counties by number of veterans?</example>
+      <example>Which counties have median income above $100,000?</example>
+      <prompt>
+        The user has the following query: {request.query}.
+        
+        The statistics query tool retrieves and analyzes statistical data about places (counties, cities, states) from Data Commons. It can handle:
+        - Single variable queries for a specific place (e.g., "What is the median income in X county?", "population of Y city")
+        - Comparisons between places for a variable (e.g., "compare population between county A and B")
+        - Rankings and extremes (e.g., "top N counties by variable", "which county has highest X")
+        - Correlations between variables (e.g., "correlation between X and Y")
+        - Filtering queries (e.g., "counties where X > threshold")
+        - Statistical aggregations (e.g., "average X across all counties")
+        - Trend analysis (e.g., "how has X changed from year1 to year2")
+        - Ratio and percentage calculations (e.g., "ratio of X to Y")
+        
+        Common variables include: population, median age, median income, number of homes, 
+        number of veterans, number of disabled, unemployment rate, poverty rate, education level,
+        and other demographic/economic indicators.
+        
+        The tool should score VERY HIGH (95-100) when the user asks:
+        - "What is the [variable] in [place]?" (e.g., "What is the median income in San Francisco county?")
+        - "Population of [place]" or "[variable] of [place]"
+        - Any question about demographic or economic data for geographic locations
+        
+        The tool should score HIGH (80-94) when the user asks about:
+        - Comparisons between places
+        - Rankings or extremes based on variables
+        - Correlations or relationships between variables
+        - Statistical aggregations or distributions
+        
+        The tool should score LOW (0-30) when:
+        - The query is not about statistical/demographic data
+        - The query is about non-place entities (people, products, etc.)
+        - The query asks for general details about a place without mentioning specific statistics
+        
+        Assign a score from 0 to 100 for whether this tool is appropriate.
+        If the score is above 74, extract the key components of the query.
+      </prompt>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "query_type": "type of statistical query (single_value, comparison, ranking, correlation, filter, aggregation, trend, ratio)",
+          "variables": "array of variable names mentioned in the query",
+          "places": "array of place names mentioned in the query",
+          "filters": "any filtering conditions (thresholds, comparisons)",
+          "time_range": "time period if specified (year1, year2)",
+          "aggregation": "type of aggregation if any (average, median, sum, etc.)",
+          "limit": "number of results requested (for top/bottom N queries)"
+        }
+      </returnStruc>
+    </Tool>
+    
+    <Tool name="compare" enabled="true">
+      <method>code</method>
+      <handler>core.compare_items.CompareItemsHandler</handler>
+      <example>Compare statistical methodologies between Census and ACS</example>
+      <example>Which data source is more reliable: BLS or Census?</example>
+      <prompt>
+        The user has the following query: {request.query}.
+        
+        In the Statistics context, the compare tool should only be used for comparing methodologies,
+        data sources, or organizations - NOT for comparing statistical values between places.
+        
+        The compare tool should score VERY LOW (0-10) for:
+        - Comparing statistical values between places (use statistics_query instead)
+        - Comparing demographics between counties/cities
+        - Any statistical data comparison
+        
+        The compare tool should score HIGH only for:
+        - Comparing data collection methodologies
+        - Comparing data sources or organizations
+        
+        Assign a score from 0 to 100 for whether the compare tool is appropriate.
+      </prompt>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "item1_name": "the name or identifier of the first item to compare",
+          "item2_name": "the name or identifier of the second item to compare",
+          "details_requested": "the details that the user is asking for"
+        }
+      </returnStruc>
+    </Tool>
+  </Statistics>
+
 </Tools>
