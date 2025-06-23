@@ -12,7 +12,7 @@ from utils.utils import log
 from llm.llm import ask_llm
 import asyncio
 import json
-from utils.trim import trim_json
+from utils.json_utils import trim_json
 from prompts.prompts import find_prompt, fill_prompt
 from utils.logging_config_helper import get_configured_logger
 
@@ -161,6 +161,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
                     "score": result["ranking"]["score"],
                     "description": result["ranking"]["description"],
                     "schema_object": result["schema_object"],
+                    "ranking_type": self.ranking_type_str
                 })
                 
                 result["sent"] = True
