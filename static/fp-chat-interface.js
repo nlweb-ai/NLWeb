@@ -473,6 +473,7 @@ class ModernChatInterface {
             // Add to remembered items
             this.addRememberedItem(data.item_to_remember);
           }
+
         } else if (data.message_type === 'chart_result') {
           // Handle chart result (web components)
           console.log('=== Chart Result Handler Called ===');
@@ -521,6 +522,7 @@ class ModernChatInterface {
               }, 100);
             }
           }
+
         } else if (data.message_type === 'complete') {
           this.endStreaming();
           return; // Exit early to avoid setting content on null
