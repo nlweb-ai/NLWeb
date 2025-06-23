@@ -109,8 +109,9 @@
         - Discovering recipes by cuisine type, cooking time, or difficulty
         - Broad recipe exploration when users want to see what's available
         
-        The search tool is NOT the best choice if the user is asking for specific details 
-        about a PARTICULAR named recipe (like ingredients, instructions, nutrition info, etc.).
+        The search tool is NOT the best choice if:
+        - The user is asking for specific details about a PARTICULAR named recipe (like ingredients, instructions, nutrition info, etc.)
+        - The user is asking for multiple complementary items to form a complete meal (appetizer + main + dessert)
         
         Assign a score from 0 to 100 for whether the recipe search tool is appropriate.
         Also provide the search query that should be passed to the tool.
@@ -125,6 +126,7 @@
 
     <Tool name="details" enabled="true">
       <method>code</method>
+      <handler>core.item_details.ItemDetailsHandler</handler>
       <example>What are the nutritional facts for Chicken Alfredo?</example>
       <example>Show me the ingredients for Beef Stroganoff</example>
       <example>How long does it take to make Homemade Lasagna?</example>
@@ -285,6 +287,7 @@
 
     <Tool name="details" enabled="true">
       <method>code</method>
+      <handler>core.item_details.ItemDetailsHandler</handler>
       <example>Who directed The Dark Knight?</example>
       <example>What's the plot of Inception?</example>
       <example>How long is Avengers Endgame?</example>
@@ -399,6 +402,7 @@
 
     <Tool name="details" enabled="true">
       <method>code</method>
+      <handler>core.item_details.ItemDetailsHandler</handler>
       <example>What colors does the iPhone 15 Pro come in?</example>
       <example>What's the price of the Samsung 65-inch QLED TV?</example>
       <example>Show me customer reviews for the Keurig K-Elite</example>
@@ -485,6 +489,7 @@
 
     <Tool name="details" enabled="true">
       <method>code</method>
+      <handler>core.item_details.ItemDetailsHandler</handler>
       <example>What are the hours for Olive Garden?</example>
       <example>Show me the menu for Joe's Pizza</example>
       <example>What's the rating for The French Laundry?</example>
