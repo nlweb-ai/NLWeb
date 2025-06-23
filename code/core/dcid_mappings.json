@@ -1,0 +1,26 @@
+{
+  "variables": {
+    "population": "Count_Person",
+    "median age": "Median_Age_Person",
+    "median income": "Median_Income_Person",
+    "number of homes": "Count_HousingUnit",
+    "number of veterans": "Count_Person_Veteran",
+    "number of disabled": "Count_Person_Disabled",
+    "unemployment rate": "UnemploymentRate_Person",
+    "poverty rate": "Count_Person_BelowPovertyLevelInThePast12Months",
+    "median home value": "Median_Value_HousingUnit",
+    "median rent": "Median_GrossRent_HousingUnit",
+    "life expectancy": "LifeExpectancy_Person",
+    "crime rate": "Count_CriminalActivities_CombinedCrime",
+    "education level": "Count_Person_EducationalAttainmentBachelorsDegreeOrHigher",
+    "household income": "Median_Income_Household",
+    "per capita income": "Mean_Income_Person"
+  },
+  "place_types": {
+    "county": "County",
+    "city": "City",
+    "state": "State",
+    "country": "Country",
+    "zip": "CensusZipCodeTabulationArea"
+  }
+}
