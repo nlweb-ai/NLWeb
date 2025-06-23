@@ -1507,7 +1507,7 @@ class ModernChatInterface {
         // Message content
         debugHtml += '<div style="background: #ffffff; border: 1px solid #d1d9e0; border-top: none; border-radius: 0 0 6px 6px; padding: 12px;">';
         debugHtml += '<pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; color: #1f2328; font-size: 12px;">';
-        debugHtml += this.escapeHtml(JSON.stringify(msg.data, null, 2));
+        debugHtml += this.formatDebugData(msg.data);
         debugHtml += '</pre>';
         debugHtml += '</div>';
         debugHtml += '</div>';
@@ -1522,7 +1522,7 @@ class ModernChatInterface {
       debugHtml += '</div>';
       debugHtml += '<div style="background: #ffffff; border: 1px solid #d1d9e0; border-top: none; border-radius: 0 0 6px 6px; padding: 12px;">';
       debugHtml += '<pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; color: #1f2328; font-size: 12px;">';
-      debugHtml += this.escapeHtml(JSON.stringify(this.currentStreamingMessage.allResults, null, 2));
+      debugHtml += this.formatDebugData(this.currentStreamingMessage.allResults);
       debugHtml += '</pre>';
       debugHtml += '</div>';
       debugHtml += '</div>';
@@ -1530,6 +1530,65 @@ class ModernChatInterface {
     
     debugHtml += '</div>';
     return debugHtml;
+  }
+  
+  formatDebugData(data) {
+    // Handle collapsible schema_objects
+    const createCollapsibleHtml = (obj, depth = 0) => {
+      if (typeof obj !== 'object' || obj === null) {
+        return this.escapeHtml(JSON.stringify(obj));
+      }
+      
+      if (Array.isArray(obj)) {
+        let html = '[\n';
+        obj.forEach((item, index) => {
+          const indent = '  '.repeat(depth + 1);
+          html += indent + createCollapsibleHtml(item, depth + 1);
+          if (index < obj.length - 1) html += ',';
+          html += '\n';
+        });
+        html += '  '.repeat(depth) + ']';
+        return html;
+      }
+      
+      let html = '{\n';
+      const entries = Object.entries(obj);
+      entries.forEach(([key, value], index) => {
+        const indent = '  '.repeat(depth + 1);
+        html += indent + '"' + this.escapeHtml(key) + '": ';
+        
+        if (key === 'schema_object' && value) {
+          // Create collapsible section for schema_object
+          const buttonId = `schema-toggle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const contentId = `schema-content-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
+          html += `<span style="color: #0969da; cursor: pointer;" onclick="
+            var btn = document.getElementById('${buttonId}');
+            var content = document.getElementById('${contentId}');
+            if (content.style.display === 'none') {
+              content.style.display = 'inline';
+              btn.textContent = '[-]';
+            } else {
+              content.style.display = 'none';
+              btn.textContent = '[+]';
+            }
+          "><span id="${buttonId}" style="font-weight: bold;">[+]</span></span><span id="${contentId}" style="display: none;">`;
+          
+          // Pretty print the schema object
+          html += '\n' + indent + JSON.stringify(value, null, 2).split('\n').join('\n' + indent);
+          html += '</span>';
+        } else {
+          html += createCollapsibleHtml(value, depth + 1);
+        }
+        
+        if (index < entries.length - 1) html += ',';
+        html += '\n';
+      });
+      html += '  '.repeat(depth) + '}';
+      return html;
+    };
+    
+    return createCollapsibleHtml(data);
   }
   
   escapeHtml(text) {
