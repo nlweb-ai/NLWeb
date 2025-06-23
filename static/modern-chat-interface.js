@@ -473,6 +473,54 @@ class ModernChatInterface {
             // Add to remembered items
             this.addRememberedItem(data.item_to_remember);
           }
+        } else if (data.message_type === 'chart_result') {
+          // Handle chart result (web components)
+          console.log('=== Chart Result Handler Called ===');
+          console.log('Received chart data:', data);
+          
+          if (data.html) {
+            // Create container for the chart
+            const chartContainer = document.createElement('div');
+            chartContainer.className = 'chart-result-container';
+            chartContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px; min-height: 400px;';
+            
+            // Parse the HTML to extract just the web component (remove script tags)
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(data.html, 'text/html');
+            
+            // Find all datacommons elements
+            const datacommonsElements = doc.querySelectorAll('[datacommons-scatter], [datacommons-bar], [datacommons-line], [datacommons-pie], [datacommons-map], datacommons-scatter, datacommons-bar, datacommons-line, datacommons-pie, datacommons-map');
+            
+            // Append each web component directly
+            datacommonsElements.forEach(element => {
+              // Clone the element to ensure we get all attributes
+              const clonedElement = element.cloneNode(true);
+              chartContainer.appendChild(clonedElement);
+              console.log('Added web component:', clonedElement.tagName, clonedElement.outerHTML);
+            });
+            
+            // If no datacommons elements found, try to add the raw HTML (excluding scripts)
+            if (datacommonsElements.length === 0) {
+              const allElements = doc.body.querySelectorAll('*:not(script)');
+              allElements.forEach(element => {
+                chartContainer.appendChild(element.cloneNode(true));
+              });
+            }
+            
+            // Append the chart to the message content
+            textDiv.innerHTML = messageContent + this.renderItems(allResults);
+            textDiv.appendChild(chartContainer);
+            
+            console.log('Chart container appended to message with', datacommonsElements.length, 'web components');
+            
+            // Force re-initialization of Data Commons components if available
+            if (window.datacommons && window.datacommons.init) {
+              setTimeout(() => {
+                window.datacommons.init();
+                console.log('Data Commons re-initialized');
+              }, 100);
+            }
+          }
         } else if (data.message_type === 'complete') {
           this.endStreaming();
           return; // Exit early to avoid setting content on null
