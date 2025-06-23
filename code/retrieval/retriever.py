@@ -18,6 +18,14 @@ from utils.utils import get_param
 from utils.logging_config_helper import get_configured_logger
 from utils.logger import LogLevel
 
+# Import client classes
+from retrieval.azure_search_client import AzureSearchClient
+from retrieval.milvus_client import MilvusVectorClient
+from retrieval.opensearch_client import OpenSearchClient
+from retrieval.qdrant import QdrantVectorClient
+from retrieval.snowflake_client import SnowflakeCortexSearchClient
+from retrieval.elasticsearch_client import ElasticsearchClient
+
 logger = get_configured_logger("retriever")
 
 # Client cache for reusing instances
@@ -249,6 +257,8 @@ class VectorDBClient:
                 elif self.db_type == "snowflake_cortex_search":
                     from retrieval.snowflake_client import SnowflakeCortexSearchClient
                     client = SnowflakeCortexSearchClient(self.endpoint_name)
+                elif self.db_type == "elasticsearch":
+                    client = ElasticsearchClient(self.endpoint_name)
                 else:
                     error_msg = f"Unsupported database type: {self.db_type}"
                     logger.error(error_msg)

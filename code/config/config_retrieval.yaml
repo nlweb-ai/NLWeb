@@ -77,3 +77,15 @@ endpoints:
     # Use script_score for vector similarity (slower but works without plugins)
     use_knn: false
 
+  elasticsearch:
+    # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
+    api_endpoint_env: ELASTICSEARCH_URL
+    # Authentication credentials
+    api_key_env: ELASTICSEARCH_API_KEY
+    # Index name to search in
+    index_name: nlweb_embeddings
+    # Database type
+    db_type: elasticsearch
+    # Vector properties
+    vector:
+      type: dense_vector
