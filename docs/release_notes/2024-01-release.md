@@ -1,4 +1,4 @@
-# NLWeb Release Notes - January 2024
+# NLWeb Release Notes - June 23 2025
 
 This release introduces significant enhancements to NLWeb's retrieval system, adds powerful tool calling capabilities, and provides new configuration options for response headers.
 
