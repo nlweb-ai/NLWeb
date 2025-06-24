@@ -41,7 +41,9 @@ class RetrievalProviderConfig:
     database_path: Optional[str] = None
     index_name: Optional[str] = None
     db_type: Optional[str] = None
-    use_knn: Optional[bool] = None  
+    use_knn: Optional[bool] = None
+    enabled: bool = False
+    vector_type: Optional[Dict[str,Any]] = None
 
 @dataclass
 class SSLConfig:
@@ -81,6 +83,7 @@ class NLWebConfig:
     analyze_query_enabled: bool = False  # Enable or disable query analysis
     decontextualize_enabled: bool = True  # Enable or disable decontextualization
     required_info_enabled: bool = True  # Enable or disable required info checking
+    headers: Dict[str, str] = field(default_factory=dict)  # HTTP headers to send
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
                    "config_webserver.yaml", "config_nlweb.yaml"]
@@ -234,9 +237,11 @@ class AppConfig:
                 "endpoints": {}
             }
 
-        # Changed from preferred_provider to preferred_endpoint
-        self.preferred_retrieval_endpoint: str = data["preferred_endpoint"]
+        # No longer using preferred_endpoint - now using enabled field on each endpoint
         self.retrieval_endpoints: Dict[str, RetrievalProviderConfig] = {}
+        
+        # Get the write endpoint for database modifications
+        self.write_endpoint: str = data.get("write_endpoint", None)
 
         # Changed from providers to endpoints
         for name, cfg in data.get("endpoints", {}).items():
@@ -246,7 +251,9 @@ class AppConfig:
                 api_endpoint=self._get_config_value(cfg.get("api_endpoint_env")),
                 database_path=self._get_config_value(cfg.get("database_path")),
                 index_name=self._get_config_value(cfg.get("index_name")),
-                db_type=self._get_config_value(cfg.get("db_type"))  # Add db_type
+                db_type=self._get_config_value(cfg.get("db_type")),  # Add db_type
+                enabled=cfg.get("enabled", False),  # Add enabled field
+                vector_type=self._get_config_value(cfg.get("vector_type"))
             )
     
     def load_webserver_config(self, path: str = "config_webserver.yaml"):
@@ -377,6 +384,9 @@ class AppConfig:
         # Load required info enabled flag
         required_info_enabled = self._get_config_value(data.get("required_info_enabled"), True)
         
+        # Load headers from config
+        headers = data.get("headers", {})
+        
         # Convert relative paths to use NLWEB_OUTPUT_DIR if available
         base_output_dir = self.base_output_directory
         if base_output_dir:
@@ -398,7 +408,8 @@ class AppConfig:
             memory_enabled=memory_enabled,
             analyze_query_enabled=analyze_query_enabled,
             decontextualize_enabled=decontextualize_enabled,
-            required_info_enabled=required_info_enabled
+            required_info_enabled=required_info_enabled,
+            headers=headers
         )
     
     def get_chatbot_instructions(self, instruction_type: str = "search_results") -> str:

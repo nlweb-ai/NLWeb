@@ -37,10 +37,10 @@ class ElasticsearchClient:
         
         # Get endpoint configuration
         self.endpoint_config = self._get_endpoint_config()
-        
         # Handle None values from configuration
         self.api_endpoint = self.endpoint_config.api_endpoint
         self.api_key = self.endpoint_config.api_key
+        self.default_index_name = self.endpoint_config.index_name or "embeddings"
         
         if self.api_endpoint is None:
             raise ValueError(f"API endpoint not configured for {self.endpoint_name}. Check environment variable configuration.")
@@ -52,7 +52,7 @@ class ElasticsearchClient:
     def _get_endpoint_config(self):
         """Get the Elasticsearch endpoint configuration from CONFIG"""
         endpoint_config = CONFIG.retrieval_endpoints.get(self.endpoint_name)
-        
+
         if not endpoint_config:
             error_msg = f"No configuration found for endpoint {self.endpoint_name}"
             logger.error(error_msg)
@@ -72,7 +72,7 @@ class ElasticsearchClient:
         logger.debug(f"Creating client parameters for endpoint: {self.endpoint_name}")
 
         # Check for URL-based connection
-        params["url"] = self.api_endpoint
+        params["hosts"] = self.api_endpoint
         params["api_key"] = self.api_key
 
         logger.debug(f"Final client parameters: {params}")
@@ -83,10 +83,10 @@ class ElasticsearchClient:
         params = {}
         logger.debug(f"Creating client parameters for endpoint: {self.endpoint_name}")
         
-        self.vector_properties = self.endpoint_config.vector
-        if self.vector_properties is None:
+        params = self.endpoint_config.vector_type
+        if params is None:
             # Set the default as dense_vector
-            self.vector_properties = {
+            return {
                 'type': 'dense_vector'
             }
         
@@ -184,7 +184,7 @@ class ElasticsearchClient:
                     }
                 }
             },
-            "embedding": self.vector_properties
+            "embedding": self._create_vector_properties()
         }
         
         try:
@@ -321,16 +321,16 @@ class ElasticsearchClient:
         # Ensure index exists with proper mapping
         await self.create_index_if_not_exists(index_name)
         
-        url = doc.get('url', '')
-        if url == '':
-            raise ValueError('The url cannot be empty')
-        
-        # Convert the URL in a deterministic unique ID
-        id = str(uuid.uuid5(uuid.NAMESPACE_URL, url))
-        
         # Prepare bulk operations
         operations = []
         for doc in documents:
+            url = doc.get('url', '')
+            if url == '':
+                raise ValueError('The url cannot be empty')
+        
+            # Convert the URL in a deterministic unique ID
+            id = str(uuid.uuid5(uuid.NAMESPACE_URL, url))
+            
             # Index action metadata
             action = {
                 "index": {
@@ -385,7 +385,7 @@ class ElasticsearchClient:
             )
             raise
     
-    async def _format_es_response(response: List[Dict[str, Any]]) -> List[List[str]]:
+    async def _format_es_response(self, response: Dict[str, Any]) -> List[List[str]]:
         """ 
         Converts the Elasticsearch response in a list of values [url, schema_json, name, site_name]
 
@@ -431,7 +431,7 @@ class ElasticsearchClient:
         }
         if filter:
             search_query['knn']['filter'] = filter
-        
+
         try:
             return await client.search(index = index_name, query = search_query, source = source)           
         except Exception as e:
