@@ -13,6 +13,8 @@ skip_types = ["ListItem", "ItemList", "Organization", "BreadcrumbList", "Breadcr
 skip_properties = ["publisher", "mainEntityOfPage"]
 
 def should_skip_item(site, item):
+    if item is None:
+        return True
     if "@type" in item and item["@type"] in skip_types:
         return True
     # Check if @type is a list and if any value in the list is in skip_types
@@ -45,6 +47,8 @@ def trim_schema_json_list(schema_json, site):
     return trimmed_items or None
 
 def trim_schema_json(schema_json, site):
+    if schema_json is None:
+        return None
     if isinstance(schema_json, list):
         return trim_schema_json_list(schema_json, site)
     elif (isinstance(schema_json, dict) and "@graph" in schema_json):

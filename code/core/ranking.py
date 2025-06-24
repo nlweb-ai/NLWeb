@@ -80,6 +80,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             ranking = await ask_llm(prompt, ans_struc, level="low", query_params=self.handler.query_params)
             logger.debug(f"Received ranking score: {ranking.get('score', 'N/A')} for item: {name}")
             
+            
             # Handle both string and dictionary inputs for json_str
             schema_object = json_str if isinstance(json_str, dict) else json.loads(json_str)
             
@@ -98,7 +99,6 @@ The user's question is: {request.query}. The item's description is {item.descrip
                     await self.sendAnswers([ansr])
                 except (BrokenPipeError, ConnectionResetError):
                     logger.warning(f"Client disconnected while sending early answer for {name}")
-                    print(f"Client disconnected while sending early answer for {name}")
                     self.handler.connection_alive_event.clear()
                     return
             
@@ -109,7 +109,6 @@ The user's question is: {request.query}. The item's description is {item.descrip
         except Exception as e:
             logger.error(f"Error in rankItem for {name}: {str(e)}")
             logger.debug(f"Full error trace: ", exc_info=True)
-            print(f"Error in rankItem for {name}: {str(e)}")
             # Import here to avoid circular import
             from config.config import CONFIG
             if CONFIG.should_raise_exceptions():
@@ -138,7 +137,6 @@ The user's question is: {request.query}. The item's description is {item.descrip
     async def sendAnswers(self, answers, force=False):
         if not self.handler.connection_alive_event.is_set():
             logger.warning("Connection lost during ranking, skipping sending results")
-            print("Connection lost during ranking, skipping sending results")
             return
         
         if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
@@ -218,7 +216,6 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 self.handler.sites_in_embeddings_sent = True
             except (BrokenPipeError, ConnectionResetError):
                 logger.warning("Client disconnected when sending sites message")
-                print("Client disconnected when sending sites message")
                 self.handler.connection_alive_event.clear()
     
     async def do(self):

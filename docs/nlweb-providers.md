@@ -25,11 +25,14 @@ File updates:
 ```
 - **code\env.template:** Make sure that the environment variables that you added are also added to this file, with default values if appropriate, so that new users getting started know what environment variables they will need.
 - **code\llm\llm.py**: Add your model to the provider mapping here.
-- **Connectivity check** tool - please add this in [Azure-Connectivity](../code/azure-connectivity.py) for now; later this file will be updated to hold all connectivity checks.
 
 New files:
 - **docs\\setup-\<your-model-name>.md:** Add any model-specific documentation here.
 - **code\llm\\<your_model_name>.py:** Implement the LLMProvider interface for your model here.
+
+Testing:
+- **Connectivity check** tool - please test your integration with the [Check Connectivity](../code/check_connectivity.py) script and ensure that it works when the configuration is set properly and fails when the API key is not set or other items are not configured properly, preferably with helpful error messages.  
+
 
 ## Retrieval Provider Checklist
 
@@ -57,3 +60,6 @@ New files:
 - **code\retrieval\\\<your_retrieval_name>_client.py:** Implement the VectorDBClientInterface for your retrieval provider here.
 - **code\tools\\\<your_retrieval_name>_load.py:** Add logic to load embeddings into your vector database here and any other tools needed for maintaining the database.
 - **docs\\setup-\<your-retriever-name>.md:** Add any retriever-specific documentation here.  Please ensure to document any tooling you provide.
+
+Testing:
+- **Connectivity check** tool - please test your integration with the [Check Connectivity](../code/check_connectivity.py) script and ensure that it works when the configuration is set properly and fails when the API key is not set or other items are not configured properly, preferably with helpful error messages.  

@@ -11,6 +11,26 @@ data_folders:
   json_data: "../data/json"
   json_with_embeddings: "../data/json_with_embeddings"
 
+# Enable or disable tool selection
+# When set to false, queries will skip tool selection and go directly to search
+tool_selection_enabled: true
+
+# Enable or disable memory functionality
+# When set to false, the system will not analyze queries for memory requests
+memory_enabled: true
+
+# Enable or disable query analysis
+# When set to false, the system will skip item type detection, multi-item type detection, and query type detection
+analyze_query_enabled: true
+
+# Enable or disable decontextualization
+# When set to false, the system will not attempt to decontextualize queries based on previous context
+decontextualize_enabled: true
+
+# Enable or disable required info checking
+# When set to false, the system will not check if required information is present before processing queries
+required_info_enabled: true
+
 # Chatbot formatting instructions
 chatbot_instructions:
   # Instructions for formatting search results

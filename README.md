@@ -55,8 +55,9 @@ Most production deployments will:
 
 ### Getting Started
 
-* [Hello World on Your Laptop](docs/nlweb-hello-world.md)
-* [Running on Azure](docs/setup-azure.md)
+* [Hello world on your laptop](docs/nlweb-hello-world.md)
+* [Running it on Azure](docs/setup-azure.md)
+* [Running with Docker](docs/docker.md)
 * Running on GCP — *coming soon*
 * Running on AWS — *coming soon*
 
@@ -68,6 +69,7 @@ Most production deployments will:
 * [Modifying the User Interface](docs/user-interface.md)
 * [REST API](docs/nlweb-rest-api.md)
 * [Adding Memory](docs/nlweb-memory.md)
+* [Using the Check Connectivity Script to Test your Configuration](docs/nlweb-check-connectivity.md)
 
 ## License
 
