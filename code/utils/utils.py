@@ -19,8 +19,6 @@ def siteToItemType(site):
         et = "Paper"
     elif site == "backcountry":
         et = "Outdoor Gear"
-    elif site == "tripadvisor":
-        et = "Restaurant"
     elif site == "zillow":
         et = "RealEstate"
     else:

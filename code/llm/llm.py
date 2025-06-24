@@ -23,6 +23,24 @@ logger = get_configured_logger("llm_wrapper")
 # Cache for loaded providers
 _loaded_providers = {}
 
+def init():
+    """Initialize LLM providers based on configuration."""
+    print("=== LLM initialization starting ===")
+    
+    # Get all configured LLM endpoints
+    for endpoint_name, endpoint_config in CONFIG.llm_endpoints.items():
+        llm_type = endpoint_config.llm_type
+        if llm_type and endpoint_name == CONFIG.preferred_llm_endpoint:
+            print(f"Preloading preferred LLM provider: {endpoint_name} (type: {llm_type})")
+            try:
+                # Use _get_provider which will load and cache the provider
+                _get_provider(llm_type)
+                print(f"Successfully loaded {llm_type} provider")
+            except Exception as e:
+                print(f"Failed to load {llm_type} provider: {e}")
+    
+    print("=== LLM initialization complete ===")
+
 # Mapping of LLM types to their required pip packages
 _llm_type_packages = {
     "openai": ["openai>=1.12.0"],
@@ -100,7 +118,7 @@ def _get_provider(llm_type: str):
     # Ensure required packages are installed
     _ensure_package_installed(llm_type)
     
-    # Import the appropriate provider module
+    # Import the appropriate provider module if not already loaded
     try:
         if llm_type == "openai":
             from llm.openai import provider as openai_provider
@@ -143,7 +161,8 @@ async def ask_llm(
     provider: Optional[str] = None,
     level: str = "low",
     timeout: int = 8,
-    query_params: Optional[Dict[str, Any]] = None
+    query_params: Optional[Dict[str, Any]] = None,
+    max_length: int = 512
 ) -> Dict[str, Any]:
     """
     Route an LLM request to the specified endpoint, with dispatch based on llm_type.
@@ -155,6 +174,7 @@ async def ask_llm(
         level: The model tier to use ('low' or 'high')
         timeout: Request timeout in seconds
         query_params: Optional query parameters for development mode provider override
+        max_length: Maximum length of the response in tokens (default: 512)
         
     Returns:
         Parsed JSON response from the LLM
@@ -218,9 +238,9 @@ async def ask_llm(
         
         # Simply call the provider's get_completion method without locking
         # Each provider should handle thread-safety internally
-        logger.debug(f"Calling {llm_type} provider completion for endpoint {provider_name}")
+        logger.debug(f"Calling {llm_type} provider completion for endpoint {provider_name} with max_tokens={max_length}")
         result = await asyncio.wait_for(
-            provider_instance.get_completion(prompt, schema, model=model_id),
+            provider_instance.get_completion(prompt, schema, model=model_id, timeout=timeout, max_tokens=max_length),
             timeout=timeout
         )
         logger.debug(f"{provider_name} response received, size: {len(str(result))} chars")

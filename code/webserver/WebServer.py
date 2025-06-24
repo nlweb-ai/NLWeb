@@ -516,6 +516,18 @@ if __name__ == "__main__":
         CONFIG.set_mode(args.mode)
         print(f"Mode overridden to: {args.mode}")
     
+    # Initialize router
+    import core.router as router
+    router.init()
+    
+    # Initialize LLM providers
+    import llm.llm as llm
+    llm.init()
+    
+    # Initialize retrieval clients
+    import retrieval.retriever as retriever
+    retriever.init()
+    
     try:
         port = get_port()
         

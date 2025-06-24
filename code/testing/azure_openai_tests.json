@@ -1,0 +1,7 @@
+
+ [ {
+    "test_type": "site_retrieval",
+    "description": "Test Azure AI Search site retrieval",
+    "retrieval_backend": "azure_ai_search",
+    "expected_min_sites": 1
+ }]
