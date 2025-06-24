@@ -31,7 +31,7 @@ class AzureOpenAIProvider(LLMProvider):
     @classmethod
     def get_azure_endpoint(cls) -> str:
         """Get the Azure OpenAI endpoint from configuration."""
-        provider_config = CONFIG.llm_providers.get("azure_openai")
+        provider_config = CONFIG.llm_endpoints.get("azure_openai")
         if provider_config and provider_config.endpoint:
             endpoint = provider_config.endpoint
             if endpoint:
@@ -42,7 +42,7 @@ class AzureOpenAIProvider(LLMProvider):
     @classmethod
     def get_api_key(cls) -> str:
         """Get the Azure OpenAI API key from configuration."""
-        provider_config = CONFIG.llm_providers.get("azure_openai")
+        provider_config = CONFIG.llm_endpoints.get("azure_openai")
         if provider_config and provider_config.api_key:
             api_key = provider_config.api_key
             if api_key:
@@ -53,7 +53,7 @@ class AzureOpenAIProvider(LLMProvider):
     @classmethod
     def get_api_version(cls) -> str:
         """Get the Azure OpenAI API version from configuration."""
-        provider_config = CONFIG.llm_providers.get("azure_openai")
+        provider_config = CONFIG.llm_endpoints.get("azure_openai")
         if provider_config and provider_config.api_version:
             api_version = provider_config.api_version
             return api_version
@@ -64,7 +64,7 @@ class AzureOpenAIProvider(LLMProvider):
     @classmethod
     def get_model_from_config(cls, high_tier=False) -> str:
         """Get the appropriate model from configuration based on tier."""
-        provider_config = CONFIG.llm_providers.get("azure_openai")
+        provider_config = CONFIG.llm_endpoints.get("azure_openai")
         if provider_config and provider_config.models:
             model_name = provider_config.models.high if high_tier else provider_config.models.low
             if model_name:
@@ -95,8 +95,8 @@ class AzureOpenAIProvider(LLMProvider):
                     )
                     logger.debug("Azure OpenAI client initialized successfully")
                 except Exception as e:
-                    logger.exception("Failed to initialize Azure OpenAI client")
-                    raise
+                    logger.error("Failed to initialize Azure OpenAI client")
+                    return None
                
         return cls._client
 
@@ -135,7 +135,7 @@ class AzureOpenAIProvider(LLMProvider):
         if start_idx == -1 or end_idx == 0:
             error_msg = "No valid JSON object found in response"
             logger.error(f"{error_msg}, content: {response_text}")
-            raise ValueError(error_msg)
+            return {}
             
 
         json_str = response_text[start_idx:end_idx]
@@ -146,7 +146,7 @@ class AzureOpenAIProvider(LLMProvider):
         except json.JSONDecodeError as e:
             error_msg = f"Failed to parse response as JSON: {e}"
             logger.error(f"{error_msg}, content: {json_str}")
-            #raise ValueError(error_msg)
+            return {}
 
     async def get_completion(
         self,
@@ -208,7 +208,7 @@ class AzureOpenAIProvider(LLMProvider):
             # Safely extract content from response, handling potential None
             if not response or not hasattr(response, 'choices') or not response.choices:
                 logger.error("Invalid or empty response from Azure OpenAI")
-                raise ValueError("Invalid or empty response structure from Azure OpenAI")
+                return {}
                 
             # Check if message and content exist
             if not hasattr(response.choices[0], 'message') or not hasattr(response.choices[0].message, 'content'):
@@ -221,9 +221,9 @@ class AzureOpenAIProvider(LLMProvider):
             
         except asyncio.TimeoutError:
             logger.error(f"Azure OpenAI request timed out after {timeout} seconds")
-            raise
+            return {}
         except Exception as e:
-            logger.exception(f"Error in Azure OpenAI completion: {str(e)}")
+            logger.error(f"Azure OpenAI completion failed: {type(e).__name__}: {str(e)}")
             raise
 
 

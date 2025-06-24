@@ -34,7 +34,7 @@ class DeepSeekAzureProvider(LLMProvider):
     def get_azure_endpoint(cls) -> str:
         """Get DeepSeek Azure endpoint from config"""
         logger.debug("Retrieving DeepSeek Azure endpoint from config")
-        provider_config = CONFIG.providers.get("deepseek_azure")
+        provider_config = CONFIG.llm_endpoints.get("deepseek_azure")
         if provider_config and provider_config.endpoint:
             endpoint = provider_config.endpoint
             if endpoint:
@@ -48,7 +48,7 @@ class DeepSeekAzureProvider(LLMProvider):
     def get_api_key(cls) -> str:
         """Get DeepSeek Azure API key from config"""
         logger.debug("Retrieving DeepSeek Azure API key from config")
-        provider_config = CONFIG.providers.get("deepseek_azure")
+        provider_config = CONFIG.llm_endpoints.get("deepseek_azure")
         if provider_config and provider_config.api_key:
             api_key = provider_config.api_key
             if api_key:
@@ -62,7 +62,7 @@ class DeepSeekAzureProvider(LLMProvider):
     def get_api_version(cls) -> str:
         """Get DeepSeek Azure API version from config"""
         logger.debug("Retrieving DeepSeek Azure API version from config")
-        provider_config = CONFIG.providers.get("deepseek_azure")
+        provider_config = CONFIG.llm_endpoints.get("deepseek_azure")
         if provider_config and provider_config.api_version:
             logger.debug(f"DeepSeek Azure API version: {provider_config.api_version}")
             return provider_config.api_version
@@ -93,8 +93,8 @@ class DeepSeekAzureProvider(LLMProvider):
                     )
                     logger.info("DeepSeek Azure client initialized successfully")
                 except Exception as e:
-                    logger.exception("Failed to initialize DeepSeek Azure client")
-                    raise
+                    logger.error("Failed to initialize DeepSeek Azure client")
+                    return None
         
         return cls._client
 
@@ -110,7 +110,7 @@ class DeepSeekAzureProvider(LLMProvider):
         if start_idx == -1 or end_idx == 0:
             error_msg = "No valid JSON object found in response"
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            return {}
         
         json_str = response_text[start_idx:end_idx]
         
@@ -120,7 +120,7 @@ class DeepSeekAzureProvider(LLMProvider):
             return result
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse response as JSON: {e}")
-            raise ValueError(f"Failed to parse response as JSON: {e}")
+            return {}
 
     async def get_completion(
         self,
@@ -135,7 +135,7 @@ class DeepSeekAzureProvider(LLMProvider):
         """Get completion from DeepSeek on Azure"""
         if model is None:
             # Get model from config if not provided
-            provider_config = CONFIG.providers.get("deepseek_azure")
+            provider_config = CONFIG.llm_endpoints.get("deepseek_azure")
             model = provider_config.models.high if provider_config else "deepseek-coder-33b"
         
         logger.info(f"Getting DeepSeek completion with model: {model}")
@@ -170,9 +170,9 @@ Only output the JSON object itself, with no markdown formatting, no explanations
             
         except asyncio.TimeoutError:
             logger.error(f"DeepSeek completion timed out after {timeout}s")
-            raise
+            return {}
         except Exception as e:
-            logger.exception("Error during DeepSeek completion")
+            logger.error(f"DeepSeek completion failed: {type(e).__name__}: {str(e)}")
             raise
 
 

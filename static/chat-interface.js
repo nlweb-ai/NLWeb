@@ -24,6 +24,7 @@ export class ChatInterface {
     this.eventSource = null;
     this.dotsStillThere = false;
     this.debug_mode = false;
+    this.lastAnswers = [];
     
     // Create JSON renderer
     this.jsonRenderer = new JsonRenderer();
@@ -81,7 +82,19 @@ export class ChatInterface {
     this.currentItems = [];
     this.itemToRemember = [];
     this.thisRoundSummary = null;
+    this.thisRoundDecontextQuery = null;
+    this.thisRoundToolSelection = null;
     this.num_results_sent = 0;
+    this.lastAnswers = [];
+    this.debugMessages = [];  // Store all messages for debug mode
+    
+    // Clear additional variables that were missing
+    this.sourcesMessage = null;
+    this.thisRoundRemembered = null;
+    this.pendingResultBatches = [];
+    this.noResponse = true;
+    this.decontextualizedQuery = null;
+    this.bubble = null;
   }
 
   /**
@@ -260,9 +273,8 @@ export class ChatInterface {
     this.dotsStillThere = true;
  
     try {
-      console.log("generate_mode", this.generate_mode);
       const selectedSite = (this.site || (this.siteSelect && this.siteSelect.value));
-      const selectedDatabase = this.database || (this.dbSelect && this.dbSelect.value) || 'azure_ai_search_1';
+      const selectedDatabase = this.database || (this.dbSelect && this.dbSelect.value) || '' ;
       const prev = JSON.stringify(this.prevMessages);
       const generate_mode = this.generate_mode;
       const context_url = this.context_url && this.context_url.value ? this.context_url.value : '';
@@ -270,22 +282,27 @@ export class ChatInterface {
       // Generate a unique query ID
       const timestamp = new Date().getTime();
       const queryId = `query_${timestamp}_${Math.floor(Math.random() * 1000)}`;
-      console.log("Generated query ID:", queryId);
       
       // Build query parameters
       const queryParams = new URLSearchParams();
       queryParams.append('query_id', queryId);
       queryParams.append('query', message);
       queryParams.append('site', selectedSite);
-      queryParams.append('db', selectedDatabase);
+      if (selectedDatabase) {
+        queryParams.append('db', selectedDatabase);
+      }
       queryParams.append('generate_mode', generate_mode);
       queryParams.append('prev', prev);
       queryParams.append('item_to_remember', this.itemToRemember || '');
       queryParams.append('context_url', context_url);
       
+      // Add last_ans parameter
+      if (this.lastAnswers && this.lastAnswers.length > 0) {
+        queryParams.append('last_ans', JSON.stringify(this.lastAnswers));
+      }
+      
       const queryString = queryParams.toString();
       const url = `/ask?${queryString}`;
-      console.log("url", url);
       this.noResponse = true;
       this.eventSource = new ManagedEventSource(url);
       this.eventSource.query_id = queryId;
@@ -345,18 +362,7 @@ export class ChatInterface {
     titleLink.className = 'item-title-link';
     titleRow.appendChild(titleLink);
 
-    // Info icon
-    const infoIcon = document.createElement('span');
-    // Use a safer way to create the icon
-    const imgElement = document.createElement('img');
-    imgElement.src = '/info.png';
-    imgElement.alt = 'Info';
-    infoIcon.appendChild(imgElement);
-    
-    infoIcon.className = 'item-info-icon';
-    // Sanitize tooltip content
-    infoIcon.title = `${escapeHtml(item.explanation || '')} (score=${item.score || 0}) (Ranking time=${item.time || 0})`;
-    titleRow.appendChild(infoIcon);
+   
 
     contentDiv.appendChild(titleRow);
   }
@@ -494,7 +500,6 @@ export class ChatInterface {
    * @param {Object} chatInterface - The chat interface instance
    */
   askUserMessage(message, chatInterface) { 
-    console.log("askUserMessage", message);
     const messageDiv = document.createElement('div');
     messageDiv.className = 'ask-user-message';
     // Use textContent for safe insertion
@@ -509,7 +514,6 @@ export class ChatInterface {
    * @param {Object} chatInterface - The chat interface instance
    */
   siteIsIrrelevantToQuery(message, chatInterface) { 
-    console.log("siteIsIrrelevantToQuery", message);
     const messageDiv = document.createElement('div');
     messageDiv.className = 'site-is-irrelevant-to-query';
     // Use textContent for safe insertion
@@ -555,6 +559,14 @@ export class ChatInterface {
         this.bubble.appendChild(this.thisRoundRemembered);
       }
       
+      if (this.thisRoundDecontextQuery) {
+        this.bubble.appendChild(this.thisRoundDecontextQuery);
+      }
+      
+      if (this.thisRoundToolSelection) {
+        this.bubble.appendChild(this.thisRoundToolSelection);
+      }
+      
       if (this.sourcesMessage) {
         this.bubble.appendChild(this.sourcesMessage);
       }
@@ -596,7 +608,50 @@ export class ChatInterface {
    * @returns {string} - The debug string
    */
   createDebugString() {
-    return jsonLdToHtml(this.currentItems);
+    let debugHtml = '<div style="font-family: ui-monospace, SFMono-Regular, \'SF Mono\', Consolas, \'Liberation Mono\', Menlo, monospace; font-size: 13px; line-height: 1.5;">';
+    
+    // MCP-style header
+    debugHtml += '<div style="background: #f6f8fa; border: 1px solid #d1d9e0; border-radius: 6px; padding: 12px; margin-bottom: 16px;">';
+    debugHtml += '<div style="color: #57606a; font-weight: 600; margin-bottom: 4px;">Debug Information</div>';
+    debugHtml += `<div style="color: #6e7781; font-size: 12px;">Messages: ${this.debugMessages ? this.debugMessages.length : 0} | Items: ${this.currentItems.length}</div>`;
+    debugHtml += '</div>';
+    
+    // Add debug messages in MCP style
+    if (this.debugMessages && this.debugMessages.length > 0) {
+      for (const msg of this.debugMessages) {
+        // Message type header
+        debugHtml += '<div style="margin-bottom: 12px;">';
+        debugHtml += '<div style="background: #ddf4ff; border: 1px solid #54aeff; border-radius: 6px 6px 0 0; padding: 8px 12px; font-weight: 600; color: #0969da;">';
+        debugHtml += `${escapeHtml(msg.type || 'unknown')}`;
+        if (msg.timestamp) {
+          debugHtml += `<span style="float: right; font-weight: normal; font-size: 11px; color: #57606a;">${new Date(msg.timestamp).toLocaleTimeString()}</span>`;
+        }
+        debugHtml += '</div>';
+        
+        // Message content
+        debugHtml += '<div style="background: #ffffff; border: 1px solid #d1d9e0; border-top: none; border-radius: 0 0 6px 6px; padding: 12px;">';
+        debugHtml += '<pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word; color: #1f2328; font-size: 12px;">';
+        debugHtml += escapeHtml(JSON.stringify(msg.data, null, 2));
+        debugHtml += '</pre>';
+        debugHtml += '</div>';
+        debugHtml += '</div>';
+      }
+    }
+    
+    // Add current items in MCP style
+    if (this.currentItems.length > 0) {
+      debugHtml += '<div style="margin-top: 24px;">';
+      debugHtml += '<div style="background: #fff8c5; border: 1px solid #d4a72c; border-radius: 6px 6px 0 0; padding: 8px 12px; font-weight: 600; color: #7d4e00;">';
+      debugHtml += 'Result Items';
+      debugHtml += '</div>';
+      debugHtml += '<div style="background: #ffffff; border: 1px solid #d1d9e0; border-top: none; border-radius: 0 0 6px 6px; padding: 12px;">';
+      debugHtml += jsonLdToHtml(this.currentItems);
+      debugHtml += '</div>';
+      debugHtml += '</div>';
+    }
+    
+    debugHtml += '</div>';
+    return debugHtml;
   }
 
   /**

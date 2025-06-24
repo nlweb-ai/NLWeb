@@ -118,6 +118,15 @@ class MCPFormatter:
                                 "partial_response": f"Results: {results_json}\n\n"
                             }
                         }
+                    elif message_type in ["user_agent", "data_retention", "api_version"]:
+                        # Header/metadata messages - format them specially
+                        content = message.get('content', message.get('api_version', ''))
+                        mcp_event = {
+                            "type": "function_stream_event",
+                            "content": {
+                                "partial_response": f"{message_type}: {content}\n"
+                            }
+                        }
                     else:
                         # Convert any other dictionary message to a JSON string for display
                         msg_json = json.dumps(message, indent=2)

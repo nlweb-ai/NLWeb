@@ -19,12 +19,12 @@ except ImportError as e:
     print("Please run: pip install -r requirements.txt")
     sys.exit(1)
 
-async def check_search_api():
+async def check_azure_search_api():
     """Check Azure AI Search connectivity"""
     print("\nChecking Azure AI Search connectivity...")
     
     # Get search configuration from CONFIG
-    preferred_endpoint = CONFIG.preferred_retrieval_endpoint
+    preferred_endpoint = CONFIG.write_endpoint
     if preferred_endpoint not in CONFIG.retrieval_endpoints:
         print(f"❌ Preferred retrieval endpoint '{preferred_endpoint}' not configured")
         return False
@@ -64,11 +64,11 @@ async def check_inception_api():
     print("\nChecking Inception API connectivity...")
     
     # Check if Inception is configured
-    if "inception" not in CONFIG.llm_providers:
+    if "inception" not in CONFIG.llm_endpoints:
         print("❌ Inception provider not configured")
         return False
     
-    inception_config = CONFIG.llm_providers["inception"]
+    inception_config = CONFIG.llm_endpoints["inception"]
     api_key = inception_config.api_key
     
     if not api_key:
@@ -89,11 +89,11 @@ async def check_openai_api():
     print("\nChecking OpenAI API connectivity...")
     
     # Check if OpenAI is configured
-    if "openai" not in CONFIG.llm_providers:
+    if "openai" not in CONFIG.llm_endpoints:
         print("❌ OpenAI provider not configured")
         return False
     
-    openai_config = CONFIG.llm_providers["openai"]
+    openai_config = CONFIG.llm_endpoints["openai"]
     api_key = openai_config.api_key
     
     if not api_key:
@@ -114,11 +114,11 @@ async def check_azure_openai_api():
     print("\nChecking Azure OpenAI API connectivity...")
     
     # Check if Azure OpenAI is configured
-    if "azure_openai" not in CONFIG.llm_providers:
+    if "azure_openai" not in CONFIG.llm_endpoints:
         print("❌ Azure OpenAI provider not configured")
         return False
     
-    azure_config = CONFIG.llm_providers["azure_openai"]
+    azure_config = CONFIG.llm_endpoints["azure_openai"]
     api_key = azure_config.api_key
     endpoint = azure_config.endpoint
     api_version = azure_config.api_version or "2024-12-01-preview"
@@ -146,7 +146,7 @@ async def check_azure_openai_api():
         print(f"❌ Error connecting to Azure OpenAI API: {e}")
         return False
 
-async def check_embedding_api():
+async def check_azure_embedding_api():
     """Check Azure Embedding API connectivity"""
     print("\nChecking Azure Embedding API connectivity...")
     
@@ -199,19 +199,19 @@ async def check_embedding_api():
 async def main():
     """Run all connectivity checks"""
     print("Running Azure connectivity checks...")
-    print(f"Using configuration from preferred LLM provider: {CONFIG.preferred_llm_provider}")
+    print(f"Using configuration from preferred LLM endpoint: {CONFIG.preferred_llm_endpoint}")
     print(f"Using configuration from preferred embedding provider: {CONFIG.preferred_embedding_provider}")
-    print(f"Using configuration from preferred retrieval endpoint: {CONFIG.preferred_retrieval_endpoint}")
+    print(f"Using configuration from preferred retrieval endpoint: {CONFIG.write_endpoint}")
     
     start_time = time.time()
     
     # Create and run all checks simultaneously
     tasks = [
-        check_search_api(),
+        check_azure_search_api(),
         check_inception_api(),
         check_openai_api(),
         check_azure_openai_api(),
-        check_embedding_api()
+        check_azure_embedding_api()
     ]
     
     results = await asyncio.gather(*tasks, return_exceptions=True)

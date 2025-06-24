@@ -21,6 +21,7 @@ class ModelConfig:
 
 @dataclass
 class LLMProviderConfig:
+    llm_type: str
     api_key: Optional[str] = None
     models: Optional[ModelConfig] = None
     endpoint: Optional[str] = None
@@ -39,7 +40,9 @@ class RetrievalProviderConfig:
     api_endpoint: Optional[str] = None
     database_path: Optional[str] = None
     index_name: Optional[str] = None
-    db_type: Optional[str] = None  
+    db_type: Optional[str] = None
+    use_knn: Optional[bool] = None
+    enabled: bool = False  
 
 @dataclass
 class SSLConfig:
@@ -74,6 +77,12 @@ class NLWebConfig:
     json_data_folder: str = "./data/json"  # Default folder for JSON data
     json_with_embeddings_folder: str = "./data/json_with_embeddings"  # Default folder for JSON with embeddings
     chatbot_instructions: Dict[str, str] = field(default_factory=dict)  # Dictionary of chatbot instructions
+    tool_selection_enabled: bool = True  # Enable or disable tool selection
+    memory_enabled: bool = False  # Enable or disable memory functionality
+    analyze_query_enabled: bool = False  # Enable or disable query analysis
+    decontextualize_enabled: bool = True  # Enable or disable decontextualization
+    required_info_enabled: bool = True  # Enable or disable required info checking
+    headers: Dict[str, str] = field(default_factory=dict)  # HTTP headers to send
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
                    "config_webserver.yaml", "config_nlweb.yaml"]
@@ -150,10 +159,10 @@ class AppConfig:
         with open(full_path, "r") as f:
             data = yaml.safe_load(f)
 
-            self.preferred_llm_provider: str = data["preferred_provider"]
-            self.llm_providers: Dict[str, LLMProviderConfig] = {}
+            self.preferred_llm_endpoint: str = data["preferred_endpoint"]
+            self.llm_endpoints: Dict[str, LLMProviderConfig] = {}
 
-            for name, cfg in data.get("providers", {}).items():
+            for name, cfg in data.get("endpoints", {}).items():
                 m = cfg.get("models", {})
                 models = ModelConfig(
                     high=self._get_config_value(m.get("high")),
@@ -164,8 +173,10 @@ class AppConfig:
                 api_key = self._get_config_value(cfg.get("api_key_env"))
                 api_endpoint = self._get_config_value(cfg.get("api_endpoint_env"))
                 api_version = self._get_config_value(cfg.get("api_version_env"))
+                llm_type = self._get_config_value(cfg.get("llm_type"))
                 # Create the LLM provider config - no longer include embedding model
-                self.llm_providers[name] = LLMProviderConfig(
+                self.llm_endpoints[name] = LLMProviderConfig(
+                    llm_type=llm_type,
                     api_key=api_key,
                     models=models,
                     endpoint=api_endpoint,
@@ -225,9 +236,11 @@ class AppConfig:
                 "endpoints": {}
             }
 
-        # Changed from preferred_provider to preferred_endpoint
-        self.preferred_retrieval_endpoint: str = data["preferred_endpoint"]
+        # No longer using preferred_endpoint - now using enabled field on each endpoint
         self.retrieval_endpoints: Dict[str, RetrievalProviderConfig] = {}
+        
+        # Get the write endpoint for database modifications
+        self.write_endpoint: str = data.get("write_endpoint", None)
 
         # Changed from providers to endpoints
         for name, cfg in data.get("endpoints", {}).items():
@@ -237,7 +250,8 @@ class AppConfig:
                 api_endpoint=self._get_config_value(cfg.get("api_endpoint_env")),
                 database_path=self._get_config_value(cfg.get("database_path")),
                 index_name=self._get_config_value(cfg.get("index_name")),
-                db_type=self._get_config_value(cfg.get("db_type"))  # Add db_type
+                db_type=self._get_config_value(cfg.get("db_type")),  # Add db_type
+                enabled=cfg.get("enabled", False)  # Add enabled field
             )
     
     def load_webserver_config(self, path: str = "config_webserver.yaml"):
@@ -353,6 +367,24 @@ class AppConfig:
         # Load chatbot instructions from config
         chatbot_instructions = data.get("chatbot_instructions", {})
         
+        # Load tool selection enabled flag
+        tool_selection_enabled = self._get_config_value(data.get("tool_selection_enabled"), True)
+        
+        # Load memory enabled flag
+        memory_enabled = self._get_config_value(data.get("memory_enabled"), False)
+        
+        # Load analyze query enabled flag
+        analyze_query_enabled = self._get_config_value(data.get("analyze_query_enabled"), False)
+        
+        # Load decontextualize enabled flag
+        decontextualize_enabled = self._get_config_value(data.get("decontextualize_enabled"), True)
+        
+        # Load required info enabled flag
+        required_info_enabled = self._get_config_value(data.get("required_info_enabled"), True)
+        
+        # Load headers from config
+        headers = data.get("headers", {})
+        
         # Convert relative paths to use NLWEB_OUTPUT_DIR if available
         base_output_dir = self.base_output_directory
         if base_output_dir:
@@ -369,7 +401,13 @@ class AppConfig:
             sites=sites_list,
             json_data_folder=json_data_folder,
             json_with_embeddings_folder=json_with_embeddings_folder,
-            chatbot_instructions=chatbot_instructions
+            chatbot_instructions=chatbot_instructions,
+            tool_selection_enabled=tool_selection_enabled,
+            memory_enabled=memory_enabled,
+            analyze_query_enabled=analyze_query_enabled,
+            decontextualize_enabled=decontextualize_enabled,
+            required_info_enabled=required_info_enabled,
+            headers=headers
         )
     
     def get_chatbot_instructions(self, instruction_type: str = "search_results") -> str:
@@ -417,6 +455,20 @@ class AppConfig:
         """Returns True if the system is running in development mode."""
         return getattr(self, 'mode', 'production').lower() == 'development'
     
+    def is_testing_mode(self) -> bool:
+        """Returns True if the system is running in testing mode."""
+        return getattr(self, 'mode', 'production').lower() == 'testing'
+    
+    def should_raise_exceptions(self) -> bool:
+        """Returns True if exceptions should be raised instead of caught (for testing and development)."""
+        return self.is_testing_mode() or self.is_development_mode()
+    
+    def set_mode(self, mode: str):
+        """Set the application mode (development, production, or testing)."""
+        if mode.lower() not in ['development', 'production', 'testing']:
+            raise ValueError(f"Invalid mode: {mode}. Must be 'development', 'production', or 'testing'")
+        self.mode = mode.lower()
+    
     def get_allowed_sites(self) -> List[str]:
         """Get the list of allowed sites from NLWeb configuration."""
         return self.nlweb.sites if hasattr(self, 'nlweb') else []
@@ -428,6 +480,26 @@ class AppConfig:
         if not allowed_sites or allowed_sites == ['all']:
             return True
         return site in allowed_sites
+    
+    def is_tool_selection_enabled(self) -> bool:
+        """Check if tool selection is enabled."""
+        return self.nlweb.tool_selection_enabled if hasattr(self, 'nlweb') else True
+    
+    def is_memory_enabled(self) -> bool:
+        """Check if memory functionality is enabled."""
+        return self.nlweb.memory_enabled if hasattr(self, 'nlweb') else False
+    
+    def is_analyze_query_enabled(self) -> bool:
+        """Check if query analysis is enabled."""
+        return self.nlweb.analyze_query_enabled if hasattr(self, 'nlweb') else False
+    
+    def is_decontextualize_enabled(self) -> bool:
+        """Check if decontextualization is enabled."""
+        return self.nlweb.decontextualize_enabled if hasattr(self, 'nlweb') else True
+    
+    def is_required_info_enabled(self) -> bool:
+        """Check if required info checking is enabled."""
+        return self.nlweb.required_info_enabled if hasattr(self, 'nlweb') else True
     
     def get_embedding_provider(self, provider_name: Optional[str] = None) -> Optional[EmbeddingProviderConfig]:
         """Get the specified embedding provider config or the preferred one if not specified."""
@@ -444,14 +516,14 @@ class AppConfig:
             
     def get_llm_provider(self, provider_name: Optional[str] = None) -> Optional[LLMProviderConfig]:
         """Get the specified LLM provider config or the preferred one if not specified."""
-        if not hasattr(self, 'llm_providers'):
+        if not hasattr(self, 'llm_endpoints'):
             return None
             
-        if provider_name and provider_name in self.llm_providers:
-            return self.llm_providers[provider_name]
+        if provider_name and provider_name in self.llm_endpoints:
+            return self.llm_endpoints[provider_name]
             
-        if hasattr(self, 'preferred_llm_provider') and self.preferred_llm_provider in self.llm_providers:
-            return self.llm_providers[self.preferred_llm_provider]
+        if hasattr(self, 'preferred_llm_endpoint') and self.preferred_llm_endpoint in self.llm_endpoints:
+            return self.llm_endpoints[self.preferred_llm_endpoint]
             
         return None
 

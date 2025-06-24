@@ -1,39 +1,30 @@
 import os
 import sys
-import uuid
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+import asyncio
+from typing import List, Dict, Any
 from db_create_utils import documentsFromCSVLine
 
-# To use a local persistent instance for prototyping,
-# set database_path to a local directory
-QDRANT_PATH = "/path/to/some/directory"
+# Add parent directory to path to import from code modules
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# To connect to a Qdrant server, set the `QDRANT_URL` and optionally `QDRANT_API_KEY`.
-# > docker run -p 6333:6333 qdrant/qdrant
-QDRANT_URL = None
-QDRANT_API_KEY = None
+from config.config import CONFIG
+from retrieval.retriever import upload_documents as upload_documents_wrapper
 
+# Default collection name and embedding size
 COLLECTION_NAME = "nlweb_collection"
 EMBEDDING_SIZE = 1536
 
-EMBEDDINGS_PATH_SMALL = "/Users/anush/Desktop/NLWeb/data/sites/embeddings/small"
-
-# Initialize Qdrant client
-client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, path=QDRANT_PATH)
+# Default embeddings path (can be overridden by command line argument)
+DEFAULT_EMBEDDINGS_PATH = "./data/sites/embeddings/small"
 
 
-def recreate_collection(collection_name, vector_size):
-    """Recreate a collection in Qdrant"""
-    if client.collection_exists(collection_name):
-        print(f"Dropping existing collection '{collection_name}'")
-        client.delete_collection(collection_name)
-
-    print(f"Creating collection '{collection_name}' with vector size {vector_size}")
-    client.create_collection(
-        collection_name=collection_name,
-        vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
-    )
+async def recreate_collection(client, collection_name: str, vector_size: int):
+    """Recreate a collection in the write endpoint database"""
+    # Note: This is specific to Qdrant and may not work with other backends
+    # For a more generic approach, consider adding a recreate_collection method to the retriever interface
+    print(f"WARNING: Collection recreation is not supported through the generic interface.")
+    print(f"Please use database-specific tools to recreate collections.")
+    print(f"Write endpoint is configured as: {CONFIG.write_endpoint}")
 
 
 def get_documents_from_csv(csv_file_path, site):
@@ -50,64 +41,105 @@ def get_documents_from_csv(csv_file_path, site):
     return documents
 
 
-def get_uuid_from_id(text_id):
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, text_id))
+async def upload_documents_to_database(documents: List[Dict[str, Any]], database: str = None):
+    """Upload documents to the configured write endpoint or specified database"""
+    # Filter out documents without embeddings
+    valid_documents = [doc for doc in documents if "embedding" in doc and doc["embedding"]]
+    
+    if not valid_documents:
+        print("No documents with embeddings to upload")
+        return 0
+    
+    # Upload documents using the wrapper function
+    if database:
+        # If a specific database is provided, use it
+        print(f"Using specified database: {database}")
+        uploaded_count = await upload_documents_wrapper(valid_documents, endpoint_name=database)
+    else:
+        # Otherwise use the configured write endpoint
+        if not CONFIG.write_endpoint:
+            raise ValueError("No write endpoint configured and no database specified")
+        print(f"Using configured write endpoint: {CONFIG.write_endpoint}")
+        uploaded_count = await upload_documents_wrapper(valid_documents)
+    
+    print(f"Uploaded {uploaded_count} documents")
+    return uploaded_count
 
 
-def upload_documents_to_qdrant(documents, collection_name):
-    """Upload documents to Qdrant"""
-    points = []
-    for doc in documents:
-        if "embedding" not in doc or not doc["embedding"]:
-            continue
-        point_id = get_uuid_from_id(doc["id"])
-        vector = doc["embedding"]
-        payload = {
-            "url": doc.get("url"),
-            "name": doc.get("name"),
-            "site": doc.get("site"),
-            "schema_json": doc.get("schema_json"),
-        }
-        points.append(PointStruct(id=point_id, vector=vector, payload=payload))
-
-    if points:
-        client.upsert(collection_name=collection_name, points=points)
-        print(f"Uploaded {len(points)} points to Qdrant collection '{collection_name}'")
-
-
-def upload_data_from_csv(csv_file_path, site, collection_name):
+async def upload_data_from_csv(csv_file_path: str, site: str, database: str = None):
+    """Load data from CSV and upload to the database"""
     documents = get_documents_from_csv(csv_file_path, site)
-    print(f"Found {len(documents)} documents in {site}")
-    upload_documents_to_qdrant(documents, collection_name)
+    print(f"Found {len(documents)} documents for site '{site}'")
+    
+    if documents:
+        await upload_documents_to_database(documents, database)
+    
     return len(documents)
 
 
-def main():
-    complete_reload = len(sys.argv) <= 1 or sys.argv[1].lower() == "reload=true"
-
-    if complete_reload:
-        recreate_collection(COLLECTION_NAME, EMBEDDING_SIZE)
-
-    embedding_paths = [EMBEDDINGS_PATH_SMALL]
+async def main():
+    """Main function to load data from CSV files to the configured database"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Load data from CSV files to vector database")
+    parser.add_argument("--path", default=DEFAULT_EMBEDDINGS_PATH, 
+                       help="Path to directory containing embedding files")
+    parser.add_argument("--database", help="Specific database endpoint to use (overrides write_endpoint)")
+    parser.add_argument("--recreate", action="store_true", 
+                       help="Recreate collection (WARNING: Not supported through generic interface)")
+    parser.add_argument("--site", help="Specific site to load (default: use filename as site)")
+    
+    args = parser.parse_args()
+    
+    # Check if write endpoint is configured
+    if not args.database and not CONFIG.write_endpoint:
+        print("ERROR: No write endpoint configured and no --database specified")
+        print("Please configure 'write_endpoint' in config_retrieval.yaml or specify --database")
+        return
+    
+    # Display configuration
+    print(f"Loading data from: {args.path}")
+    if args.database:
+        print(f"Target database: {args.database} (override)")
+    else:
+        print(f"Target database: {CONFIG.write_endpoint} (from config)")
+    
+    if args.recreate:
+        client = get_vector_db_client(endpoint_name=args.database)
+        await recreate_collection(client, COLLECTION_NAME, EMBEDDING_SIZE)
+    
+    # Process files
+    embedding_path = args.path
+    if not os.path.exists(embedding_path):
+        print(f"ERROR: Path does not exist: {embedding_path}")
+        return
+    
     total_documents = 0
-
-    for path in embedding_paths:
-        csv_files = [
-            f.replace(".txt", "") for f in os.listdir(path) if f.endswith(".txt")
-        ]
-        for csv_file in csv_files:
-            print(f"\nProcessing file: {csv_file}")
-            csv_file_path = os.path.join(path, f"{csv_file}.txt")
-            try:
-                documents_added = upload_data_from_csv(
-                    csv_file_path, csv_file, COLLECTION_NAME
-                )
-                total_documents += documents_added
-            except Exception as e:
-                print(f"Error processing file {csv_file}: {e}")
-
+    csv_files = [f for f in os.listdir(embedding_path) if f.endswith(".txt")]
+    
+    if not csv_files:
+        print(f"No .txt files found in {embedding_path}")
+        return
+    
+    print(f"Found {len(csv_files)} files to process")
+    
+    for csv_file in csv_files:
+        # Use filename as site name if not specified
+        site = args.site or csv_file.replace(".txt", "")
+        
+        print(f"\nProcessing file: {csv_file} for site: {site}")
+        csv_file_path = os.path.join(embedding_path, csv_file)
+        
+        try:
+            documents_added = await upload_data_from_csv(csv_file_path, site, args.database)
+            total_documents += documents_added
+        except Exception as e:
+            print(f"Error processing file {csv_file}: {e}")
+            import traceback
+            traceback.print_exc()
+    
     print(f"\nData processing completed. Total documents added: {total_documents}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

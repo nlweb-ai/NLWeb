@@ -11,7 +11,7 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from retrieval.retriever import get_vector_db_client
+from retrieval.retriever import search
 import core.ranking as ranking
 from utils.logger import get_logger, LogLevel
 from utils.logging_config_helper import get_configured_logger
@@ -48,8 +48,11 @@ class FastTrack:
         
         try:
             logger.debug(f"Retrieving items for query: {self.handler.query}")
-            client = get_vector_db_client(query_params=self.handler.query_params)
-            items = await client.search(self.handler.query, self.handler.site)
+            items = await search(
+                self.handler.query, 
+                self.handler.site,
+                query_params=self.handler.query_params
+            )
             self.handler.final_retrieved_items = items
             logger.info(f"Fast track retrieved {len(items)} items")
             
@@ -67,9 +70,9 @@ class FastTrack:
             if decon_done:
                 logger.debug("Decontextualization is done")
                 
-                if (self.handler.requires_decontextualization):
-                    logger.info("Fast track aborted: decontextualization required")
-                    self.handler.abort_fast_track_event.set()
+                # Check all abort conditions using centralized method
+                if self.handler.state.abort_fast_track_if_needed():
+                    logger.info("Fast track aborted: abort conditions met")
                     return
                 elif (not self.handler.query_done and not self.handler.abort_fast_track_event.is_set()):
                     logger.info("Fast track proceeding: decontextualization not required")
