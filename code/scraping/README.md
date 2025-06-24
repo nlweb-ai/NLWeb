@@ -181,7 +181,7 @@ The `--reprocess` flag allows you to recompute embeddings and re-upload existing
 
 The crawler uses the database configuration from `config_retrieval.yaml`. You can:
 
-1. Use the default database (configured as `preferred_retrieval_endpoint`)
+1. Use the default database (configured as `write_endpoint`)
 2. Specify a database with `--database` flag
 3. Available options depend on your configuration (e.g., azure_ai_search, qdrant_local, milvus, opensearch)
 

@@ -46,7 +46,7 @@ def trim_recipe(obj):
     items = collateObjAttr(obj)
     js = {}
     skipAttrs = ["mainEntityOfPage", "publisher", "image", "datePublished", "dateModified", 
-                 "author"]
+                 "author", "copyrightHolder", "copyrightYear", "thumbnail", "transcript", "video"]
     for attr in items.keys():
         if (attr in skipAttrs):
             continue
@@ -56,8 +56,8 @@ def trim_recipe(obj):
 def trim_recipe_hard(obj):
     items = collateObjAttr(obj)
     js = {}
-    skipAttrs = ["mainEntityOfPage", "publisher", "image", "datePublished", "dateModified", "review",
-                 "author", "recipeYield", "recipeInstructions", "nutrition"]
+    skipAttrs = ["mainEntityOfPage", "publisher", "image", "datePublished", "dateModified", "review", "transcript", "video",
+                 "author", "recipeYield", "recipeInstructions", "nutrition", "copyrightHolder", "copyrightYear"]
     for attr in items.keys():
         if (attr in skipAttrs):
             continue

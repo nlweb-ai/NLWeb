@@ -1,0 +1,38 @@
+[
+  {
+    "test_type": "end_to_end",
+    "description": "Test spicy crunchy snacks query with all LLM providers",
+    "query": "spicy crunchy snacks",
+    "prev": "",
+    "site": "all",
+    "generate_mode": "list",
+    "streaming": "false",
+    "db": "azure_ai_search",
+    "llm_provider": "azure_openai",
+    "expected_min_results": 1
+  },
+  {
+    "test_type": "end_to_end",
+    "description": "Test follow-up query with protein requirement",
+    "query": "with more protein",
+    "prev": "spicy crunchy snacks",
+    "site": "all", 
+    "generate_mode": "list",
+    "streaming": "false",
+    "db": "azure_ai_search",
+    "llm_provider": "inception",
+    "expected_min_results": 1
+  },
+  {
+    "test_type": "end_to_end",
+    "description": "Test vegetarian constraint in conversation",
+    "query": "I am vegetarian",
+    "prev": "spicy crunchy snacks, with more protein",
+    "site": "all",
+    "generate_mode": "list",
+    "streaming": "false",
+    "db": "azure_ai_search",
+    "llm_provider": "openai",
+    "expected_min_results": 1
+  }
+]

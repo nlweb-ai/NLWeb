@@ -35,7 +35,7 @@ class MilvusVectorClient:
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
-        self.endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+        self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         logger.info(f"Initialized MilvusVectorClient for endpoint: {self.endpoint_name}")
 
         self._client_lock = threading.Lock()

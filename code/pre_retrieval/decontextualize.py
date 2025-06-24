@@ -83,7 +83,8 @@ class PrevQueryDecontextualizer(NoOpDecontextualizer):
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             message = {
                 "message_type": "decontextualized_query",
-                "decontextualized_query": self.handler.decontextualized_query
+                "decontextualized_query": self.handler.decontextualized_query,
+                "original_query": self.handler.query
             }
             logger.info(f"Sending decontextualized query: {self.handler.decontextualized_query}")
             await self.handler.send_message(message)
@@ -134,6 +135,16 @@ class ContextUrlDecontextualizer(PrevQueryDecontextualizer):
             self.handler.abort_fast_track_event.set()  # Use event instead of flag
             self.handler.decontextualized_query = response["decontextualized_query"]
             await self.handler.state.precheck_step_done(self.STEP_NAME)
+            
+            # Send decontextualized query message if it's different from the original
+            if self.handler.decontextualized_query != self.handler.query:
+                message = {
+                    "message_type": "decontextualized_query",
+                    "decontextualized_query": self.handler.decontextualized_query,
+                    "original_query": self.handler.query
+                }
+                logger.info(f"Sending decontextualized query: {self.handler.decontextualized_query}")
+                await self.handler.send_message(message)
             return
 
 class FullDecontextualizer(ContextUrlDecontextualizer):

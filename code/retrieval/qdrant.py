@@ -37,7 +37,7 @@ class QdrantVectorClient:
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
-        self.endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+        self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         self._client_lock = threading.Lock()
         self._qdrant_clients = {}  # Cache for Qdrant clients
         

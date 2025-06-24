@@ -93,9 +93,43 @@ export class JsonRenderer {
 
     // Description
     const description = document.createElement('div');
-    // Use textContent for safe insertion of description
-    description.textContent = item.description || item.details || '';
     description.className = 'item-description';
+    
+    const descContent = item.description || item.details || '';
+    
+    if (Array.isArray(descContent)) {
+      // Create table for arrays (like ingredients)
+      const table = document.createElement('table');
+      table.style.cssText = 'width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.9em;';
+      
+      // Create header
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      const headerCell = document.createElement('th');
+      headerCell.textContent = 'Ingredients';
+      headerCell.style.cssText = 'text-align: left; padding: 10px; background-color: #f0f0f0; border: 1px solid #ddd; font-weight: 600;';
+      headerRow.appendChild(headerCell);
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+      
+      // Create body with alternating row colors
+      const tbody = document.createElement('tbody');
+      descContent.forEach((ingredient, index) => {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.textContent = ingredient;
+        cell.style.cssText = `padding: 8px 10px; border: 1px solid #ddd; ${index % 2 === 0 ? 'background-color: #ffffff;' : 'background-color: #f9f9f9;'}`;
+        row.appendChild(cell);
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      
+      description.appendChild(table);
+    } else {
+      // Use textContent for safe insertion of description
+      description.textContent = descContent;
+    }
+    
     contentDiv.appendChild(description);
 
     // Add explanation if available
