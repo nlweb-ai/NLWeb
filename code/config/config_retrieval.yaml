@@ -95,6 +95,7 @@ endpoints:
     use_knn: false
 
   elasticsearch:
+    enabled: false
     # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
     api_endpoint_env: ELASTICSEARCH_URL
     # Authentication credentials
