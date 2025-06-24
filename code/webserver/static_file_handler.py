@@ -27,6 +27,9 @@ def get_app_root():
 APP_ROOT = get_app_root()
 
 async def send_static_file(path, send_response, send_chunk):
+    # Print the path being received
+    print(f"[STATIC_FILE_HANDLER] Received path: '{path}'")
+    
     # Map file extensions to MIME types
     mime_types = {
         '.html': 'text/html',
@@ -41,9 +44,34 @@ async def send_static_file(path, send_response, send_chunk):
     file_ext = os.path.splitext(path)[1].lower()
     content_type = mime_types.get(file_ext, 'application/octet-stream')
     
+    # Security: Only allow specific file extensions
+    allowed_extensions = {'.html', '.htm', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.json', '.txt', '.xml'}
+    if file_ext and file_ext not in allowed_extensions:
+        print(f"[STATIC_FILE_HANDLER] SECURITY: Blocked unauthorized file extension: '{file_ext}'")
+        await send_response(403, {'Content-Type': 'text/plain'})
+        await send_chunk(b'Forbidden: File type not allowed', end_response=True)
+        return
+    
     try:
+        # Security check: reject paths containing .. to prevent directory traversal
+        if '..' in path:
+            print(f"[STATIC_FILE_HANDLER] SECURITY: Blocked path traversal attempt: '{path}'")
+            await send_response(403, {'Content-Type': 'text/plain'})
+            await send_chunk(b'Forbidden: Invalid path', end_response=True)
+            return
+        
         # Remove leading slash and sanitize path
         safe_path = os.path.normpath(path.lstrip('/'))
+        
+        # Additional security check after normalization
+        if '..' in safe_path or safe_path.startswith('/'):
+            print(f"[STATIC_FILE_HANDLER] SECURITY: Blocked normalized path traversal: '{safe_path}'")
+            await send_response(403, {'Content-Type': 'text/plain'})
+            await send_chunk(b'Forbidden: Invalid path', end_response=True)
+            return
+            
+        print(f"[STATIC_FILE_HANDLER] Safe path: '{safe_path}'")
+        print(f"[STATIC_FILE_HANDLER] APP_ROOT: '{APP_ROOT}'")
 
         # Try multiple possible root locations
         possible_roots = [
@@ -55,13 +83,16 @@ async def send_static_file(path, send_response, send_chunk):
         
         # Remove empty paths
         possible_roots = [root for root in possible_roots if root]
+        print(f"[STATIC_FILE_HANDLER] Possible roots: {possible_roots}")
         
         file_found = False
         full_path = None
        
         for root in possible_roots:
             try_path = os.path.join(root, safe_path)
+            print(f"[STATIC_FILE_HANDLER] Trying: '{try_path}'")
             if os.path.isfile(try_path):
+                print(f"[STATIC_FILE_HANDLER] Found file at: '{try_path}'")
                 full_path = try_path
                 file_found = True
                 break
@@ -93,6 +124,21 @@ async def send_static_file(path, send_response, send_chunk):
                         break
         
         if file_found:
+            # Final security check: ensure the resolved path is within allowed roots
+            real_path = os.path.realpath(full_path)
+            is_safe = False
+            for root in possible_roots:
+                real_root = os.path.realpath(root)
+                if real_path.startswith(real_root + os.sep) or real_path == real_root:
+                    is_safe = True
+                    break
+            
+            if not is_safe:
+                print(f"[STATIC_FILE_HANDLER] SECURITY: Blocked access outside allowed directories: '{real_path}'")
+                await send_response(403, {'Content-Type': 'text/plain'})
+                await send_chunk(b'Forbidden: Access denied', end_response=True)
+                return
+            
             # Try to open and read the file
             with open(full_path, 'rb') as f:
                 content = f.read()
