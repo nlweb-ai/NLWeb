@@ -63,12 +63,13 @@ class OpenAIProvider(LLMProvider):
         provider_config = CONFIG.llm_endpoints["openai"]
         endpoint = provider_config.endpoint
     
-        # Fallback to environment variable
-        endpoint = os.getenv("OPENAI_ENDPOINT")
+        # Fallback to environment variable if provider_config.endpoint is not set
         if not endpoint:
-            error_msg = "OpenAI API endpoint not found in configuration or environment"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
+            endpoint = os.getenv("OPENAI_ENDPOINT")
+            if not endpoint:
+                error_msg = "OpenAI API endpoint not found in configuration or environment"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
         return endpoint
 
 
