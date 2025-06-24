@@ -27,10 +27,12 @@
     <Prompt ref="PrevQueryDecontextualizer">
       <promptString>
         The user is querying the site {request.site} which has {site.itemType}s.
-        Does answering this query require access to earlier queries? 
+        Does answering this query require access to earlier queries or 
+        previous answers?
         If so, rewrite the query to decontextualize it so that it can be answered 
         without reference to earlier queries. If not, don't change the query.
         The user's query is: {request.rawQuery}. Previous queries were: {request.previousQueries}.
+        Previous answers provided were: {request.prevAnswers}.
       </promptString>
       <returnStruc>
         {
@@ -44,8 +46,9 @@
       <promptString>
         The user is asking the following question: '{request.rawQuery}' in the context of 
         the an item with the following description: {request.contextDescription}. 
+        Previous answers provided were: {request.prevAnswers}.
         Rewrite the query to decontextualize it so that it can be answered 
-        without reference to earlier queries or to the item description.
+        without reference to earlier queries, previous answers, or to the item description.
       </promptString>
       <returnStruc>
         {
@@ -59,8 +62,9 @@
         The user is asking the following question: '{request.rawQuery}' in the context of 
         the an item with the following description: {request.contextDescription}. 
         Previous queries from the user were: {request.previousQueries}.
+        Previous answers provided were: {request.prevAnswers}.
         Rewrite the query to decontextualize it so that it can be answered 
-        without reference to earlier queries or to the item description.
+        without reference to earlier queries, previous answers, or to the item description.
       </promptString>
       <returnStruc>
         {
@@ -228,7 +232,6 @@
       </returnStruc>
     </Prompt>
 
-  
     <Prompt ref="ItemMatchingPrompt">
       <promptString>
         The user is looking for some details about: {request.item_name}
@@ -248,6 +251,34 @@
         {
           "score": "integer between 0 and 100",
           "item_details": "the specific details requested by the user"
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="ExtractItemDetailsPrompt">
+      <promptString>
+        The user is requesting specific details about an item they previously saw.
+        
+        The user's query: {request.query}
+        The details requested: {request.details_requested}
+        
+        From the following item description, extract ONLY the specific details the user is asking for.
+        Be comprehensive but focused - include all relevant information for what they asked, but don't include unrelated details.
+        
+        For example:
+        - If they ask for "ingredients", include the full ingredients list
+        - If they ask for "price", include price and any pricing variations
+        - If they ask for "nutrition", include all nutritional information
+        - If they ask for "description", provide a clear summary of the item
+        - If they ask for "instructions" or "how to make", include step-by-step instructions
+        
+        Item description: {item.description}
+      </promptString>
+      <returnStruc>
+        {
+          "item_name": "the name of the item",
+          "requested_details": "the specific details requested by the user, formatted clearly",
+          "additional_context": "any important context about these details (optional)"
         }
       </returnStruc>
     </Prompt>
@@ -371,5 +402,233 @@
       </returnStruc>
     </Prompt>
   </RealEstate>
+
+  <Thing>
+    <Prompt ref="EnsembleBasePrompt">
+      <promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results:
+        {ensemble.results}
+
+        Please create a cohesive recommendation that addresses the user's request.
+      </promptString>
+      <returnStruc>
+        {
+          "theme": "Brief description of the overall recommendation theme",
+          "items": [
+            {
+              "category": "Category name (e.g., Appetizer, Museum, Footwear)",
+              "name": "Specific item name", 
+              "description": "Detailed description",
+              "why_recommended": "Why this item fits the request",
+              "details": {}
+            }
+          ],
+          "overall_tips": ["Any general tips or considerations"]
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="EnsembleMealPlanningPrompt">
+      <promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results:
+        {ensemble.results}
+
+        Create a complete meal recommendation with:
+        1. Appetizer/Starter
+        2. Main Course
+        3. Dessert
+
+        For each course, provide:
+        - Name of the dish
+        - Brief description
+        - Why it complements the other courses
+        - Any relevant details (prep time, difficulty, dietary info)
+        - URL of the item
+
+        Include the URL of the item in the 'url' field of the structured output.
+
+        Ensure the courses work well together in terms of flavors, textures, and overall dining experience.
+      </promptString>
+      <returnStruc>
+        {
+          "theme": "Brief description of the meal theme",
+          "items": [
+            {
+              "category": "Course type (Appetizer, Main Course, or Dessert)",
+              "name": "Specific dish name",
+              "description": "Detailed description of the dish",
+              "why_recommended": "Why this dish fits the meal",
+              "url": "URL of the item",
+              "details": {
+                "prep_time": "Preparation time",
+                "difficulty": "Easy/Medium/Hard",
+                "dietary_info": "Any dietary considerations"
+              }
+            }
+          ],
+          "overall_tips": ["Tips for preparing or serving the meal"]
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="EnsembleTravelItineraryPrompt">
+      <promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results:
+        {ensemble.results}
+
+        Create a travel itinerary recommendation with:
+        1. Attractions/Museums to visit
+        2. Nearby restaurants for meals
+        3. Suggested order/timing
+
+        For each recommendation, provide:
+        - Name and location
+        - Why it's worth visiting
+        - Time needed
+        - How it connects to other recommendations
+        - Any practical tips (hours, tickets, reservations)
+        - URL of the item
+
+        Include the URL of the item in the 'url' field of the structured output.
+      </promptString>
+      <returnStruc>
+        {
+          "theme": "Brief description of the itinerary theme",
+          "items": [
+            {
+              "category": "Category (Attraction, Museum, Restaurant, etc.)",
+              "name": "Specific venue name",
+              "description": "Detailed description",
+              "why_recommended": "Why this fits the itinerary",
+              "url": "URL of the item",
+              "details": {
+                "location": "Address or area",
+                "time_needed": "Estimated duration",
+                "best_time": "Recommended time to visit",
+                "tickets": "Ticket information if applicable",
+                "reservations": "Reservation requirements"
+              }
+            }
+          ],
+          "overall_tips": ["General tips for the itinerary"]
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="EnsembleOutfitPrompt">
+      <promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results, each with a URL:
+        {ensemble.results}
+
+        Create a complete outfit recommendation with:
+        1. Essential items (footwear, jacket, base layers)
+        2. Accessories
+        3. Additional considerations
+
+        For each item, provide:
+        - Specific type recommended
+        - Why it's suitable for the conditions
+        - Key features to look for
+        - URL of the item
+        - Any alternatives
+
+        Include the URL of the item in the 'url' field of the structured output.
+
+        Consider weather, activity level, and safety.
+      </promptString>
+      <returnStruc>
+        {
+          "theme": "Brief description of the outfit purpose",
+          "items": [
+            {
+              "category": "Category (Footwear, Jacket, Accessories, etc.)",
+              "name": "Specific item type",
+              "description": "Detailed description",
+              "why_recommended": "Why this item is suitable",
+              "url": "URL of the item",
+              "details": {
+                "key_features": "Important features to look for",
+                "alternatives": "Alternative options",
+                "weather_suitability": "How it handles weather conditions",
+                "activity_level": "Suitable activity level"
+              }
+            }
+          ],
+          "overall_tips": ["General outfit tips and safety considerations"]
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="EnsembleGenericPrompt">
+      <promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results:
+        {ensemble.results}
+
+        Create a cohesive set of recommendations that work well together.
+        For each item, explain why it's recommended and how it complements the other items.
+        Include the URL of the item in the 'url' field of the structured output.
+      </promptString>
+      <returnStruc>
+        {
+          "theme": "Brief description of the recommendation theme",
+          "items": [
+            {
+              "category": "Item category",
+              "name": "Specific item name",
+              "description": "Detailed description",
+              "why_recommended": "Why this item fits the request",
+              "url": "URL of the item",
+              "details": {}
+            }
+          ],
+          "overall_tips": ["General tips or considerations"]
+        }
+      </returnStruc>
+    </Prompt>
+
+    <Prompt ref="EnsembleItemRankingPrompt">
+      <promptString>
+        Given the user's query: "{request.query}"
+
+        And this item:
+        Name: {item.name}
+        Type: {item.type}
+        Description: {item.description}
+
+        Rate how relevant this item is for answering the user's query on a scale of 0-100.
+        Consider:
+        - Does this item directly address what the user is looking for?
+        - Is it the right type of item (e.g., restaurant vs attraction)?
+        - Does it match any specific criteria mentioned in the query?
+
+        Provide your response as a JSON object with a 'score' field containing the relevance score.
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100"
+        }
+      </returnStruc>
+    </Prompt>
+  </Thing>
 
 </root>

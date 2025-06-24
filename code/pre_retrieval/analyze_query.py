@@ -11,10 +11,14 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 from prompts.prompt_runner import PromptRunner
+
+import asyncio
 from config.config import CONFIG
+
 from utils.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("analyze_query")
+
 
 class DetectItemType(PromptRunner):
     ITEM_TYPE_PROMPT_NAME = "DetectItemTypePrompt"
