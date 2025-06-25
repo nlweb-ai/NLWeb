@@ -31,7 +31,7 @@ The response returned uses Schema.org — a widely adopted vocabulary for descri
 NLWeb is platform-agnostic and supports:
 
 * **Operating systems**: Windows, macOS, Linux
-* **Vector stores**: Qdrant, Snowflake, Milvus, Azure AI Search
+* **Vector stores**: Qdrant, Snowflake, Milvus, Azure AI Search, Elasticsearch
 * **LLMs**: OpenAI, DeepSeek, Gemini, Anthropic, Inception
 
 It is designed to be lightweight and scalable — capable of running on everything from data center clusters to laptops and, soon, mobile devices.
