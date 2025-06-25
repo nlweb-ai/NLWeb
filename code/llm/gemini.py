@@ -2,7 +2,8 @@
 # Licensed under the MIT License
 
 """
-Gemini/Vertex AI wrapper for LLM functionality.
+Gemini wrapper for LLM functionality, using Google Developer API.
+Reference: https://ai.google.dev/gemini-api/docs
 
 WARNING: This code is under development and may undergo changes in future
 releases. Backwards compatibility is not guaranteed at this time.
