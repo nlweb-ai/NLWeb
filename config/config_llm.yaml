@@ -74,3 +74,12 @@ endpoints:
     models:
       high: claude-3-5-sonnet
       low: llama3.1-8b
+
+  aws_bedrock:
+    api_key_env: AWS_BEDROCK_ACCESS_KEY_ID
+    api_secret_env: AWS_BEDROCK_SECRET_ACCESS_KEY
+    api_region_env: AWS_BEDROCK_REGION
+    llm_type: aws_bedrock
+    models:
+      high: amazon.nova-pro-v1:0
+      low: amazon.nova-micro-v1:0
