@@ -1,4 +1,4 @@
-# Setting Up AWS Bedrock Foundational Models
+# Setting Up AWS Bedrock Foundation Models
 
 This guide walks through the process of setting up AWS Bedrock foundational models, from enabling the models in the AWS console to configuring IAM permissions and obtaining the necessary credentials for boto3 integration.
 
