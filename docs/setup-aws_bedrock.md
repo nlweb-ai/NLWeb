@@ -79,21 +79,20 @@ To use AWS Bedrock with boto3, you need API credentials:
 6. (Optional) Add a description tag and click "Create access key"
 7. You'll see your Access Key ID and Secret Access Key. **Important**: This is the only time you'll see the Secret Access Key, so make sure to save it securely
 8. Download the .csv file or copy both keys to a secure location
-9. Add the Access Key ID and Secret Access Key to your environment variables
-    9.1. Add the Access Key ID to the environment variable AWS_BEDROCK_ACCESS_KEY_ID
-    9.2. Add the Secret Access Key to the environment variable AWS_BEDROCK_SECRET_ACCESS_KEY
-    9.3. Add the region to the environment variable AWS_BEDROCK_REGION
+9. In order to support the LLMProvider interface, you will need to add the Access Key ID and Secret Access Key and Region to your environment variables:
+    9.1. Concatenate the Access Key ID and Secret Access Key with a colon (:) and add it to the environment variable AWS_BEDROCK_API_KEY
+    9.2. Add the region to the environment variable AWS_BEDROCK_REGION
 
-## Available Foundation Models
+## Supported Foundation Models
 
-AWS Bedrock provides access to various foundation models, including:
+AWS Bedrock provides access to various foundation models, currently supported models are:
 
-- **Amazon**: Titan Text, Titan Embeddings
-- **Anthropic**: Claude, Claude Instant
-- **AI21 Labs**: Jurassic-2
-- **Cohere**: Command, Embed
-- **Meta**: Llama 2
-- **Stability AI**: Stable Diffusion
+- **Amazon**: amazon.nova-..., amazon.titan-text-...
+- **AI21 Labs**: ai21...
+- **Anthropic**: anthropic.claude-...
+- **Cohere**: cohere.command-...
+- **Meta**: meta.llama3...
+- **Mistral**: mistral...
 
 Each model has different capabilities, pricing, and parameter options. Refer to the [AWS Bedrock documentation](https://docs.aws.amazon.com/bedrock/) for detailed information about each model.
 
