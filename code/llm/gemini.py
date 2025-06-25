@@ -4,8 +4,8 @@
 """
 Gemini/Vertex AI wrapper for LLM functionality.
 
-WARNING: This code is under development and may undergo changes in future releases.
-Backwards compatibility is not guaranteed at this time.
+WARNING: This code is under development and may undergo changes in future
+releases. Backwards compatibility is not guaranteed at this time.
 """
 
 import os
@@ -13,17 +13,15 @@ import json
 import re
 import logging
 import asyncio
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 
-import vertexai
-from vertexai.generative_models import GenerativeModel, ChatSession
+from google import genai
 from config.config import CONFIG
 import threading
 
 from llm.llm_provider import LLMProvider
-
-logger = logging.getLogger(__name__)
-
+from utils.logging_config_helper import get_configured_logger, LogLevel
+logger = get_configured_logger("gemini")
 
 class ConfigurationError(RuntimeError):
     """Raised when configuration is missing or invalid."""
@@ -33,77 +31,90 @@ class ConfigurationError(RuntimeError):
 class GeminiProvider(LLMProvider):
     """Implementation of LLMProvider for Google's Gemini API."""
     
-    _init_lock = threading.Lock()
-    _initialized = False
+    _client_lock = threading.Lock()
+    _client = None
 
     @classmethod
-    def get_gcp_project(cls) -> str:
-        """Retrieve the GCP project ID from the environment or raise an error."""
-        # Get the project ID from the preferred provider config
+    def get_api_key(cls) -> str:
+        """Retrieve the API key for Gemini API."""
         provider_config = CONFIG.llm_endpoints["gemini"]
-        
-        # For Gemini, we need the GCP project ID, which might be stored in API_KEY_ENV or a specific field
-        # First check if there's a specific project env var in the config
-        project_env_var = provider_config.api_key_env  # This might actually be the project ID for GCP
-        
-        project = os.getenv("GCP_PROJECT") or os.getenv(project_env_var)
-        if not project:
-            raise ConfigurationError("GCP_PROJECT is not set")
-        return project
-
-    @classmethod
-    def get_gcp_location(cls) -> str:
-        """Retrieve the GCP location from the environment or use default 'us-central1'."""
-        return os.getenv("GCP_LOCATION", "us-central1")
-
-    @classmethod
-    def get_api_key(cls) -> Optional[str]:
-        """Retrieve the API key if needed for Gemini API."""
-        preferred_endpoint = CONFIG.preferred_llm_endpoint
-        provider_config = CONFIG.llm_endpoints[preferred_endpoint]
-        api_key_env_var = provider_config.api_key_env
-        
-        if api_key_env_var:
-            return os.getenv(api_key_env_var)
+        if provider_config and provider_config.api_key:
+            api_key = provider_config.api_key
+            if api_key:
+                api_key = api_key.strip('"')  # Remove quotes if present
+                return api_key
         return None
 
     @classmethod
-    def init_vertex_ai(cls):
-        """Initialize Vertex AI with project and location."""
-        with cls._init_lock:  # Thread-safe initialization
-            if not cls._initialized:
-                vertexai.init(
-                    project=cls.get_gcp_project(),
-                    location=cls.get_gcp_location()
-                )
-                cls._initialized = True
+    def get_model_from_config(cls, high_tier=False) -> str:
+        """Get the appropriate model from configuration based on tier."""
+        provider_config = CONFIG.llm_endpoints.get("gemini")
+        if provider_config and provider_config.models:
+            model_name = provider_config.models.high if high_tier else provider_config.models.low
+            if model_name:
+                return model_name
+        # Default values if not found
+        default_model = "gemma-3n-e4b-it" if high_tier else "gemma-3n-e4b-it"
+        return default_model
 
     @classmethod
     def get_client(cls):
-        """
-        For Gemini, we don't maintain a persistent client but initialize Vertex AI.
-        This method ensures Vertex AI is initialized.
-        """
-        cls.init_vertex_ai()
-        return None  # No persistent client for Gemini
+        """Get or create the GenAI client."""
+        with cls._client_lock:
+            if cls._client is None:
+                api_key = cls.get_api_key()
+                if not api_key:
+                    error_msg = "Gemini API key not found in configuration"
+                    logger.error(error_msg)
+                    raise ConfigurationError(error_msg)
 
-    @classmethod
-    def _build_messages(cls, prompt: str, schema: Dict[str, Any]) -> List[str]:
-        """Construct the message sequence for JSON-schema enforcement."""
-        return [
-            f"Provide a valid JSON response matching this schema: {json.dumps(schema)}",
-            prompt
-        ]
+                cls._client = genai.Client(api_key=api_key)
+                logger.debug("Gemini client initialized successfully")
+            return cls._client
 
     @classmethod
     def clean_response(cls, content: str) -> Dict[str, Any]:
-        """Strip markdown fences and extract the first JSON object."""
-        cleaned = re.sub(r"```(?:json)?\s*", "", content).strip()
-        match = re.search(r"(\{.*\})", cleaned, re.S)
-        if not match:
-            logger.error("Failed to parse JSON from content: %r", content)
+        """
+        Clean and extract JSON content from response text.
+        """
+        # Handle None content case
+        if content is None:
+            logger.warning("Received None content from Gemini API")
             return {}
-        return json.loads(match.group(1))
+            
+        # Handle empty string case
+        response_text = content.strip()
+        if not response_text:
+            logger.warning("Received empty content from Gemini API")
+            return {}
+            
+        # Remove markdown code block indicators if present
+        response_text = response_text.replace('```json', '').replace('```', '').strip()
+                
+        # Find the JSON object within the response
+        start_idx = response_text.find('{')
+        end_idx = response_text.rfind('}') + 1
+        
+        if start_idx == -1 or end_idx == 0:
+            error_msg = "No valid JSON object found in response"
+            logger.error(f"{error_msg}, content: {response_text}")
+            return {}
+            
+
+        json_str = response_text[start_idx:end_idx]
+                
+        try:
+            result = json.loads(json_str)
+
+            # check if the value is a integer number, convert it to int
+            for key, value in result.items():
+                if isinstance(value, str) and re.match(r'^\d+$', value):
+                    result[key] = int(value)
+            return result
+        except json.JSONDecodeError as e:
+            error_msg = f"Failed to parse response as JSON: {e}"
+            logger.error(f"{error_msg}, content: {json_str}")
+            return {}
 
     async def get_completion(
         self,
@@ -112,48 +123,62 @@ class GeminiProvider(LLMProvider):
         model: Optional[str] = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
-        timeout: float = 30.0,
+        timeout: float = 8.0,
+        high_tier: bool = False,
         **kwargs
     ) -> Dict[str, Any]:
-        """Async chat completion using Vertex AI (Gemini)."""
+        """Async chat completion using Google GenAI."""
         # If model not provided, get it from config
-        if model is None:
-            provider_config = CONFIG.llm_endpoints["gemini"]
-            # Use the 'high' model for completions by default
-            model = provider_config.models.high
+        model_to_use = model if model else self.get_model_from_config(high_tier)
         
-        # Ensure Vertex AI is initialized
-        self.init_vertex_ai()
-        generative_model = GenerativeModel(model)
+        # Get the GenAI client
+        client = self.get_client()
+
+        system_prompt = f"""Provide a response that matches this JSON schema: {json.dumps(schema)}"""
         
-        # Combine system and user messages
-        messages = self._build_messages(prompt, schema)
+        logger.debug(f"Sending completion request to Gemini API with model: {model_to_use}")
         
         # Map max_tokens to max_output_tokens
         max_output_tokens = kwargs.get("max_output_tokens", max_tokens)
         
-        generation_config = {
+        config = {
             "temperature": temperature,
             "max_output_tokens": max_output_tokens,
+            "system_instruction": system_prompt,
+            # "response_mime_type": "application/json",
         }
-
+        # logger.debug(f"\t\tRequest config: {config}")
+        # logger.debug(f"\t\tPrompt content: {prompt}...")  # Log first 100 chars
         try:
             response = await asyncio.wait_for(
                 asyncio.to_thread(
-                    lambda: generative_model.generate_content(
-                        messages,
-                        generation_config=generation_config
+                    lambda: client.models.generate_content(
+                        model=model_to_use,
+                        contents=prompt,
+                        config=config
                     )
                 ),
-                timeout
+                timeout=timeout
             )
+            if not response or not hasattr(response, 'text') or \
+               not response.text:
+                logger.error("Invalid or empty response from Gemini")
+                return {}
+            logger.debug("Received response from Gemini API")
+            logger.debug(f"\t\tResponse content: {response.text}...")  # Log first 100 chars
+            # Extract the response text
+            content = response.text
+            return self.clean_response(content)
         except asyncio.TimeoutError:
-            logger.error("Completion request timed out after %s seconds", timeout)
+            logger.error(
+                "Gemini completion request timed out after %s seconds", timeout
+            )
             return {}
-
-        # Extract the response text
-        content = response.text
-        return self.clean_response(content)
+        except Exception as e:
+            logger.error(
+                f"Gemini completion failed: {type(e).__name__}: {str(e)}"
+            )
+            raise
 
 
 # Create a singleton instance
