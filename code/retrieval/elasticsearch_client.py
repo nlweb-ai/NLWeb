@@ -10,6 +10,7 @@ import uuid
 import threading
 from typing import List, Dict, Union, Optional, Any
 from elasticsearch import AsyncElasticsearch
+from elasticsearch.helpers import async_bulk
 
 from config.config import CONFIG
 from embedding.embedding import get_embedding
@@ -31,7 +32,7 @@ class ElasticsearchClient:
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
-        self.endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+        self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         self._client_lock = threading.Lock()
         self._es_clients = {}  # Cache for Qdrant clients
         
@@ -188,7 +189,7 @@ class ElasticsearchClient:
         }
         
         try:
-            await client.indices.create(index=index_name,mappings={'properties' : properties})           
+            await client.indices.create(index=index_name, mappings={'properties' : properties})           
             logger.info(f"Successfully created index {index_name} with vector mapping")
             return True
                 
@@ -236,25 +237,25 @@ class ElasticsearchClient:
             )
             raise
     
-    async def recreate_index(self, index_name: Optional[str] = None) -> bool:
-        """
-        Delete and recreate the Elasticsearch index with proper vector mapping.
+    # async def recreate_index(self, index_name: Optional[str] = None) -> bool:
+    #     """
+    #     Delete and recreate the Elasticsearch index with proper vector mapping.
         
-        Args:
-            index_name: Optional index name (defaults to configured index name)
+    #     Args:
+    #         index_name: Optional index name (defaults to configured index name)
             
-        Returns:
-            bool: True if index was recreated successfully
-        """
-        index_name = index_name or self.default_index_name
+    #     Returns:
+    #         bool: True if index was recreated successfully
+    #     """
+    #     index_name = index_name or self.default_index_name
         
-        logger.info(f"Recreating index {index_name} with vector mapping")
+    #     logger.info(f"Recreating index {index_name} with vector mapping")
         
-        # Delete existing index
-        await self.delete_index(index_name)
+    #     # Delete existing index
+    #     await self.delete_index(index_name)
         
-        # Create new index with proper mapping
-        return await self.create_index_if_not_exists(index_name)
+    #     # Create new index with proper mapping
+    #     return await self.create_index_if_not_exists(index_name)
     
     async def delete_documents_by_site(self, site: str, **kwargs) -> int:
         """
@@ -322,7 +323,7 @@ class ElasticsearchClient:
         await self.create_index_if_not_exists(index_name)
         
         # Prepare bulk operations
-        operations = []
+        actions = []
         for doc in documents:
             url = doc.get('url', '')
             if url == '':
@@ -331,46 +332,35 @@ class ElasticsearchClient:
             # Convert the URL in a deterministic unique ID
             id = str(uuid.uuid5(uuid.NAMESPACE_URL, url))
             
-            # Index action metadata
             action = {
-                "index": {
-                    "_index": index_name,
-                    "_id": id
-                }
-            }
-            operations.append(action)
-            
-            # Document source
-            doc_source = {
+                "_op_type": "index",
+                "_index": index_name,
+                "_id": id,
                 "url": url,
                 "site": doc.get('site', ''),
-                "schema_json": doc.get('schema_json', '{}'),
                 "name": doc.get('name', ''),
+                "schema_json": str(doc.get('schema_json', '{}')),
                 "embedding": doc.get('embedding', [])
             }
-            operations.append(doc_source)
+            actions.append(action)
         
         try:
-            response = await client.bulk(operations=operations, timeout='300s', refresh=True)
-                 
-            # Count successful uploads
-            successful_count = 0
-            errors = []
-            
-            if 'items' in response:
-                for item in response['items']:
-                    if 'index' in item:
-                        if 'error' in item['index']:
-                            errors.append(item['index'].get('error', 'Unknown error'))
-                        else:
-                            successful_count += 1
-            
-            if errors:
-                logger.warning(f"{num_documents - successful_count} out of {num_documents} documents failed to upload")
+            successful_count, error_count = await async_bulk(
+                client=client,
+                actions=actions,
+                timeout='300s',
+                refresh=True,
+                raise_on_error=True,
+                stats_only=True
+            )
+
+            if error_count > 0:
+                logger.warning(f"{error_count} out of {num_documents} documents failed to upload")
             
             logger.info(f"Successfully uploaded {successful_count} documents to index: {index_name}")
+            
             return successful_count
-                
+
         except Exception as e:
             logger.exception(f"Error uploading documents: {e}")
             logger.log_with_context(
@@ -433,7 +423,7 @@ class ElasticsearchClient:
             search_query['knn']['filter'] = filter
 
         try:
-            return await client.search(index = index_name, query = search_query, source = source)           
+            return await client.search(index=index_name, query=search_query, source=source)           
         except Exception as e:
             logger.exception(f"Error in Elasticsearch")
             logger.log_with_context(
@@ -485,8 +475,13 @@ class ElasticsearchClient:
         source = ["url", "site", "schema_json", "name"]
         start_retrieve = time.time()
         # Execute Elasticsearch query with kNN vector search and filter
-        response = await self._search_knn_filter(index_name = index_name, embedding = embedding,
-                                                k = num_results, source = source, filter = filter) 
+        response = await self._search_knn_filter(
+            index_name=index_name,
+            embedding=embedding,
+            k=num_results,
+            source=source,
+            filter=filter
+        ) 
         retrieve_time = time.time() - start_retrieve
         
         results = await self._format_es_response(response)
@@ -504,18 +499,18 @@ class ElasticsearchClient:
         return results
     
     
-    async def search_by_url(self, url: str, index_name: Optional[str] = None) -> Optional[List[str]]:
+    async def search_by_url(self, url: str, **kwargs) -> Optional[List[str]]:
         """
         Retrieve records by exact URL match
         
         Args:
             url: URL to search for
-            index_name: Optional index name (defaults to configured index name)
+            **kwargs: Additional parameters
             
         Returns:
             Optional[List[str]]: Search result or None if not found
         """
-        index_name = index_name or self.default_index_name
+        index_name = kwargs.get('index_name', self.default_index_name)
         client = await self._get_es_client()
 
         logger.info(f"Retrieving item by URL: {url} from index: {index_name}")
@@ -551,20 +546,21 @@ class ElasticsearchClient:
             )
             raise
     
-    async def search_all_sites(self, query: str, num_results: int = 10, 
-                             index_name: Optional[str] = None) -> List[List[str]]:
+    # TODO check the retriever.py API for search_all_sites
+    # self, query: str, num_results: int = 50, endpoint_name: Optional[str] = None, **kwargs
+    async def search_all_sites(self, query: str, num_results: int = 50, **kwargs) -> List[List[str]]:
         """
         Search across all sites using vector similarity
         
         Args:
             query: The search query to embed and search with
-            num_results: Maximum number of results to return
-            index_name: Optional index name (defaults to configured index name)
+            num_results: Maximum number of results to return (default 50)
+            **kwargs: Additional parameters
             
         Returns:
             List[List[str]]: List of search results
         """
-        index_name = index_name or self.default_index_name
+        index_name = kwargs.get('index_name', self.default_index_name)
         logger.info(f"Starting global Elasticsearch (all sites) - index: {index_name}, num_results: {num_results}")
         logger.debug(f"Query: {query}")
         
@@ -577,8 +573,12 @@ class ElasticsearchClient:
             source = ["url", "site", "schema_json", "name"]
             start_retrieve = time.time()
             # Execute Elasticsearch query with kNN vector search and filter
-            response = await self._search_knn_filter(index_name = index_name, embedding = embedding,
-                                                    k = num_results, source = source) 
+            response = await self._search_knn_filter(
+                index_name=index_name, 
+                embedding=embedding,
+                k=num_results,
+                source=source
+            ) 
             retrieve_time = time.time() - start_retrieve
             
             results = await self._format_es_response(response)
@@ -607,39 +607,35 @@ class ElasticsearchClient:
             )
             raise
     
-    async def get_sites(self, index_name: Optional[str] = None) -> List[str]:
+    async def get_sites(self, **kwargs) -> List[str]:
         """
         Get list of all unique sites in the database.
-        
+
         Args:
-            index_name: Optional index name (defaults to configured index name)
-            
+            **kwargs: Additional parameters
+
         Returns:
             List[str]: List of unique site names
         """
-        index_name = index_name or self.default_index_name
+        index_name = kwargs.get('index_name', self.default_index_name)
+        size = int(kwargs.get('size', 100))
         client = await self._get_es_client()
 
         logger.info(f"Retrieving list of sites from index: {index_name}")
         
         # Use aggregation to get unique site values
-        aggregation_query = {
-            "size": 0,
-            "aggs": {
-                "unique_sites": {
-                    "terms": {
-                        "field": "site.keyword",
-                        "size": 1000  # Adjust based on expected number of sites
-                    }
+        aggs = {
+            "unique_sites": {
+                "terms": {
+                    "field": "site.keyword",
+                    "size": size
                 }
             }
         }
         
         try:
-            response = await client.search(index = index_name, query = aggregation_query)
-             
-            result = response.json()
-            buckets = result.get('aggregations', {}).get('unique_sites', {}).get('buckets', [])
+            response = await client.search(index=index_name, aggs=aggs, size=0)
+            buckets = response.get('aggregations', {}).get('unique_sites', {}).get('buckets', [])
                 
             sites = [bucket['key'] for bucket in buckets]
             logger.info(f"Retrieved {len(sites)} unique sites")
