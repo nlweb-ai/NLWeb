@@ -567,12 +567,28 @@ class ChatInterface {
       const titleLink = document.createElement('a');
       // FIX: Use sanitizeUrl for URL attributes and add additional security measures
       const sanitizedUrl = item.url ? this.sanitizeUrl(item.url) : '#';
-      titleLink.href = sanitizedUrl;
+      titleLink.href = sanitizedUrl;      
       // Add rel="noopener noreferrer" for external links
-      if (sanitizedUrl !== '#' && !sanitizedUrl.startsWith(window.location.origin)) {
-          titleLink.rel = "noopener noreferrer";
-          // Optional: Open external links in new tab
-          titleLink.target = "_blank";
+      if (sanitizedUrl !== '#') {
+          let isExternal = true;
+          try {
+              // Use proper URL parsing to extract and compare origins
+              const linkUrl = new URL(sanitizedUrl, window.location.href);
+              const currentOrigin = new URL(window.location.href).origin;
+              
+              // Strict origin comparison - prevents domain spoofing attacks
+              isExternal = linkUrl.origin !== currentOrigin;
+          } catch (e) {
+              // If URL parsing fails, treat as external for security
+              console.warn('Failed to parse URL for origin comparison:', sanitizedUrl, e);
+              isExternal = true;
+          }
+          
+          if (isExternal) {
+              titleLink.rel = "noopener noreferrer";
+              // Optional: Open external links in new tab
+              titleLink.target = "_blank";
+          }
       }
       const itemName = this.getItemName(item);
       titleLink.textContent = this.htmlUnescape(`${itemName}`);
