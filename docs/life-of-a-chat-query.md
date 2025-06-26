@@ -5,7 +5,7 @@ NLWeb aims to make it very simple to provide conversational interfaces to websit
 This document has a brief description of the processing that is done when a User submits a query to an NLWeb instance. 
 
 
-At a high level, the flow is very similar to the processing of a query in Web search. The main difference is that in 'traditional' (i.e., pre-llm) search engines, there would be specialized algorithms or special purpose models for many of the tasks involved in the query processing. This both made it very expensive to develop robust search tools and also made them somewhat limited. Here, we rely on LLMs to perform these tasks.
+At a high level, the flow is very similar to the processing of a query in modern Web search (where the results are not just a list of 10 links, but could involve more sophisticated 'tools'). The main difference is that in 'traditional' (i.e., pre-llm) search engines, there would be specialized algorithms or special purpose models for many of the tasks involved in the query processing. This both made it very expensive to develop robust search tools and also made them somewhat limited. Here, we rely on LLMs to perform these tasks.
 
 Depending on the request parameters, control of the results that are returned can stay with 'traditional' code, which affords greater control over the returned results. In particular, the result can be a list of items, each of which includes the data item corresponding to that result, preventing hallucination of items. So, results can be less than most relevant, but a result will not be 'made up'.
 
