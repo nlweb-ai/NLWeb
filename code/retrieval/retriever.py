@@ -19,7 +19,6 @@ from utils.utils import get_param
 from utils.logging_config_helper import get_configured_logger
 from utils.logger import LogLevel
 from utils.json_utils import merge_json_array
-from retrieval.postgres import PgVectorClient
 
 logger = get_configured_logger("retriever")
 
@@ -59,7 +58,10 @@ def init():
                 elif db_type == "snowflake_cortex_search":
                     from retrieval.snowflake_client import SnowflakeCortexSearchClient
                     _preloaded_modules[db_type] = SnowflakeCortexSearchClient
-                
+                elif db_type == "postgres":
+                    from retrieval.postgres_client import PgVectorClient
+                    _preloaded_modules[db_type] = PgVectorClient
+                    
                 print(f"Successfully preloaded {db_type} client module")
             except Exception as e:
                 print(f"Failed to preload {db_type} client module: {e}")
@@ -73,6 +75,7 @@ _db_type_packages = {
     "opensearch": ["httpx>=0.28.1"],
     "qdrant": ["qdrant-client>=1.14.0"],
     "snowflake_cortex_search": ["httpx>=0.28.1"],
+    "postgres": ["pgvector>=0.4.0", "psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0"]
 }
 
 # Cache for installed packages
@@ -379,7 +382,7 @@ class VectorDBClient:
         """
         db_type = config.db_type
         
-        if db_type in ["azure_ai_search", "snowflake_cortex_search", "opensearch", "milvus"]:
+        if db_type in ["azure_ai_search", "snowflake_cortex_search", "opensearch", "milvus", "postgres"]:
             # These require API key and endpoint
             return bool(config.api_key and config.api_endpoint)
         elif db_type == "qdrant":
@@ -444,7 +447,7 @@ class VectorDBClient:
                     from retrieval.snowflake_client import SnowflakeCortexSearchClient
                     client = SnowflakeCortexSearchClient(endpoint_name)
                 elif db_type == "postgres":
-                    from retrieval.postgres import PgVectorClient
+                    from retrieval.postgres_client import PgVectorClient
                     client = PgVectorClient(self.endpoint_name)
                 
                 else:

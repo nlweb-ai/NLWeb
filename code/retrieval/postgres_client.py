@@ -45,7 +45,7 @@ class PgVectorClient:
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
-        self.endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+        self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         self._conn_lock = asyncio.Lock()
         self._pool = None
         self._pool_init_lock = asyncio.Lock()
@@ -63,9 +63,9 @@ class PgVectorClient:
         
         self.host = self.pg_raw_config.get("host")
         self.port = self.pg_raw_config.get("port", 5432)  # Default PostgreSQL port
-        self.dbname = self.pg_raw_config.get("database") or self.pg_raw_config.get("dbname")
-        self.username = self.pg_raw_config.get("username") or self.pg_raw_config.get("username_env")
-        self.password = self.pg_raw_config.get("password") or self.pg_raw_config.get("password_env")
+        self.dbname = self.pg_raw_config.get("database") 
+        self.username = self.pg_raw_config.get("username") 
+        self.password = self.api_key or self.pg_raw_config.get("password")
         self.table_name = self.default_collection_name or "documents"
 
         # Validate critical configuration

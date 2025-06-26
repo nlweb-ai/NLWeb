@@ -31,7 +31,7 @@ To setup you PostgreSQL configuration, you can use the provided setup scripts:
 In the `code` directory run
 ```bash
 # Test basic connection
-python utils/setup_postgres_schema.py
+python tools/postgres_load.py
 ```
 
 ### Dependencies
@@ -40,7 +40,9 @@ Make sure you have the required Python packages installed:
 
 ```bash
 # Install PostgreSQL client libraries
-pip install "psycopg[binary]" "psycopg[pool]" pgvector
+pip install psycopg-binary  # PostgreSQL adapter (psycopg3)
+pip install psycopg-pool  # Connection pooling for psycopg3
+pip install pgvector
 ```
 
 The following packages are needed:
@@ -51,6 +53,15 @@ The following packages are needed:
 
 ### Configuration
 
+Update the `.env` file:
+
+```bash
+# If using Postgres connection string
+POSTGRES_CONNECTION_STRING="postgresql://<HOST>:<PORT>/<DATABASE>?user=<USERNAME>&sslmode=require"
+# Example: postgresql://azureuser.postgres.database.azure.com:5432/postgres?user=postgres&sslmode=require
+POSTGRES_PASSWORD="<PASSWORD>"
+```
+
 Configure PostgreSQL in the `config_retrieval.yaml` file:
 
 ```yaml
@@ -59,7 +70,9 @@ preferred_endpoint: postgres  # Set this to use PostgreSQL as default
 endpoints:
   postgres:
     # Database connection details
-    api_endpoint_env: POSTGRES_CONNECTION_STRING #The Postgres connection string (e.g., `postgresql://<USERNAME>:<PASSWORD>@<HOST>:<PORT>/<DATABASE>?sslmode=require`).
+    api_endpoint_env: POSTGRES_CONNECTION_STRING #The Postgres connection string (e.g., `postgresql://<HOST>:<PORT>/<DATABASE>?user=<USERNAME>&sslmode=require`).
+    # Password for authentication 
+    api_key_env: POSTGRES_PASSWORD
     index_name: documents
     # Specify the database type
     db_type: postgres
@@ -77,30 +90,3 @@ The PostgreSQL vector client implements the full `VectorDBClientInterface` and s
 - URL-based document lookup
 - Site-specific filtering
 - Document deletion
-
-### Testing and Troubleshooting
-
-To test your PostgreSQL configuration, you can use the provided test scripts:
-
-In the `code` directory run
-```bash
-# Test basic connection
-python utils/test_postgres_connection.py
-
-# Run a more comprehensive example
-python utils/postgres_example.py
-
-# Run diagonostics
-python utils/postgres_diagnostics.py 
-
-# Test if pgvector version is functioning as expected
-python utils/test_pgvector.py
-```
-
-Common issues:
-
-1. **Connection errors**: Check host, port, username, and password settings
-2. **pgvector extension missing**: Ensure the extension is properly installed in the database
-3. **Table not found**: Make sure the table has been created with the proper schema
-4. **Permissions**: Ensure the database user has sufficient privileges
-5. **Configuration access**: If you get attribute errors, check that your configuration is properly formatted

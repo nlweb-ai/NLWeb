@@ -22,7 +22,7 @@ sys.path.insert(1, utils_dir)  # Then utils dir
 
 # Import the required modules from the project
 try:
-    from retrieval.postgres import PgVectorClient
+    from retrieval.postgres_client import PgVectorClient
 except ImportError as e:
     print(f"Failed to import required modules: {e}")
     print(f"Make sure you're running this script from the code directory: {code_dir}")

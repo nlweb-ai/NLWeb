@@ -1,5 +1,4 @@
-write_endpoint: qdrant_local
-preferred_endpoint: postgres
+write_endpoint: postgres
 
 endpoints:
 
@@ -18,7 +17,7 @@ endpoints:
     db_type: azure_ai_search
 
   azure_ai_search:
-    enabled: true
+    enabled: false
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536
@@ -42,7 +41,7 @@ endpoints:
 
   # Option 1: Local file-based Qdrant storage
   qdrant_local:
-    enabled: true
+    enabled: false
     # Use local file-based storage with a specific path
     database_path: "../data/db"
     # Set the collection name to use
@@ -97,8 +96,12 @@ endpoints:
 
   # PostgreSQL with pgvector extension configuration
   postgres:
-    # Database connection details
+    enabled: true
+    # Database connection details (i.e. "postgresql://<USERNAME>@<HOST>:<PORT>/<DATABASE>?sslmode=require")
     api_endpoint_env: POSTGRES_CONNECTION_STRING
+    # Password for authentication 
+    api_key_env: POSTGRES_PASSWORD
+    # Index name to search in
     index_name: documents
     # Specify the database type
     db_type: postgres
