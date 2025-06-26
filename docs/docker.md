@@ -1,12 +1,21 @@
-# NLWeb Docker Image
+# NLWeb Docker Setup
 
-This repository contains a [Dockerfile](../Dockerfile) for building and running the NLWeb application, which turns your website into a knowledge base.
+This repository contains a modular Docker setup for building and running the NLWeb application, which turns your website into a knowledge base.
 
-## Docker Image
+## Docker Architecture
 
-The Docker image is built using a 2-stage build process to minimize the final image size:
-- Stage 1: Installs all dependencies and build tools
-- Stage 2: Creates the runtime environment with only the necessary components
+The Docker setup is organized into multiple files:
+
+1. **Base Image (`docker/Dockerfile.base`)**: Contains all dependencies and build tools
+2. **Application Image (`docker/Dockerfile.app`)**: Extends the base image for production use
+
+The base image (`nlweb-base`) is used directly for development containers, while the application image is used for production.
+
+This split architecture provides several benefits:
+- **Reusability**: The base image is reused for both production and development
+- **Consistency**: Development and production environments share the same core dependencies
+- **Efficiency**: Updating dependencies only requires rebuilding the base image
+- **Flexibility**: Development and production configurations can be maintained separately
 
 ### Platform Compatibility
 
@@ -25,22 +34,42 @@ The Docker image includes several security features:
 - Only necessary packages are installed with `--no-install-recommends` flag to minimize image size
 - Package caches are cleaned up after installation to reduce image size
 
-## Building the Docker Image
+## Building the Docker Images
 
-### Single Architecture Build
+### Using the Build Script
 
-To build the Docker image for your current architecture:
+The easiest way to build all Docker images is to use the provided build script:
 
 ```bash
-docker build -t nlweb:latest .
+./docker/build-docker-images.sh
+```
+
+This script builds two images:
+- `nlweb-base:latest` (base image with dependencies, also used for development)
+- `nlweb:latest` (production application image)
+
+### Building Images Individually
+
+You can also build the images individually:
+
+```bash
+# Build the base image (also used for development)
+docker build -t nlweb-base:latest -f docker/Dockerfile.base .
+
+# Build the application image
+docker build -t nlweb:latest -f docker/Dockerfile.app .
 ```
 
 ### Multi-Architecture Build
 
-To build the Docker image for multiple architectures (ARM64 and AMD64), you can use Docker's buildx feature:
+For multi-architecture builds (ARM64 and AMD64), you can use Docker's buildx feature:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t nlweb:latest --push .
+# For the base image
+docker buildx build --platform linux/amd64,linux/arm64 -t nlweb-base:latest -f docker/Dockerfile.base --push .
+
+# For the application image
+docker buildx build --platform linux/amd64,linux/arm64 -t nlweb:latest -f docker/Dockerfile.app --push .
 ```
 
 Note: The `--push` flag is required for multi-architecture builds. If you want to build without pushing to a registry, you can use the `--load` flag instead, but it only works for single-platform builds.
@@ -92,23 +121,23 @@ See the `.env.template` file in the code directory for all available configurati
 
 ## Using Docker Compose
 
-This repository includes a [docker-compose.yaml](../docker-compose.yaml) file for easy deployment of the NLWeb application.
+This repository includes a [docker-compose.yaml](../docker/docker-compose.yaml) file for easy deployment of the NLWeb application.
 
 ### Running with Docker Compose
 
-To start the application using Docker Compose:
+To start the production application using Docker Compose:
 
 ```bash
-docker-compose up -d
+docker-compose -f docker/docker-compose.yaml up nlweb -d
 ```
-
-This will build the Docker image if it doesn't exist and start the container in detached mode.
 
 To stop the application:
 
 ```bash
-docker-compose down
+docker-compose -f docker/docker-compose.yaml down
 ```
+
+Note: The `-d` flag runs containers in detached mode (in the background). Omit this flag if you want to see the output in your terminal.
 
 ### Configuration with Docker Compose
 
@@ -127,7 +156,7 @@ OPENAI_API_KEY=your-openai-key
 Docker Compose will automatically load these variables from the `code/.env` file when you run:
 
 ```bash
-docker-compose up -d
+docker-compose -f docker/docker-compose.yaml up nlweb -d
 ```
 
 ### Data Persistence with Docker Compose
@@ -143,13 +172,19 @@ The `docker-compose.yaml` file is configured with the following volume mounts:
 To load data into the knowledge base when using Docker Compose:
 
 ```bash
-docker-compose exec nlweb python -m tools.db_load <url> <name>
+docker-compose -f docker/docker-compose.yaml exec nlweb python -m tools.db_load <url> <name>
 ```
 
 For example:
 
 ```bash
-docker-compose exec nlweb python -m tools.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
+docker-compose -f docker/docker-compose.yaml exec nlweb python -m tools.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
+```
+
+For development work, you can use the development container instead:
+
+```bash
+docker exec -it nlweb-dev python -m tools.db_load <url> <name>
 ```
 
 ## Loading Data with Docker

@@ -1,0 +1,47 @@
+# Development Dockerfile for NLWeb
+# Extends the base image and adds development tools and configurations
+
+FROM nlweb-base:latest
+
+# Install developer tools
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        wget \
+        zsh \
+        vim \
+        nano \
+        sudo \
+        less \
+        procps \
+        lsof \
+        htop \
+        iputils-ping \
+        net-tools \
+        dnsutils \
+        openssh-client \
+        zip \
+        unzip \
+        && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Setup Oh-My-Zsh
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+# Install Python development and debugging tools globally
+RUN pip install \
+    debugpy \
+    ipdb \
+    pytest \
+    pytest-xdist \
+    black \
+    flake8 \
+    isort \
+    pylint \
+    pyright \
+    mypy
+
+# Tag the image
+LABEL org.opencontainers.image.description="NLWeb Development Image with Developer Tools"
