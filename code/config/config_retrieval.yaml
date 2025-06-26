@@ -10,7 +10,7 @@ endpoints:
     db_type: azure_ai_search
 
   nlweb_west:
-    enabled: true
+    enabled: false
     api_key_env: NLWEB_WEST_API_KEY
     api_endpoint_env: NLWEB_WEST_ENDPOINT
     index_name: embeddings1536
