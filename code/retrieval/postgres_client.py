@@ -406,7 +406,7 @@ class PgVectorClient:
             
         Returns:
             List of search results, where each result is a list of strings:
-            [url, schema_json, name, site]
+            [name, schema_json, url, similarity_score, site]
         """
         start_time = time.time()
         logger.info(f"Searching for '{query[:50]}...' in site: {site}, num_results: {num_results}")
@@ -470,10 +470,11 @@ class PgVectorClient:
                 results = []
                 for row in rows:
                     result = [
-                        row["url"],
-                        json.dumps(row["schema_json"], indent=4),
                         row["name"],
-                        row["site"],
+                        json.dumps(row["schema_json"], indent=4),
+                        row["url"],
+                        row["similarity_score"],
+                        row["site"]
                     ]
                     results.append(result)
                 
@@ -514,7 +515,7 @@ class PgVectorClient:
                 row = await cur.fetchone()
                 
                 if row:
-                    return [row["url"], json.dumps(row["schema_json"], indent=4), row["name"], row["site"]]
+                    return [row["name"], json.dumps(row["schema_json"], indent=4), row["url"], row["site"]]
                 return None
         
         try:
