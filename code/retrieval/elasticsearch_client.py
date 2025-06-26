@@ -236,27 +236,7 @@ class ElasticsearchClient:
                 }
             )
             raise
-    
-    # async def recreate_index(self, index_name: Optional[str] = None) -> bool:
-    #     """
-    #     Delete and recreate the Elasticsearch index with proper vector mapping.
-        
-    #     Args:
-    #         index_name: Optional index name (defaults to configured index name)
-            
-    #     Returns:
-    #         bool: True if index was recreated successfully
-    #     """
-    #     index_name = index_name or self.default_index_name
-        
-    #     logger.info(f"Recreating index {index_name} with vector mapping")
-        
-    #     # Delete existing index
-    #     await self.delete_index(index_name)
-        
-    #     # Create new index with proper mapping
-    #     return await self.create_index_if_not_exists(index_name)
-    
+       
     async def delete_documents_by_site(self, site: str, **kwargs) -> int:
         """
         Delete all documents matching the specified site.
@@ -546,8 +526,6 @@ class ElasticsearchClient:
             )
             raise
     
-    # TODO check the retriever.py API for search_all_sites
-    # self, query: str, num_results: int = 50, endpoint_name: Optional[str] = None, **kwargs
     async def search_all_sites(self, query: str, num_results: int = 50, **kwargs) -> List[List[str]]:
         """
         Search across all sites using vector similarity
