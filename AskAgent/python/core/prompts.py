@@ -97,7 +97,18 @@ def get_prompt_variable_value(variable, handler):
             value = site
     elif variable == "site.itemType":
         item_type = handler.item_type
-        value = item_type.split("}")[1]
+        try:
+            # Try to split and get the part after the closing brace
+            parts = item_type.split("}")
+            if len(parts) > 1:
+                value = parts[1]
+            else:
+                # If there's no part after the brace, use the original value
+                logger.warning(f"item_type '{item_type}' doesn't contain expected format with closing brace")
+                value = item_type
+        except Exception as e:
+            logger.error(f"Error processing item_type '{item_type}': {str(e)}")
+            value = item_type
     elif variable == "request.query":
         if (handler.state.is_decontextualization_done()):
             value = handler.decontextualized_query
