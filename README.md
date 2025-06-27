@@ -31,8 +31,8 @@ The response returned uses Schema.org — a widely adopted vocabulary for descri
 NLWeb is platform-agnostic and supports:
 
 * **Operating systems**: Windows, macOS, Linux
-* **Vector stores**: Qdrant, Snowflake, Milvus, Azure AI Search
-* **LLMs**: OpenAI, DeepSeek, Gemini, Anthropic, Inception
+* **Vector stores**: [Qdrant](/docs/setup-qdrant.md), [Snowflake](docs/setup-snowflake.md), [Milvus](/docs/setup-milvus.md), [Azure AI Search](docs/setup-azure.md)
+* **LLMs**: OpenAI, DeepSeek, Gemini, Anthropic, Inception, [HuggingFace](docs/setup-huggingface.md)
 
 It is designed to be lightweight and scalable — capable of running on everything from data center clusters to laptops and, soon, mobile devices.
 
@@ -57,7 +57,7 @@ Most production deployments will:
 
 * [Hello world on your laptop](docs/nlweb-hello-world.md)
 * [Running it on Azure](docs/setup-azure.md)
-* [Running with Docker](docs/docker.md)
+* [Running with Docker](docs/setup-docker.md)
 * Running on GCP — *coming soon*
 * Running on AWS — *coming soon*
 
@@ -66,7 +66,7 @@ Most production deployments will:
 * [Life of a Chat Query](docs/life-of-a-chat-query.md)
 * [Modifying Prompts](docs/nlweb-prompts.md)
 * [Changing Control Flow](docs/nlweb-control-flow.md)
-* [Modifying the User Interface](docs/user-interface.md)
+* [Modifying the User Interface](docs/nlweb-user-interface.md)
 * [REST API](docs/nlweb-rest-api.md)
 * [Adding Memory](docs/nlweb-memory.md)
 * [Using the Check Connectivity Script to Test your Configuration](docs/nlweb-check-connectivity.md)
