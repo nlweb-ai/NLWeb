@@ -1,4 +1,6 @@
 # Core dependencies - always required
+azure-search-documents>=11.4.0
+# Core dependencies - always required
 azure-identity>=1.15.0
 chardet>=5.2.0
 jsonschema>=4.19.1
@@ -11,6 +13,7 @@ python-dotenv>=1.0.0
 aiohttp>=3.9.1
 pyyaml>=6.0.1
 feedparser>=6.0.1
+httpx>=0.28.1
 seaborn>=0.13.0
 
 # Optional LLM provider dependencies

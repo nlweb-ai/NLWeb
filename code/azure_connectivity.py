@@ -24,7 +24,7 @@ async def check_azure_search_api():
     print("\nChecking Azure AI Search connectivity...")
     
     # Get search configuration from CONFIG
-    preferred_endpoint = CONFIG.preferred_retrieval_endpoint
+    preferred_endpoint = CONFIG.write_endpoint
     if preferred_endpoint not in CONFIG.retrieval_endpoints:
         print(f"❌ Preferred retrieval endpoint '{preferred_endpoint}' not configured")
         return False
@@ -201,7 +201,7 @@ async def main():
     print("Running Azure connectivity checks...")
     print(f"Using configuration from preferred LLM endpoint: {CONFIG.preferred_llm_endpoint}")
     print(f"Using configuration from preferred embedding provider: {CONFIG.preferred_embedding_provider}")
-    print(f"Using configuration from preferred retrieval endpoint: {CONFIG.preferred_retrieval_endpoint}")
+    print(f"Using configuration from preferred retrieval endpoint: {CONFIG.write_endpoint}")
     
     start_time = time.time()
     

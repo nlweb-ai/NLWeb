@@ -14,7 +14,7 @@ try:
     from config.config import CONFIG
     from llm.llm import ask_llm
     from embedding.embedding import get_embedding
-    from retrieval.retriever import get_vector_db_client
+    from retrieval.retriever import search, get_vector_db_client
     from azure_connectivity import check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api
     from snowflake_connectivity import check_embedding, check_complete, check_search
     from inception_connectivity import check_inception_api
@@ -94,6 +94,7 @@ async def check_retriever(retrieval_name) -> bool:
         return False
 
     try:
+        # We need to use this specific vector db client to test its connectivity.  The general search will try all and hide errors.  
         client = get_vector_db_client(retrieval_name)
         resp = await client.search("e", site="all", num_results=1)
         good_output = len(resp) > 0 #and len(resp[0]) == 4
@@ -154,10 +155,13 @@ async def main():
         print(f"Using configuration from preferred embedding provider: {embedding_config}")
         tasks.append(check_embedding_api(embedding_config))
         
-        retrieval_config = CONFIG.preferred_retrieval_endpoint
-        retrieval_dbtype_config = CONFIG.retrieval_endpoints[CONFIG.preferred_retrieval_endpoint].db_type
-        print(f"Using configuration from preferred retrieval endpoint: {retrieval_config} with db_type {retrieval_dbtype_config}")  
-        tasks.append(check_retriever(retrieval_config))
+        retrieval_config = CONFIG.write_endpoint
+        # NOTE: I can't use a retrieval client.enabled_endpoints here, because it does validation and will just remove any invalid endpoints. 
+        # The purpose of this method is to surface these invalid endpoints to the user.   
+        for retrieval_endpoint in CONFIG.retrieval_endpoints:
+            if CONFIG.retrieval_endpoints[retrieval_endpoint].enabled:  
+                print(f"Using configuration from enabled retrieval endpoint: {retrieval_endpoint}")  
+                tasks.append(check_retriever(retrieval_endpoint))
     
     # Run all tasks concurrently
     results = await asyncio.gather(*tasks, return_exceptions=True)
