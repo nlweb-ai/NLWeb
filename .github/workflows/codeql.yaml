@@ -1,0 +1,38 @@
+name: 🔍️ CodeQL
+
+on: [push, pull_request, workflow_dispatch]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyse:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      security-events: write
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        language:
+          - javascript-typescript
+          - python
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialise CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: +security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
