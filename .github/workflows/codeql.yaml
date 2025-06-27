@@ -1,16 +1,32 @@
 name: 🔍️ CodeQL
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  pull_request_target:
+    branches: [ main ]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
   analyse:
     runs-on: ${{ matrix.os }}
+    # Skip if CodeQL is already configured in repository settings to avoid duplicates
+    if: >
+      github.event_name != 'pull_request' || 
+      github.event.pull_request.head.repo.fork == true ||
+      !contains(github.repository_owner, github.actor)
     permissions:
       security-events: write
+      contents: read
+      # Add pull-requests permission for pull_request_target
+      pull-requests: read
     strategy:
       matrix:
         os:
@@ -22,6 +38,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # For pull_request_target, checkout the PR head
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - name: Initialise CodeQL
         uses: github/codeql-action/init@v3
