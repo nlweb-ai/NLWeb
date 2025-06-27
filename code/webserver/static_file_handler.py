@@ -41,9 +41,28 @@ async def send_static_file(path, send_response, send_chunk):
     file_ext = os.path.splitext(path)[1].lower()
     content_type = mime_types.get(file_ext, 'application/octet-stream')
     
+    # Security: Only allow specific file extensions
+    allowed_extensions = {'.html', '.htm', '.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.json', '.txt', '.xml'}
+    if file_ext and file_ext not in allowed_extensions:
+        await send_response(403, {'Content-Type': 'text/plain'})
+        await send_chunk(b'Forbidden: File type not allowed', end_response=True)
+        return
+    
     try:
+        # Security check: reject paths containing .. to prevent directory traversal
+        if '..' in path:
+            await send_response(403, {'Content-Type': 'text/plain'})
+            await send_chunk(b'Forbidden: Invalid path', end_response=True)
+            return
+        
         # Remove leading slash and sanitize path
         safe_path = os.path.normpath(path.lstrip('/'))
+        
+        # Additional security check after normalization
+        if '..' in safe_path or safe_path.startswith('/'):
+            await send_response(403, {'Content-Type': 'text/plain'})
+            await send_chunk(b'Forbidden: Invalid path', end_response=True)
+            return
 
         # Try multiple possible root locations
         possible_roots = [
@@ -93,6 +112,20 @@ async def send_static_file(path, send_response, send_chunk):
                         break
         
         if file_found:
+            # Final security check: ensure the resolved path is within allowed roots
+            real_path = os.path.realpath(full_path)
+            is_safe = False
+            for root in possible_roots:
+                real_root = os.path.realpath(root)
+                if real_path.startswith(real_root + os.sep) or real_path == real_root:
+                    is_safe = True
+                    break
+            
+            if not is_safe:
+                await send_response(403, {'Content-Type': 'text/plain'})
+                await send_chunk(b'Forbidden: Access denied', end_response=True)
+                return
+            
             # Try to open and read the file
             with open(full_path, 'rb') as f:
                 content = f.read()
