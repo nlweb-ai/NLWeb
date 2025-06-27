@@ -114,7 +114,7 @@ async def delete_site_from_database(site: str, database: str = None):
         raise ValueError(f"Database endpoint '{endpoint_name}' not found in configuration")
     
     # Use query_params for development mode override
-    query_params = {"db": [endpoint_name]} if database else None
+    query_params = {"db": database} if database else None
     
     print(f"Deleting entries for site '{site}' using endpoint '{endpoint_name}'...")
     
@@ -637,7 +637,7 @@ async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int 
         print(f"Found {total_lines} lines in the file")
         
         # Use query_params for development mode override
-        query_params = {"db": endpoint_name} if database else None
+        query_params = {"db": database} if database else None
         
         # Process lines in batches
         batch_documents = []
@@ -765,7 +765,7 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
             await delete_site_from_database(site, endpoint_name)
         
         # Use query_params for development mode override
-        query_params = {"db": endpoint_name} if database else None
+        query_params = {"db": database} if database else None
         
         # Get embedding provider from config
         provider = CONFIG.preferred_embedding_provider
@@ -897,6 +897,7 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
             
             print(f"Loading completed. Added {total_documents} documents to the database.")
             print(f"Saved file with embeddings to {embeddings_path}")
+            
             return total_documents
         else:
             print("No documents were extracted from the file.")
@@ -964,7 +965,7 @@ async def loadUrlListToDB(file_path: str, site: str, batch_size: int = 100, dele
             await delete_site_from_database(site, endpoint_name)
         
         # Get client directly from the factory function, using query_params for development mode override
-        query_params = {"db": [endpoint_name]} if database else None
+        query_params = {"db": database} if database else None
         client = get_vector_db_client(query_params=query_params)
         
         # Process each URL

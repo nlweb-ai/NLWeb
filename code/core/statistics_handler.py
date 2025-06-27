@@ -227,13 +227,19 @@ class StatisticsHandler():
     
     async def map_to_dcids(self, variables: List[str], places: List[str]) -> Tuple[List[str], List[str]]:
         """Map variable and place names to Data Commons DCIDs."""
-        # Map variables
-        variable_dcids = []
+        # Create tasks for parallel processing
+        variable_tasks = []
+        place_tasks = []
+        
+        # Create tasks for mapping variables
         for var in variables:
             var_lower = var.lower()
             dcid = self.dcid_mappings['variables'].get(var_lower)
             if dcid:
-                variable_dcids.append(dcid)
+                # Direct mapping found, create a completed task
+                async def return_dcid(dcid=dcid):
+                    return dcid
+                variable_tasks.append(asyncio.create_task(return_dcid()))
             else:
                 # Use LLM to find closest match
                 prompt = f"""
@@ -243,19 +249,22 @@ class StatisticsHandler():
                 Find the best matching DCID for this variable. Return only the DCID value.
                 If no good match exists, return "UNKNOWN".
                 """
-                response = await ask_llm(prompt, {"dcid": "string"}, level="low")
-                response = response.get('dcid', 'UNKNOWN') if isinstance(response, dict) else str(response).strip()
-                if response.strip() != "UNKNOWN":
-                    variable_dcids.append(response.strip())
+                # Create async task for LLM call
+                async def get_variable_dcid(prompt=prompt):
+                    response = await ask_llm(prompt, {"dcid": "string"}, level="low")
+                    response = response.get('dcid', 'UNKNOWN') if isinstance(response, dict) else str(response).strip()
+                    return response if response.strip() != "UNKNOWN" else None
+                
+                variable_tasks.append(asyncio.create_task(get_variable_dcid()))
         
-        # Map places to DCIDs using LLM
-        place_dcids = []
+        # Create tasks for mapping places
         for place in places:
             # Handle common cases directly
             place_lower = place.lower()
             if place_lower in ["us", "usa", "united states", "america"]:
-                place_dcids.append("country/USA")
-                print(f"  Place '{place}' -> DCID 'country/USA' (direct mapping)")
+                async def return_usa(p=place):
+                    return (p, "country/USA")
+                place_tasks.append(asyncio.create_task(return_usa()))
                 continue
                 
             prompt = f"""
@@ -274,19 +283,38 @@ class StatisticsHandler():
             If unsure, return just the FIPS code of the place.
             """
             
-            response = await ask_llm(prompt, {"dcid": "string"}, level="low")
-            dcid = response.get('dcid', '') if isinstance(response, dict) else str(response).strip()
+            # Create async task for LLM call
+            async def get_place_dcid(place=place, prompt=prompt):
+                response = await ask_llm(prompt, {"dcid": "string"}, level="low")
+                dcid = response.get('dcid', '') if isinstance(response, dict) else str(response).strip()
+                
+                # Fallback to simple heuristic if LLM fails
+                if not dcid or dcid == "UNKNOWN":
+                    if "county" in place.lower():
+                        place_name = place.lower().replace(" county", "").strip()
+                        dcid = f"geoId/{place_name}"
+                    else:
+                        dcid = place
+                        
+                return (place, dcid)
             
-            # Fallback to simple heuristic if LLM fails
-            if not dcid or dcid == "UNKNOWN":
-                if "county" in place.lower():
-                    place_name = place.lower().replace(" county", "").strip()
-                    dcid = f"geoId/{place_name}"
-                else:
-                    dcid = place
-                    
-            place_dcids.append(dcid)
-            print(f"  Place '{place}' -> DCID '{dcid}'")
+            place_tasks.append(asyncio.create_task(get_place_dcid()))
+        
+        # Execute all tasks in parallel
+        variable_results = await asyncio.gather(*variable_tasks) if variable_tasks else []
+        place_results = await asyncio.gather(*place_tasks) if place_tasks else []
+        
+        # Process results
+        variable_dcids = [dcid for dcid in variable_results if dcid is not None]
+        
+        place_dcids = []
+        for place_result in place_results:
+            if isinstance(place_result, tuple):
+                place, dcid = place_result
+                place_dcids.append(dcid)
+                print(f"  Place '{place}' -> DCID '{dcid}'")
+            else:
+                place_dcids.append(place_result)
         
         return variable_dcids, place_dcids
     
@@ -441,30 +469,29 @@ class StatisticsHandler():
                 await self._send_error_message("I couldn't match your query to any statistical patterns. Please try rephrasing.")
                 return
             
-            # Process all templates with score > 70
-            all_components = []
-            seen_components = set()  # Track unique components to avoid duplicates
-            
-            for match in matched_templates:
+            # Process all templates with score > 70 in parallel
+            async def process_template(match):
+                """Process a single template match."""
                 if match['score'] < 70:
-                    break  # Templates are sorted by score, so we can stop here
+                    return None
                     
                 template = match['template']
                 print(f"\nProcessing template {template['id']} (score: {match['score']}): {template['pattern']}")
                 
                 try:
-                    # Step 2: Extract variables and places for this template
+                    # Step 2 & 3: Extract variables/places and map to DCIDs
+                    # First extract variables and places
                     variables, places = await self.extract_variables_and_places(query, template)
-                    print(f"  Extracted - Variables: {variables}, Places: {places}")
+                    print(f"  Template {template['id']} - Extracted - Variables: {variables}, Places: {places}")
                     
-                    # Step 3: Map to DCIDs
+                    # Then map to DCIDs (this is already parallelized internally)
                     variable_dcids, place_dcids = await self.map_to_dcids(variables, places)
-                    print(f"  DCIDs - Variables: {variable_dcids}, Places: {place_dcids}")
+                    print(f"  Template {template['id']} - DCIDs - Variables: {variable_dcids}, Places: {place_dcids}")
                     
                     # Skip if we couldn't extract any variables
                     if not variable_dcids:
-                        print(f"  Skipping - no variables extracted")
-                        continue
+                        print(f"  Template {template['id']} - Skipping - no variables extracted")
+                        return None
                     
                     # Step 4: Determine visualization type
                     query_type = self.params.get('query_type', 'single_value')
@@ -473,7 +500,7 @@ class StatisticsHandler():
                         len(variable_dcids), 
                         len(place_dcids)
                     )
-                    print(f"  Visualization type: {viz_type}")
+                    print(f"  Template {template['id']} - Visualization type: {viz_type}")
                     
                     # Step 5: Create web component
                     additional_params = {}
@@ -495,19 +522,10 @@ class StatisticsHandler():
                         query_params=additional_params
                     )
                     
-                    # Create a unique key for deduplication
-                    component_key = f"{viz_type}|{','.join(sorted(variable_dcids))}|{','.join(sorted(place_dcids))}"
+                    print(f"  Template {template['id']} - Generated: {component_html}")
                     
-                    # Skip if we've already generated this exact component
-                    if component_key in seen_components:
-                        print(f"  Skipping duplicate component: {component_key}")
-                        continue
-                    
-                    seen_components.add(component_key)
-                    print(f"  Generated: {component_html}")
-                    
-                    # Store component info
-                    all_components.append({
+                    # Return component info
+                    return {
                         'template': template,
                         'score': match['score'],
                         'variables': variables,
@@ -516,13 +534,36 @@ class StatisticsHandler():
                         'place_dcids': place_dcids,
                         'viz_type': viz_type,
                         'html': component_html,
-                        'title': title
-                    })
+                        'title': title,
+                        'component_key': f"{viz_type}|{','.join(sorted(variable_dcids))}|{','.join(sorted(place_dcids))}"
+                    }
                     
                 except Exception as e:
                     logger.error(f"Error processing template {template['id']}: {e}")
-                    print(f"  Error: {e}")
+                    print(f"  Template {template['id']} - Error: {e}")
+                    return None
+            
+            # Process all templates in parallel
+            template_tasks = [process_template(match) for match in matched_templates]
+            template_results = await asyncio.gather(*template_tasks)
+            
+            # Filter out None results and deduplicate
+            all_components = []
+            seen_components = set()
+            
+            for component in template_results:
+                if component is None:
                     continue
+                    
+                # Skip if we've already generated this exact component
+                if component['component_key'] in seen_components:
+                    print(f"  Skipping duplicate component: {component['component_key']}")
+                    continue
+                    
+                seen_components.add(component['component_key'])
+                # Remove the component_key from the stored data
+                del component['component_key']
+                all_components.append(component)
             
             if not all_components:
                 logger.warning("No components could be generated")
