@@ -309,16 +309,24 @@ class NLWebHandler:
             self.state.set_pre_checks_done()
          
         # Wait for retrieval to be done
+        logger.info(f"Checking retrieval_done_event for site: {self.site}")
         if not self.retrieval_done_event.is_set():
-            logger.info("Retrieval not done by fast track, performing regular retrieval")
-            items = await search(
-                self.decontextualized_query, 
-                self.site,
-                query_params=self.query_params
-            )
-            self.final_retrieved_items = items
-            logger.debug(f"Retrieved {len(items)} items from database")
-            self.retrieval_done_event.set()
+            # Skip retrieval for sites without embeddings
+            logger.info(f"Retrieval not done, checking if site is DataCommons: {self.site.lower() == 'datacommons'}")
+            if self.site.lower() == "datacommons":
+                logger.info("Skipping retrieval for DataCommons - no embeddings")
+                self.final_retrieved_items = []
+                self.retrieval_done_event.set()
+            else:
+                logger.info("Retrieval not done by fast track, performing regular retrieval")
+                items = await search(
+                    self.decontextualized_query, 
+                    self.site,
+                    query_params=self.query_params
+                )
+                self.final_retrieved_items = items
+                logger.debug(f"Retrieved {len(items)} items from database")
+                self.retrieval_done_event.set()
         
         logger.info("Preparation phase completed")
 
