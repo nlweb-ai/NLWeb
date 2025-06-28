@@ -46,7 +46,7 @@ def _create_client_params(endpoint_config):
 async def initialize_client(endpoint_name=None):
     """Initialize Qdrant client."""
     global qdrant_clients
-    endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+    endpoint_name = endpoint_name or CONFIG.write_endpoint
 
     with _client_lock:
         if endpoint_name not in qdrant_clients:
@@ -70,7 +70,7 @@ async def initialize_client(endpoint_name=None):
 
 async def get_qdrant_client(endpoint_name=None):
     """Get or initialize Qdrant client."""
-    endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+    endpoint_name = endpoint_name or CONFIG.write_endpoint
     if endpoint_name not in qdrant_clients:
         await initialize_client(endpoint_name)
     return qdrant_clients[endpoint_name]
@@ -78,7 +78,7 @@ async def get_qdrant_client(endpoint_name=None):
 
 def get_collection_name(endpoint_name=None):
     """Get collection name from endpoint config or use default."""
-    endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+    endpoint_name = endpoint_name or CONFIG.write_endpoint
     endpoint_config = CONFIG.retrieval_endpoints[endpoint_name]
     index_name = endpoint_config.index_name
     return index_name or "nlweb_collection"
@@ -118,7 +118,7 @@ def format_results(search_result):
 
 async def search_db(query, site, num_results=50, endpoint_name=None, query_params=None):
     """Search Qdrant for records filtered by site and ranked by vector similarity."""
-    endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+    endpoint_name = endpoint_name or CONFIG.write_endpoint
     logger.info(
         f"Starting Qdrant search - endpoint: {endpoint_name}, site: {site}, num_results: {num_results}"
     )
@@ -177,7 +177,7 @@ async def search_db(query, site, num_results=50, endpoint_name=None, query_param
 
 async def retrieve_item_with_url(url, endpoint_name=None):
     """Retrieve a specific item by URL from Qdrant database."""
-    endpoint_name = endpoint_name or CONFIG.preferred_retrieval_endpoint
+    endpoint_name = endpoint_name or CONFIG.write_endpoint
     logger.info(f"Retrieving item by URL: {url}")
 
     try:

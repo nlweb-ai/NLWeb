@@ -29,18 +29,26 @@ export class ManagedEventSource {
    * @param {Object} chatInterface - The chat interface instance
    */
   connect(chatInterface) {
+    console.log('=== ManagedEventSource.connect called ===');
+    console.log('URL:', this.url);
+    
     if (this.isStopped) {
+      console.log('Connection stopped, not connecting');
       return;
     }
     
     this.eventSource = new EventSource(this.url);
     this.eventSource.chatInterface = chatInterface;
     
+    console.log('EventSource created:', this.eventSource);
+    
     this.eventSource.onopen = () => {
+      console.log('EventSource connection opened');
       this.retryCount = 0; // Reset retry count on successful connection
     };
 
     this.eventSource.onerror = (error) => {
+      console.error('EventSource error:', error);
       if (this.eventSource.readyState === EventSource.CLOSED) {
         console.log('Connection was closed');
         
@@ -67,6 +75,9 @@ export class ManagedEventSource {
    * @param {Event} event - The message event
    */
   handleMessage(event) {
+    console.log('=== handleMessage called ===');
+    console.log('Raw event data:', event.data);
+    
     const chatInterface = this.eventSource.chatInterface;
     
     // Handle first message by removing loading dots
@@ -84,6 +95,9 @@ export class ManagedEventSource {
       chatInterface.messagesArea.appendChild(messageDiv);
       chatInterface.currentItems = [];
       chatInterface.thisRoundRemembered = null;
+      chatInterface.thisRoundDecontextQuery = null;
+      chatInterface.debugMessages = [];  // Reset debug messages for new response
+      chatInterface.pendingResultBatches = [];  // Collect result batches
     }
     
     // Parse the JSON data
@@ -120,6 +134,17 @@ export class ManagedEventSource {
     
     const messageType = data.message_type;
     
+    // Store all messages for debug mode
+    if (chatInterface.debugMessages) {
+      chatInterface.debugMessages.push({
+        type: messageType,
+        data: data,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    console.log('Processing message type:', messageType);
+    
     switch(messageType) {
       case "query_analysis":
         this.handleQueryAnalysis(data, chatInterface);
@@ -153,22 +178,26 @@ export class ManagedEventSource {
         }
         break;
       case "item_details":
-        // Ensure message is a string
-        console.log('item_details: data:', data);
         chatInterface.noResponse = false;
-        if (typeof data.details === 'object') {
-          data.details = JSON.stringify(data.details);
-        }
-        console.log('item_details: data:', data);
+        // Map details to description for proper rendering
+        const mappedData = {
+          ...data,
+          description: data.details  // Map details to description
+        };
+        
         const items = {
-          "results": [data]
+          "results": [mappedData]
         }
         this.handleResultBatch(items, chatInterface);
-          //chatInterface.itemDetailsMessage(data.message, chatInterface);
         break;
       case "result_batch":
         chatInterface.noResponse = false;
+        // Process results immediately for display
         this.handleResultBatch(data, chatInterface);
+        // Also collect for debug output
+        if (chatInterface.pendingResultBatches && data.results) {
+          chatInterface.pendingResultBatches.push(...data.results);
+        }
         break;
       case "intermediate_message":
         // Ensure message is a string
@@ -193,9 +222,46 @@ export class ManagedEventSource {
         chatInterface.noResponse = false;
         handleCompareItems(data, chatInterface);
         break;
+      case "ensemble_result":
+        chatInterface.noResponse = false;
+        this.handleEnsembleResult(data, chatInterface);
+        break;
+      case "decontextualized_query":
+        // Display the decontextualized query in the chat
+        if (data.decontextualized_query && data.original_query && 
+            data.decontextualized_query !== data.original_query) {
+          const message = `Query interpreted as: "${data.decontextualized_query}"`;
+          const decontextDiv = chatInterface.createIntermediateMessageHtml(message);
+          decontextDiv.style.fontStyle = 'italic';
+          decontextDiv.style.color = '#666';
+          decontextDiv.style.marginBottom = '10px';
+          // Store it so it survives resort
+          chatInterface.thisRoundDecontextQuery = decontextDiv;
+          chatInterface.bubble.appendChild(decontextDiv);
+        }
+        break;
+      case "tool_selection":
+        // Display tool selection info
+        if (data.selected_tool) {
+          const toolMessage = `Using ${data.selected_tool} tool`;
+          const toolDiv = chatInterface.createIntermediateMessageHtml(toolMessage);
+          toolDiv.style.fontSize = '0.9em';
+          toolDiv.style.color = '#888';
+          toolDiv.style.fontStyle = 'italic';
+          toolDiv.style.marginBottom = '8px';
+          
+          // Store it so it survives resort
+          chatInterface.thisRoundToolSelection = toolDiv;
+          chatInterface.bubble.appendChild(toolDiv);
+        }
+        break;
       case "substitution_suggestions":
         chatInterface.noResponse = false;
         this.handleSubstitutionSuggestions(data, chatInterface);
+        break;
+      case "chart_result":
+        chatInterface.noResponse = false;
+        this.handleChartResult(data, chatInterface);
         break;
       case "no_results":
         chatInterface.noResponse = false;
@@ -213,17 +279,61 @@ export class ManagedEventSource {
         }
         break;
       case "complete":
+        // Add merged results to debug messages if any were collected
+        if (chatInterface.pendingResultBatches && chatInterface.pendingResultBatches.length > 0) {
+          if (chatInterface.debugMessages) {
+            chatInterface.debugMessages.push({
+              type: 'merged_results',
+              data: {
+                message_type: 'merged_results',
+                results: chatInterface.pendingResultBatches,
+                count: chatInterface.pendingResultBatches.length
+              },
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+        
         chatInterface.resortResults();
         // Add this check to display a message when no results found
         if (chatInterface.noResponse) {
           const noResultsMessage = chatInterface.createIntermediateMessageHtml("No results were found");
           chatInterface.bubble.appendChild(noResultsMessage);
         }
+        
+        // Compile last answers from current items
+        const newAnswers = [];
+        for (const [item, domItem] of chatInterface.currentItems) {
+          if (item.title && item.url) {
+            newAnswers.push({
+              title: item.title,
+              url: item.url
+            });
+          } else if (item.name && item.url) {
+            newAnswers.push({
+              title: item.name,
+              url: item.url
+            });
+          }
+        }
+        
+        // Update lastAnswers array (keep only last 20)
+        chatInterface.lastAnswers = [...newAnswers, ...chatInterface.lastAnswers].slice(0, 20);
+        
         chatInterface.scrollDiv.scrollIntoView();
         this.close();
         break;
+      // Header messages - handle silently
+      case "api_version":
+      case "user_agent":
+      case "data_retention":
+      case "header":
+      case "time-to-first-result":
+        // These are header/metadata messages, no action needed
+        break;
       default:
         console.log("Unknown message type:", messageType);
+        console.log("Full message data:", data);
         break;
     }
   }
@@ -310,6 +420,327 @@ export class ManagedEventSource {
         chatInterface.bubble.appendChild(domItem);
       }
     }
+  }
+  
+  /**
+   * Handles ensemble result messages
+   * 
+   * @param {Object} data - The message data containing ensemble recommendations
+   * @param {Object} chatInterface - The chat interface instance
+   */
+  handleEnsembleResult(data, chatInterface) {
+    // Validate data
+    if (!data || !data.result || !data.result.recommendations) {
+      console.error('Invalid ensemble result data');
+      return;
+    }
+    
+    const result = data.result;
+    const recommendations = result.recommendations;
+    
+    // Create ensemble result container
+    const container = document.createElement('div');
+    container.className = 'ensemble-result-container';
+    container.style.cssText = 'background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 10px 0;';
+    
+    // Add theme header
+    if (recommendations.theme) {
+      const themeHeader = document.createElement('h3');
+      themeHeader.textContent = recommendations.theme;
+      themeHeader.style.cssText = 'color: #333; margin-bottom: 20px; font-size: 1.2em;';
+      container.appendChild(themeHeader);
+    }
+    
+    // Add items
+    if (recommendations.items && Array.isArray(recommendations.items)) {
+      const itemsContainer = document.createElement('div');
+      itemsContainer.style.cssText = 'display: grid; gap: 15px;';
+      
+      recommendations.items.forEach(item => {
+        const itemCard = this.createEnsembleItemCard(item);
+        itemsContainer.appendChild(itemCard);
+      });
+      
+      container.appendChild(itemsContainer);
+    }
+    
+    // Add overall tips
+    if (recommendations.overall_tips && Array.isArray(recommendations.overall_tips)) {
+      const tipsSection = document.createElement('div');
+      tipsSection.style.cssText = 'margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;';
+      
+      const tipsHeader = document.createElement('h4');
+      tipsHeader.textContent = 'Planning Tips';
+      tipsHeader.style.cssText = 'color: #555; margin-bottom: 10px; font-size: 1.1em;';
+      tipsSection.appendChild(tipsHeader);
+      
+      const tipsList = document.createElement('ul');
+      tipsList.style.cssText = 'margin: 0; padding-left: 20px;';
+      
+      recommendations.overall_tips.forEach(tip => {
+        const tipItem = document.createElement('li');
+        tipItem.textContent = tip;
+        tipItem.style.cssText = 'color: #666; margin-bottom: 5px;';
+        tipsList.appendChild(tipItem);
+      });
+      
+      tipsSection.appendChild(tipsList);
+      container.appendChild(tipsSection);
+    }
+    
+    // Add to chat interface
+    chatInterface.bubble.appendChild(container);
+  }
+  
+  /**
+   * Extracts an image URL from a schema object
+   * 
+   * @param {Object} schema_object - The schema object
+   * @returns {string|null} - The image URL or null
+   */
+  extractImageUrl(schema_object) {
+    if (!schema_object) return null;
+    
+    // Check various possible image fields
+    if (schema_object.image) {
+      return this.extractImageUrlFromField(schema_object.image);
+    } else if (schema_object.images && Array.isArray(schema_object.images) && schema_object.images.length > 0) {
+      return this.extractImageUrlFromField(schema_object.images[0]);
+    } else if (schema_object.thumbnailUrl) {
+      return this.extractImageUrlFromField(schema_object.thumbnailUrl);
+    } else if (schema_object.thumbnail) {
+      return this.extractImageUrlFromField(schema_object.thumbnail);
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Extracts an image URL from various image field formats
+   * 
+   * @param {*} imageField - The image field data
+   * @returns {string|null} - The image URL or null
+   */
+  extractImageUrlFromField(imageField) {
+    // Handle string URLs
+    if (typeof imageField === 'string') {
+      return imageField;
+    }
+    
+    // Handle object with url property
+    if (typeof imageField === 'object' && imageField !== null) {
+      if (imageField.url) {
+        return imageField.url;
+      }
+      if (imageField.contentUrl) {
+        return imageField.contentUrl;
+      }
+      if (imageField['@id']) {
+        return imageField['@id'];
+      }
+    }
+    
+    // Handle array of images
+    if (Array.isArray(imageField) && imageField.length > 0) {
+      return this.extractImageUrlFromField(imageField[0]);
+    }
+    
+    return null;
+  }
+
+  /**
+   * Creates a card for an ensemble item
+   * 
+   * @param {Object} item - The item data
+   * @returns {HTMLElement} The item card element
+   */
+  createEnsembleItemCard(item) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+    
+    // Create a flex container for content and image
+    const flexContainer = document.createElement('div');
+    flexContainer.style.cssText = 'display: flex; gap: 15px; align-items: center;';
+    
+    // Content container (goes first, on the left)
+    const contentContainer = document.createElement('div');
+    contentContainer.style.cssText = 'flex-grow: 1;';
+    
+    // Category badge
+    const categoryBadge = document.createElement('span');
+    categoryBadge.textContent = item.category;
+    categoryBadge.style.cssText = `
+      display: inline-block;
+      padding: 4px 12px;
+      background-color: ${item.category === 'Garden' ? '#28a745' : '#007bff'};
+      color: white;
+      border-radius: 20px;
+      font-size: 0.85em;
+      margin-bottom: 10px;
+    `;
+    contentContainer.appendChild(categoryBadge);
+    
+    // Name with hyperlink
+    const nameContainer = document.createElement('h4');
+    nameContainer.style.cssText = 'margin: 10px 0;';
+    
+    // Get URL from item or schema_object
+    const itemUrl = item.url || (item.schema_object && item.schema_object.url);
+    
+    if (itemUrl) {
+      const nameLink = document.createElement('a');
+      nameLink.href = itemUrl;
+      nameLink.textContent = item.name;
+      nameLink.target = '_blank';
+      nameLink.style.cssText = 'color: #0066cc; text-decoration: none; font-weight: bold;';
+      nameLink.onmouseover = function() { this.style.textDecoration = 'underline'; };
+      nameLink.onmouseout = function() { this.style.textDecoration = 'none'; };
+      nameContainer.appendChild(nameLink);
+    } else {
+      nameContainer.textContent = item.name;
+      nameContainer.style.color = '#333';
+    }
+    
+    contentContainer.appendChild(nameContainer);
+    
+    // Description
+    const description = document.createElement('p');
+    description.textContent = item.description;
+    description.style.cssText = 'color: #666; margin: 10px 0; line-height: 1.5;';
+    contentContainer.appendChild(description);
+    
+    // Why recommended
+    const whySection = document.createElement('div');
+    whySection.style.cssText = 'background-color: #e8f4f8; padding: 10px; border-radius: 4px; margin: 10px 0;';
+    
+    const whyLabel = document.createElement('strong');
+    whyLabel.textContent = 'Why recommended: ';
+    whyLabel.style.cssText = 'color: #0066cc;';
+    
+    const whyText = document.createElement('span');
+    whyText.textContent = item.why_recommended;
+    whyText.style.cssText = 'color: #555;';
+    
+    whySection.appendChild(whyLabel);
+    whySection.appendChild(whyText);
+    contentContainer.appendChild(whySection);
+    
+    // Details
+    if (item.details && Object.keys(item.details).length > 0) {
+      const detailsSection = document.createElement('div');
+      detailsSection.style.cssText = 'margin-top: 10px; font-size: 0.9em;';
+      
+      Object.entries(item.details).forEach(([key, value]) => {
+        const detailLine = document.createElement('div');
+        detailLine.style.cssText = 'color: #777; margin: 3px 0;';
+        
+        const detailKey = document.createElement('strong');
+        detailKey.textContent = `${key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}: `;
+        detailKey.style.cssText = 'color: #555;';
+        
+        const detailValue = document.createElement('span');
+        detailValue.textContent = value;
+        
+        detailLine.appendChild(detailKey);
+        detailLine.appendChild(detailValue);
+        detailsSection.appendChild(detailLine);
+      });
+      
+      contentContainer.appendChild(detailsSection);
+    }
+    
+    // Additional info from schema_object
+    if (item.schema_object) {
+      // Price
+      if (item.schema_object.price || (item.schema_object.offers && item.schema_object.offers.price)) {
+        const priceDiv = document.createElement('div');
+        priceDiv.style.cssText = 'margin-top: 10px; font-weight: bold; color: #28a745;';
+        const price = item.schema_object.price || item.schema_object.offers.price;
+        priceDiv.textContent = `Price: ${typeof price === 'object' ? price.value : price}`;
+        contentContainer.appendChild(priceDiv);
+      }
+      
+      // Rating
+      if (item.schema_object.aggregateRating) {
+        const rating = item.schema_object.aggregateRating;
+        const ratingValue = rating.ratingValue || rating.value;
+        const reviewCount = rating.reviewCount || rating.ratingCount || rating.count;
+        
+        if (ratingValue) {
+          const ratingDiv = document.createElement('div');
+          ratingDiv.style.cssText = 'margin-top: 5px; color: #f39c12;';
+          const stars = '★'.repeat(Math.round(ratingValue));
+          const reviewText = reviewCount ? ` (${reviewCount} reviews)` : '';
+          ratingDiv.innerHTML = `Rating: ${stars} ${ratingValue}/5${reviewText}`;
+          contentContainer.appendChild(ratingDiv);
+        }
+      }
+    }
+    
+    // Append content container to flex container
+    flexContainer.appendChild(contentContainer);
+    
+    // Add image from schema_object if available (on the right side)
+    if (item.schema_object) {
+      const imageUrl = this.extractImageUrl(item.schema_object);
+      
+      if (imageUrl) {
+        const imageContainer = document.createElement('div');
+        imageContainer.style.cssText = 'flex-shrink: 0; display: flex; align-items: center;';
+        
+        const image = document.createElement('img');
+        image.src = imageUrl;
+        image.alt = item.name;
+        image.style.cssText = 'width: 120px; height: 120px; object-fit: cover; border-radius: 6px;';
+        imageContainer.appendChild(image);
+        flexContainer.appendChild(imageContainer);
+      }
+    }
+    
+    // Append flex container to card
+    card.appendChild(flexContainer);
+    
+    return card;
+  }
+
+  /**
+   * Handles chart result messages (Data Commons web components)
+   * 
+   * @param {Object} data - The message data containing chart HTML
+   * @param {Object} chatInterface - The chat interface instance
+   */
+  handleChartResult(data, chatInterface) {
+    console.log('=== Chart Result Handler Called ===');
+    console.log('Received data:', data);
+    
+    // Validate data
+    if (!data || typeof data.html !== 'string') {
+      console.error('Invalid chart result data');
+      return;
+    }
+    
+    console.log('HTML content to insert:', data.html);
+    
+    // Create container for the chart
+    const chartContainer = document.createElement('div');
+    chartContainer.className = 'chart-result-container';
+    chartContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px;';
+    
+    // Parse and inject the HTML content
+    // The HTML should contain the Data Commons web component and script tag
+    chartContainer.innerHTML = data.html;
+    
+    console.log('Container element created:', chartContainer);
+    console.log('Container innerHTML after setting:', chartContainer.innerHTML);
+    
+    // Append to chat interface
+    chatInterface.bubble.appendChild(chartContainer);
+    
+    console.log('Chart container appended to bubble');
+    console.log('Bubble contents:', chatInterface.bubble.innerHTML);
+    
+    // The Data Commons script should automatically initialize the web component
+    // when it's added to the DOM
   }
 
   /**

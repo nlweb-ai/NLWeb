@@ -8,8 +8,9 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from retrieval.retriever import get_vector_db_client
+from retrieval.retriever import search
 import asyncio
+import importlib
 import pre_retrieval.decontextualize as decontextualize
 import pre_retrieval.analyze_query as analyze_query
 import pre_retrieval.memory as memory   
@@ -20,8 +21,6 @@ import pre_retrieval.relevance_detection as relevance_detection
 import core.fastTrack as fastTrack
 import core.post_ranking as post_ranking
 import core.router as router
-import core.item_details as item_details
-import core.compare_items as compare_items
 import core.accompaniment as accompaniment
 import core.recipe_substitution as substitution
 from core.state import NLWebHandlerState
@@ -37,9 +36,14 @@ API_VERSION = "0.1"
 class NLWebHandler:
 
     def __init__(self, query_params, http_handler): 
+        import time
         logger.info("Initializing NLWebHandler")
         self.http_handler = http_handler
         self.query_params = query_params
+        
+        # Track initialization time for time-to-first-result
+        self.init_time = time.time()
+        self.first_result_sent = False
 
         # the site that is being queried
         self.site = get_param(query_params, "site", str, "all")  
@@ -49,6 +53,9 @@ class NLWebHandler:
 
         # the previous queries that the user has entered
         self.prev_queries = get_param(query_params, "prev", list, [])
+
+        # the last answers (title and url) from previous queries
+        self.last_answers = get_param(query_params, "last_ans", list, [])
 
         # the model that is being used
         self.model = get_param(query_params, "model", str, "gpt-4o-mini")
@@ -115,6 +122,7 @@ class NLWebHandler:
         self._send_lock = asyncio.Lock()
         
         self.fastTrackRanker = None
+        self.headersSent = False  # Track if headers have been sent
         self.fastTrackWorked = False
         self.sites_in_embeddings_sent = False
 
@@ -132,6 +140,7 @@ class NLWebHandler:
         logger.debug(f"generate_mode: {self.generate_mode}, query_id: {self.query_id}")
         logger.debug(f"context_url: {self.context_url}")
         logger.debug(f"Previous queries: {self.prev_queries}")
+        logger.debug(f"Last answers: {self.last_answers}")
         
         log(f"NLWebHandler initialized with site: {self.site}, query: {self.query}, prev_queries: {self.prev_queries}, mode: {self.generate_mode}, query_id: {self.query_id}, context_url: {self.context_url}")
     
@@ -149,6 +158,7 @@ class NLWebHandler:
    
 
     async def send_message(self, message):
+        import time
         logger.debug(f"Sending message of type: {message.get('message_type', 'unknown')}")
         async with self._send_lock:  # Protect send operation with lock
             # Check connection before sending
@@ -158,28 +168,60 @@ class NLWebHandler:
                 
             if (self.streaming and self.http_handler is not None):
                 message["query_id"] = self.query_id
-                if not self.versionNumberSent:
-                    self.versionNumberSent = True
-                    version_number_message = {"message_type": "api_version", "api_version": API_VERSION}
-                  #  await self.http_handler.write_stream(version_number_message)
+
                 
-                # Send headers before any other content (but after version)
+                # Check if this is the first result_batch and add time-to-first-result header
+                if message.get("message_type") == "result_batch" and not self.first_result_sent:
+                    self.first_result_sent = True
+                    time_to_first_result = time.time() - self.init_time
+                    
+                    # Send time-to-first-result as a header message
+                    ttfr_message = {
+                        "message_type": "header",
+                        "header_name": "time-to-first-result",
+                        "header_value": f"{time_to_first_result:.3f}s",
+                        "query_id": self.query_id
+                    }
+                    try:
+                        await self.http_handler.write_stream(ttfr_message)
+                        logger.info(f"Sent time-to-first-result header: {time_to_first_result:.3f}s")
+                    except Exception as e:
+                        logger.error(f"Error sending time-to-first-result header: {e}")
+                
+                # Send headers on first message if not already sent
                 if not self.headersSent:
                     self.headersSent = True
-                    try:
-                        # Get configured headers from CONFIG
-                        headers = CONFIG.get_headers()
-                        for header_key, header_value in headers.items():
+
+                    
+                    # Send version number first
+                    if not self.versionNumberSent:
+                        self.versionNumberSent = True
+                        version_number_message = {"message_type": "api_version", "api_version": API_VERSION, "query_id": self.query_id}
+                        try:
+                            await self.http_handler.write_stream(version_number_message)
+                            logger.info(f"Sent API version: {API_VERSION}")
+                        except Exception as e:
+                            logger.error(f"Error sending API version: {e}")
+                    
+                    # Send headers from config as messages
+                    if hasattr(CONFIG.nlweb, 'headers') and CONFIG.nlweb.headers:
+                        logger.info(f"Sending headers: {CONFIG.nlweb.headers}")
+                        for header_key, header_value in CONFIG.nlweb.headers.items():
                             header_message = {
                                 "message_type": header_key,
-                                "message": header_value,
+                                "content": header_value,
                                 "query_id": self.query_id
                             }
-                            await self.http_handler.write_stream(header_message)
-                            logger.debug(f"Header '{header_key}' sent successfully")
-                    except Exception as e:
-                        logger.error(f"Error sending headers: {e}")
-                    
+                            try:
+                                await self.http_handler.write_stream(header_message)
+                                logger.info(f"Sent header message: {header_key} = {header_value}")
+                            except Exception as e:
+                                logger.error(f"Error sending header {header_key}: {e}")
+                                self.connection_alive_event.clear()
+                                return
+                    else:
+                        logger.warning("No headers found in CONFIG.nlweb.headers")
+                
                 try:
                     await self.http_handler.write_stream(message)
                     logger.debug(f"Message streamed successfully")
@@ -214,6 +256,13 @@ class NLWebHandler:
                             val[key] = message[key]
                     self.return_value[message["message_type"]] = val
                 logger.debug(f"Message added to return value store")
+                
+                # Also add headers to return value in non-streaming mode if not already sent
+                if not self.headersSent:
+                    self.headersSent = True
+                    if hasattr(CONFIG.nlweb, 'headers') and CONFIG.nlweb.headers:
+                        for header_key, header_value in CONFIG.nlweb.headers.items():
+                            self.return_value[header_key] = header_value
 
 
     async def runQuery(self):
@@ -227,6 +276,12 @@ class NLWebHandler:
             if (not self.fastTrackWorked):
                 logger.info(f"Fast track did not work, proceeding with routing logic")
                 await self.route_query_based_on_tools()
+            
+            # Check if query is done regardless of whether FastTrack worked
+            if (self.query_done):
+                logger.info(f"Query completed by tool handler")
+                return self.return_value
+                
             await self.post_ranking_tasks()
             self.return_value["query_id"] = self.query_id
             logger.info(f"Query execution completed for query_id: {self.query_id}")
@@ -269,13 +324,24 @@ class NLWebHandler:
             self.state.set_pre_checks_done()
          
         # Wait for retrieval to be done
+        logger.info(f"Checking retrieval_done_event for site: {self.site}")
         if not self.retrieval_done_event.is_set():
-            logger.info("Retrieval not done by fast track, performing regular retrieval")
-            client = get_vector_db_client(query_params=self.query_params)
-            items = await client.search(self.decontextualized_query, self.site)
-            self.final_retrieved_items = items
-            logger.debug(f"Retrieved {len(items)} items from database")
-            self.retrieval_done_event.set()
+            # Skip retrieval for sites without embeddings
+            logger.info(f"Retrieval not done, checking if site is DataCommons: {self.site.lower() == 'datacommons'}")
+            if self.site.lower() == "datacommons":
+                logger.info("Skipping retrieval for DataCommons - no embeddings")
+                self.final_retrieved_items = []
+                self.retrieval_done_event.set()
+            else:
+                logger.info("Retrieval not done by fast track, performing regular retrieval")
+                items = await search(
+                    self.decontextualized_query, 
+                    self.site,
+                    query_params=self.query_params
+                )
+                self.final_retrieved_items = items
+                logger.debug(f"Retrieved {len(items)} items from database")
+                self.retrieval_done_event.set()
         
         logger.info("Preparation phase completed")
 
@@ -322,31 +388,44 @@ class NLWebHandler:
             return
 
         top_tool = self.tool_routing_results[0] 
-        tool_name = top_tool['tool'].name
+        tool = top_tool['tool']
+        tool_name = tool.name
+        params = top_tool['result']
         log(f"Selected tool: {tool_name}")
         
-        if tool_name == "search":
-            logger.info("Routing to search functionality")
-            await self.get_ranked_answers()
-        elif tool_name == "details":
-            logger.info("Routing to item details functionality")
-            params = top_tool['result']
-            await item_details.ItemDetailsHandler(params, self).do()
-        elif tool_name == "compare":
-            logger.info("Routing to comparison functionality")
-            params = top_tool['result']
-            await compare_items.CompareItemsHandler(params, self).do()
-        elif tool_name == "accompaniment":
-            logger.info("Routing to accompaniment functionality")
-            params = top_tool['result']
-            await accompaniment.AccompanimentHandler(params, self).do()
-        elif tool_name == "recipe_substitutions":
-            logger.info("Routing to substitution functionality")
-            params = top_tool['result']
-            await substitution.SubstitutionHandler(params, self).do()
+        # Check if tool has a handler class defined
+        if tool.handler_class:
+            try:
+                logger.info(f"Routing to {tool_name} functionality via {tool.handler_class}")
+                
+                # For non-search tools, clear any items that FastTrack might have populated
+                if tool_name != "search":
+                    self.final_retrieved_items = []
+                    self.retrieved_items = []
+                
+                # Dynamic import of handler module and class
+                module_path, class_name = tool.handler_class.rsplit('.', 1)
+                module = importlib.import_module(module_path)
+                handler_class = getattr(module, class_name)
+                
+                # Instantiate and execute handler
+                handler_instance = handler_class(params, self)
+                
+                # Standard handler pattern with do() method
+                await handler_instance.do()
+                    
+            except Exception as e:
+                logger.error(f"Error loading handler for tool {tool_name}: {e}")
+                # Fall back to search
+                await self.get_ranked_answers()
         else:
-            logger.info(f"Unknown tool type: {tool_name}, defaulting to search")
-            await self.get_ranked_answers()
+            # Default behavior for tools without handlers (like search)
+            if tool_name == "search":
+                logger.info("Routing to search functionality")
+                await self.get_ranked_answers()
+            else:
+                logger.info(f"No handler defined for tool: {tool_name}, defaulting to search")
+                await self.get_ranked_answers()
 
 
     async def post_ranking_tasks(self):
