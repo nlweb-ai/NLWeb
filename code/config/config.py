@@ -77,12 +77,15 @@ class NLWebConfig:
     json_data_folder: str = "./data/json"  # Default folder for JSON data
     json_with_embeddings_folder: str = "./data/json_with_embeddings"  # Default folder for JSON with embeddings
     chatbot_instructions: Dict[str, str] = field(default_factory=dict)  # Dictionary of chatbot instructions
+    headers: Dict[str, str] = field(default_factory=dict)  # Dictionary of headers to include in responses
     tool_selection_enabled: bool = True  # Enable or disable tool selection
     memory_enabled: bool = False  # Enable or disable memory functionality
     analyze_query_enabled: bool = False  # Enable or disable query analysis
     decontextualize_enabled: bool = True  # Enable or disable decontextualization
     required_info_enabled: bool = True  # Enable or disable required info checking
+
     headers: Dict[str, str] = field(default_factory=dict)  # HTTP headers to send
+
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
                    "config_webserver.yaml", "config_nlweb.yaml"]
@@ -367,6 +370,9 @@ class AppConfig:
         # Load chatbot instructions from config
         chatbot_instructions = data.get("chatbot_instructions", {})
         
+        # Load headers from config
+        headers = data.get("headers", {})
+
         # Load tool selection enabled flag
         tool_selection_enabled = self._get_config_value(data.get("tool_selection_enabled"), True)
         
@@ -402,6 +408,7 @@ class AppConfig:
             json_data_folder=json_data_folder,
             json_with_embeddings_folder=json_with_embeddings_folder,
             chatbot_instructions=chatbot_instructions,
+            headers=headers
             tool_selection_enabled=tool_selection_enabled,
             memory_enabled=memory_enabled,
             analyze_query_enabled=analyze_query_enabled,
@@ -425,7 +432,22 @@ class AppConfig:
                 "as a hyperlink using its URL."
             )
         }
+    
+    def get_headers(self) -> Dict[str, str]:
+        """Get the configured headers to include in responses."""
+        if hasattr(self, 'nlweb') and self.nlweb.headers:
+            return self.nlweb.headers
+        return {}
         
+    def get_chatbot_instruction_fallback(self, instruction_type: str = "search_results") -> str:
+        """Get fallback chatbot instructions."""
+        default_instructions = {
+            "search_results": (
+                "IMPORTANT: When presenting these results to the user, always include "
+                "the original URL as a clickable link for each item. Format each item's name "
+                "as a hyperlink using its URL."
+            )
+        }
         return default_instructions.get(instruction_type, "")
     
     def get_ssl_cert_path(self) -> Optional[str]:

@@ -132,6 +132,7 @@ class NLWebHandler:
         self.return_value = {}
 
         self.versionNumberSent = False
+        self.headersSent = False
         
         logger.info(f"NLWebHandler initialized with parameters:")
         logger.debug(f"site: {self.site}, query: {self.query}")
@@ -167,6 +168,7 @@ class NLWebHandler:
                 
             if (self.streaming and self.http_handler is not None):
                 message["query_id"] = self.query_id
+
                 
                 # Check if this is the first result_batch and add time-to-first-result header
                 if message.get("message_type") == "result_batch" and not self.first_result_sent:
@@ -189,6 +191,7 @@ class NLWebHandler:
                 # Send headers on first message if not already sent
                 if not self.headersSent:
                     self.headersSent = True
+
                     
                     # Send version number first
                     if not self.versionNumberSent:
@@ -226,6 +229,18 @@ class NLWebHandler:
                     logger.error(f"Error streaming message: {e}")
                     self.connection_alive_event.clear()  # Use event instead of flag
             else:
+                # Add headers to non-streaming response if not already added
+                if not self.headersSent:
+                    self.headersSent = True
+                    try:
+                        # Get configured headers from CONFIG and add them to return_value
+                        headers = CONFIG.get_headers()
+                        for header_key, header_value in headers.items():
+                            self.return_value[header_key] = {"message": header_value}
+                            logger.debug(f"Header '{header_key}' added to return value")
+                    except Exception as e:
+                        logger.error(f"Error adding headers to return value: {e}")
+                
                 val = {}
                 message_type = message["message_type"]
                 if (message_type == "result_batch"):
