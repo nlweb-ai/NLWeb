@@ -22,6 +22,16 @@ logging:
       default_level: ERROR
       log_file: "azure_openai.log"
     
+    gemini:
+      env_var: "GEMINI_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "gemini.log"
+
+    gemini_embedding:
+      env_var: "GEMINI_EMBEDDING_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "gemini_embedding.log"
+    
     # Core Handler Modules
     nlweb_handler:
       env_var: "NLWEB_HANDLER_LOG_LEVEL"
@@ -53,6 +63,16 @@ logging:
       env_var: "DECONTEXTUALIZER_LOG_LEVEL"
       default_level: ERROR
       log_file: "decontextualizer.log"
+
+    embedding_wrapper:
+      env_var: "EMBEDDING_WRAPPER_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "embedding_wrapper.log"
+    
+    incremental_crawl_and_load:
+      env_var: "INCREMENTAL_CRAWL_LOADER_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "incremental_crawl_loader.log"
     
     memory:
       env_var: "MEMORY_LOG_LEVEL"
