@@ -1,0 +1,38 @@
+[
+  {
+    "test_type": "site_retrieval",
+    "description": "Test site retrieval from default backend",
+    "retrieval_backend": "azure_ai_search",
+    "expected_min_sites": 1
+  },
+  {
+    "test_type": "query_retrieval",
+    "description": "Test basic search functionality",
+    "query": "pasta recipes",
+    "retrieval_backend": "azure_ai_search",
+    "site": "all",
+    "top_k": 5,
+    "expected_min_results": 1
+  },
+  {
+    "test_type": "end_to_end",
+    "description": "Test full pipeline with simple query",
+    "query": "chocolate cake recipe",
+    "prev": "",
+    "site": "all",
+    "generate_mode": "list",
+    "db": "azure_ai_search",
+    "expected_min_results": 1
+  },
+  {
+    "test_type": "end_to_end",
+    "description": "Test with all LLM providers",
+    "query": "vegetarian pasta recipes",
+    "prev": "",
+    "site": "all",
+    "generate_mode": "list",
+    "db": "azure_ai_search",
+    "llm_provider": "all",
+    "expected_min_results": 1
+  }
+]
