@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Chat Interface</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .search-wrapper {
+      position: relative;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 20px;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: #5e5eff;
+      box-shadow: 0 0 0 3px rgba(94, 94, 255, 0.1);
+    }
+
+    .search-button {
+      padding: 12px 24px;
+      background-color: #5e5eff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .search-button:hover {
+      background-color: #4a4aff;
+    }
+
+    .search-button:active {
+      background-color: #3a3aff;
+    }
+
+    /* Dropdown chat container */
+    .dropdown-chat-container {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      background: white;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      margin-top: 8px;
+      height: 500px;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .dropdown-chat-container.show {
+      display: flex;
+    }
+
+    .chat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    .chat-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .close-icon {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px;
+      border-radius: 4px;
+      transition: background-color 0.2s;
+    }
+
+    .close-icon:hover {
+      background-color: #f0f0f0;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+      background-color: #ffffff;
+    }
+
+    .message {
+      margin-bottom: 1px;
+      padding: 16px 24px;
+      width: 100%;
+    }
+
+    .user-message {
+      background-color: #f5f5f5;
+    }
+
+    .assistant-message {
+      background-color: #ffffff;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    .message-content {
+      width: 100%;
+    }
+
+    .chat-input-area {
+      padding: 16px;
+      border-top: 1px solid #e5e5e5;
+      display: flex;
+      gap: 8px;
+    }
+
+    .dropdown-chat-input {
+      flex: 1;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 14px;
+      resize: none;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .dropdown-chat-input:focus {
+      border-color: #5e5eff;
+      box-shadow: 0 0 0 3px rgba(94, 94, 255, 0.1);
+    }
+
+    .dropdown-send-button {
+      padding: 8px 16px;
+      background-color: #5e5eff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+
+    .dropdown-send-button:hover {
+      background-color: #4a4aff;
+    }
+
+    .dropdown-send-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Loading animation */
+    .loading-dots {
+      display: inline-flex;
+      gap: 4px;
+    }
+
+    .loading-dot {
+      width: 6px;
+      height: 6px;
+      background-color: #666;
+      border-radius: 50%;
+      animation: loading 1.4s infinite ease-in-out both;
+    }
+
+    .loading-dot:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+
+    .loading-dot:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+
+    @keyframes loading {
+      0%, 80%, 100% {
+        transform: scale(0);
+      }
+      40% {
+        transform: scale(1);
+      }
+    }
+
+    /* Item container styles from index.html */
+    .item-container {
+      background-color: #ffffff;
+      border: 1px solid #f0f0f0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex;
+      gap: 16px;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="search-wrapper">
+      <div class="search-box">
+        <input 
+          type="text" 
+          id="search-input" 
+          class="search-input" 
+          placeholder="Ask anything about Serious Eats..."
+        >
+        <button id="search-button" class="search-button">Search</button>
+      </div>
+      
+      <!-- Dropdown chat container -->
+      <div id="chat-container" class="dropdown-chat-container">
+        <div class="chat-header">
+          <h3 class="chat-title">Chat Assistant</h3>
+          <button class="close-icon" id="close-button">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M12 4L4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <path d="M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+          <div id="messages-container"></div>
+        </div>
+        <div class="chat-input-area">
+          <textarea 
+            class="dropdown-chat-input" 
+            id="chat-input"
+            placeholder="Ask a follow-up question..."
+            rows="1"
+          ></textarea>
+          <button class="dropdown-send-button" id="send-button">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { JsonRenderer } from './json-renderer.js';
+    import { TypeRendererFactory } from './type-renderers.js';
+    import { RecipeRenderer } from './recipe-renderer.js';
+
+    // Initialize JSON renderer
+    const jsonRenderer = new JsonRenderer();
+    TypeRendererFactory.registerAll(jsonRenderer);
+    TypeRendererFactory.registerRenderer(RecipeRenderer, jsonRenderer);
+
+    // Get elements
+    const searchInput = document.getElementById('search-input');
+    const searchButton = document.getElementById('search-button');
+    const chatContainer = document.getElementById('chat-container');
+    const closeButton = document.getElementById('close-button');
+    const chatInput = document.getElementById('chat-input');
+    const sendButton = document.getElementById('send-button');
+    const messagesContainer = document.getElementById('messages-container');
+    const chatMessages = document.getElementById('chat-messages');
+
+    // State
+    let eventSource = null;
+    let isStreaming = false;
+    let currentStreamingMessage = null;
+    const selectedSite = 'seriouseats';
+    const prevQueries = [];
+    const lastAnswers = [];
+
+    // Helper functions
+    function createLoadingDots() {
+      return `
+        <div class="loading-dots">
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+          <div class="loading-dot"></div>
+        </div>
+      `;
+    }
+
+    function addMessage(content, isUser = false) {
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
+      
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content';
+      if (typeof content === 'string') {
+        contentDiv.innerHTML = content;
+      } else {
+        contentDiv.appendChild(content);
+      }
+      
+      messageDiv.appendChild(contentDiv);
+      messagesContainer.appendChild(messageDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      
+      return contentDiv;
+    }
+
+    function sendMessage(query) {
+      if (!query || isStreaming) return;
+
+      // Show chat container
+      chatContainer.classList.add('show');
+
+      // Add user message
+      addMessage(query, true);
+
+      // Clear input
+      chatInput.value = '';
+      sendButton.disabled = true;
+      isStreaming = true;
+
+      // Create assistant message with loading
+      const assistantContent = addMessage(createLoadingDots());
+      currentStreamingMessage = {
+        content: '',
+        contentDiv: assistantContent
+      };
+
+      // Close existing connection
+      if (eventSource) {
+        eventSource.close();
+      }
+
+      // Create params
+      const params = new URLSearchParams({
+        query: query,
+        generate_mode: 'list',
+        display_mode: 'full',
+        site: selectedSite
+      });
+
+      // Add context
+      if (prevQueries.length > 0) {
+        params.append('prev', JSON.stringify(prevQueries));
+      }
+      if (lastAnswers.length > 0) {
+        params.append('last_ans', JSON.stringify(lastAnswers));
+      }
+
+      // Start streaming
+      const url = `/ask?${params.toString()}`;
+      eventSource = new EventSource(url);
+
+      let firstChunk = true;
+      let allResults = [];
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (firstChunk) {
+            assistantContent.innerHTML = '';
+            firstChunk = false;
+          }
+
+          if (data.type === 'content') {
+            currentStreamingMessage.content += data.text || '';
+            assistantContent.textContent = currentStreamingMessage.content;
+          } else if (data.type === 'items') {
+            if (data.items && data.items.length > 0) {
+              allResults = allResults.concat(data.items);
+              renderItems(allResults, assistantContent);
+            }
+          } else if (data.type === 'complete') {
+            isStreaming = false;
+            sendButton.disabled = false;
+            eventSource.close();
+            
+            // Update context
+            prevQueries.push(query);
+            if (prevQueries.length > 10) prevQueries.shift();
+            
+            if (currentStreamingMessage.content || allResults.length > 0) {
+              lastAnswers.push({
+                content: currentStreamingMessage.content,
+                items: allResults
+              });
+              if (lastAnswers.length > 5) lastAnswers.shift();
+            }
+          }
+
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        } catch (error) {
+          console.error('Error parsing message:', error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('EventSource error:', error);
+        if (firstChunk) {
+          assistantContent.innerHTML = '<div style="color: red;">Connection error. Please try again.</div>';
+        }
+        isStreaming = false;
+        sendButton.disabled = false;
+        eventSource.close();
+      };
+    }
+
+    function renderItems(items, container) {
+      if (!items || items.length === 0) return;
+      
+      // Clear previous content and add text if any
+      container.innerHTML = '';
+      if (currentStreamingMessage.content) {
+        const textDiv = document.createElement('div');
+        textDiv.textContent = currentStreamingMessage.content;
+        container.appendChild(textDiv);
+      }
+      
+      // Sort and render items
+      const sortedItems = [...items].sort((a, b) => (b.score || 0) - (a.score || 0));
+      
+      sortedItems.forEach(item => {
+        const itemElement = jsonRenderer.createJsonItemHtml(item);
+        container.appendChild(itemElement);
+      });
+    }
+
+    // Event handlers
+    searchButton.addEventListener('click', () => {
+      const query = searchInput.value.trim();
+      if (query) {
+        searchInput.value = '';
+        sendMessage(query);
+      }
+    });
+
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const query = searchInput.value.trim();
+        if (query) {
+          searchInput.value = '';
+          sendMessage(query);
+        }
+      }
+    });
+
+    closeButton.addEventListener('click', () => {
+      chatContainer.classList.remove('show');
+      if (eventSource) {
+        eventSource.close();
+      }
+    });
+
+    sendButton.addEventListener('click', () => {
+      const query = chatInput.value.trim();
+      if (query) {
+        sendMessage(query);
+      }
+    });
+
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const query = chatInput.value.trim();
+        if (query) {
+          sendMessage(query);
+        }
+      }
+    });
+
+    // Auto-resize chat input
+    chatInput.addEventListener('input', () => {
+      chatInput.style.height = 'auto';
+      chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + 'px';
+    });
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (!chatContainer.contains(e.target) && 
+          !searchInput.contains(e.target) && 
+          !searchButton.contains(e.target)) {
+        chatContainer.classList.remove('show');
+      }
+    });
+  </script>
+</body>
+</html>

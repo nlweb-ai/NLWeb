@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Server Connection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+            overflow: auto;
+            max-height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <h1>NLWeb Server Connection Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Test Basic Connection</h2>
+        <button onclick="testBasicConnection()">Test /sites Endpoint</button>
+        <div id="basic-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Test EventSource Connection</h2>
+        <button onclick="testEventSource()">Test /ask with EventSource</button>
+        <button onclick="stopEventSource()">Stop EventSource</button>
+        <div id="eventsource-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Test Static Files</h2>
+        <button onclick="testStaticFile()">Test Static File Access</button>
+        <div id="static-result"></div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        
+        async function testBasicConnection() {
+            const resultDiv = document.getElementById('basic-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('/sites');
+                const data = await response.json();
+                resultDiv.innerHTML = `<div class="success">✓ Connection successful!</div>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">✗ Connection failed: ${error.message}</div>`;
+            }
+        }
+        
+        function testEventSource() {
+            const resultDiv = document.getElementById('eventsource-result');
+            resultDiv.innerHTML = '<div>Connecting to EventSource...</div>';
+            
+            if (eventSource) {
+                eventSource.close();
+            }
+            
+            const params = new URLSearchParams({
+                query: 'test query',
+                generate_mode: 'list',
+                display_mode: 'full',
+                site: 'all'
+            });
+            
+            const url = `/ask?${params.toString()}`;
+            console.log('Connecting to:', url);
+            
+            try {
+                eventSource = new EventSource(url);
+                
+                eventSource.onopen = () => {
+                    resultDiv.innerHTML += '<div class="success">✓ EventSource connected!</div>';
+                };
+                
+                eventSource.onmessage = (event) => {
+                    console.log('Received:', event.data);
+                    resultDiv.innerHTML += `<div>Data received: <pre>${event.data}</pre></div>`;
+                };
+                
+                eventSource.onerror = (error) => {
+                    console.error('EventSource error:', error);
+                    resultDiv.innerHTML += `<div class="error">✗ EventSource error - check console</div>`;
+                    if (eventSource.readyState === EventSource.CLOSED) {
+                        resultDiv.innerHTML += '<div class="error">Connection closed</div>';
+                    }
+                };
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">✗ Failed to create EventSource: ${error.message}</div>`;
+            }
+        }
+        
+        function stopEventSource() {
+            if (eventSource) {
+                eventSource.close();
+                document.getElementById('eventsource-result').innerHTML += '<div>EventSource closed</div>';
+            }
+        }
+        
+        async function testStaticFile() {
+            const resultDiv = document.getElementById('static-result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('/static/favicon.png');
+                if (response.ok) {
+                    resultDiv.innerHTML = `<div class="success">✓ Static files accessible!</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">✗ Static file not found: ${response.status}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">✗ Failed to access static files: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

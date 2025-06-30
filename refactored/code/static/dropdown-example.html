@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dropdown Search Example</title>
+    <link rel="stylesheet" href="/static/common-chat-styles.css">
+    <style>
+        /* Page-specific styles for dropdown interface */
+        body {
+            padding: 20px;
+        }
+        
+        .search-container {
+            max-width: 600px;
+            margin: 50px auto;
+            position: relative;
+        }
+        
+        .search-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .history-icon {
+            position: absolute;
+            left: 12px;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            color: #666;
+            transition: color 0.2s;
+            z-index: 1;
+        }
+        
+        .history-icon:hover {
+            color: #333;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        
+        .search-box:focus {
+            border-color: #0066cc;
+        }
+        
+        .dropdown-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-height: 500px;
+            display: none;
+            z-index: 1000;
+            overflow: hidden;
+            flex-direction: column;
+        }
+        
+        .dropdown-results.show {
+            display: flex;
+        }
+        
+        /* Hide elements we don't need */
+        #sidebar, #header, .chat-header {
+            display: none !important;
+        }
+        
+        /* Style the messages container */
+        #messages-container {
+            padding: 0;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        
+        /* Override message styles for dropdown display */
+        .message {
+            padding: 8px 12px;
+            margin: 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .message:last-child {
+            border-bottom: none;
+        }
+        
+        
+        .assistant-message {
+            background: transparent;
+            animation: none;
+        }
+        
+        /* Hide debug icon in dropdown */
+        .message-debug-icon {
+            display: none;
+        }
+        
+        .message-layout {
+            padding: 0;
+        }
+        
+        .message-content {
+            padding: 0;
+        }
+        
+        /* Close button for dropdown */
+        #messages-container {
+            position: relative;
+        }
+        
+        .close-dropdown {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+            padding: 4px 8px;
+            line-height: 1;
+            z-index: 10;
+        }
+        
+        .close-dropdown:hover {
+            color: #333;
+        }
+        
+        /* Conversations list in dropdown */
+        .dropdown-conversations-list {
+            padding: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        /* Chat input in dropdown */
+        .dropdown-results .chat-input-container {
+            border-top: 1px solid var(--border-color);
+            background-color: var(--bg-primary);
+            padding: 12px;
+            position: sticky;
+            bottom: 0;
+            margin-top: auto;
+        }
+        
+        .dropdown-results .chat-input-wrapper {
+            padding: 0;
+        }
+        
+        .dropdown-results .chat-input-box {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .dropdown-results .chat-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+            max-height: 100px;
+            overflow-y: auto;
+            font-family: inherit;
+        }
+        
+        .dropdown-results .send-button {
+            background-color: transparent;
+            color: var(--text-secondary);
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 14px;
+        }
+        
+        .dropdown-results .send-button:hover {
+            background-color: var(--hover-bg);
+            color: var(--text-primary);
+        }
+        
+        .dropdown-results .send-button svg {
+            width: 16px;
+            height: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <div class="search-wrapper">
+            <svg class="history-icon" id="history-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <input type="text" 
+                   id="search-input" 
+                   class="search-box" 
+                   placeholder="Search Serious Eats recipes...">
+        </div>
+        
+        <div id="dropdown-results" class="dropdown-results">
+            <div id="dropdown-conversations-list" class="dropdown-conversations-list" style="display: none;">
+                <!-- Conversations will be loaded here -->
+            </div>
+            <div id="messages-container">
+                <button class="close-dropdown" onclick="closeDropdown()">&times;</button>
+            </div>
+            
+            <!-- Chat input for follow-up questions -->
+            <div class="chat-input-container" style="display: none;">
+                <div class="chat-input-wrapper">
+                    <div class="chat-input-box">
+                        <textarea 
+                            class="chat-input" 
+                            id="chat-input"
+                            placeholder="Ask a follow-up question..."
+                            rows="1"
+                        ></textarea>
+                        <button class="send-button" id="send-button">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="22" y1="2" x2="11" y2="13"></line>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden elements that fp-chat-interface.js expects -->
+    <div style="display: none;">
+        <div id="sidebar"></div>
+        <div id="sidebar-toggle"></div>
+        <div id="mobile-menu-toggle"></div>
+        <div id="new-chat-btn"></div>
+        <div id="conversations-list"></div>
+        <div class="chat-title"></div>
+        <div id="chat-site-info"></div>
+        <div id="chat-messages"></div>
+    </div>
+
+    <!-- Import the required scripts -->
+    <script type="module">
+        import { JsonRenderer } from './json-renderer.js';
+        import { TypeRendererFactory } from './type-renderers.js';
+        import { RecipeRenderer } from './recipe-renderer.js';
+        
+        class DropdownSearchInterface {
+            constructor(site = 'all') {
+                this.searchInput = document.getElementById('search-input');
+                this.dropdownResults = document.getElementById('dropdown-results');
+                this.messagesContainer = document.getElementById('messages-container');
+                this.dropdownConversationsList = document.getElementById('dropdown-conversations-list');
+                this.chatInterface = null;
+                this.site = site;
+                this.showingHistory = false;
+                
+                // History icon
+                this.historyIcon = document.getElementById('history-icon');
+                
+                this.init();
+            }
+            
+            async init() {
+                // Import and initialize the ModernChatInterface
+                const { ModernChatInterface } = await import('./fp-chat-interface.js');
+                
+                // Wait a bit for DOM to be ready
+                setTimeout(() => {
+                    // Create chat interface instance with skipAutoInit to prevent automatic createNewChat
+                    this.chatInterface = new ModernChatInterface({ skipAutoInit: true });
+                    
+                    // Set the site from constructor parameter
+                    this.chatInterface.selectedSite = this.site;
+                    
+                    // If we have a specific site, set it in the UI
+                    if (this.site && this.site !== 'all') {
+                        if (this.chatInterface.siteSelectorIcon) {
+                            this.chatInterface.siteSelectorIcon.title = `Site: ${this.site}`;
+                        }
+                        if (this.chatInterface.elements.chatSiteInfo) {
+                            this.chatInterface.elements.chatSiteInfo.textContent = `Asking ${this.site}`;
+                        }
+                    }
+                    
+                    // Override the sendMessage method to show dropdown
+                    const originalSendMessage = this.chatInterface.sendMessage.bind(this.chatInterface);
+                    this.chatInterface.sendMessage = (message) => {
+                        // Show dropdown when sending message
+                        this.showDropdown();
+                        this.showSearchResults();
+                        
+                        // Call original method
+                        originalSendMessage(message);
+                        
+                        // Show the chat input container for follow-up questions
+                        const chatInputContainer = document.querySelector('.chat-input-container');
+                        if (chatInputContainer) {
+                            chatInputContainer.style.display = 'block';
+                        }
+                    };
+                    
+                    // Override addMessage to ensure site is saved with conversations
+                    const originalAddMessage = this.chatInterface.addMessage.bind(this.chatInterface);
+                    this.chatInterface.addMessage = (content, type) => {
+                        originalAddMessage(content, type);
+                        
+                        // Ensure the conversation has the correct site
+                        const conversation = this.chatInterface.conversations.find(
+                            c => c.id === this.chatInterface.currentConversationId
+                        );
+                        if (conversation && conversation.site !== this.site) {
+                            conversation.site = this.site;
+                            this.chatInterface.saveConversations();
+                        }
+                    };
+                    
+                    // Override endStreaming to handle completion
+                    const originalEndStreaming = this.chatInterface.endStreaming.bind(this.chatInterface);
+                    this.chatInterface.endStreaming = () => {
+                        originalEndStreaming();
+                        
+                        // Remove loading state from dropdown
+                        this.dropdownResults.classList.add('loaded');
+                    };
+                    
+                    // Create new chat with our search input and site
+                    this.chatInterface.createNewChat('search-input', this.site);
+                    console.log('After createNewChat, selectedSite:', this.chatInterface.selectedSite);
+                    
+                    // Add click outside handler
+                    document.addEventListener('click', (e) => {
+                        if (!e.target.closest('.search-container')) {
+                            this.closeDropdown();
+                        }
+                    });
+                    
+                    // Add escape key handler
+                    document.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape') {
+                            this.closeDropdown();
+                        }
+                    });
+                    
+                    // History icon event handler
+                    this.historyIcon.addEventListener('click', () => {
+                        this.showDropdown();
+                        this.toggleHistory();
+                    });
+                }, 100);
+            }
+            
+            toggleHistory() {
+                this.showingHistory = !this.showingHistory;
+                
+                if (this.showingHistory) {
+                    this.messagesContainer.style.display = 'none';
+                    this.dropdownConversationsList.style.display = 'block';
+                    // Hide chat input in history mode
+                    const chatInputContainer = document.querySelector('.chat-input-container');
+                    if (chatInputContainer) {
+                        chatInputContainer.style.display = 'none';
+                    }
+                    this.updateConversationsList();
+                } else {
+                    this.showSearchResults();
+                }
+            }
+            
+            showSearchResults() {
+                this.showingHistory = false;
+                this.messagesContainer.style.display = 'block';
+                this.dropdownConversationsList.style.display = 'none';
+                // Show chat input if there are messages (excluding the close button)
+                if (this.messagesContainer && this.messagesContainer.children.length > 1) {
+                    const chatInputContainer = document.querySelector('.chat-input-container');
+                    if (chatInputContainer) {
+                        chatInputContainer.style.display = 'block';
+                    }
+                }
+            }
+            
+            updateConversationsList() {
+                // Filter conversations for this site only
+                const originalConversations = this.chatInterface.conversations;
+                this.chatInterface.conversations = originalConversations.filter(conv => 
+                    conv.site === this.site && conv.messages && conv.messages.length > 0
+                );
+                
+                // Use the updateConversationsList method with our dropdown container
+                this.chatInterface.updateConversationsList(this.dropdownConversationsList);
+                
+                // Restore original conversations
+                this.chatInterface.conversations = originalConversations;
+                
+                // Add click handlers to load conversations
+                const conversationItems = this.dropdownConversationsList.querySelectorAll('.conversation-title');
+                conversationItems.forEach(item => {
+                    // Remove existing click handler and add our own
+                    const newItem = item.cloneNode(true);
+                    item.parentNode.replaceChild(newItem, item);
+                    
+                    newItem.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const conversationItem = e.target.closest('.conversation-item');
+                        const allItems = this.dropdownConversationsList.querySelectorAll('.conversation-item');
+                        
+                        // Find the conversation ID by matching the title
+                        const title = e.target.textContent;
+                        const conversation = this.chatInterface.conversations.find(c => c.title === title);
+                        
+                        if (conversation) {
+                            // Switch to search results and load the conversation
+                            this.showSearchResults();
+                            this.chatInterface.loadConversation(conversation.id);
+                            
+                            // Update search input with the first user message
+                            const firstUserMessage = conversation.messages.find(m => m.type === 'user');
+                            if (firstUserMessage) {
+                                this.searchInput.value = firstUserMessage.content;
+                            }
+                        }
+                    });
+                });
+            }
+            
+            showDropdown() {
+                this.dropdownResults.classList.add('show');
+                this.dropdownResults.classList.remove('loaded');
+            }
+            
+            closeDropdown() {
+                this.dropdownResults.classList.remove('show');
+                
+                // Reset to search mode
+                this.showingHistory = false;
+                
+                // Hide chat input container
+                const chatInputContainer = document.querySelector('.chat-input-container');
+                if (chatInputContainer) {
+                    chatInputContainer.style.display = 'none';
+                }
+                
+                // Clear messages for next search but keep close button
+                if (this.messagesContainer) {
+                    const closeButton = this.messagesContainer.querySelector('.close-dropdown');
+                    this.messagesContainer.innerHTML = '';
+                    if (closeButton) {
+                        this.messagesContainer.appendChild(closeButton);
+                    }
+                }
+                
+                // Create a new chat for the next search
+                if (this.chatInterface) {
+                    this.chatInterface.createNewChat('search-input', this.site);
+                }
+            }
+        }
+        
+        // Global function for close button
+        window.closeDropdown = () => {
+            if (window.dropdownSearch) {
+                window.dropdownSearch.closeDropdown();
+            }
+        };
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // Create the dropdown interface with 'seriouseats' as the site
+            window.dropdownSearch = new DropdownSearchInterface('seriouseats');
+        });
+    </script>
+</body>
+</html>

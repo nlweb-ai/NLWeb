@@ -230,8 +230,42 @@ export class JsonRenderer {
    * @returns {string|null} - The image URL or null
    */
   extractImage(schema_object) {
-    if (schema_object && schema_object.image) {
-      return this.extractImageInternal(schema_object.image);
+    // Handle array of schema objects
+    if (Array.isArray(schema_object)) {
+      // Look for ImageObject first
+      const imageObj = schema_object.find(obj => obj['@type'] === 'ImageObject');
+      if (imageObj && imageObj.url) {
+        return imageObj.url;
+      }
+      
+      // Look for Recipe object with image
+      const recipeObj = schema_object.find(obj => obj['@type'] === 'Recipe');
+      if (recipeObj && recipeObj.image) {
+        return this.extractImageInternal(recipeObj.image);
+      }
+      
+      // Look for Article object with thumbnailUrl
+      const articleObj = schema_object.find(obj => obj['@type'] === 'Article');
+      if (articleObj && articleObj.thumbnailUrl) {
+        return articleObj.thumbnailUrl;
+      }
+      
+      // Check first object for any image property
+      if (schema_object[0]) {
+        schema_object = schema_object[0];
+      }
+    }
+    
+    // Handle single schema object
+    if (schema_object) {
+      // Check for direct image property
+      if (schema_object.image) {
+        return this.extractImageInternal(schema_object.image);
+      }
+      // Check for thumbnailUrl property
+      if (schema_object.thumbnailUrl) {
+        return schema_object.thumbnailUrl;
+      }
     }
     return null;
   }
