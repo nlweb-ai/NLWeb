@@ -410,7 +410,6 @@ class AppConfig:
             json_data_folder=json_data_folder,
             json_with_embeddings_folder=json_with_embeddings_folder,
             chatbot_instructions=chatbot_instructions,
-            headers=headers
             tool_selection_enabled=tool_selection_enabled,
             memory_enabled=memory_enabled,
             analyze_query_enabled=analyze_query_enabled,
