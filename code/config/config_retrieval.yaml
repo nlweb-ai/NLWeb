@@ -97,7 +97,7 @@ endpoints:
   # PostgreSQL with pgvector extension configuration
   postgres:
     enabled: true
-    # Database connection details (i.e. "postgresql://<USERNAME>@<HOST>:<PORT>/<DATABASE>?sslmode=require")
+    # Database connection details (i.e. "postgresql://<HOST>:<PORT>/<DATABASE>?user=<USERNAME>&sslmode=require")
     api_endpoint_env: POSTGRES_CONNECTION_STRING
     # Password for authentication 
     api_key_env: POSTGRES_PASSWORD

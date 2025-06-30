@@ -26,11 +26,13 @@ WITH (m = 16, ef_construction = 200);
 
 ### Setup Schema
 
+NOTE: If you are using Azure Postgres Flexible server make sure you have `vector` [extension allow-listed](https://learn.microsoft.com/azure/postgresql/flexible-server/how-to-use-pgvector#enable-extension)
+
 To setup you PostgreSQL configuration, you can use the provided setup scripts:
 
 In the `code` directory run
 ```bash
-# Test basic connection
+# Setup the Postgres server
 python tools/postgres_load.py
 ```
 
@@ -40,6 +42,7 @@ Make sure you have the required Python packages installed:
 
 ```bash
 # Install PostgreSQL client libraries
+pip install psycopg
 pip install psycopg-binary  # PostgreSQL adapter (psycopg3)
 pip install psycopg-pool  # Connection pooling for psycopg3
 pip install pgvector
@@ -58,7 +61,6 @@ Update the `.env` file:
 ```bash
 # If using Postgres connection string
 POSTGRES_CONNECTION_STRING="postgresql://<HOST>:<PORT>/<DATABASE>?user=<USERNAME>&sslmode=require"
-# Example: postgresql://azureuser.postgres.database.azure.com:5432/postgres?user=postgres&sslmode=require
 POSTGRES_PASSWORD="<PASSWORD>"
 ```
 
@@ -70,7 +72,7 @@ preferred_endpoint: postgres  # Set this to use PostgreSQL as default
 endpoints:
   postgres:
     # Database connection details
-    api_endpoint_env: POSTGRES_CONNECTION_STRING #The Postgres connection string (e.g., `postgresql://<HOST>:<PORT>/<DATABASE>?user=<USERNAME>&sslmode=require`).
+    api_endpoint_env: POSTGRES_CONNECTION_STRING # Database connection details (i.e. "postgresql://<HOST>:<PORT>/<DATABASE>?user=<USERNAME>&sslmode=require")
     # Password for authentication 
     api_key_env: POSTGRES_PASSWORD
     index_name: documents
