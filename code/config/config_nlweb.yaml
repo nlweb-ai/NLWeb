@@ -57,5 +57,5 @@ chatbot_instructions:
 headers:
   license: "This data is provided under MIT License. See https://opensource.org/license/mit for details."
   data_retention: "Data provided may be retained for up to 1 day."
-  ui_component: "This field may be used to provide a link to the web components that can be used to display the results.
+  ui_component: "This field may be used to provide a link to the web components that can be used to display the results."
   
