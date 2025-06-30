@@ -453,13 +453,11 @@ class ModernChatInterface {
     // Add previous queries (not including current query)
     if (this.prevQueries.length > 0) {
       params.append('prev', JSON.stringify(this.prevQueries));
-      console.log('Sending prev:', this.prevQueries); // Debug log
     }
     
     // Add last answers for context
     if (this.lastAnswers.length > 0) {
       params.append('last_ans', JSON.stringify(this.lastAnswers));
-      console.log('Sending last_ans:', this.lastAnswers); // Debug log
     }
     
     // Add remembered items
@@ -471,7 +469,6 @@ class ModernChatInterface {
     const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
     const url = `${baseUrl}/ask?${params.toString()}`;
     
-    console.log('Connecting to:', url); // Debug log
     
     // Use native EventSource directly
     this.eventSource = new EventSource(url);
@@ -486,7 +483,6 @@ class ModernChatInterface {
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Received data:', data); // Debug log
         
         // Always store debug messages for the current request
         this.debugMessages.push({
@@ -508,7 +504,6 @@ class ModernChatInterface {
         } else if (data.message_type === 'result_batch' && data.results) {
           // Accumulate all results instead of replacing
           allResults = allResults.concat(data.results);
-          console.log('Results with scores:', data.results.map(r => ({ title: r.title || r.name, score: r.score }))); // Debug log
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
         } else if (data.message_type === 'intermediate_message' && data.message) {
           messageContent += data.message + '\n';

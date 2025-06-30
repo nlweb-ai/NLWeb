@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dropdown Search Example</title>
+    <title>Dropdown Search Example - Fixed</title>
     <link rel="stylesheet" href="/static/common-chat-styles.css">
     <style>
         /* Page-specific styles for dropdown interface */
@@ -67,7 +67,7 @@
             max-height: 500px;
             display: none;
             z-index: 1000;
-            overflow: visible;
+            overflow: hidden;
             flex-direction: column;
         }
         
@@ -78,22 +78,21 @@
         /* Conversations panel - slides out to the left */
         .dropdown-conversations-panel {
             position: absolute;
-            left: -5px;
+            right: 100%;
             top: 0;
             bottom: 0;
-            width: 5px;
+            width: 20px;
             background-color: #f9f9f9;
             border: 1px solid #ddd;
             border-radius: 8px 0 0 8px;
             box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
             overflow: hidden;
-            transition: all 0.3s ease;
+            transition: width 0.3s ease;
             z-index: 999;
         }
         
         .dropdown-conversations-panel.show {
             width: 250px;
-            left: -250px;
         }
         
         .dropdown-conversations-list {
@@ -117,10 +116,8 @@
             flex: 1;
             overflow-y: auto;
             min-height: 0;
-            max-height: 500px;
             display: flex;
             flex-direction: column;
-            position: relative;
         }
         
         /* Override message styles for dropdown display */
@@ -241,6 +238,25 @@
             width: 16px;
             height: 16px;
         }
+        
+        /* Debug panel */
+        .debug-panel {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 9999;
+        }
+        
+        .debug-message {
+            margin: 2px 0;
+        }
     </style>
 </head>
 <body>
@@ -288,6 +304,11 @@
         </div>
     </div>
 
+    <!-- Debug panel -->
+    <div id="debug-panel" class="debug-panel" style="display: none;">
+        <div class="debug-message">Debug messages will appear here</div>
+    </div>
+
     <!-- Hidden elements that fp-chat-interface.js expects -->
     <div style="display: none;">
         <div id="sidebar"></div>
@@ -306,8 +327,27 @@
         import { TypeRendererFactory } from './type-renderers.js';
         import { RecipeRenderer } from './recipe-renderer.js';
         
+        // Debug logging helper
+        const debugPanel = document.getElementById('debug-panel');
+        let debugMessages = [];
+        
+        function debug(message) {
+            console.log(`[DropdownSearch] ${message}`);
+            debugMessages.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+            if (debugMessages.length > 10) debugMessages.shift();
+            
+            if (debugPanel) {
+                debugPanel.style.display = 'block';
+                debugPanel.innerHTML = debugMessages.map(msg => 
+                    `<div class="debug-message">${msg}</div>`
+                ).join('');
+            }
+        }
+        
         class DropdownSearchInterface {
             constructor(site = 'all') {
+                debug('DropdownSearchInterface constructor called');
+                
                 this.searchInput = document.getElementById('search-input');
                 this.dropdownResults = document.getElementById('dropdown-results');
                 this.messagesContainer = document.getElementById('messages-container');
@@ -316,31 +356,37 @@
                 this.chatInterface = null;
                 this.site = site;
                 
-                // History icon
+                // History icon - store reference
                 this.historyIcon = document.getElementById('history-icon');
                 
-                // History icon event handler - attach immediately
+                debug(`Elements found: searchInput=${!!this.searchInput}, historyIcon=${!!this.historyIcon}`);
+                
+                // Bind click handler immediately
                 if (this.historyIcon) {
-                    console.log('History icon found, attaching click handler');
                     this.historyIcon.addEventListener('click', (e) => {
-                        console.log('History icon clicked!');
+                        debug('History icon clicked!');
                         e.preventDefault();
                         e.stopPropagation();
                         this.toggleConversationsPanel();
                     });
+                    debug('History icon click handler attached');
                 } else {
-                    console.error('History icon not found!');
+                    debug('ERROR: History icon not found!');
                 }
                 
                 this.init();
             }
             
             async init() {
+                debug('init() called');
+                
                 // Import and initialize the ModernChatInterface
                 const { ModernChatInterface } = await import('./fp-chat-interface.js');
                 
                 // Wait a bit for DOM to be ready
                 setTimeout(() => {
+                    debug('Initializing ModernChatInterface');
+                    
                     // Create chat interface instance with skipAutoInit to prevent automatic createNewChat
                     this.chatInterface = new ModernChatInterface({ skipAutoInit: true });
                     
@@ -402,7 +448,7 @@
                     
                     // Create new chat with our search input and site
                     this.chatInterface.createNewChat('search-input', this.site);
-                    console.log('After createNewChat, selectedSite:', this.chatInterface.selectedSite);
+                    debug('ModernChatInterface initialized');
                     
                     // Add click outside handler
                     document.addEventListener('click', (e) => {
@@ -417,36 +463,45 @@
                             this.closeDropdown();
                         }
                     });
+                    
+                    debug('All event handlers attached');
                 }, 100);
             }
             
             toggleConversationsPanel() {
-                console.log('toggleConversationsPanel called');
-                console.log('Dropdown visible:', this.dropdownResults.classList.contains('show'));
-                console.log('Panel element:', this.dropdownConversationsPanel);
+                debug('toggleConversationsPanel called');
                 
                 if (!this.dropdownResults.classList.contains('show')) {
-                    console.log('Dropdown not visible, showing it first');
+                    debug('Dropdown not visible, showing it first');
                     this.showDropdown();
                 }
                 
                 // Toggle the conversations panel
+                const wasShowing = this.dropdownConversationsPanel.classList.contains('show');
                 this.dropdownConversationsPanel.classList.toggle('show');
-                console.log('Panel show state after toggle:', this.dropdownConversationsPanel.classList.contains('show'));
+                debug(`Conversations panel toggled: ${wasShowing ? 'hidden' : 'shown'}`);
                 
                 // Update conversations list when showing
                 if (this.dropdownConversationsPanel.classList.contains('show')) {
-                    console.log('Updating conversations list');
                     this.updateConversationsList();
                 }
             }
             
             updateConversationsList() {
+                debug('updateConversationsList called');
+                
+                if (!this.chatInterface) {
+                    debug('Chat interface not initialized yet');
+                    return;
+                }
+                
                 // Filter conversations for this site only
                 const originalConversations = this.chatInterface.conversations;
                 this.chatInterface.conversations = originalConversations.filter(conv => 
                     conv.site === this.site && conv.messages && conv.messages.length > 0
                 );
+                
+                debug(`Found ${this.chatInterface.conversations.length} conversations for site ${this.site}`);
                 
                 // Use the updateConversationsList method with our dropdown container
                 this.chatInterface.updateConversationsList(this.dropdownConversationsList);
@@ -485,11 +540,13 @@
             }
             
             showDropdown() {
+                debug('showDropdown called');
                 this.dropdownResults.classList.add('show');
                 this.dropdownResults.classList.remove('loaded');
             }
             
             closeDropdown() {
+                debug('closeDropdown called');
                 this.dropdownResults.classList.remove('show');
                 
                 // Hide conversations panel
@@ -526,6 +583,7 @@
         
         // Initialize when DOM is loaded
         document.addEventListener('DOMContentLoaded', () => {
+            debug('DOMContentLoaded event fired');
             // Create the dropdown interface with 'seriouseats' as the site
             window.dropdownSearch = new DropdownSearchInterface('seriouseats');
         });

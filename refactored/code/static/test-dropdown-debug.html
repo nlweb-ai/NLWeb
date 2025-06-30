@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dropdown Debug Test</title>
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        
+        .test-container {
+            max-width: 600px;
+            margin: 50px auto;
+            border: 2px solid #ccc;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+        
+        .history-icon {
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            color: #666;
+            border: 2px solid #333;
+            padding: 5px;
+            display: inline-block;
+        }
+        
+        .history-icon:hover {
+            color: #000;
+            background: #eee;
+        }
+        
+        .debug-output {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background: white;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .debug-message {
+            margin: 2px 0;
+            padding: 2px 5px;
+        }
+        
+        .debug-message.error {
+            background: #ffeeee;
+            color: #cc0000;
+        }
+        
+        .debug-message.success {
+            background: #eeffee;
+            color: #006600;
+        }
+        
+        .debug-message.info {
+            background: #eeeeff;
+            color: #000066;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h2>Dropdown Debug Test</h2>
+        <p>Click the history icon below and check the debug output:</p>
+        
+        <svg class="history-icon" id="test-history-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        
+        <div class="debug-output" id="debug-output">
+            <div class="debug-message info">Debug output will appear here...</div>
+        </div>
+        
+        <h3>Testing dropdown-example.html setup:</h3>
+        <button onclick="testDropdownSetup()">Test Dropdown Setup</button>
+    </div>
+
+    <script>
+        const debugOutput = document.getElementById('debug-output');
+        
+        function log(message, type = 'info') {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `debug-message ${type}`;
+            msgDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            debugOutput.appendChild(msgDiv);
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+        
+        // Test basic click handler
+        document.getElementById('test-history-icon').addEventListener('click', function(e) {
+            log('History icon clicked!', 'success');
+            log(`Event type: ${e.type}`, 'info');
+            log(`Target: ${e.target.tagName} (id: ${e.target.id || 'none'})`, 'info');
+            log(`CurrentTarget: ${e.currentTarget.tagName} (id: ${e.currentTarget.id || 'none'})`, 'info');
+        });
+        
+        // Test the dropdown setup
+        async function testDropdownSetup() {
+            log('Starting dropdown setup test...', 'info');
+            
+            try {
+                // Check if elements exist
+                const searchInput = document.getElementById('search-input');
+                const historyIcon = document.getElementById('history-icon');
+                const dropdownResults = document.getElementById('dropdown-results');
+                const dropdownConversationsPanel = document.getElementById('dropdown-conversations-panel');
+                
+                if (searchInput) {
+                    log('search-input element found', 'success');
+                } else {
+                    log('search-input element NOT found', 'error');
+                    log('This test must be run from dropdown-example.html', 'error');
+                    return;
+                }
+                
+                if (historyIcon) {
+                    log('history-icon element found', 'success');
+                    
+                    // Check if it has event listeners
+                    const listeners = getEventListeners(historyIcon);
+                    log(`Event listeners on history-icon: ${JSON.stringify(listeners)}`, 'info');
+                    
+                    // Test computed styles
+                    const styles = window.getComputedStyle(historyIcon);
+                    log(`History icon cursor: ${styles.cursor}`, 'info');
+                    log(`History icon pointer-events: ${styles.pointerEvents}`, 'info');
+                    log(`History icon z-index: ${styles.zIndex}`, 'info');
+                    log(`History icon position: ${styles.position}`, 'info');
+                } else {
+                    log('history-icon element NOT found', 'error');
+                }
+                
+                if (dropdownResults) {
+                    log('dropdown-results element found', 'success');
+                } else {
+                    log('dropdown-results element NOT found', 'error');
+                }
+                
+                if (dropdownConversationsPanel) {
+                    log('dropdown-conversations-panel element found', 'success');
+                } else {
+                    log('dropdown-conversations-panel element NOT found', 'error');
+                }
+                
+                // Check if DropdownSearchInterface is initialized
+                if (window.dropdownSearch) {
+                    log('DropdownSearchInterface is initialized', 'success');
+                    log(`Site: ${window.dropdownSearch.site}`, 'info');
+                    
+                    if (window.dropdownSearch.historyIcon) {
+                        log('historyIcon property exists on dropdownSearch', 'success');
+                    } else {
+                        log('historyIcon property NOT found on dropdownSearch', 'error');
+                    }
+                    
+                    if (window.dropdownSearch.toggleConversationsPanel) {
+                        log('toggleConversationsPanel method exists', 'success');
+                        
+                        // Try calling it
+                        try {
+                            log('Attempting to call toggleConversationsPanel...', 'info');
+                            window.dropdownSearch.toggleConversationsPanel();
+                            log('toggleConversationsPanel called successfully', 'success');
+                        } catch (err) {
+                            log(`Error calling toggleConversationsPanel: ${err.message}`, 'error');
+                        }
+                    } else {
+                        log('toggleConversationsPanel method NOT found', 'error');
+                    }
+                } else {
+                    log('DropdownSearchInterface NOT initialized', 'error');
+                }
+                
+            } catch (error) {
+                log(`Test error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+        
+        // Helper function to get event listeners (Chrome DevTools only)
+        function getEventListeners(element) {
+            if (typeof window.getEventListeners === 'function') {
+                return window.getEventListeners(element);
+            }
+            return 'getEventListeners not available (Chrome DevTools only)';
+        }
+        
+        // Listen for any errors
+        window.addEventListener('error', function(e) {
+            log(`JavaScript Error: ${e.message} at ${e.filename}:${e.lineno}:${e.colno}`, 'error');
+        });
+        
+        log('Debug test page loaded', 'success');
+    </script>
+</body>
+</html>
