@@ -129,7 +129,16 @@ async def handle_client(reader, writer, fulfill_request):
                 
                 # Add CORS headers if enabled
                 if CONFIG.server.enable_cors and 'origin' in headers:
-                    response_headers['Access-Control-Allow-Origin'] = '*'
+
+                    if CONFIG.server.cors_trusted_origins:
+                        # If the origin header matches one of the defined origins in server.cors_trusted_origins
+                        origin = headers.get('origin', '')
+                        if origin in CONFIG.server.cors_trusted_origins:
+                            response_headers['Access-Control-Allow-Origin'] = origin
+                        # If the wildcard is set we use the wildcard anyways
+                        if '*' in CONFIG.server.cors_trusted_origins:
+                            response_headers['Access-Control-Allow-Origin'] = '*'
+
                     response_headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
                     response_headers['Access-Control-Allow-Headers'] = 'Content-Type'
                 

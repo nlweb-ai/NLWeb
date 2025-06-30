@@ -66,6 +66,7 @@ class StaticConfig:
 class ServerConfig:
     host: str = "localhost"
     enable_cors: bool = True
+    cors_trusted_origins: List[str] = field(default_factory=list)
     max_connections: int = 100
     timeout: int = 30
     ssl: Optional[SSLConfig] = None
@@ -320,6 +321,7 @@ class AppConfig:
         self.server = ServerConfig(
             host=self._get_config_value(server_data.get("host"), "localhost"),
             enable_cors=self._get_config_value(server_data.get("enable_cors"), True),
+            cors_trusted_origins=self._get_config_value(server_data.get("cors_trusted_origins"), ['*']),
             max_connections=self._get_config_value(server_data.get("max_connections"), 100),
             timeout=self._get_config_value(server_data.get("timeout"), 30),
             ssl=ssl_config,
