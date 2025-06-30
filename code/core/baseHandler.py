@@ -132,6 +132,7 @@ class NLWebHandler:
         self.return_value = {}
 
         self.versionNumberSent = False
+        self.headersSent = False
         
         logger.info(f"NLWebHandler initialized with parameters:")
         logger.debug(f"site: {self.site}, query: {self.query}")
@@ -167,6 +168,7 @@ class NLWebHandler:
                 
             if (self.streaming and self.http_handler is not None):
                 message["query_id"] = self.query_id
+
                 
                 # Check if this is the first result_batch and add time-to-first-result header
                 if message.get("message_type") == "result_batch" and not self.first_result_sent:
@@ -189,6 +191,7 @@ class NLWebHandler:
                 # Send headers on first message if not already sent
                 if not self.headersSent:
                     self.headersSent = True
+
                     
                     # Send version number first
                     if not self.versionNumberSent:
@@ -226,6 +229,18 @@ class NLWebHandler:
                     logger.error(f"Error streaming message: {e}")
                     self.connection_alive_event.clear()  # Use event instead of flag
             else:
+                # Add headers to non-streaming response if not already added
+                if not self.headersSent:
+                    self.headersSent = True
+                    try:
+                        # Get configured headers from CONFIG and add them to return_value
+                        headers = CONFIG.get_headers()
+                        for header_key, header_value in headers.items():
+                            self.return_value[header_key] = {"message": header_value}
+                            logger.debug(f"Header '{header_key}' added to return value")
+                    except Exception as e:
+                        logger.error(f"Error adding headers to return value: {e}")
+                
                 val = {}
                 message_type = message["message_type"]
                 if (message_type == "result_batch"):
@@ -309,16 +324,24 @@ class NLWebHandler:
             self.state.set_pre_checks_done()
          
         # Wait for retrieval to be done
+        logger.info(f"Checking retrieval_done_event for site: {self.site}")
         if not self.retrieval_done_event.is_set():
-            logger.info("Retrieval not done by fast track, performing regular retrieval")
-            items = await search(
-                self.decontextualized_query, 
-                self.site,
-                query_params=self.query_params
-            )
-            self.final_retrieved_items = items
-            logger.debug(f"Retrieved {len(items)} items from database")
-            self.retrieval_done_event.set()
+            # Skip retrieval for sites without embeddings
+            logger.info(f"Retrieval not done, checking if site is DataCommons: {self.site.lower() == 'datacommons'}")
+            if self.site.lower() == "datacommons":
+                logger.info("Skipping retrieval for DataCommons - no embeddings")
+                self.final_retrieved_items = []
+                self.retrieval_done_event.set()
+            else:
+                logger.info("Retrieval not done by fast track, performing regular retrieval")
+                items = await search(
+                    self.decontextualized_query, 
+                    self.site,
+                    query_params=self.query_params
+                )
+                self.final_retrieved_items = items
+                logger.debug(f"Retrieved {len(items)} items from database")
+                self.retrieval_done_event.set()
         
         logger.info("Preparation phase completed")
 
