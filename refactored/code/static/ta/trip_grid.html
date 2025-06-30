@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tripadvisor: Over a billion reviews & contributions for Hotels, Attractions, Restaurants, and more</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Trip Sans', Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #ffffff;
+            color: #333;
+            font-family: 'Trip Sans', Arial, sans-serif;
+        }
+        
+        /* Header styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background-color: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            width:90%;
+            margin: 0 auto;
+            max-width: 1200px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo img {
+            height: 40px;
+        }
+
+   
+
+        
+        .nav-menu {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            gap: 24px;
+            width: max-content;
+        } 
+
+        
+        
+        .nav-menu a {
+            text-decoration: none;
+            color: #000;
+            font-weight: 400;
+            font-size: 16px;
+            padding: 8px 0;
+        }
+        
+        .user-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .globe-icon, .currency {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .sign-in {
+            background-color: #000;
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        /* Search section styles */
+        .search-container {
+            max-width: 1136px;
+            margin: 0 auto;
+            padding: 50px 16px;
+            text-align: center;
+        }
+        
+        .search-heading {
+            font-size: 54px;
+            font-weight: 900;
+            margin-bottom: 24px;
+            color: #000;
+        }
+        
+        .search-tabs {
+            display: flex;
+            justify-content: center;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 14px 10px;
+            cursor: pointer;
+            color: #000;
+            font-weight: 600;
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .tab.active {
+            border-bottom: 2px solid #000;
+        }
+        
+        .search-box {
+            position: relative;
+            max-width: 780px;
+            margin: 0 auto;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 16px 20px;
+            border-radius: 50px;
+            border: 1px solid #e0e0e0;
+            font-size: 16px;
+            outline: none;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .search-button {
+            position: absolute;
+            right: 4px;
+            top: 4px;
+            background-color: #00aa6c;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 24px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        /* Hero banner styles */
+        .hero-banner {
+            max-width: 1136px;
+            margin: 0 auto 32px;
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .hero-image {
+            width: 100%;
+            height: 400px;
+            object-fit: cover;
+        }
+        
+        .hero-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            padding: 32px;
+            color: white;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        }
+        
+        .hero-title {
+            font-size: 36px;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        
+        .hero-description {
+            font-size: 14px;
+            margin-bottom: 16px;
+            max-width: 700px;
+        }
+        
+        .reveal-button {
+            background-color: white;
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 24px;
+            font-weight: 600;
+            display: inline-block;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .badge-2025 {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+        }
+
+        /* Additional styles for the rest of the page would go here */
+        
+        /* Rest of the page styles */
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            color: #000;
+        }
+
+        .category-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 16px;
+            padding-bottom: 16px;
+            margin-bottom: 40px;
+        }
+
+        .category-card {
+            position: relative;
+            height: 170px;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            max-width: 300px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .category-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .category-card .label {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+        }
+
+        .section-container {
+            max-width: 1136px;
+            margin: 0 auto 48px;
+            padding: 0 16px;
+        }
+
+        .experience-card {
+            position: relative;
+            height: 420px;
+            border-radius: 12px;
+            overflow: hidden;
+            background-color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            max-width: 300px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .experience-card img {
+            width: 100%;
+            height: 240px;
+            object-fit: cover;
+        }
+
+        .experience-content {
+            padding: 16px;
+        }
+
+        .experience-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 8px;
+            max-height: 40px;
+            overflow: hidden;
+        }
+
+        .experience-price {
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .star-rating {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .star-rating .stars {
+            color: #00aa6c;
+        }
+
+        .star-rating .reviews {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .sustainable-section {
+            display: flex;
+            align-items: center;
+            background-color: #e9f5ef;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 40px;
+        }
+
+        .sustainable-content {
+            flex: 1;
+            /* padding: 32px; */
+        }
+
+        .sustainable-content h2 {
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 16px;
+            color: #000;
+            max-width: 360px;
+        }
+
+        .sustainable-content p {
+            font-size: 14px;
+            margin-bottom: 24px;
+            max-width: 360px;
+        }
+
+        .donate-btn {
+            background-color: #000;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 24px;
+            font-weight: 600;
+            display: inline-block;
+            cursor: pointer;
+            border: none;
+        }
+
+        .sustainable-image {
+            flex: 1;
+            height: 300px;
+            overflow: hidden;
+        }
+
+        .sustainable-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+  
+
+
+
+        .explore-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .explore-card {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .explore-card img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+        }
+
+        .explore-card .heart {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background-color: white;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .explore-title {
+            font-size: 14px;
+            font-weight: 700;
+            margin: 12px 0 4px;
+        }
+
+        .explore-desc {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .destination-card {
+            position: relative;
+            flex: 0 0 230px;
+            height: 160px;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .destination-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .destination-card .label {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .awards-section {
+            background-color: #ffc107;
+            padding: 40px 0;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .awards-content {
+            max-width: 1136px;
+            margin: 0 auto;
+            padding: 0 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .awards-logo {
+            width: 180px;
+            margin-bottom: 16px;
+        }
+
+        .awards-title {
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 16px;
+            max-width: 400px;
+        }
+
+        .awards-desc {
+            font-size: 14px;
+            margin-bottom: 24px;
+            max-width: 400px;
+        }
+
+        .awards-images {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .awards-image {
+            width: 50%;
+            height: 50%;
+            object-fit: cover;
+        }
+
+        .see-winners-btn {
+            background-color: black;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 24px;
+            font-weight: 600;
+            display: inline-block;
+            cursor: pointer;
+            border: none;
+        }
+
+        footer {
+            background-color: #f2f2f2;
+            padding: 40px 0;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .footer-content {
+            max-width: 1136px;
+            margin: 0 auto;
+            padding: 0 16px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+
+        .footer-column h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .footer-column a {
+            display: block;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .navigation-icon {
+            width: 32px;
+            height: 32px;
+            background-color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .nav-prev {
+            left: -16px;
+            z-index: 5;
+        }
+
+        .nav-next {
+            right: -16px;
+            z-index: 5;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        /* Square hotel cards */
+        .hotel-category-card {
+            position: relative;
+            height: 240px;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            max-width: 300px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        
+        .hotel-category-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .hotel-category-card .label {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            color: white;
+            font-weight: 700;
+            font-size: 18px;
+        }
+        
+        .hotel-category-card .badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+        }
+
+        /* Search results styles */
+        .search-results-container {
+            max-width: 1136px;
+            margin: 20px auto;
+            padding: 0 16px;
+            background-color: #fff;
+        }
+        
+        .search-results-header {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .search-results-header h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .search-results-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .result-card {
+            display: flex;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e0e0e0;
+            background-color: #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .result-image {
+            width: 240px;
+            height: 200px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        
+        .result-content {
+            padding: 16px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .result-badge {
+            display: inline-block;
+            background-color: #f2f2f2;
+            color: #333;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .result-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .result-rating {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 8px;
+        }
+        
+   
+
+        .result-rating .rating-dots {
+            color: #00aa6c;
+            font-size: 20px;
+            display: flex;
+        }
+        
+        .result-rating .review-count {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .result-location {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        
+        .result-mentions {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .result-description {
+            font-size: 14px;
+            color: #333;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        /* More results matching styles */
+        .more-results-header {
+            font-size: 22px;
+            font-weight: 700;
+            margin: 30px 0 20px;
+            text-align: center;
+        }
+        
+        /* Search input styles update */
+        .search-box {
+            position: relative;
+            max-width: 780px;
+            margin: 0 auto;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 16px 20px;
+            border-radius: 50px;
+            border: 1px solid #e0e0e0;
+            font-size: 16px;
+            outline: none;
+        }
+        
+        .search-button {
+            position: absolute;
+            right: 4px;
+            top: 4px;
+            background-color: #00aa6c;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 12px 24px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="left-section" style="display: flex; align-items: center;">
+            <div class="logo">
+                <img class="XpHHt" src="https://static.tacdn.com/img2/brand_refresh/Tripadvisor_lockup_horizontal_secondary_registered.svg" alt="Tripadvisor">
+            </div>
+            <nav class="nav-menu">
+                <a href="#discover">Discover</a>
+                <a href="#trips">Trips</a>
+                <a href="#review">Review</a>
+                <a href="#more">More</a>
+            </nav>
+        </div>
+        <div class="user-actions">
+            <div class="globe-icon">
+                <svg viewBox="0 0 24 24" width="20px" height="20px" class="d Vb UmNoP" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.31 9.82h4.178c-.069-1.591-.356-2.993-.766-4.017-.237-.593-.501-1.023-.756-1.293-.211-.223-.38-.3-.5-.32h-.133c-.12.02-.289.097-.5.32-.255.27-.519.7-.756 1.293-.41 1.024-.697 2.426-.767 4.017m-.374-5.14q-.135.272-.252.566C8.194 6.472 7.88 8.07 7.81 9.82H5.055a6.39 6.39 0 0 1 3.88-5.14m2.301-1.989a7.883 7.883 0 0 0-7.726 7.88 7.88 7.88 0 0 0 7.884 7.885c.584 0 .871-.014 1.11-.074.124-.031.172-.049.213-.064.058-.02.099-.036.312-.073l-.26-1.477a4 4 0 0 0-.628.159c-.031.007-.132.029-.743.029-.121 0-.313-.06-.566-.327-.255-.27-.519-.699-.756-1.292-.41-1.025-.697-2.426-.767-4.017h4.203a4.7 4.7 0 0 1-.113.843 6 6 0 0 1-.112.413l-.012.04-.004.016c-.034.114-.089.298-.1.478l1.498.088v.006s.007-.035.044-.161l.012-.04c.038-.126.09-.298.136-.505.072-.313.134-.698.152-1.178h2.734a4.2 4.2 0 0 1-.195.949c-.055.16-.11.28-.166.403l-.004.01-.01.02c-.046.101-.132.288-.161.486l1.484.219-.005.026s.012-.032.057-.13l.008-.018c.056-.123.137-.3.216-.529.168-.49.31-1.168.31-2.186a7.88 7.88 0 0 0-7.72-7.879 2 2 0 0 0-.325 0m2.626 1.99q.134.271.252.565c.49 1.226.805 2.824.875 4.574h2.75a6.38 6.38 0 0 0-3.877-5.14M8.94 16.466a8 8 0 0 1-.256-.573c-.49-1.227-.805-2.824-.875-4.574H5.055a6.39 6.39 0 0 0 3.885 5.147"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M20.489 12.343h-8.75v6.648h5.255l3.495 2.325zm-1.5 1.5v4.674l-1.542-1.026H13.24v-3.648z"></path></svg>
+            </div>
+            <div class="currency">USD</div>
+            <div class="sign-in">Sign in</div>
+        </div>
+    </header>
+
+    <!-- Search Section 1 -->
+    <div class="search-container">
+        <h1 class="search-heading">Where to?</h1>
+        <div class="search-tabs">
+            <div class="tab active">
+                <svg viewBox="0 0 24 24" width="24px" height="24px" class="d Vb egaXP UmNoP" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.889 3.542a.25.25 0 0 0-.278 0l-8 5.333a.25.25 0 0 0-.111.208v10.465c0 .138.112.25.25.25h16a.25.25 0 0 0 .25-.25V9.083a.25.25 0 0 0-.111-.208zm-1.11-1.248a1.75 1.75 0 0 1 1.942 0l8 5.333c.487.325.779.871.779 1.456v10.465a1.75 1.75 0 0 1-1.75 1.75h-16A1.75 1.75 0 0 1 2 19.548V9.083c0-.585.292-1.131.78-1.456z"></path></svg>
+                Search All
+            </div>
+            <div class="tab">
+                <svg viewBox="0 0 24 24" width="24px" height="24px" class="d Vb egaXP UmNoP" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M22 12.5V20h-4.5v-3h-11v3H2V6.25a2.25 2.25 0 0 1 4.5 0v6.25zM5 6.25a.75.75 0 0 0-1.5 0V18.5H5v-3h14v3h1.5V14H5z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M12 10.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0m-3.5 2a2 2 0 1 0 0-4 2 2 0 0 0 0 4"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M11 7h5.6a5.4 5.4 0 0 1 5.4 5.4V14H11zm9.241 4A3.9 3.9 0 0 0 16.6 8.5h-4.1v4h8v-.1a3.9 3.9 0 0 0-.259-1.4"></path></svg>
+                Hotels
+            </div>
+            <div class="tab">
+                
+                
+                <svg viewBox="0 0 24 24" width="24px" height="24px" class="d Vb egaXP UmNoP" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.56 7.5H3.75a.25.25 0 0 0-.25.25v10c0 .138.112.25.25.25h16.5a.25.25 0 0 0 .25-.25v-10a.25.25 0 0 0-.25-.25h-3.81l-2-2H9.56zM8.94 4h6.12l2 2h3.19c.966 0 1.75.784 1.75 1.75v10a1.75 1.75 0 0 1-1.75 1.75H3.75A1.75 1.75 0 0 1 2 17.75v-10C2 6.784 2.784 6 3.75 6h3.19z"></path><path fill-rule="evenodd" clip-rule="evenodd" d="M12 9.25a2.75 2.75 0 1 0 0 5.5 2.75 2.75 0 0 0 0-5.5M7.75 12a4.25 4.25 0 1 1 8.5 0 4.25 4.25 0 0 1-8.5 0"></path></svg>
+                
+                Things to Do
+            </div>
+            <div class="tab">
+                <svg viewBox="0 0 24 24" width="24px" height="24px" class="d Vb egaXP UmNoP" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M14.051 6.549v.003l1.134 1.14 3.241-3.25.003-.002 1.134 1.136-3.243 3.252 1.134 1.14a1 1 0 0 0 .09-.008c.293-.05.573-.324.72-.474l.005-.006 2.596-2.603L22 8.016l-2.597 2.604a3.73 3.73 0 0 1-1.982 1.015 4.3 4.3 0 0 1-3.162-.657l-.023-.016-.026-.018-1.366 1.407 8.509 8.512L20.219 22l-.002-.002-6.654-6.663-2.597 2.76-7.3-7.315C1.967 8.948 1.531 6.274 2.524 4.198c.241-.504.566-.973.978-1.386l8.154 8.416 1.418-1.423-.039-.045c-.858-1.002-1.048-2.368-.62-3.595a4.15 4.15 0 0 1 .983-1.561L16 2l1.135 1.138-2.598 2.602-.047.045c-.16.151-.394.374-.433.678zM3.809 5.523c-.362 1.319-.037 2.905 1.06 4.103L10.93 15.7l1.408-1.496zM2.205 20.697 3.34 21.84l4.543-4.552-1.135-1.143z"></path></svg>
+                Restaurants
+            </div>
+            <div class="tab">
+                <svg viewBox="0 0 24 24" width="24px" height="24px" class="d Vb egaXP UmNoP" aria-hidden="true"><path d="m9.412 22.286-7.63-7.89 1.87-1.87 3.39.6c.08 0 .5 0 .73-.21l2.15-2.08c.02-.05.04-.13.04-.16 0-.02-.07-.1-.26-.19l-7.2-3.32 2.74-2.68 8.83 1.59c.2.02.49.02.62 0l3.21-3.24c.86-.78 2.58-1.75 3.76-.58 1.17 1.17.24 2.88-.49 3.71l-3.16 3.23c-.02.06-.05.24.01.61l1.52 8.83-2.7 2.43-3.29-6.84a.5.5 0 0 0-.18-.14l-2.49 2.33s-.01.15.01.3l.55 3.62-2.04 1.95zm-5.53-7.87 5.57 5.75.4-.38-.43-2.85c-.16-1.04.25-1.5.51-1.68l2.42-2.24c.45-.42.91-.46 1.2-.43.73.08 1.18.69 1.27.81l.06.1 2.45 5.1.59-.54-1.38-8.01c-.21-1.22.19-1.75.44-1.96l3.09-3.15c.25-.29.89-1.26.53-1.63-.36-.36-1.36.32-1.66.6l-3.27 3.29c-.47.45-1.35.42-1.83.35l-8.1-1.45-.63.62 5.21 2.4c.73.33.99.82 1.08 1.17.2.75-.23 1.38-.28 1.45l-.09.11-2.24 2.17c-.78.71-1.85.62-1.96.6l-2.67-.47-.27.27z"></path></svg>
+                Flights
+            </div>
+            <div class="tab">
+                <svg viewBox="0 0 24 24" width="24px" height="24px" class="d Vb egaXP UmNoP" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="m11.995 2.174 9.76 6.5v13.152H2.245V8.674zm0 1.803-8.25 5.5v10.849h16.51V9.477zm-2.99 8.359a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5m-2.75 1.25a2.75 2.75 0 0 1 5.396-.75h6.344v1.5h-2.25v2.25h-1.5v-2.25h-2.594a2.751 2.751 0 0 1-5.396-.75"></path></svg>
+                Vacation Rentals
+            </div>
+        </div>
+    
+        <!-- Search Section 2 -->
+        <div id="ai-search-container" style="position: relative; width: 90%; max-width: 800px; margin: 5px auto;">
+            <div class="search-box">
+                <span class="search-icon" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%);">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z" stroke="#767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M21 21L16.65 16.65" stroke="#767676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+                <input 
+                    type="text" 
+                    id="searchInput"
+                    class="search-input"
+                    placeholder="Search destinations, hotels, restaurants..."  
+                    value=""
+                    onkeydown="if(event.key === 'Enter') searchAction()" 
+                    style="padding-left: 48px;"
+                >
+                <button 
+                    id="ai-search-button"
+                    class="search-button" onclick="searchAction()"
+                >
+                    Search
+                </button>
+            </div>
+        
+            <script>
+                class SearchInterface {
+                    constructor() {
+                        this.messages = [];
+                        this.prevMessages = [];
+                        this.createInterface();
+                    }
+
+                    createInterface() {
+                        // Create main container
+                        this.container = document.getElementById("searchResults");
+                        
+                        // Create area for product cards
+                        this.productCardsArea = document.createElement('div');
+                        this.productCardsArea.className = 'search-results-list';
+                        
+                        // Assemble the interface
+                        this.container.appendChild(this.productCardsArea);
+                    }
+
+                    async doQuery(queryText) {
+                        if (!queryText || queryText.trim() === '') return;
+                        
+                        // Clear existing product cards and show loading
+                        this.productCardsArea.innerHTML = '<div style="text-align:center; padding: 40px;"><p>Finding the best matches for you...</p></div>';
+                        this.dotsStillThere = true;
+                        
+                        // Create container for results
+                        const resultsContainer = document.getElementById('searchResults');
+                        resultsContainer.innerHTML = `
+                            <div class="search-results-container">
+                                <div class="search-results-header">
+                                    <h2>Results matching "${queryText}"</h2>
+                                </div>
+                                <div class="search-results-list" id="resultsList">
+                                    <div style="text-align:center; padding: 40px;"><p>Finding the best matches for you...</p></div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        this.productCardsArea = document.getElementById('resultsList');
+                        
+                        // Get product cards
+                        const host = "http://74.179.100.160:8000";
+                        const url = `/ask?query=${encodeURIComponent(queryText)}&site=tripadvisor&num=10&model=gpt-4o&prev=${encodeURIComponent(this.prevMessages.join(','))}`;
+                        
+                        this.getAndProcessResponse(url);
+                    }
+
+                    addProductCard(data, eventSource) {
+                        const domItem = this.createProductCard(data);
+                        this.currentItems.push([data, domItem]);
+                        this.productCardsArea.appendChild(domItem);
+                    }
+
+                    async getAndProcessResponse(url) {
+                        this.eventSource = new EventSource(url);
+                        this.eventSource.chatInterface = this;
+                        this.eventSource.onopen = function(event) {
+                            // Connection opened
+                        }
+                            
+                        this.eventSource.onmessage = function(event) {
+                            const chatInterface = this.chatInterface;
+                            if (chatInterface.dotsStillThere) {
+                                chatInterface.dotsStillThere = false;
+                                chatInterface.productCardsArea.innerHTML = '';
+                                chatInterface.currentItems = [];
+                            }          
+                            
+                            const data = JSON.parse(event.data);
+                            if (data && data.message_type == "answer") {
+                                chatInterface.addProductCard(data, this);
+                            } else if (data && data.message_type == "result_batch") {
+                                for (const item of data.results) {
+                                    chatInterface.addProductCard(item, this);
+                                }
+                            } else if (data && data.message_type == "complete") {
+                                if (chatInterface.currentItems.length > 0) {
+                                    chatInterface.currentItems.sort((a, b) => b[0].score - a[0].score);
+                                    
+                                    // Clear existing children
+                                    while (chatInterface.productCardsArea.firstChild) {
+                                        chatInterface.productCardsArea.removeChild(chatInterface.productCardsArea.firstChild);
+                                    }
+                                    
+                                    // Add sorted domItems back
+                                    for (const [item, domItem] of chatInterface.currentItems) {
+                                        chatInterface.productCardsArea.appendChild(domItem);
+                                    }
+                                }
+                                this.close();
+                            }
+                        }
+                    }
+
+                    extractImage(schema_object) {
+                        if (schema_object && schema_object.image) {
+                            let image = schema_object.image;
+                            if (typeof image === 'string') {
+                                return image;
+                            } else if (typeof image === 'object' && image.url) {
+                                return image.url;
+                            } else if (image instanceof Array) {
+                                return image[0];
+                            }
+                            return schema_object.image;
+                        }
+                        return null;
+                    }
+
+                    extractProductInfo(schema_object) {
+                        if (!schema_object) return null;
+                        const info = {
+                            url: schema_object.url,
+                            name: schema_object.name,
+                            brand: schema_object.brand?.name,
+                            type: schema_object["@type"],
+                            image: null,
+                            description: null,
+                            price: null,
+                            ratingCount: null,
+                            averageRating: null,
+                            location: null
+                        };
+
+                        // Get description
+                        if (schema_object.description) {
+                            info.description = schema_object.description;
+                        }
+                        
+                        // Get url
+                        if (schema_object.url) {
+                            info.url = schema_object.url;
+                        }
+
+                        // Get image
+                        //info.image = this.extractImage(schema_object);
+                         // Get first image from either top-level image array or first variant
+                        info.image = extractOriginalPngUrl(this.extractImage(schema_object));
+                        console.log("infodes" + JSON.stringify(schema_object));
+
+                        // Check for address information
+                        if (schema_object.address) {
+                            info.location = schema_object.address.addressLocality || 
+                                           (schema_object.address.addressRegion ? 
+                                            `${schema_object.address.addressLocality}, ${schema_object.address.addressRegion}` : 
+                                            schema_object.address.addressCountry);
+                        }
+
+                        // Get price info
+                        if (schema_object.offers) {
+                            info.price = schema_object.offers.price || 
+                                        (schema_object.offers.lowPrice ? 
+                                         `${schema_object.offers.lowPrice} - ${schema_object.offers.highPrice}` : 
+                                         null);
+                        }
+
+                        // Extract rating information
+                        if (schema_object.aggregateRating) {
+                            info.ratingCount = schema_object.aggregateRating.ratingCount || 
+                                              schema_object.aggregateRating.reviewCount;
+                            info.averageRating = schema_object.aggregateRating.ratingValue;
+                        }
+
+                        return info;
+                    }
+
+                    createProductCard(response) {
+                        const schema_object = response.schema_object;
+                        const info = this.extractProductInfo(schema_object) || {};
+                        
+                        // Default image if none is available
+                        const defaultImage = 'https://dynamic-media-cdn.tripadvisor.com/media/photo-o/1c/c9/6c/08/caption.jpg?w=600&h=600&s=1';
+                        
+                        // Generate rating dots
+                        const rating = info.averageRating || Math.random() * 2 + 3; // Random rating between 3-5 if not available
+                        let ratingDots = '';
+                        for (let i = 0; i < 5; i++) {
+                            if (i < Math.floor(rating)) {
+                                ratingDots += '<span style="color:#00aa6c">●</span>';
+                            } else if (i === Math.floor(rating) && rating % 1 >= 0.5) {
+                                // Instead of using a different character, use the same circle with a wrapper for half-fill effect
+                                ratingDots += '<span style="position:relative; display:inline-block; width:1em; height:1em; overflow:hidden">' +
+                                             '<span style="color:#00aa6c; position:absolute; left:0; top:0; clip-path: inset(0 50% 0 0);">●</span>' +
+                                             '<span style="color:#e0e0e0; position:absolute; left:0; top:0; clip-path: inset(0 0 0 50%);">●</span>' +
+                                             '</span>';
+                            } else {
+                                ratingDots += '<span style="color:#e0e0e0">●</span>';
+                            }
+                        }
+                        
+                        // Generate review count
+                        const reviewCount = info.ratingCount || Math.floor(Math.random() * 2000) + 100;
+                        
+                        // Determine result type based on content
+                        // let resultType = 'HOTEL'; // Default
+                        // if (info.description && info.description.toLowerCase().includes('restaurant')) {
+                        //     resultType = 'RESTAURANT';
+                        // } else if (info.description && (info.description.toLowerCase().includes('tour') || 
+                        //                              info.description.toLowerCase().includes('experience'))) {
+                        //     resultType = 'ACTIVITY';
+                        // }
+                        
+                        // Generate location
+                        const locations = ['Paris, France', 'New York, NY', 'Tokyo, Japan', 'Rome, Italy', 'London, UK', 'Bali, Indonesia'];
+                        const location = info.location || locations[Math.floor(Math.random() * locations.length)];
+                        
+                        // Create the card element
+                        const card = document.createElement('div');
+                        card.className = 'result-card';
+                        
+                        // Generate description mentions for search relevance
+                        let mentions = '';
+                        if (document.getElementById('searchInput').value.trim()) {
+                            const searchTerm = document.getElementById('searchInput').value.trim();
+                            mentions = `<div class="result-mentions">${Math.floor(Math.random() * 50) + 5} mentions of ${searchTerm}</div>`;
+                        }
+                        
+                        // Fill the card with content
+                        card.innerHTML = `
+                             <a href="${info.url}" target="_blank" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: flex-start; width: 100%; height: 100%;">
+       <div style="width: 100%; display: flex; justify-content: center; align-items: center; margin-bottom: 16px; min-height: 200px;">
+                            <img src="${info.image || defaultImage}" alt="${info.name || 'Search result'}" class="result-image">
+                            <div class="result-content">
+                                <div class="result-badge">${info.type}</div>
+                                <h3 class="result-title">${info.name || 'Tripadvisor Recommendation'}</h3>
+                                <div class="result-rating">
+                                    <span>${rating.toFixed(1)}</span>
+                                    <div class="rating-dots">${ratingDots}</div>
+                                    <span class="review-count">(${reviewCount} reviews)</span>
+                                </div>
+                                <div class="result-location">${location}</div>
+                                ${mentions}
+                                <div class="result-description">${info.description || 'Discover this amazing place with Tripadvisor, the world\'s largest travel platform.'}</div>
+                            </div>
+                </div>
+     </a>
+                        `;
+                        
+                        return card;
+                    }
+                }
+
+                function searchAction() {
+                    const searchTerm = document.getElementById('searchInput').value.trim();
+                    if (!searchTerm) return;
+                    
+                    // Use search interface to process the query
+                    if (!window.searchObj) {
+                        window.searchObj = new SearchInterface();
+                    }
+                    
+                    window.searchObj.doQuery(searchTerm);
+
+                     //make the main UI disappear
+                    document.getElementById("hero-banner").style.display = "none";
+                    const sections = document.getElementsByClassName("section-container");
+                    for (let i = 0; i < sections.length; i++) {
+                        sections[i].style.display = "none";
+                    }
+                    document.getElementById("awards").style.display = "none";
+                
+
+                    
+                    // Scroll to results
+                    const resultsContainer = document.getElementById('searchResults');
+                    setTimeout(() => {
+                        resultsContainer.scrollIntoView({ behavior: 'smooth' });
+                    }, 300);
+                }
+
+
+                //extract actual image url from allbirds - for more usecases 
+                function extractOriginalPngUrl(url) {
+                    if (!url || typeof url !== 'string') {
+                    return '';
+                    }
+                    
+                    // Find the position of .png or .jpg/.jpeg in the URL (case insensitive)
+                    const pngIndex = url.toLowerCase().indexOf('.png');
+                    const jpgIndex = url.toLowerCase().indexOf('.jpg');
+                    const jpegIndex = url.toLowerCase().indexOf('.jpeg');
+                    
+                    // Get the appropriate index based on which extension was found
+                    let extensionIndex = -1;
+                    let extensionLength = 0;
+                    
+                    if (pngIndex !== -1) {
+                    extensionIndex = pngIndex;
+                    extensionLength = 4; // .png
+                    } else if (jpegIndex !== -1) {
+                    extensionIndex = jpegIndex;
+                    extensionLength = 5; // .jpeg
+                    } else if (jpgIndex !== -1) {
+                    extensionIndex = jpgIndex;
+                    extensionLength = 4; // .jpg
+                    }
+                    
+                    // If none of the extensions were found, return the original URL
+                    if (extensionIndex === -1) {
+                    return url;
+                    }
+                    
+                    // Return the URL up to and including the extension
+                    return url.substring(0, extensionIndex + extensionLength);
+                }
+                
+                // Initialize search interface on page load
+                document.addEventListener('DOMContentLoaded', () => {
+                    window.searchObj = new SearchInterface();
+                });
+            </script>
+        </div>
+    </div>
+
+    <div id="searchResults">
+        <!-- Search results will be populated here -->
+    </div>
+
+    <!-- Hero Banner -->
+    <div class="hero-banner" id="hero-banner">
+        <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2f/9e/57/5e/caption.jpg?w=1200&h=-1&s=1" alt="Luxury Hotel View" class="hero-image">
+        <img src="https://static.tacdn.com/img2/brand_refresh/Tripadvisor_lockup_horizontal_secondary_registered.svg" alt="2025 Badge" class="badge-2025">
+        <div class="hero-content">
+            <h2 class="hero-title">World's best hotels—chosen by you</h2>
+            <p class="hero-description">From beachside resorts to the most unique stays. See the top 1% of hotels from Travelers' Choice Best of the Best and save your faves.</p>
+            <button class="reveal-button">Reveal winners</button>
+        </div>
+    </div>
+
+    <!-- Stay at the world's top hotels section -->
+    <div class="section-container">
+        <h2 class="section-title">Stay at the world's top hotels</h2>
+        <div class="category-cards" style="position: relative;">
+            <div class="hotel-category-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2f/9e/79/86/caption.jpg?w=600&h=-1&s=1" alt="World">
+                <div class="label">World</div>
+                <img src="https://static.tacdn.com/img2/travelers_choice/2023/TC_2023_Badge_L.svg" alt="Award" class="badge">
+            </div>
+            <div class="hotel-category-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2f/9e/79/b1/caption.jpg?w=600&h=-1&s=1" alt="Luxury">
+                <div class="label">Luxury</div>
+                <img src="https://static.tacdn.com/img2/travelers_choice/2023/TC_2023_Badge_L.svg" alt="Award" class="badge">
+            </div>
+            <div class="hotel-category-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2f/9e/79/c9/caption.jpg?w=600&h=-1&s=1" alt="Family-Friendly">
+                <div class="label">Family-Friendly</div>
+                <img src="https://static.tacdn.com/img2/travelers_choice/2023/TC_2023_Badge_L.svg" alt="Award" class="badge">
+            </div>
+            <div class="hotel-category-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2f/9e/7a/1b/caption.jpg?w=600&h=-1&s=1" alt="One of a Kind">
+                <div class="label">One of a Kind</div>
+                <img src="https://static.tacdn.com/img2/travelers_choice/2023/TC_2023_Badge_L.svg" alt="Award" class="badge">
+            </div>
+            <div class="navigation-icon nav-next">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 18L15 12L9 6" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top experiences on Tripadvisor -->
+    <div class="section-container">
+        <div class="section-header">
+            <h2 class="section-title">Top experiences on Tripadvisor</h2>
+        </div>
+        <div class="category-cards" style="position: relative;">
+            <div class="experience-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/28/76/4e/cd/caption.jpg?w=600&h=600&s=1" alt="Disneyland Tour">
+                <img src="https://static.tacdn.com/img2/travelers_choice/2023/TC_2023_Badge_L.svg" alt="Award" class="badge">
+                <div class="experience-content">
+                    <h3 class="experience-title">Skip Disneyland Tour in Paris City Center</h3>
+                    <div class="experience-price">from $89 per adult</div>
+                    <div class="star-rating">
+                        <div class="stars">★★★★★</div>
+                        <div class="reviews">(1,528)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="experience-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2c/2d/98/50/caption.jpg?w=600&h=600&s=1" alt="Artisanal Market Tour">
+                <img src="https://static.tacdn.com/img2/travelers_choice/2023/TC_2023_Badge_L.svg" alt="Award" class="badge">
+                <div class="experience-content">
+                    <h3 class="experience-title">Artisanal Shuk Private Tour of Tel Aviv Markets</h3>
+                    <div class="experience-price">from $120 per adult</div>
+                    <div class="star-rating">
+                        <div class="stars">★★★★★</div>
+                        <div class="reviews">(459)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="experience-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2f/93/82/35/caption.jpg?w=600&h=600&s=1" alt="Sunset Cruise">
+                <img src="https://static.tacdn.com/img2/travelers_choice/2023/TC_2023_Badge_L.svg" alt="Award" class="badge">
+                <div class="experience-content">
+                    <h3 class="experience-title">All-Inclusive 90-minute Sunset Cruise on Grand Canal</h3>
+                    <div class="experience-price">from $45 per adult</div>
+                    <div class="star-rating">
+                        <div class="stars">★★★★★</div>
+                        <div class="reviews">(3,205)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="experience-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2c/d5/f1/83/caption.jpg?w=600&h=600&s=1" alt="Angkor Tour">
+                <img src="https://static.tacdn.com/img2/travelers_choice/2023/TC_2023_Badge_L.svg" alt="Award" class="badge">
+                <div class="experience-content">
+                    <h3 class="experience-title">Small-Group Angkor Wat Tour with Local Guide from Siem Reap</h3>
+                    <div class="experience-price">from $39 per adult</div>
+                    <div class="star-rating">
+                        <div class="stars">★★★★★</div>
+                        <div class="reviews">(2,724)</div>
+                    </div>
+                </div>
+            </div>
+            <div class="navigation-icon nav-next">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 18L15 12L9 6" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Support sustainable small businesses -->
+    <div class="section-container">
+        <div class="sustainable-section">
+            <div class="sustainable-content">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2f/7e/8b/f9/earth-apr-25-home-1x.jpg" alt="Small business owner">
+                <!-- <h2>Support sustainable small businesses</h2>
+                <p>As part of Earth Month, we're matching contributions to eco-friendly entrepreneurs around the globe to help them grow.</p>
+                <button class="donate-btn">Donate now</button>
+                <small style="display: block; margin-top: 8px; font-size: 11px; color: #666;">T&amp;Cs may apply</small>
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2f/7e/8b/f9/earth-apr-25-home-1x.jpg" alt="Tripadvisor + Kiva" style="margin-top: 20px; width: 150px;">
+            </div>
+            <div class="sustainable-image">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2f/7e/8b/f9/earth-apr-25-home-1x.jpg" alt="Small business owner"> -->
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- More to explore -->
+    <div class="section-container">
+        <h2 class="section-title">More to explore</h2>
+        <div class="explore-cards">
+            <div class="explore-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2a/0c/61/2e/caption.jpg?w=400&h=300&s=1" alt="Flower fields">
+                <div class="heart">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="explore-title">5 flower festivals worth planning a trip around</h3>
+                <p class="explore-desc">Spring is in full swing</p>
+            </div>
+            <div class="explore-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2a/0f/a4/8d/caption.jpg?w=400&h=300&s=1" alt="Family trip">
+                <div class="heart">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="explore-title">8 family-friendly European cities for spring break</h3>
+                <p class="explore-desc">A fun family vacation awaits</p>
+            </div>
+            <div class="explore-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2a/0c/61/46/caption.jpg?w=400&h=300&s=1" alt="Lake">
+                <div class="heart">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3 class="explore-title">A first-timer's guide to Canada's national parks</h3>
+                <p class="explore-desc">Discover natural wonders</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top destinations for your next vacation -->
+    <div class="section-container">
+        <h2 class="section-title">Top destinations for your next vacation</h2>
+        <div class="category-cards" style="position: relative;">
+            <div class="destination-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/1c/c9/6c/08/caption.jpg?w=600&h=600&s=1" alt="Rome, Italy">
+                <div class="label">Rome, Italy</div>
+            </div>
+            <div class="destination-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/17/15/6d/d6/paris.jpg?w=600&h=600&s=1" alt="Paris, France">
+                <div class="label">Paris, France</div>
+            </div>
+            <div class="destination-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2a/34/2d/28/caption.jpg?w=600&h=600&s=1" alt="Las Vegas, NV">
+                <div class="label">Las Vegas, NV</div>
+            </div>
+            <div class="destination-card">
+                <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/27/84/4d/17/caption.jpg?w=600&h=600&s=1" alt="Reykjavik, Iceland">
+                <div class="label">Reykjavik, Iceland</div>
+            </div>
+            <div class="navigation-icon nav-next">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 18L15 12L9 6" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Travelers' Choice Awards -->
+    <div class="awards-section" id="awards">
+        <div class="awards-content">
+            <img src="https://static.tacdn.com/img2/travelers_choice/TC_logomark_solid_cream.svg" alt="Travelers' Choice Logo" class="awards-logo">
+            <h2 class="awards-title">Travelers' Choice Awards Best of the Best</h2>
+            <p class="awards-desc">Among our top 1% of places, stays, and experiences—decided by you.</p>
+            <button class="see-winners-btn">See the winners</button>
+        </div>
+        <div class="awards-images">
+            <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/29/c8/76/a3/caption.jpg?w=400&h=300&s=1" class="awards-image" alt="Award Image 1">
+            <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/29/ab/08/e1/caption.jpg?w=400&h=300&s=1" class="awards-image" alt="Award Image 2">
+            <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/29/ab/09/1d/caption.jpg?w=400&h=300&s=1" class="awards-image" alt="Award Image 3">
+            <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/29/c8/76/c3/caption.jpg?w=400&h=300&s=1" class="awards-image" alt="Award Image 4">
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-column">
+                <h3>About Tripadvisor</h3>
+                <a href="#">About Us</a>
+                <a href="#">Press</a>
+                <a href="#">Resources and Policies</a>
+                <a href="#">Trust & Safety</a>
+                <a href="#">Contact Us</a>
+                <a href="#">Accessibility Statement</a>
+            </div>
+            <div class="footer-column">
+                <h3>Explore</h3>
+                <a href="#">Write a Review</a>
+                <a href="#">Add a Place</a>
+                <a href="#">Join</a>
+                <a href="#">Travelers' Choice</a>
+                <a href="#">GreenLeaders</a>
+                <a href="#">Help Center</a>
+            </div>
+            <div class="footer-column">
+                <h3>Do Business With Us</h3>
+                <a href="#">Owners & DMO/CVB</a>
+                <a href="#">Business Advantage</a>
+                <a href="#">Sponsored Placements</a>
+                <a href="#">Access Our Content API</a>
+                <a href="#">Become an Affiliate</a>
+            </div>
+            <div class="footer-column">
+                <h3>Tripadvisor Sites</h3>
+                <a href="#">Book the best restaurants with TheFork</a>
+                <a href="#">Book tours and attraction tickets on Viator</a>
+                <a href="#">Read cruise reviews on Cruise Critic</a>
+                <a href="#">Search for vacation rentals on FlipKey</a>
+            </div>
+        </div>
+    </footer>
+</body>
+
+
+
+</html>
