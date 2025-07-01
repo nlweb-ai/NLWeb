@@ -13,7 +13,6 @@ Backwards compatibility is not guaranteed at this time.
 
 from retrieval.retriever import search
 import core.ranking as ranking
-from utils.logger import get_logger, LogLevel
 from utils.logging_config_helper import get_configured_logger
 import asyncio
 
@@ -27,6 +26,10 @@ class FastTrack:
 
     def is_fastTrack_eligible(self):
         """Check if query is eligible for fast track processing"""
+        # Skip fast track for sites without embeddings
+        if self.handler.site.lower() == "datacommons":
+            logger.debug("Fast track not eligible: DataCommons site has no embeddings")
+            return False
         if (self.handler.context_url != ''):
             logger.debug("Fast track not eligible: context_url present")
             return False

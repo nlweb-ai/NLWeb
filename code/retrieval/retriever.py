@@ -241,15 +241,32 @@ class VectorDBClient:
             # Check for 'db' or 'retrieval_backend' parameter
             param_endpoint = self.query_params.get('db') or self.query_params.get('retrieval_backend')
             if param_endpoint:
-                logger.info(f"Development mode: Using database endpoint from params: {param_endpoint}")
-                endpoint_name = param_endpoint
+                # Handle case where param_endpoint might be a list
+                if isinstance(param_endpoint, list):
+                    if len(param_endpoint) > 0:
+                        param_endpoint = param_endpoint[0]
+                        logger.warning(f"Development mode: 'db' parameter was a list, using first element: {param_endpoint}")
+                    else:
+                        logger.error("Development mode: 'db' parameter is an empty list")
+                        param_endpoint = None
+                
+                if param_endpoint:
+                    logger.info(f"Development mode: Using database endpoint from params: {param_endpoint}")
+                    endpoint_name = param_endpoint
         
         # If specific endpoint requested, validate and use it
         if endpoint_name:
-            if endpoint_name not in CONFIG.retrieval_endpoints:
-                error_msg = f"Invalid endpoint: {endpoint_name}. Must be one of: {list(CONFIG.retrieval_endpoints.keys())}"
+            try:
+                if endpoint_name not in CONFIG.retrieval_endpoints:
+                    available_endpoints = list(CONFIG.retrieval_endpoints.keys())
+                    error_msg = f"Invalid endpoint: '{endpoint_name}'. Available endpoints: {', '.join(available_endpoints)}"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+            except TypeError as e:
+                # This can happen if endpoint_name is unhashable (e.g., a list)
+                error_msg = f"Invalid endpoint name type: {type(endpoint_name).__name__}. Expected string, got: {endpoint_name}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ValueError(error_msg) from e
             
             # For backward compatibility, use only the specified endpoint
             endpoint_config = CONFIG.retrieval_endpoints[endpoint_name]

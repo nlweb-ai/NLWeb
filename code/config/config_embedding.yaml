@@ -7,8 +7,8 @@ providers:
     model: text-embedding-3-small
 
   gemini:
-    api_key_env: GCP_PROJECT
-    model: GCP_EMBEDDING_MODEL
+    api_key_env: GEMINI_API_KEY
+    model: gemini-embedding-exp-03-07
 
   azure_openai:
     api_key_env: AZURE_OPENAI_API_KEY

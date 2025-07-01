@@ -114,7 +114,7 @@ async def delete_site_from_database(site: str, database: str = None):
         raise ValueError(f"Database endpoint '{endpoint_name}' not found in configuration")
     
     # Use query_params for development mode override
-    query_params = {"db": [endpoint_name]} if database else None
+    query_params = {"db": database} if database else None
     
     print(f"Deleting entries for site '{site}' using endpoint '{endpoint_name}'...")
     
@@ -324,6 +324,13 @@ async def detect_file_type(file_path: str) -> Tuple[str, bool]:
                     if (embedding_part.startswith('[') and embedding_part.endswith(']')) or \
                        (embedding_part.replace(',', '').replace('-', '').replace('.', '').replace('e', '').replace('E', '').replace('+', '').isdigit()):
                         has_embeddings = True
+                elif len(parts) == 2:
+                    # Check if this is URL + JSON format (2 tab-separated parts)
+                    try:
+                        json.loads(parts[1])
+                        return 'json', has_embeddings
+                    except:
+                        pass
             
             # If we're checking a file with embeddings, it's a special JSON format
             if has_embeddings:
@@ -630,7 +637,7 @@ async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int 
         print(f"Found {total_lines} lines in the file")
         
         # Use query_params for development mode override
-        query_params = {"db": [endpoint_name]} if database else None
+        query_params = {"db": database} if database else None
         
         # Process lines in batches
         batch_documents = []
@@ -748,6 +755,8 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
             if use_existing:
                 # Use the existing file with embeddings
                 return await loadJsonWithEmbeddingsToDB(embeddings_path, site, batch_size, delete_existing, endpoint_name)
+            else:
+                print(f"Proceeding to compute new embeddings for {original_path}")
         
         # If we get here, we need to process the file based on its type and compute embeddings
         
@@ -756,7 +765,7 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
             await delete_site_from_database(site, endpoint_name)
         
         # Use query_params for development mode override
-        query_params = {"db": [endpoint_name]} if database else None
+        query_params = {"db": database} if database else None
         
         # Get embedding provider from config
         provider = CONFIG.preferred_embedding_provider
@@ -888,6 +897,7 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
             
             print(f"Loading completed. Added {total_documents} documents to the database.")
             print(f"Saved file with embeddings to {embeddings_path}")
+            
             return total_documents
         else:
             print("No documents were extracted from the file.")
@@ -955,7 +965,7 @@ async def loadUrlListToDB(file_path: str, site: str, batch_size: int = 100, dele
             await delete_site_from_database(site, endpoint_name)
         
         # Get client directly from the factory function, using query_params for development mode override
-        query_params = {"db": [endpoint_name]} if database else None
+        query_params = {"db": database} if database else None
         client = get_vector_db_client(query_params=query_params)
         
         # Process each URL

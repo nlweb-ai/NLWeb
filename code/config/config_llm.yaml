@@ -25,11 +25,11 @@ endpoints:
       low: claude-3-5-haiku-latest
 
   gemini:
-    api_key_env: GCP_PROJECT
+    api_key_env: GEMINI_API_KEY
     llm_type: gemini
     models:
-      high: chat-bison@001
-      low: chat-bison-lite@001
+      high: gemini-2.0-flash
+      low: gemini-2.0-flash
 
   azure_openai:
     api_key_env: AZURE_OPENAI_API_KEY

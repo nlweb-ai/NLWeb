@@ -35,7 +35,7 @@ def extract_schema_markup(html_file):
             schema = json.loads(tag.string)
             schemas.append(schema)
         except json.JSONDecodeError as e:
-            print(f"Error parsing schema JSON: {e}")
+            print(f"Error parsing schema JSON: {e}, tag content: {tag.string}")
             continue
     # Convert schemas list to a single line string
     schema_str = json.dumps(schemas, separators=(',', ':'))
