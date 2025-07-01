@@ -2,16 +2,14 @@ import requests
 import json
 import os
 import logging
-import codecs
-#from dotenv import load_dotenv
 
 # Download the latest version of this data from:
 # https://clinicaltrials.gov/expert-search?term=Cancer
 # Information on how to download: https://clinicaltrials.gov/data-api/how-download-study-records
-# TODO: save as json - options screenshot
 # Then extract from zip and point to the directory of json files
 
-json_dir = "C:\\Users\\jennmar\\Downloads\\ctg-studies"
+# Replace this value with the location where you have extracted the JSON files.
+json_dir = "C:\\Data\\ctg-studies"
 
 def main():
     # Set up logging
@@ -20,23 +18,17 @@ def main():
     logging.info("Starting clinical trial data import...")
     logging.info(f"Reading from JSON directory: {json_dir}")
 
-    # Load environment variables from .env file
-    #load_dotenv()
-    #token = os.environ.get("GITHUB_TOKEN")
-    #if not token:
-    #    print("Error: GITHUB_TOKEN environment variable not set")
-    #    return
-
-    #headers = {
-    #    "Authorization": f"token {token}",
-    #    "Accept": "application/vnd.github.v3+json"
-    #}
-
-    limit = 5
+    # Use a limit if you want to process only a subset of files
+    limit = 10
     i = 0
 
+    instructions = "Full instructions are available at https://github.com/microsoft/NLWeb/tree/main/demo#ask-questions-of-clinical-trial-data."
+    if not json_dir:
+        logging.error("Please set the json_dir variable in import_clinical_trials.py to the directory containing the JSON files that you extracted.  " + instructions)
+        return
+
     if not os.path.exists(json_dir):
-        logging.error(f"Directory {json_dir} does not exist. Please check the path.")
+        logging.error(f"Directory {json_dir} does not exist. Please check the path. " + instructions)
         return
     
     processed_dir = os.path.join(json_dir, "processed")
@@ -46,14 +38,6 @@ def main():
     for filename in os.listdir(json_dir):
         if filename.endswith(".json"):
             with open(os.path.join(json_dir, filename), "r", encoding="utf-8") as file:
-                #data = json.load(file)
-                #data = json.load(file, strict=False)  # Use strict=False to handle any JSON parsing issues
-
-                # unescape backslashes
-                #raw = file.read()
-                #fixed = codecs.decode(raw, "unicode_escape", "replace")
-                #data = json.loads(fixed)
-
                 data = None
                 total_data = None
                 for line in file:
@@ -68,6 +52,7 @@ def main():
                             total_data.update(data)
                     except json.JSONDecodeError as e:
                         logging.warning(f"Skipping malformed line in {filename}: {e}")
+                        logging.warning(f"And the malformed line was: {line}")
                         continue
 
                 # Process the JSON data as needed
@@ -83,10 +68,7 @@ def main():
                     "url": "https://clinicaltrials.gov/study/" + total_data["protocolSection"]["identificationModule"]["nctId"],
                     "content": total_data, #json.dumps(data, ensure_ascii=False),
                 }
-                print(json.dumps(trial_info, indent=2, ensure_ascii=False))
-
-                # Copy the rest of the "data" json into trial_info
-                #trial_info.update(data)
+                #print(json.dumps(trial_info, indent=2, ensure_ascii=False))
                 
                 with open(os.path.join(processed_dir, filename), "w", encoding="utf-8") as f:
                     json.dump(trial_info, f)
@@ -99,12 +81,6 @@ def main():
             if i >= limit:
                 break
 
-    
-    # Uncomment the following lines if you are having issues with token limits to see what the biggest items are
-    #max_value = max(debug_size.values())
-    #max_keys = [key for key, value in debug_size.items() if value == max_value]
-    #print("Keys with maximum value:", max_keys)
-    #print("Maximum value:", max_value)
 
 if __name__ == "__main__":
     main()
