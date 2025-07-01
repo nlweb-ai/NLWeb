@@ -1258,6 +1258,12 @@ class ModernChatInterface {
     return null;
   }
   
+  /**
+   * Updates the list of conversations displayed in the UI.
+   * 
+   * @param {HTMLElement|null} container - The container element where the conversations list will be rendered.
+   *                                       If null, defaults to `this.elements.conversationsList`.
+   */
   updateConversationsList(container = null) {
     // Use provided container or default to the sidebar conversations list
     const targetContainer = container || this.elements.conversationsList;
