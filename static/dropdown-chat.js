@@ -217,7 +217,7 @@ export function initDropdownChat(searchInputId, searchButtonId, chatContainerId,
   function addMessage(content, isUser = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${isUser ? 'user-message' : 'assistant-message'}`;
-    messageDiv.innerHTML = content;
+    messageDiv.textContent = content;
     messagesContainer.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     return messageDiv;
