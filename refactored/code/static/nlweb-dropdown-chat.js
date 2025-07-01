@@ -36,7 +36,7 @@ export class NLWebDropdownChat {
         this.dropdownConversationsList = this.container.querySelector(`.${this.config.cssPrefix}-conversations-list`);
         this.dropdownConversationsPanel = this.container.querySelector(`.${this.config.cssPrefix}-conversations-panel`);
         this.historyIcon = this.container.querySelector(`.${this.config.cssPrefix}-history-icon`);
-        this.clearAllBtn = this.container.querySelector(`.${this.config.cssPrefix}-clear-all`);
+        this.rememberedList = this.container.querySelector(`.${this.config.cssPrefix}-remembered-list`);
         
         // Import required modules
         try {
@@ -60,6 +60,8 @@ export class NLWebDropdownChat {
             // Initialize chat interface after a short delay
             setTimeout(() => {
                 this.initializeChatInterface(ModernChatInterface);
+                // Load remembered items after chat interface is initialized
+                this.updateRememberedItems();
             }, 100);
             
         } catch (error) {
@@ -94,10 +96,17 @@ export class NLWebDropdownChat {
                 <div class="${this.config.cssPrefix}-conversations-panel">
                     <div class="${this.config.cssPrefix}-conversations-header">
                         <h3>Past Conversations</h3>
-                        <button class="${this.config.cssPrefix}-clear-all" title="Clear all conversations">×</button>
                     </div>
                     <div class="${this.config.cssPrefix}-conversations-list">
                         <!-- Conversations will be loaded here -->
+                    </div>
+                    <div class="${this.config.cssPrefix}-remembered-section">
+                        <div class="${this.config.cssPrefix}-remembered-header">
+                            <h3>Remembered Items</h3>
+                        </div>
+                        <div class="${this.config.cssPrefix}-remembered-list">
+                            <!-- Remembered items will be loaded here -->
+                        </div>
                     </div>
                 </div>
                 <div class="${this.config.cssPrefix}-messages-container">
@@ -216,7 +225,18 @@ export class NLWebDropdownChat {
         this.chatInterface.endStreaming = () => {
             originalEndStreaming();
             this.dropdownResults.classList.add('loaded');
+            // Update remembered items after streaming ends
+            this.updateRememberedItems();
         };
+        
+        // Override addRememberedItem if it exists
+        if (this.chatInterface.addRememberedItem) {
+            const originalAddRememberedItem = this.chatInterface.addRememberedItem.bind(this.chatInterface);
+            this.chatInterface.addRememberedItem = (item) => {
+                originalAddRememberedItem(item);
+                this.updateRememberedItems();
+            };
+        }
     }
     
     setupEventHandlers() {
@@ -234,15 +254,6 @@ export class NLWebDropdownChat {
                 e.preventDefault();
                 e.stopPropagation();
                 this.toggleConversationsPanel();
-            });
-        }
-        
-        // Clear all button
-        if (this.clearAllBtn) {
-            this.clearAllBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this.clearAllConversations();
             });
         }
         
@@ -316,6 +327,7 @@ export class NLWebDropdownChat {
         
         if (this.dropdownConversationsPanel.classList.contains('show')) {
             this.updateConversationsList();
+            this.updateRememberedItems();
         }
     }
     
@@ -394,19 +406,6 @@ export class NLWebDropdownChat {
         this.updateConversationsList();
     }
     
-    clearAllConversations() {
-        if (confirm('Are you sure you want to clear all past conversations?')) {
-            this.chatInterface.conversations = this.chatInterface.conversations.filter(
-                c => c.site !== this.config.site
-            );
-            
-            this.chatInterface.saveConversations();
-            this.chatInterface.createNewChat(null, this.config.site);
-            this.updateConversationsList();
-            this.dropdownConversationsPanel.classList.remove('show');
-        }
-    }
-    
     showDropdown() {
         this.dropdownResults.classList.add('show');
         this.dropdownResults.classList.remove('loaded');
@@ -451,6 +450,52 @@ export class NLWebDropdownChat {
         this.config.site = site;
         if (this.chatInterface) {
             this.chatInterface.selectedSite = site;
+        }
+    }
+    
+    updateRememberedItems() {
+        if (!this.rememberedList || !this.chatInterface) return;
+        
+        this.rememberedList.innerHTML = '';
+        
+        // Get remembered items from chat interface
+        const rememberedItems = this.chatInterface.rememberedItems || [];
+        
+        if (rememberedItems.length === 0) {
+            const emptyMessage = document.createElement('div');
+            emptyMessage.className = `${this.config.cssPrefix}-empty-remembered`;
+            emptyMessage.textContent = 'No remembered items';
+            this.rememberedList.appendChild(emptyMessage);
+            return;
+        }
+        
+        // Display each remembered item
+        rememberedItems.forEach((item, index) => {
+            const itemElement = document.createElement('div');
+            itemElement.className = `${this.config.cssPrefix}-remembered-item`;
+            
+            const itemContent = document.createElement('div');
+            itemContent.className = `${this.config.cssPrefix}-remembered-content`;
+            itemContent.textContent = item;
+            itemElement.appendChild(itemContent);
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.className = `${this.config.cssPrefix}-remembered-remove`;
+            removeBtn.innerHTML = '×';
+            removeBtn.title = 'Remove from memory';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.removeRememberedItem(index);
+            });
+            itemElement.appendChild(removeBtn);
+            
+            this.rememberedList.appendChild(itemElement);
+        });
+    }
+    
+    removeRememberedItem(index) {
+        if (this.chatInterface && this.chatInterface.removeRememberedItem) {
+            this.chatInterface.removeRememberedItem(this.chatInterface.rememberedItems[index]);
         }
     }
     
