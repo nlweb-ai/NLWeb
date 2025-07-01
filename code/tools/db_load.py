@@ -1065,7 +1065,7 @@ async def delete_site(site: str, database: str = None):
     print(f"Deleted {count} entries for site '{site}'")
 
 async def process_normal_path(input_file_path: str, site: str, batch_size: int = 100, delete_site: bool = False, force_recompute: bool = False, database: str = None):
-        # Check if file exists at the specified path
+    # Check if file exists at the specified path
     if not await is_url(input_file_path) and not os.path.exists(input_file_path):
         print(f"Warning: File not found at '{input_file_path}'. Will try to resolve or download it.")
     
