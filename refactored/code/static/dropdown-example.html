@@ -38,11 +38,6 @@
             color: #666;
         }
         
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
         
         .section {
             background: white;
@@ -106,71 +101,56 @@
 </head>
 <body>
     <div class="header">
-        <h1>NLWeb Dropdown Chat Integration Example</h1>
-        <p>This page demonstrates how to integrate the NLWeb Dropdown Chat component into your website</p>
+        <h1>NLWeb Dropdown Chat Example</h1>
+        <p>This page demonstrates the NLWeb Dropdown Chat component for recipe search</p>
     </div>
     
-    <div class="main-content">
-        <div class="section">
-            <h2>Recipe Search Example</h2>
-            <p>Try searching for recipes using natural language queries:</p>
-            
-            <!-- First search box instance -->
-            <div id="recipe-search-container"></div>
-            
-            <p>Example queries:</p>
+    <div class="section" style="max-width: 800px; margin: 0 auto;">
+        <h2>Recipe Search</h2>
+        <p>Try searching for recipes using natural language queries:</p>
+        
+        <!-- Search box instance -->
+        <div id="recipe-search-container"></div>
+        
+        <div style="margin-top: 30px;">
+            <h3>Example queries:</h3>
             <ul>
                 <li>Chocolate cake recipes</li>
                 <li>Spicy vegetarian dishes</li>
                 <li>Quick pasta recipes under 30 minutes</li>
+                <li>Remember that I'm vegetarian</li>
+                <li>What did I ask to remember?</li>
             </ul>
-            
-            <div class="code-section">
-                <h3>Integration Code:</h3>
-                <pre><code>const recipeSearch = new NLWebDropdownChat({
-    containerId: 'recipe-search-container',
-    site: 'seriouseats',
-    placeholder: 'Search for recipes...'
-});</code></pre>
-            </div>
         </div>
         
-        <div class="section">
-            <h2>Product Search Example</h2>
-            <p>Another instance with different configuration:</p>
-            
-            <!-- Second search box instance -->
-            <div id="product-search-container"></div>
-            
-            <h3>Features</h3>
+        <div class="code-section">
+            <h3>Features:</h3>
             <ul class="feature-list">
-                <li>Multiple instances on same page</li>
-                <li>Site-specific search filtering</li>
-                <li>Conversation history per site</li>
+                <li>Natural language search</li>
+                <li>Conversation history with site filtering</li>
+                <li>Memory for user preferences</li>
                 <li>Follow-up questions support</li>
-                <li>Clean, minimal integration</li>
+                <li>Clean dropdown interface</li>
             </ul>
             
-            <div class="code-section">
-                <h3>Full Integration Example:</h3>
-                <pre><code>&lt;!-- Include CSS --&gt;
+            <h3>Integration Code:</h3>
+            <pre><code>&lt;!-- Include CSS --&gt;
 &lt;link rel="stylesheet" href="nlweb-dropdown-chat.css"&gt;
 
 &lt;!-- Add container --&gt;
-&lt;div id="my-search-container"&gt;&lt;/div&gt;
+&lt;div id="recipe-search-container"&gt;&lt;/div&gt;
 
 &lt;!-- Include JavaScript --&gt;
 &lt;script type="module"&gt;
   import { NLWebDropdownChat } from './nlweb-dropdown-chat.js';
   
   const chat = new NLWebDropdownChat({
-    containerId: 'my-search-container',
-    site: 'all',
-    placeholder: 'Ask anything...',
-    endpoint: 'http://localhost:8000'
+    containerId: 'recipe-search-container',
+    site: 'seriouseats',
+    placeholder: 'Search for recipes...',
+    endpoint: window.location.origin
   });
 &lt;/script&gt;</code></pre>
-            </div>
         </div>
     </div>
     
@@ -178,32 +158,16 @@
     <script type="module">
         import { NLWebDropdownChat } from './nlweb-dropdown-chat.js';
         
-        // Initialize first instance for recipes
-        const recipeSearch = new NLWebDropdownChat({
+        // Initialize the search instance
+        const chat = new NLWebDropdownChat({
             containerId: 'recipe-search-container',
             site: 'seriouseats',
-            placeholder: 'Search for recipes...'
+            placeholder: 'Search for recipes...',
+            endpoint: window.location.origin
         });
         
-        // Initialize second instance for products  
-        const productSearch = new NLWebDropdownChat({
-            containerId: 'product-search-container',
-            site: 'all',
-            placeholder: 'Search all sites...'
-        });
-        
-        // Example of using the API
-        window.recipeSearch = recipeSearch;
-        window.productSearch = productSearch;
-        
-        // You can programmatically search:
-        // recipeSearch.search('chocolate cake');
-        
-        // Or set a query without searching:
-        // recipeSearch.setQuery('pasta recipes');
-        
-        // Or change the site:
-        // productSearch.setSite('epicurious');
+        // Make it available for debugging
+        window.nlwebChat = chat;
     </script>
 </body>
 </html>
