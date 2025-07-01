@@ -15,6 +15,7 @@ export class JsonRenderer {
     
     // Registry for type-specific renderers
     this.typeRenderers = {};
+    this.validTypeRenderers = new Set(); // Whitelist of valid method names
   }
   
   /**
@@ -24,7 +25,12 @@ export class JsonRenderer {
    * @param {Function} renderer - The renderer function
    */
   registerTypeRenderer(type, renderer) {
-    this.typeRenderers[type] = renderer;
+    if (typeof type === 'string' && typeof renderer === 'function') {
+      this.typeRenderers[type] = renderer;
+      this.validTypeRenderers.add(type); // Add to whitelist
+    } else {
+      throw new Error('Invalid type or renderer');
+    }
   }
   
   /**
@@ -64,8 +70,9 @@ export class JsonRenderer {
     }
     if (item.schema_object && item.schema_object['@type']) {
       const type = item.schema_object['@type'];
-      if (Object.prototype.hasOwnProperty.call(this.typeRenderers, type) && 
-             typeof this.typeRenderers[type] === 'function') {
+      if (this.validTypeRenderers.has(type) && 
+          Object.prototype.hasOwnProperty.call(this.typeRenderers, type) && 
+          typeof this.typeRenderers[type] === 'function') {
         return this.typeRenderers[type](item, this);
       } 
     }

@@ -1,0 +1,48 @@
+[
+  {
+    "test_type": "query_retrieval",
+    "description": "Test basic recipe search",
+    "query": "pasta recipes",
+    "retrieval_backend": "azure_ai_search",
+    "site": "all",
+    "num_results": 10,
+    "expected_min_results": 1,
+    "min_score": 0.5
+  },
+  {
+    "test_type": "query_retrieval",
+    "description": "Test site-specific search",
+    "query": "chocolate cake",
+    "retrieval_backend": "azure_ai_search",
+    "site": "seriouseats",
+    "num_results": 5,
+    "expected_min_results": 1
+  },
+  {
+    "test_type": "query_retrieval",
+    "description": "Test complex query",
+    "query": "healthy vegetarian dinner recipes under 30 minutes",
+    "retrieval_backend": "azure_ai_search",
+    "site": "all",
+    "num_results": 20,
+    "expected_min_results": 1
+  },
+  {
+    "test_type": "query_retrieval",
+    "description": "Test semantic search with Qdrant Local",
+    "query": "how to make bread at home",
+    "retrieval_backend": "qdrant_local",
+    "site": "all",
+    "num_results": 10,
+    "expected_min_results": 1
+  },
+  {
+    "test_type": "query_retrieval",
+    "description": "Test search with Snowflake Cortex",
+    "query": "italian pasta dishes",
+    "retrieval_backend": "snowflake_cortex_search_1",
+    "site": "all",
+    "num_results": 10,
+    "expected_min_results": 1
+  }
+]

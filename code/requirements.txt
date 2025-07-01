@@ -60,3 +60,6 @@ seaborn>=0.13.0
 
 # For OpenSearch or Snowflake (both use httpx):
 # httpx>=0.28.1
+
+# For Elasticsearch:
+# elasticsearch[async]>=8,<9
