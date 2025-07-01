@@ -19,7 +19,7 @@ def main():
     logging.info(f"Reading from JSON directory: {json_dir}")
 
     # Use a limit if you want to process only a subset of files
-    limit = 10
+    limit = 500
     i = 0
 
     instructions = "Full instructions are available at https://github.com/microsoft/NLWeb/tree/main/demo#ask-questions-of-clinical-trial-data."
@@ -38,31 +38,21 @@ def main():
     for filename in os.listdir(json_dir):
         if filename.endswith(".json"):
             with open(os.path.join(json_dir, filename), "r", encoding="utf-8") as file:
-                data = None
                 total_data = None
-                for line in file:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        data = json.loads(line)
-                        if total_data is None:
-                            total_data = data
-                        else:
-                            total_data.update(data)
-                    except json.JSONDecodeError as e:
-                        logging.warning(f"Skipping malformed line in {filename}: {e}")
-                        logging.warning(f"And the malformed line was: {line}")
-                        continue
+                # Read entire file and parse JSON in one go
+                raw = file.read()
+                try:
+                    total_data = json.loads(raw)
+                except json.JSONDecodeError as e:
+                    logging.error(f"Failed to parse JSON in {filename}: {e}")
+                    continue
 
                 # Process the JSON data as needed
                 trial_info = {
                     "@type": "CancerClinicalTrial",
-                    # TODO: should I use brief title or official title?
-                    # use merged total_data and fallback to briefTitle if officialTitle missing
                     "name": total_data["protocolSection"]["identificationModule"].get(
-                        "officialTitle",
-                        total_data["protocolSection"]["identificationModule"].get("briefTitle", "")
+                        "briefTitle",
+                        total_data["protocolSection"]["identificationModule"].get("officialTitle", "")
                     ),
                     "description": total_data["protocolSection"]["descriptionModule"].get("briefSummary", total_data["protocolSection"]["descriptionModule"].get("detailedDescription", "")),
                     "url": "https://clinicaltrials.gov/study/" + total_data["protocolSection"]["identificationModule"]["nctId"],
@@ -71,7 +61,7 @@ def main():
                 #print(json.dumps(trial_info, indent=2, ensure_ascii=False))
                 
                 with open(os.path.join(processed_dir, filename), "w", encoding="utf-8") as f:
-                    json.dump(trial_info, f)
+                    json.dump(trial_info, f)     # TODO: check if this is being formatted correctly for line by line processing on read
                     f.write("\n")
 
                 logging.info(f"Processed {filename}")
