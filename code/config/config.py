@@ -42,7 +42,8 @@ class RetrievalProviderConfig:
     index_name: Optional[str] = None
     db_type: Optional[str] = None
     use_knn: Optional[bool] = None
-    enabled: bool = False  
+    enabled: bool = False
+    vector_type: Optional[Dict[str,Any]] = None
 
 @dataclass
 class SSLConfig:
@@ -254,7 +255,8 @@ class AppConfig:
                 database_path=self._get_config_value(cfg.get("database_path")),
                 index_name=self._get_config_value(cfg.get("index_name")),
                 db_type=self._get_config_value(cfg.get("db_type")),  # Add db_type
-                enabled=cfg.get("enabled", False)  # Add enabled field
+                enabled=cfg.get("enabled", False),  # Add enabled field
+                vector_type=self._get_config_value(cfg.get("vector_type"))
             )
     
     def load_webserver_config(self, path: str = "config_webserver.yaml"):
@@ -408,7 +410,6 @@ class AppConfig:
             json_data_folder=json_data_folder,
             json_with_embeddings_folder=json_with_embeddings_folder,
             chatbot_instructions=chatbot_instructions,
-            headers=headers
             tool_selection_enabled=tool_selection_enabled,
             memory_enabled=memory_enabled,
             analyze_query_enabled=analyze_query_enabled,
