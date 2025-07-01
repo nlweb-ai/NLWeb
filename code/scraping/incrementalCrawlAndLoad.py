@@ -32,10 +32,10 @@ from embedding.embedding import batch_get_embeddings
 from retrieval.retriever import upload_documents
 
 # Import common utilities
-from utils.logger import get_logger
+from utils.logging_config_helper import get_configured_logger
 from config.config import CONFIG
 
-logger = get_logger("incremental_crawl_and_load")
+logger = get_configured_logger("incremental_crawl_and_load")
 
 # Suppress httpx INFO logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -292,10 +292,12 @@ class IncrementalCrawler:
             if schemas_str:
                 try:
                     schemas = json.loads(schemas_str)
+                    logger.debug(f"Extracted {len(schemas)} schemas from {url}")
                 except json.JSONDecodeError:
                     logger.error(f"Failed to parse schemas for {url}")
             
             if not schemas:
+                logger.debug(f"No schemas found for {url}, skipping upload")
                 self.status[url_hash]["json_size"] = 0
                 self.status[url_hash]["schema_count"] = 0
                 self.status[url_hash]["completed"] = True
@@ -304,6 +306,9 @@ class IncrementalCrawler:
                 self._save_status()
                 self.stats["successful"] += 1
                 return True
+            
+
+            logger.debug(f"Processing {len(schemas)} schemas from {url}")
             
             # Process schemas and prepare for upload
             total_json_size = len(schemas_str.encode('utf-8'))
@@ -325,8 +330,13 @@ class IncrementalCrawler:
             
             # Step 3: Prepare documents for database
             documents_to_upload = []
+                
+            # Log successful upload
+            logger.debug(f"Preparing {len(schemas)} schemas for upload from {url}")
             docs, _ = prepare_documents_from_json(final_url, schemas_str, self.db_name)
             documents_to_upload.extend(docs)
+            # Log successful upload
+            logger.debug(f"Prepared {len(documents_to_upload)} documents from {url}")
             
             # Step 4: Generate embeddings and upload
             if documents_to_upload:

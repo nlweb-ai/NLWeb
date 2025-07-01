@@ -18,7 +18,6 @@ from config.config import CONFIG
 from utils.utils import get_param
 from utils.logging_config_helper import get_configured_logger
 from utils.logger import LogLevel
-from utils.json_utils import merge_json_array
 
 logger = get_configured_logger("retriever")
 
@@ -58,6 +57,9 @@ def init():
                 elif db_type == "snowflake_cortex_search":
                     from retrieval.snowflake_client import SnowflakeCortexSearchClient
                     _preloaded_modules[db_type] = SnowflakeCortexSearchClient
+                elif db_type == "elasticsearch":
+                    from retrieval.elasticsearch_client import ElasticsearchClient
+                    _preloaded_modules[db_type] = ElasticsearchClient
                 
                 print(f"Successfully preloaded {db_type} client module")
             except Exception as e:
@@ -72,6 +74,7 @@ _db_type_packages = {
     "opensearch": ["httpx>=0.28.1"],
     "qdrant": ["qdrant-client>=1.14.0"],
     "snowflake_cortex_search": ["httpx>=0.28.1"],
+    "elasticsearch": ["elasticsearch[async]>=8,<9"],
 }
 
 # Cache for installed packages
@@ -241,15 +244,32 @@ class VectorDBClient:
             # Check for 'db' or 'retrieval_backend' parameter
             param_endpoint = self.query_params.get('db') or self.query_params.get('retrieval_backend')
             if param_endpoint:
-                logger.info(f"Development mode: Using database endpoint from params: {param_endpoint}")
-                endpoint_name = param_endpoint
+                # Handle case where param_endpoint might be a list
+                if isinstance(param_endpoint, list):
+                    if len(param_endpoint) > 0:
+                        param_endpoint = param_endpoint[0]
+                        logger.warning(f"Development mode: 'db' parameter was a list, using first element: {param_endpoint}")
+                    else:
+                        logger.error("Development mode: 'db' parameter is an empty list")
+                        param_endpoint = None
+                
+                if param_endpoint:
+                    logger.info(f"Development mode: Using database endpoint from params: {param_endpoint}")
+                    endpoint_name = param_endpoint
         
         # If specific endpoint requested, validate and use it
         if endpoint_name:
-            if endpoint_name not in CONFIG.retrieval_endpoints:
-                error_msg = f"Invalid endpoint: {endpoint_name}. Must be one of: {list(CONFIG.retrieval_endpoints.keys())}"
+            try:
+                if endpoint_name not in CONFIG.retrieval_endpoints:
+                    available_endpoints = list(CONFIG.retrieval_endpoints.keys())
+                    error_msg = f"Invalid endpoint: '{endpoint_name}'. Available endpoints: {', '.join(available_endpoints)}"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+            except TypeError as e:
+                # This can happen if endpoint_name is unhashable (e.g., a list)
+                error_msg = f"Invalid endpoint name type: {type(endpoint_name).__name__}. Expected string, got: {endpoint_name}"
                 logger.error(error_msg)
-                raise ValueError(error_msg)
+                raise ValueError(error_msg) from e
             
             # For backward compatibility, use only the specified endpoint
             endpoint_config = CONFIG.retrieval_endpoints[endpoint_name]
@@ -378,7 +398,7 @@ class VectorDBClient:
         """
         db_type = config.db_type
         
-        if db_type in ["azure_ai_search", "snowflake_cortex_search", "opensearch", "milvus"]:
+        if db_type in ["azure_ai_search", "snowflake_cortex_search", "opensearch", "milvus", "elasticsearch"]:
             # These require API key and endpoint
             return bool(config.api_key and config.api_endpoint)
         elif db_type == "qdrant":
@@ -442,6 +462,9 @@ class VectorDBClient:
                 elif db_type == "snowflake_cortex_search":
                     from retrieval.snowflake_client import SnowflakeCortexSearchClient
                     client = SnowflakeCortexSearchClient(endpoint_name)
+                elif db_type == "elasticsearch":
+                    from retrieval.elasticsearch_client import ElasticsearchClient
+                    client = ElasticsearchClient(endpoint_name)    
                 else:
                     error_msg = f"Unsupported database type: {db_type}"
                     logger.error(error_msg)
