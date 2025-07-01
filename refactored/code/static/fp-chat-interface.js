@@ -8,7 +8,7 @@ import { TypeRendererFactory } from './type-renderers.js';
 import { RecipeRenderer } from './recipe-renderer.js';
 
 class ModernChatInterface {
-  constructor() {
+  constructor(options = {}) {
     // Initialize properties
     this.conversations = [];
     this.currentConversationId = null;
@@ -18,6 +18,9 @@ class ModernChatInterface {
     this.prevQueries = [];  // Track previous queries
     this.lastAnswers = [];  // Track last answers
     this.rememberedItems = [];  // Track remembered items
+    
+    // Store options
+    this.options = options;
     
     // Initialize JSON renderer
     this.jsonRenderer = new JsonRenderer();
@@ -48,6 +51,10 @@ class ModernChatInterface {
   }
   
   init() {
+    // Initialize default values
+    this.selectedSite = 'all';
+    this.selectedMode = 'list'; // Default generate_mode
+    
     // Load saved conversations
     this.loadConversations();
     
@@ -66,7 +73,10 @@ class ModernChatInterface {
     this.bindEvents();
     
     // Start with a blank page - don't load previous conversations
-    this.createNewChat();
+    // Skip auto-creating new chat if skipAutoInit option is set
+    if (!this.options.skipAutoInit) {
+      this.createNewChat();
+    }
   }
   
   bindEvents() {
@@ -105,9 +115,51 @@ class ModernChatInterface {
       this.elements.chatInput.style.height = 'auto';
       this.elements.chatInput.style.height = Math.min(this.elements.chatInput.scrollHeight, 200) + 'px';
     });
+    
+    // Mode selector
+    const modeSelectorIcon = document.getElementById('mode-selector-icon');
+    const modeDropdown = document.getElementById('mode-dropdown');
+    
+    if (modeSelectorIcon && modeDropdown) {
+      modeSelectorIcon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        modeDropdown.classList.toggle('show');
+      });
+      
+      // Mode selection
+      const modeItems = modeDropdown.querySelectorAll('.mode-dropdown-item');
+      modeItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const mode = item.getAttribute('data-mode');
+          this.selectedMode = mode;
+          
+          // Update UI
+          modeItems.forEach(i => i.classList.remove('selected'));
+          item.classList.add('selected');
+          modeDropdown.classList.remove('show');
+          
+          // Update icon title
+          modeSelectorIcon.title = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+        });
+      });
+      
+      // Set initial selection
+      const initialItem = modeDropdown.querySelector(`[data-mode="${this.selectedMode}"]`);
+      if (initialItem) {
+        initialItem.classList.add('selected');
+      }
+      modeSelectorIcon.title = `Mode: ${this.selectedMode.charAt(0).toUpperCase() + this.selectedMode.slice(1)}`;
+    }
+    
+    // Click outside to close mode dropdown
+    document.addEventListener('click', (e) => {
+      if (modeDropdown && !e.target.closest('.input-mode-selector')) {
+        modeDropdown.classList.remove('show');
+      }
+    });
   }
   
-  createNewChat() {
+  createNewChat(existingInputElementId = null, site = null) {
     // Create new conversation
     // Create new conversation ID but don't add to conversations array yet
     this.currentConversationId = Date.now().toString();
@@ -125,11 +177,55 @@ class ModernChatInterface {
     // Update UI without saving
     this.updateConversationsList();
     
-    // Show centered input for new chat
-    this.showCenteredInput();
+    // Show centered input for new chat or use existing element
+    if (existingInputElementId) {
+      // Use existing DOM element as input
+      const existingInput = document.getElementById(existingInputElementId);
+      if (existingInput) {
+        // Store reference to the external input
+        this.externalInput = existingInput;
+        
+        // Add event listener for sending message
+        const sendHandler = (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const message = existingInput.value.trim();
+            if (message) {
+              this.sendMessage(message);
+              existingInput.value = '';
+            }
+          }
+        };
+        
+        // Remove any existing listeners and add new one
+        existingInput.removeEventListener('keydown', sendHandler);
+        existingInput.addEventListener('keydown', sendHandler);
+        
+        // Focus the external input
+        existingInput.focus();
+      } else {
+        console.warn(`Element with id "${existingInputElementId}" not found. Falling back to centered input.`);
+        this.showCenteredInput();
+      }
+    } else {
+      // Show the default centered input
+      this.showCenteredInput();
+    }
     
-    // Reload sites for the dropdown
-    this.loadSites();
+    // If site is specified, use it; otherwise load sites
+    if (site) {
+      this.selectedSite = site;
+      // Update UI elements
+      if (this.siteSelectorIcon) {
+        this.siteSelectorIcon.title = `Site: ${site}`;
+      }
+      if (this.elements.chatSiteInfo) {
+        this.elements.chatSiteInfo.textContent = `Asking ${site}`;
+      }
+    } else {
+      // Load sites for the dropdown
+      this.loadSites();
+    }
   }
   
   loadConversation(id) {
@@ -258,23 +354,23 @@ class ModernChatInterface {
     
     // Create message layout container
     const messageLayout = document.createElement('div');
-    messageLayout.style.cssText = 'display: flex; align-items: flex-start; gap: 8px;';
+    messageLayout.className = 'message-layout';
     
-    // Add debug icon for assistant messages if pending
+    // Only create header row if there's a debug icon to show
     if (type === 'assistant' && this.pendingDebugIcon) {
+      const headerRow = document.createElement('div');
+      headerRow.className = 'message-layout-header';
+      
       const debugIcon = document.createElement('span');
       debugIcon.className = 'message-debug-icon';
       debugIcon.textContent = '{}';
       debugIcon.title = 'Show debug info';
-      debugIcon.style.marginTop = '4px';
       debugIcon.addEventListener('click', () => this.toggleDebugInfo());
-      messageLayout.appendChild(debugIcon);
+      headerRow.appendChild(debugIcon);
       this.pendingDebugIcon = false;
+      
+      messageLayout.appendChild(headerRow);
     }
-    
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = type === 'user' ? 'U' : 'A';
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
@@ -299,7 +395,6 @@ class ModernChatInterface {
     contentDiv.appendChild(textDiv);
     
     // Build the message structure
-    messageLayout.appendChild(avatar);
     messageLayout.appendChild(contentDiv);
     messageDiv.appendChild(messageLayout);
     
@@ -350,7 +445,7 @@ class ModernChatInterface {
     // Build URL with parameters - using 'query' instead of 'question'
     const params = new URLSearchParams({
       query: query,  // Changed from 'question' to 'query'
-      generate_mode: 'list',
+      generate_mode: this.selectedMode || 'list',
       display_mode: 'full',
       site: this.selectedSite || 'all'
     });
@@ -358,13 +453,11 @@ class ModernChatInterface {
     // Add previous queries (not including current query)
     if (this.prevQueries.length > 0) {
       params.append('prev', JSON.stringify(this.prevQueries));
-      console.log('Sending prev:', this.prevQueries); // Debug log
     }
     
     // Add last answers for context
     if (this.lastAnswers.length > 0) {
       params.append('last_ans', JSON.stringify(this.lastAnswers));
-      console.log('Sending last_ans:', this.lastAnswers); // Debug log
     }
     
     // Add remembered items
@@ -376,7 +469,6 @@ class ModernChatInterface {
     const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
     const url = `${baseUrl}/ask?${params.toString()}`;
     
-    console.log('Connecting to:', url); // Debug log
     
     // Use native EventSource directly
     this.eventSource = new EventSource(url);
@@ -391,7 +483,6 @@ class ModernChatInterface {
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Received data:', data); // Debug log
         
         // Always store debug messages for the current request
         this.debugMessages.push({
@@ -413,7 +504,6 @@ class ModernChatInterface {
         } else if (data.message_type === 'result_batch' && data.results) {
           // Accumulate all results instead of replacing
           allResults = allResults.concat(data.results);
-          console.log('Results with scores:', data.results.map(r => ({ title: r.title || r.name, score: r.score }))); // Debug log
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
         } else if (data.message_type === 'intermediate_message' && data.message) {
           messageContent += data.message + '\n';
@@ -595,52 +685,12 @@ class ModernChatInterface {
     // Create a container for all results
     const resultsContainer = document.createElement('div');
     resultsContainer.className = 'search-results';
-    resultsContainer.style.cssText = 'display: flex; flex-direction: column; gap: 12px; margin-top: 16px;';
     
     sortedItems.forEach(item => {
       // Use JsonRenderer to create the item HTML
       const itemElement = this.jsonRenderer.createJsonItemHtml(item);
       
-      // Apply tighter spacing styles
-      if (itemElement.className === 'item-container') {
-        itemElement.style.cssText = 'display: flex; gap: 12px; padding: 12px; background-color: #f7f7f8; border-radius: 8px; margin-bottom: 0;';
-      }
-      
-      // Adjust image styling if present
-      const img = itemElement.querySelector('.item-image');
-      if (img) {
-        img.style.cssText = 'width: 100px; height: 75px; object-fit: cover; border-radius: 6px;';
-      }
-      
-      // Adjust content styling
-      const content = itemElement.querySelector('.item-content');
-      if (content) {
-        content.style.cssText = 'flex: 1; min-width: 0;';
-      }
-      
-      // Style the title link
-      const titleLink = itemElement.querySelector('.item-title-link');
-      if (titleLink) {
-        titleLink.style.cssText = 'color: #5e5eff; text-decoration: none; font-weight: 500; font-size: 15px; display: block; margin-bottom: 4px;';
-        titleLink.addEventListener('mouseover', () => {
-          titleLink.style.textDecoration = 'underline';
-        });
-        titleLink.addEventListener('mouseout', () => {
-          titleLink.style.textDecoration = 'none';
-        });
-      }
-      
-      // Style the description
-      const description = itemElement.querySelector('.item-description');
-      if (description) {
-        description.style.cssText = 'color: #666; font-size: 14px; line-height: 1.4; margin-bottom: 4px;';
-      }
-      
-      // Style the site link
-      const siteLink = itemElement.querySelector('.item-site-link');
-      if (siteLink) {
-        siteLink.style.cssText = 'color: #999; font-size: 13px; text-decoration: none;';
-      }
+      // No inline styles - let CSS handle all styling
       
       resultsContainer.appendChild(itemElement);
     });
@@ -1208,8 +1258,18 @@ class ModernChatInterface {
     return null;
   }
   
-  updateConversationsList() {
-    this.elements.conversationsList.innerHTML = '';
+  /**
+   * Updates the list of conversations displayed in the UI.
+   * 
+   * @param {HTMLElement|null} container - The container element where the conversations list will be rendered.
+   *                                       If null, defaults to `this.elements.conversationsList`.
+   */
+  updateConversationsList(container = null) {
+    // Use provided container or default to the sidebar conversations list
+    const targetContainer = container || this.elements.conversationsList;
+    if (!targetContainer) return;
+    
+    targetContainer.innerHTML = '';
     
     // Only show conversations that have messages
     const conversationsWithContent = this.conversations.filter(conv => conv.messages && conv.messages.length > 0);
@@ -1279,7 +1339,7 @@ class ModernChatInterface {
         }
       });
       
-      this.elements.conversationsList.appendChild(siteHeader);
+      targetContainer.appendChild(siteHeader);
       
       // Add conversations for this site
       conversations.forEach(conv => {
@@ -1312,13 +1372,13 @@ class ModernChatInterface {
       });
       
       // Append the conversations container after the header
-      this.elements.conversationsList.appendChild(conversationsContainer);
+      targetContainer.appendChild(conversationsContainer);
       
       // Add spacing between groups
       if (sites.indexOf(site) < sites.length - 1) {
         const spacer = document.createElement('div');
         spacer.style.cssText = 'height: 8px;';
-        this.elements.conversationsList.appendChild(spacer);
+        targetContainer.appendChild(spacer);
       }
     });
   }
@@ -1401,33 +1461,52 @@ class ModernChatInterface {
     centeredContainer.innerHTML = `
       <div class="centered-input-wrapper">
         <div class="centered-input-box">
-          <div class="input-site-selector">
-            <button class="site-selector-icon" id="site-selector-icon" title="Select site">
+          <div class="input-box-top-row">
+            <textarea 
+              class="centered-chat-input" 
+              id="centered-chat-input"
+              placeholder="Ask"
+              rows="2"
+            ></textarea>
+            <button class="centered-send-button" id="centered-send-button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
               </svg>
             </button>
-            <div class="site-dropdown" id="site-dropdown">
-              <div class="site-dropdown-header">Select site</div>
-              <div id="site-dropdown-items">
-                <!-- Sites will be added here -->
+          </div>
+          <div class="input-box-bottom-row">
+            <div class="input-site-selector">
+              <button class="site-selector-icon" id="site-selector-icon" title="Select site">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+              </button>
+              <div class="site-dropdown" id="site-dropdown">
+                <div class="site-dropdown-header">Select site</div>
+                <div id="site-dropdown-items">
+                  <!-- Sites will be added here -->
+                </div>
+              </div>
+            </div>
+            <div class="input-mode-selector">
+              <button class="mode-selector-icon" id="centered-mode-selector-icon" title="Select mode">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="9" y1="9" x2="15" y2="9"></line>
+                  <line x1="9" y1="12" x2="15" y2="12"></line>
+                  <line x1="9" y1="15" x2="11" y2="15"></line>
+                </svg>
+              </button>
+              <div class="mode-dropdown" id="centered-mode-dropdown">
+                <div class="mode-dropdown-item" data-mode="list">List</div>
+                <div class="mode-dropdown-item" data-mode="summarize">Summarize</div>
+                <div class="mode-dropdown-item" data-mode="generate">Generate</div>
               </div>
             </div>
           </div>
-          <textarea 
-            class="centered-chat-input" 
-            id="centered-chat-input"
-            placeholder="Send a message..."
-            rows="2"
-          ></textarea>
-          <button class="centered-send-button" id="centered-send-button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
         </div>
       </div>
     `;
@@ -1451,10 +1530,48 @@ class ModernChatInterface {
       this.toggleSiteDropdown();
     });
     
+    // Mode selector events for centered input
+    const centeredModeSelectorIcon = document.getElementById('centered-mode-selector-icon');
+    const centeredModeDropdown = document.getElementById('centered-mode-dropdown');
+    
+    if (centeredModeSelectorIcon && centeredModeDropdown) {
+      centeredModeSelectorIcon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        centeredModeDropdown.classList.toggle('show');
+      });
+      
+      // Mode selection
+      const modeItems = centeredModeDropdown.querySelectorAll('.mode-dropdown-item');
+      modeItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const mode = item.getAttribute('data-mode');
+          this.selectedMode = mode;
+          
+          // Update UI
+          modeItems.forEach(i => i.classList.remove('selected'));
+          item.classList.add('selected');
+          centeredModeDropdown.classList.remove('show');
+          
+          // Update icon title
+          centeredModeSelectorIcon.title = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+        });
+      });
+      
+      // Set initial selection
+      const initialItem = centeredModeDropdown.querySelector(`[data-mode="${this.selectedMode}"]`);
+      if (initialItem) {
+        initialItem.classList.add('selected');
+      }
+      centeredModeSelectorIcon.title = `Mode: ${this.selectedMode.charAt(0).toUpperCase() + this.selectedMode.slice(1)}`;
+    }
+    
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
       if (!this.siteDropdown.contains(e.target) && !this.siteSelectorIcon.contains(e.target)) {
         this.siteDropdown.classList.remove('show');
+      }
+      if (centeredModeDropdown && !e.target.closest('.input-mode-selector')) {
+        centeredModeDropdown.classList.remove('show');
       }
     });
     
@@ -1856,7 +1973,13 @@ class ModernChatInterface {
   }
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  new ModernChatInterface();
-});
+// Export the class for use in other modules
+export { ModernChatInterface };
+
+// Initialize when DOM is ready (only if not imported as module)
+if (typeof window !== 'undefined' && !window.ModernChatInterfaceExported) {
+  document.addEventListener('DOMContentLoaded', () => {
+    new ModernChatInterface();
+  });
+  window.ModernChatInterfaceExported = true;
+}
