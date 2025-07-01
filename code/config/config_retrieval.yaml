@@ -17,7 +17,7 @@ endpoints:
     db_type: azure_ai_search
 
   azure_ai_search:
-    enabled: true
+    enabled: false
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536
@@ -94,7 +94,20 @@ endpoints:
     # Use script_score for vector similarity (slower but works without plugins)
     use_knn: false
 
-  # PostgreSQL with pgvector extension configuration
+  elasticsearch:
+    enabled: false
+    # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
+    api_endpoint_env: ELASTICSEARCH_URL
+    # Authentication credentials
+    api_key_env: ELASTICSEARCH_API_KEY
+    # Index name to search in
+    index_name: nlweb_embeddings
+    # Database type
+    db_type: elasticsearch
+    # Vector properties
+    vector_type:
+      type: dense_vector  # PostgreSQL with pgvector extension configuration
+  
   postgres:
     enabled: true
     # Database connection details (i.e. "postgresql://<HOST>:<PORT>/<DATABASE>?user=<USERNAME>&sslmode=require")

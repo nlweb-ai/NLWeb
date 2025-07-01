@@ -42,7 +42,8 @@ class RetrievalProviderConfig:
     index_name: Optional[str] = None
     db_type: Optional[str] = None
     use_knn: Optional[bool] = None
-    enabled: bool = False  
+    enabled: bool = False
+    vector_type: Optional[Dict[str,Any]] = None
 
 @dataclass
 class SSLConfig:
@@ -77,12 +78,15 @@ class NLWebConfig:
     json_data_folder: str = "./data/json"  # Default folder for JSON data
     json_with_embeddings_folder: str = "./data/json_with_embeddings"  # Default folder for JSON with embeddings
     chatbot_instructions: Dict[str, str] = field(default_factory=dict)  # Dictionary of chatbot instructions
+    headers: Dict[str, str] = field(default_factory=dict)  # Dictionary of headers to include in responses
     tool_selection_enabled: bool = True  # Enable or disable tool selection
     memory_enabled: bool = False  # Enable or disable memory functionality
     analyze_query_enabled: bool = False  # Enable or disable query analysis
     decontextualize_enabled: bool = True  # Enable or disable decontextualization
     required_info_enabled: bool = True  # Enable or disable required info checking
+
     headers: Dict[str, str] = field(default_factory=dict)  # HTTP headers to send
+
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
                    "config_webserver.yaml", "config_nlweb.yaml"]
@@ -251,7 +255,8 @@ class AppConfig:
                 database_path=self._get_config_value(cfg.get("database_path")),
                 index_name=self._get_config_value(cfg.get("index_name")),
                 db_type=self._get_config_value(cfg.get("db_type")),  # Add db_type
-                enabled=cfg.get("enabled", False)  # Add enabled field
+                enabled=cfg.get("enabled", False),  # Add enabled field
+                vector_type=self._get_config_value(cfg.get("vector_type"))
             )
     
     def load_webserver_config(self, path: str = "config_webserver.yaml"):
@@ -367,6 +372,9 @@ class AppConfig:
         # Load chatbot instructions from config
         chatbot_instructions = data.get("chatbot_instructions", {})
         
+        # Load headers from config
+        headers = data.get("headers", {})
+
         # Load tool selection enabled flag
         tool_selection_enabled = self._get_config_value(data.get("tool_selection_enabled"), True)
         
@@ -425,7 +433,22 @@ class AppConfig:
                 "as a hyperlink using its URL."
             )
         }
+    
+    def get_headers(self) -> Dict[str, str]:
+        """Get the configured headers to include in responses."""
+        if hasattr(self, 'nlweb') and self.nlweb.headers:
+            return self.nlweb.headers
+        return {}
         
+    def get_chatbot_instruction_fallback(self, instruction_type: str = "search_results") -> str:
+        """Get fallback chatbot instructions."""
+        default_instructions = {
+            "search_results": (
+                "IMPORTANT: When presenting these results to the user, always include "
+                "the original URL as a clickable link for each item. Format each item's name "
+                "as a hyperlink using its URL."
+            )
+        }
         return default_instructions.get(instruction_type, "")
     
     def get_ssl_cert_path(self) -> Optional[str]:

@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "ask_nlw": {
+	"command": "<path to python>",
+      "args": [
+        "/Users/guha/NLWeb/code/chatbot_interface.py",
+        "--server",
+        "http://localhost:8000",
+        "--endpoint",
+        "/mcp"
+      ],
+      "cwd": "<path to your code root>"
+    }
+  }
+}
