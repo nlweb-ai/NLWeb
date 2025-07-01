@@ -68,7 +68,7 @@ First, search the website and download the latest clinical trial data on any top
 
 Then, on the search results page, click the "Download" button.  This will present a screen like the following.  Choose to download JSON (and check the box to put each study into a separate file and download them as a zip archive), the number of results you would like, and all available data fields.  
 
-![Download Options](img\download-options.png)
+![Download Options](img/download-options.png)
 
 If you encounter any issues, there is more information on how to download the clinical trial data at https://clinicaltrials.gov/data-api/how-download-study-records.  
 
@@ -91,4 +91,4 @@ python app-file.py
 
 Open a web browser and navigate to http://localhost:8000/static/fp_chat.html.  You should be able to ask questions of this data.  
 
-![Cancer Questions](img\cancerquestions.jpg)
+![Cancer Questions](img/cancerquestions.jpg)
