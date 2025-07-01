@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dropdown Search Example</title>
+    <title>NLWeb Dropdown Interface</title>
     <link rel="stylesheet" href="/static/common-chat-styles.css">
     <style>
         /* Page-specific styles for dropdown interface */
@@ -65,6 +65,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             max-height: 500px;
+            min-height: 300px;
             display: none;
             z-index: 1000;
             overflow: visible;
@@ -116,7 +117,7 @@
             padding: 0;
             flex: 1;
             overflow-y: auto;
-            min-height: 0;
+            min-height: 200px;
             max-height: 500px;
             display: flex;
             flex-direction: column;
@@ -176,9 +177,104 @@
             color: #333;
         }
         
+        /* Conversations header */
+        .dropdown-conversations-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e5e5e5;
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .dropdown-conversations-header h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .clear-all-conversations {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        
+        .clear-all-conversations:hover {
+            background-color: rgba(255, 0, 0, 0.1);
+            color: #ff4444;
+        }
+        
         /* Conversations list in dropdown */
         .dropdown-conversations-list {
             padding: 8px;
+            height: calc(100% - 50px);
+            overflow-y: auto;
+        }
+        
+        .conversation-item {
+            padding: 12px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .conversation-item:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .conversation-item.active {
+            background-color: #e8e8e8;
+        }
+        
+        .conversation-title {
+            font-size: 14px;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+            margin-right: 8px;
+        }
+        
+        .conversation-delete {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+            opacity: 0;
+            flex-shrink: 0;
+        }
+        
+        .conversation-item:hover .conversation-delete {
+            opacity: 0.6;
+        }
+        
+        .conversation-delete:hover {
+            background-color: rgba(255, 0, 0, 0.1);
+            color: #ff4444;
+            opacity: 1;
         }
         
         /* Chat input in dropdown */
@@ -253,11 +349,15 @@
             <input type="text" 
                    id="search-input" 
                    class="search-box" 
-                   placeholder="Search Serious Eats recipes...">
+                   placeholder="Ask a question...">
         </div>
         
         <div id="dropdown-results" class="dropdown-results">
             <div id="dropdown-conversations-panel" class="dropdown-conversations-panel">
+                <div class="dropdown-conversations-header">
+                    <h3>Past Conversations</h3>
+                    <button class="clear-all-conversations" id="clear-all-conversations" title="Clear all conversations">×</button>
+                </div>
                 <div id="dropdown-conversations-list" class="dropdown-conversations-list">
                     <!-- Conversations will be loaded here -->
                 </div>
@@ -316,21 +416,9 @@
                 this.chatInterface = null;
                 this.site = site;
                 
-                // History icon
+                // Store element references
                 this.historyIcon = document.getElementById('history-icon');
-                
-                // History icon event handler - attach immediately
-                if (this.historyIcon) {
-                    console.log('History icon found, attaching click handler');
-                    this.historyIcon.addEventListener('click', (e) => {
-                        console.log('History icon clicked!');
-                        e.preventDefault();
-                        e.stopPropagation();
-                        this.toggleConversationsPanel();
-                    });
-                } else {
-                    console.error('History icon not found!');
-                }
+                this.clearAllBtn = document.getElementById('clear-all-conversations');
                 
                 this.init();
             }
@@ -357,6 +445,26 @@
                         }
                     }
                     
+                    // Override createNewChat to ensure site is set
+                    const originalCreateNewChat = this.chatInterface.createNewChat.bind(this.chatInterface);
+                    this.chatInterface.createNewChat = (searchInputId, site) => {
+                        originalCreateNewChat(searchInputId, site || this.site);
+                        
+                        // Ensure the conversation has the correct site and timestamp
+                        const conversation = this.chatInterface.conversations.find(
+                            c => c.id === this.chatInterface.currentConversationId
+                        );
+                        if (conversation) {
+                            if (!conversation.site) {
+                                conversation.site = this.site;
+                            }
+                            if (!conversation.timestamp) {
+                                conversation.timestamp = Date.now();
+                            }
+                            this.chatInterface.saveConversations();
+                        }
+                    };
+                    
                     // Override the sendMessage method to show dropdown
                     const originalSendMessage = this.chatInterface.sendMessage.bind(this.chatInterface);
                     this.chatInterface.sendMessage = (message) => {
@@ -381,12 +489,18 @@
                     this.chatInterface.addMessage = (content, type) => {
                         originalAddMessage(content, type);
                         
-                        // Ensure the conversation has the correct site
+                        // Ensure the conversation has the correct site and timestamp
                         const conversation = this.chatInterface.conversations.find(
                             c => c.id === this.chatInterface.currentConversationId
                         );
-                        if (conversation && conversation.site !== this.site) {
-                            conversation.site = this.site;
+                        if (conversation) {
+                            if (conversation.site !== this.site) {
+                                conversation.site = this.site;
+                            }
+                            // The original addMessage should set timestamp, but ensure it exists
+                            if (!conversation.timestamp) {
+                                conversation.timestamp = Date.now();
+                            }
                             this.chatInterface.saveConversations();
                         }
                     };
@@ -403,6 +517,28 @@
                     // Create new chat with our search input and site
                     this.chatInterface.createNewChat('search-input', this.site);
                     console.log('After createNewChat, selectedSite:', this.chatInterface.selectedSite);
+                    
+                    // Now attach event handlers after chat interface is ready
+                    if (this.historyIcon) {
+                        console.log('History icon found, attaching click handler');
+                        this.historyIcon.addEventListener('click', (e) => {
+                            console.log('History icon clicked!');
+                            e.preventDefault();
+                            e.stopPropagation();
+                            this.toggleConversationsPanel();
+                        });
+                    } else {
+                        console.error('History icon not found!');
+                    }
+                    
+                    // Clear all conversations button
+                    if (this.clearAllBtn) {
+                        this.clearAllBtn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            this.clearAllConversations();
+                        });
+                    }
                     
                     // Add click outside handler
                     document.addEventListener('click', (e) => {
@@ -424,10 +560,15 @@
                 console.log('toggleConversationsPanel called');
                 console.log('Dropdown visible:', this.dropdownResults.classList.contains('show'));
                 console.log('Panel element:', this.dropdownConversationsPanel);
+                console.log('Dropdown element classes:', this.dropdownResults.className);
                 
                 if (!this.dropdownResults.classList.contains('show')) {
                     console.log('Dropdown not visible, showing it first');
                     this.showDropdown();
+                    
+                    // Check if dropdown is now visible
+                    console.log('After showDropdown, dropdown visible:', this.dropdownResults.classList.contains('show'));
+                    console.log('Dropdown element display:', window.getComputedStyle(this.dropdownResults).display);
                 }
                 
                 // Toggle the conversations panel
@@ -442,51 +583,125 @@
             }
             
             updateConversationsList() {
+                // Clear the dropdown conversations list
+                this.dropdownConversationsList.innerHTML = '';
+                
                 // Filter conversations for this site only
-                const originalConversations = this.chatInterface.conversations;
-                this.chatInterface.conversations = originalConversations.filter(conv => 
+                const siteConversations = this.chatInterface.conversations.filter(conv => 
                     conv.site === this.site && conv.messages && conv.messages.length > 0
                 );
                 
-                // Use the updateConversationsList method with our dropdown container
-                this.chatInterface.updateConversationsList(this.dropdownConversationsList);
-                
-                // Restore original conversations
-                this.chatInterface.conversations = originalConversations;
-                
-                // Add click handlers to load conversations
-                const conversationItems = this.dropdownConversationsList.querySelectorAll('.conversation-title');
-                conversationItems.forEach(item => {
-                    // Remove existing click handler and add our own
-                    const newItem = item.cloneNode(true);
-                    item.parentNode.replaceChild(newItem, item);
-                    
-                    newItem.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const conversationItem = e.target.closest('.conversation-item');
-                        const allItems = this.dropdownConversationsList.querySelectorAll('.conversation-item');
-                        
-                        // Find the conversation ID by matching the title
-                        const title = e.target.textContent;
-                        const conversation = this.chatInterface.conversations.find(c => c.title === title);
-                        
-                        if (conversation) {
-                            // Load the conversation
-                            this.chatInterface.loadConversation(conversation.id);
-                            
-                            // Update search input with the first user message
-                            const firstUserMessage = conversation.messages.find(m => m.type === 'user');
-                            if (firstUserMessage) {
-                                this.searchInput.value = firstUserMessage.content;
-                            }
-                        }
-                    });
+                // Sort by timestamp - most recent first
+                siteConversations.sort((a, b) => {
+                    const timeA = a.timestamp || 0;
+                    const timeB = b.timestamp || 0;
+                    return timeB - timeA;
                 });
+                
+                // Create conversation items without site grouping
+                siteConversations.forEach(conv => {
+                    const item = document.createElement('div');
+                    item.className = 'conversation-item';
+                    if (conv.id === this.chatInterface.currentConversationId) {
+                        item.classList.add('active');
+                    }
+                    
+                    const title = document.createElement('div');
+                    title.className = 'conversation-title';
+                    title.textContent = conv.title;
+                    item.appendChild(title);
+                    
+                    // Add delete button
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'conversation-delete';
+                    deleteBtn.innerHTML = '×';
+                    deleteBtn.title = 'Delete conversation';
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.deleteConversation(conv.id);
+                    });
+                    item.appendChild(deleteBtn);
+                    
+                    // Add click handler
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        
+                        // Load the conversation
+                        this.chatInterface.loadConversation(conv.id);
+                        
+                        // Update search input with the first user message
+                        const firstUserMessage = conv.messages.find(m => m.type === 'user');
+                        if (firstUserMessage) {
+                            this.searchInput.value = firstUserMessage.content;
+                        }
+                        
+                        // Update active state
+                        this.dropdownConversationsList.querySelectorAll('.conversation-item').forEach(i => {
+                            i.classList.remove('active');
+                        });
+                        item.classList.add('active');
+                    });
+                    
+                    this.dropdownConversationsList.appendChild(item);
+                });
+                
+                // If no conversations, show a message
+                if (siteConversations.length === 0) {
+                    const emptyMessage = document.createElement('div');
+                    emptyMessage.className = 'empty-conversations-message';
+                    emptyMessage.textContent = 'No past conversations';
+                    emptyMessage.style.cssText = 'padding: 16px; text-align: center; color: #666; font-size: 14px;';
+                    this.dropdownConversationsList.appendChild(emptyMessage);
+                }
+            }
+            
+            deleteConversation(conversationId) {
+                // Remove the conversation from the list
+                this.chatInterface.conversations = this.chatInterface.conversations.filter(
+                    c => c.id !== conversationId
+                );
+                
+                // Save the updated conversations
+                this.chatInterface.saveConversations();
+                
+                // If we deleted the current conversation, create a new one
+                if (this.chatInterface.currentConversationId === conversationId) {
+                    this.chatInterface.createNewChat('search-input', this.site);
+                }
+                
+                // Update the conversations list
+                this.updateConversationsList();
+            }
+            
+            clearAllConversations() {
+                // Confirm before clearing all
+                if (confirm('Are you sure you want to clear all past conversations?')) {
+                    // Filter out only conversations for this site
+                    this.chatInterface.conversations = this.chatInterface.conversations.filter(
+                        c => c.site !== this.site
+                    );
+                    
+                    // Save the updated conversations
+                    this.chatInterface.saveConversations();
+                    
+                    // Create a new chat
+                    this.chatInterface.createNewChat('search-input', this.site);
+                    
+                    // Update the conversations list
+                    this.updateConversationsList();
+                    
+                    // Close the conversations panel
+                    this.dropdownConversationsPanel.classList.remove('show');
+                }
             }
             
             showDropdown() {
+                console.log('showDropdown called');
+                console.log('Before - dropdown classes:', this.dropdownResults.className);
                 this.dropdownResults.classList.add('show');
                 this.dropdownResults.classList.remove('loaded');
+                console.log('After - dropdown classes:', this.dropdownResults.className);
+                console.log('Dropdown element:', this.dropdownResults);
             }
             
             closeDropdown() {
