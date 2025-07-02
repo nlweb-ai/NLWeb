@@ -16,11 +16,13 @@ def should_skip_item(site, item):
     if item is None:
         return True
     if "@type" in item and item["@type"] in skip_types:
+        print(f"Skipping item of type \"{item['@type']}\" for site {site}: {str(item)[:100]}...")
         return True
     # Check if @type is a list and if any value in the list is in skip_types
     elif "@type" in item and isinstance(item["@type"], list):
         for type_value in item["@type"]:
             if type_value in skip_types:
+                print(f"Skipping item of type \"{type_value}\" for site {site}: {str(item)[:100]}...")
                 return True
     elif "@type" not in item:
         print(f"Warning: Item without @type field found for site {site}, keeping item: {str(item)[:100]}...")
