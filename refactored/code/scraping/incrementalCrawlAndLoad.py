@@ -27,13 +27,13 @@ from .urlsFromSitemap import process_site_or_sitemap
 from .extractMarkup import extract_schema_markup, extract_canonical_url
 
 # Import database and embedding modules
-from tools.db_load_utils import prepare_documents_from_json
-from embedding.embedding import batch_get_embeddings
-from retrieval.retriever import upload_documents
+from data_loading.db_load_utils import prepare_documents_from_json
+from embedding_providers.embedding import batch_get_embeddings
+from core.retriever import upload_documents
 
 # Import common utilities
 from misc.logger.logging_config_helper import get_configured_logger
-from config.config import CONFIG
+from core.config import CONFIG
 
 logger = get_configured_logger("incremental_crawl_and_load")
 
