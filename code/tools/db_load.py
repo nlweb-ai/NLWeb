@@ -1184,13 +1184,19 @@ async def main():
         
         print(f"Processing all files in directory: {args.file_path}")
         
-        # List all files in the directory
-        for filename in os.listdir(args.file_path):
-            file_path = os.path.join(args.file_path, filename)
-            if os.path.isfile(file_path):
-                # The downside of this approach is that we aren't taking advantage of the batch functionality
-                print(f"Processing file: {file_path}")
-                await process_normal_path(file_path, args.site, args.batch_size, args.delete_site, args.force_recompute, args.database)
+        # List and filter files in the directory
+        valid_extensions = {".json", ".csv"}
+        all_files = [
+            os.path.join(args.file_path, filename)
+            for filename in os.listdir(args.file_path)
+            if os.path.isfile(os.path.join(args.file_path, filename)) and os.path.splitext(filename)[1] in valid_extensions
+        ]
+        
+        # Process files in batches
+        for i in range(0, len(all_files), args.batch_size):
+            batch_files = all_files[i:i + args.batch_size]
+            print(f"Processing batch: {batch_files}")
+            await upload_documents(batch_files, args.site, args.database, args.force_recompute)
         return
     
     # Normal processing mode
