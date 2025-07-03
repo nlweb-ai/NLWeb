@@ -415,6 +415,12 @@ class ModernChatInterface {
           allResults = allResults.concat(data.results);
           console.log('Results with scores:', data.results.map(r => ({ title: r.title || r.name, score: r.score }))); // Debug log
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
+        } else if (data.message_type === 'nlws' && data.items && data.items.length > 0) {
+          // Render response from chat completions API (`generate`-type answer)
+          messageContent += data.answer + '\n\n';
+          // Accumulate all search items
+          allResults = allResults.concat(data.items);
+          textDiv.innerHTML = messageContent + this.renderItems(allResults);
         } else if (data.message_type === 'intermediate_message' && data.message) {
           messageContent += data.message + '\n';
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
