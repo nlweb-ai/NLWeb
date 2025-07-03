@@ -10,7 +10,7 @@ endpoints:
     db_type: azure_ai_search
 
   nlweb_west:
-    enabled: true
+    enabled: false
     api_key_env: NLWEB_WEST_API_KEY
     api_endpoint_env: NLWEB_WEST_ENDPOINT
     index_name: embeddings1536
@@ -94,3 +94,16 @@ endpoints:
     # Use script_score for vector similarity (slower but works without plugins)
     use_knn: false
 
+  elasticsearch:
+    enabled: false
+    # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
+    api_endpoint_env: ELASTICSEARCH_URL
+    # Authentication credentials
+    api_key_env: ELASTICSEARCH_API_KEY
+    # Index name to search in
+    index_name: nlweb_embeddings
+    # Database type
+    db_type: elasticsearch
+    # Vector properties
+    vector_type:
+      type: dense_vector

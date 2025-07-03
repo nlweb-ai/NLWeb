@@ -28,7 +28,7 @@ from .extractMarkup import extract_schema_markup, extract_canonical_url
 
 # Import database and embedding modules
 from data_loading.db_load_utils import prepare_documents_from_json
-from core.embedding import batch_get_embeddings
+from embedding_providers.embedding import batch_get_embeddings
 from core.retriever import upload_documents
 
 # Import common utilities
