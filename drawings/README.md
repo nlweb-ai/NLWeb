@@ -9,20 +9,28 @@ This directory contains architectural diagrams that illustrate how NLWeb works a
 
 A high-level overview of NLWeb's architecture and workflow, showing the main components and their interactions in a simplified manner.
 
+![How NLWeb Works (Simplified)](how-nlweb-works-simplifed.drawio.svg)
+
 ### 2. How NLWeb Works (Detailed)
 **File:** `how-nlweb-works-in-detail.drawio.svg`
 
 A comprehensive diagram that provides detailed insights into NLWeb's internal architecture, including all major components, data flows, and system interactions.
+
+![How NLWeb Works (Detailed)](how-nlweb-works-in-detail.drawio.svg)
 
 ### 3. NLWeb Query Flow
 **File:** `nlweb-query-flow.drawio.svg`
 
 A detailed flowchart showing the complete lifecycle of a query in NLWeb, from user input through processing to response generation.
 
+![NLWeb Query Flow](nlweb-query-flow.drawio.svg)
+
 ### 4. Potential NLWeb Extension Points
 **File:** `potential-nlweb-works-extension-points.drawio.svg`
 
 A diagram highlighting various extension points and customization opportunities within the NLWeb architecture, useful for developers looking to extend or modify the system.
+
+![Potential NLWeb Extension Points](potential-nlweb-works-extension-points.drawio.svg)
 
 ## Viewing the Diagrams
 
