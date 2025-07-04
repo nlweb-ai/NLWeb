@@ -63,3 +63,8 @@ seaborn>=0.13.0
 
 # For Elasticsearch:
 # elasticsearch[async]>=8,<9
+
+# For Postgres:
+# psycopg[binary]>=3.1.12  # PostgreSQL adapter (psycopg3)
+# psycopg[pool]>=3.2.0  # Connection pooling for psycopg3
+# pgvector>=0.4.0
