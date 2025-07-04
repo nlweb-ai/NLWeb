@@ -5,7 +5,7 @@ import asyncio
 import json
 
 # Import common utilities from the repository
-from embedding.embedding import get_embedding, batch_get_embeddings
+from embedding_providers.embedding import get_embedding, batch_get_embeddings
 from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("scraping_embedding")

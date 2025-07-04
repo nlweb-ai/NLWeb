@@ -2,7 +2,7 @@
 # Licensed under the MIT License
 
 """
-Unified vector database interface with support for Azure AI Search, Milvus, and Qdrant.
+Unified vector database interface with support for Azure AI Search, Milvus, Qdrant and Postgres.
 This module provides abstract base classes and concrete implementations for database operations.
 """
 
@@ -60,7 +60,10 @@ def init():
                 elif db_type == "elasticsearch":
                     from retrieval.elasticsearch_client import ElasticsearchClient
                     _preloaded_modules[db_type] = ElasticsearchClient
-                
+                elif db_type == "postgres":
+                    from retrieval.postgres_client import PgVectorClient
+                    _preloaded_modules[db_type] = PgVectorClient
+                    
                 print(f"Successfully preloaded {db_type} client module")
             except Exception as e:
                 print(f"Failed to preload {db_type} client module: {e}")
@@ -75,6 +78,7 @@ _db_type_packages = {
     "qdrant": ["qdrant-client>=1.14.0"],
     "snowflake_cortex_search": ["httpx>=0.28.1"],
     "elasticsearch": ["elasticsearch[async]>=8,<9"],
+    "postgres": ["pgvector>=0.4.0", "psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0"]
 }
 
 # Cache for installed packages
@@ -398,7 +402,7 @@ class VectorDBClient:
         """
         db_type = config.db_type
         
-        if db_type in ["azure_ai_search", "snowflake_cortex_search", "opensearch", "milvus", "elasticsearch"]:
+        if db_type in ["azure_ai_search", "snowflake_cortex_search", "opensearch", "milvus", "elasticsearch", "postgres"]:
             # These require API key and endpoint
             return bool(config.api_key and config.api_endpoint)
         elif db_type == "qdrant":
@@ -465,10 +469,14 @@ class VectorDBClient:
                 elif db_type == "elasticsearch":
                     from retrieval.elasticsearch_client import ElasticsearchClient
                     client = ElasticsearchClient(endpoint_name)    
+                elif db_type == "postgres":
+                    from retrieval.postgres_client import PgVectorClient
+                    client = PgVectorClient(self.endpoint_name)
+                
                 else:
-                    error_msg = f"Unsupported database type: {db_type}"
-                    logger.error(error_msg)
-                    raise ValueError(error_msg)
+                        error_msg = f"Unsupported database type: {db_type}"
+                        logger.error(error_msg)
+                        raise ValueError(error_msg)
             except ImportError as e:
                 logger.error(f"Failed to import client for {db_type}: {e}")
                 raise ValueError(f"Failed to load client for {db_type}: {e}")
