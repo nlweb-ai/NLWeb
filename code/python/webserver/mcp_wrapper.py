@@ -184,13 +184,62 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
         if body:
             try:
                 request_data = json.loads(body)
+                logger.info(f"MCP request data: {request_data}")
                 
-                # Extract the function call details
-                function_call = request_data.get("function_call", {})
-                function_name = function_call.get("name")
+                # MCP protocol uses different formats depending on the request type
+                # Check for different possible formats
                 
-                # Handle different function types
-                if function_name == "ask" or function_name == "ask_nlw" or function_name == "query" or function_name == "search":
+                # Format 1: Direct method call (MCP standard)
+                if "method" in request_data:
+                    method = request_data.get("method")
+                    params = request_data.get("params", {})
+                    
+                    # Handle initialize request
+                    if method == "initialize":
+                        await handle_initialize_request(request_data, send_response, send_chunk)
+                        return
+                    elif method == "tools/list":
+                        await handle_tools_list_request(request_data, send_response, send_chunk)
+                        return
+                    elif method == "tools/call":
+                        # Extract tool call details
+                        tool_name = params.get("name")
+                        tool_args = params.get("arguments", {})
+                        
+                        # Route to appropriate handler
+                        if tool_name in ["ask", "ask_nlw", "query", "search"]:
+                            # Convert to function_call format for compatibility
+                            function_call = {
+                                "name": tool_name,
+                                "arguments": tool_args
+                            }
+                            await handle_ask_function(function_call, query_params, send_response, send_chunk, streaming, request_data.get("id"))
+                            return
+                        elif tool_name == "get_sites":
+                            # Handle get_sites tool
+                            await handle_get_sites_mcp(request_data.get("id"), send_response, send_chunk)
+                            return
+                        else:
+                            # Return error for unsupported tools
+                            error_response = {
+                                "jsonrpc": "2.0",
+                                "id": request_data.get("id"),
+                                "error": {
+                                    "code": -32601,
+                                    "message": f"Unknown tool: {tool_name}"
+                                }
+                            }
+                            await send_response(200, {'Content-Type': 'application/json'})
+                            await send_chunk(json.dumps(error_response), end_response=True)
+                            return
+                
+                # Format 2: Legacy function_call format (for backwards compatibility)
+                elif "function_call" in request_data:
+                    function_call = request_data.get("function_call", {})
+                    function_name = function_call.get("name")
+                    
+                    # Handle different function types
+                    if function_name == "ask" or function_name == "ask_nlw" or function_name == "query" or function_name == "search":
                     # Original ask functionality (handle multiple common function names)
                     await handle_ask_function(function_call, query_params, send_response, send_chunk, streaming)
                 
@@ -216,6 +265,17 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                         "type": "function_response",
                         "status": "error",
                         "error": f"Unknown function: {function_name}"
+                    }
+                    await send_response(400, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps(error_response), end_response=True)
+                    return
+                else:
+                    # Unknown request format
+                    logger.error(f"Unknown MCP request format: {request_data}")
+                    error_response = {
+                        "type": "function_response",
+                        "status": "error",
+                        "error": f"Unknown request format. Expected 'method' or 'function_call' in request body. Got: {list(request_data.keys())}"
                     }
                     await send_response(400, {'Content-Type': 'application/json'})
                     await send_chunk(json.dumps(error_response), end_response=True)
@@ -250,17 +310,22 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
             "error": f"Internal server error: {str(e)}"
         }), end_response=True)
 
-async def handle_ask_function(function_call, query_params, send_response, send_chunk, streaming):
+async def handle_ask_function(function_call, query_params, send_response, send_chunk, streaming, request_id=None):
     """Handle the 'ask' function and its aliases"""
     try:
-        # Parse function arguments - try to handle different formats
-        arguments_str = function_call.get("arguments", "{}")
-        try:
-            # Try to parse as JSON
-            arguments = json.loads(arguments_str)
-        except json.JSONDecodeError:
-            # If not valid JSON, treat as a string
-            arguments = {"query": arguments_str}
+        # Parse function arguments - handle different formats
+        arguments = function_call.get("arguments", {})
+        
+        # If arguments is a string, try to parse it
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                # If not valid JSON, treat as a query string
+                arguments = {"query": arguments}
+        elif not isinstance(arguments, dict):
+            # Convert to dict if needed
+            arguments = {"query": str(arguments)}
         
         # Extract the query parameter (required)
         # Check different common parameter names
@@ -316,12 +381,28 @@ async def handle_ask_function(function_call, query_params, send_response, send_c
             # Add chatbot instructions to the result
             result = add_chatbot_instructions(result)
             
-            # Format the response according to MCP protocol
-            mcp_response = {
-                "type": "function_response",
-                "status": "success",
-                "response": result
-            }
+            # Format the response according to protocol
+            if request_id is not None:
+                # JSON-RPC format for MCP
+                mcp_response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": json.dumps(result, indent=2)
+                            }
+                        ]
+                    }
+                }
+            else:
+                # Legacy format
+                mcp_response = {
+                    "type": "function_response",
+                    "status": "success",
+                    "response": result
+                }
             
             # Send the response
             await send_response(200, {'Content-Type': 'application/json'})
@@ -365,6 +446,99 @@ async def handle_ask_function(function_call, query_params, send_response, send_c
         logger.error(f"Error in handle_ask_function: {str(e)}")
         print(f"Error in handle_ask_function: {str(e)}")
         raise
+
+async def handle_initialize_request(request_data, send_response, send_chunk):
+    """Handle MCP initialize request"""
+    try:
+        # Return capabilities
+        response = {
+            "jsonrpc": "2.0",
+            "id": request_data.get("id"),
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {
+                    "tools": {},
+                    "logging": {}
+                },
+                "serverInfo": {
+                    "name": "nlweb-mcp-server",
+                    "version": "1.0.0"
+                }
+            }
+        }
+        
+        await send_response(200, {'Content-Type': 'application/json'})
+        await send_chunk(json.dumps(response), end_response=True)
+        
+    except Exception as e:
+        logger.error(f"Error in handle_initialize_request: {str(e)}")
+        error_response = {
+            "jsonrpc": "2.0",
+            "id": request_data.get("id"),
+            "error": {
+                "code": -32603,
+                "message": str(e)
+            }
+        }
+        await send_response(200, {'Content-Type': 'application/json'})
+        await send_chunk(json.dumps(error_response), end_response=True)
+
+async def handle_tools_list_request(request_data, send_response, send_chunk):
+    """Handle MCP tools/list request"""
+    try:
+        # Define available tools
+        tools = [
+            {
+                "name": "ask",
+                "description": "Ask a question to search the knowledge base",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The question to ask"
+                        },
+                        "site": {
+                            "type": "string",
+                            "description": "Optional: Specific site to search within"
+                        }
+                    },
+                    "required": ["query"]
+                }
+            },
+            {
+                "name": "get_sites",
+                "description": "Get a list of available sites",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {}
+                }
+            }
+        ]
+        
+        response = {
+            "jsonrpc": "2.0",
+            "id": request_data.get("id"),
+            "result": {
+                "tools": tools
+            }
+        }
+        
+        await send_response(200, {'Content-Type': 'application/json'})
+        await send_chunk(json.dumps(response), end_response=True)
+        
+    except Exception as e:
+        logger.error(f"Error in handle_tools_list_request: {str(e)}")
+        error_response = {
+            "jsonrpc": "2.0",
+            "id": request_data.get("id"),
+            "error": {
+                "code": -32603,
+                "message": str(e)
+            }
+        }
+        await send_response(200, {'Content-Type': 'application/json'})
+        await send_chunk(json.dumps(error_response), end_response=True)
 
 async def handle_list_tools_function(send_response, send_chunk):
     """Handle the 'list_tools' function to return available tools"""
@@ -612,3 +786,48 @@ async def handle_get_sites_function(send_response, send_chunk):
         logger.error(f"Error in handle_get_sites_function: {str(e)}")
         print(f"Error in handle_get_sites_function: {str(e)}")
         raise
+
+async def handle_get_sites_mcp(request_id, send_response, send_chunk):
+    """Handle MCP tools/call for get_sites tool"""
+    try:
+        # Get allowed sites from config
+        allowed_sites = CONFIG.get_allowed_sites()
+        
+        # Create site information
+        site_info = []
+        for site in allowed_sites:
+            site_info.append({
+                "id": site,
+                "name": site.capitalize(),  # Simple name formatting, can be enhanced
+                "description": f"Site: {site}"  # Basic description, should be enhanced
+            })
+        
+        # Format the response according to JSON-RPC protocol for MCP
+        response = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps({"sites": site_info}, indent=2)
+                    }
+                ]
+            }
+        }
+        
+        await send_response(200, {'Content-Type': 'application/json'})
+        await send_chunk(json.dumps(response), end_response=True)
+        
+    except Exception as e:
+        logger.error(f"Error in handle_get_sites_mcp: {str(e)}")
+        error_response = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {
+                "code": -32603,
+                "message": str(e)
+            }
+        }
+        await send_response(200, {'Content-Type': 'application/json'})
+        await send_chunk(json.dumps(error_response), end_response=True)
