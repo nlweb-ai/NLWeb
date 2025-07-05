@@ -240,35 +240,35 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                     
                     # Handle different function types
                     if function_name == "ask" or function_name == "ask_nlw" or function_name == "query" or function_name == "search":
-                    # Original ask functionality (handle multiple common function names)
-                    await handle_ask_function(function_call, query_params, send_response, send_chunk, streaming)
-                
-                elif function_name == "list_tools":
-                    # Function to list available tools
-                    await handle_list_tools_function(send_response, send_chunk)
-                
-                elif function_name == "list_prompts":
-                    # Function to list available prompts
-                    await handle_list_prompts_function(send_response, send_chunk)
-                
-                elif function_name == "get_prompt":
-                    # Function to get a specific prompt
-                    await handle_get_prompt_function(function_call, send_response, send_chunk)
-                
-                elif function_name == "get_sites":
-                    # Function to get available sites
-                    await handle_get_sites_function(send_response, send_chunk)
-                
-                else:
-                    # Return error for unsupported functions
-                    error_response = {
-                        "type": "function_response",
-                        "status": "error",
-                        "error": f"Unknown function: {function_name}"
-                    }
-                    await send_response(400, {'Content-Type': 'application/json'})
-                    await send_chunk(json.dumps(error_response), end_response=True)
-                    return
+                        # Original ask functionality (handle multiple common function names)
+                        await handle_ask_function(function_call, query_params, send_response, send_chunk, streaming)
+                    
+                    elif function_name == "list_tools":
+                        # Function to list available tools
+                        await handle_list_tools_function(send_response, send_chunk)
+                    
+                    elif function_name == "list_prompts":
+                        # Function to list available prompts
+                        await handle_list_prompts_function(send_response, send_chunk)
+                    
+                    elif function_name == "get_prompt":
+                        # Function to get a specific prompt
+                        await handle_get_prompt_function(function_call, send_response, send_chunk)
+                    
+                    elif function_name == "get_sites":
+                        # Function to get available sites
+                        await handle_get_sites_function(send_response, send_chunk)
+                    
+                    else:
+                        # Return error for unsupported functions
+                        error_response = {
+                            "type": "function_response",
+                            "status": "error",
+                            "error": f"Unknown function: {function_name}"
+                        }
+                        await send_response(400, {'Content-Type': 'application/json'})
+                        await send_chunk(json.dumps(error_response), end_response=True)
+                        return
                 else:
                     # Unknown request format
                     logger.error(f"Unknown MCP request format: {request_data}")
