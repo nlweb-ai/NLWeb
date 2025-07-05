@@ -901,15 +901,17 @@ export class ManagedEventSource {
                     document.body.getAttribute('data-google-maps-api-key') || 
                     'YOUR_API_KEY';
       
-      if (apiKey === 'YOUR_API_KEY' || !apiKey || apiKey === 'GOOGLE_MAPS_API_KEY') {
-        console.error('Google Maps API key not configured. Please set GOOGLE_MAPS_API_KEY environment variable or configure it in config_nlweb.yaml');
+      // Validate API key format (alphanumeric and dashes, 39-40 characters typical for Google Maps API keys)
+      const apiKeyPattern = /^[A-Za-z0-9\-_]{39,40}$/;
+      if (!apiKeyPattern.test(apiKey) || apiKey === 'YOUR_API_KEY' || apiKey === 'GOOGLE_MAPS_API_KEY') {
+        console.error('Invalid or missing Google Maps API key. Please set GOOGLE_MAPS_API_KEY environment variable or configure it in config_nlweb.yaml');
         mapDiv.innerHTML = `
           <div style="text-align: center; padding: 20px; color: #666;">
             <p><strong>Map unavailable</strong></p>
-            <p style="font-size: 0.9em;">Google Maps API key not configured.</p>
+            <p style="font-size: 0.9em;">Invalid or missing Google Maps API key.</p>
           </div>
         `;
-        reject(new Error('API key not configured'));
+        reject(new Error('Invalid or missing API key'));
         return;
       }
       
