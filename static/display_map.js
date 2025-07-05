@@ -18,9 +18,10 @@ export class MapDisplay {
     console.log('window.GOOGLE_MAPS_API_KEY === undefined?', window.GOOGLE_MAPS_API_KEY === undefined);
     
     // Check if API key is configured
-    const apiKey = window.GOOGLE_MAPS_API_KEY || 
-                  document.body.getAttribute('data-google-maps-api-key') || 
-                  'YOUR_API_KEY';
+    const rawApiKey = window.GOOGLE_MAPS_API_KEY || 
+                      document.body.getAttribute('data-google-maps-api-key') || 
+                      'YOUR_API_KEY';
+    const apiKey = MapDisplay.validateApiKey(rawApiKey) ? rawApiKey : null;
     
     console.log('API Key resolution:');
     console.log('  - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY);
@@ -72,6 +73,12 @@ export class MapDisplay {
       
       // Create script element
       const script = document.createElement('script');
+      if (!apiKey) {
+        console.error('Invalid Google Maps API key. Falling back to location list.');
+        window.googleMapsAPILoading = false;
+        reject(new Error('Invalid Google Maps API key'));
+        return;
+      }
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
@@ -274,5 +281,14 @@ export class MapDisplay {
     mapDiv.appendChild(listContainer);
     
     console.log('Location list created and appended successfully');
+  }
+  /**
+   * Validate the format of the Google Maps API key
+   * @param {string} apiKey - The API key to validate
+   * @returns {boolean} True if the API key is valid, false otherwise
+   */
+  static validateApiKey(apiKey) {
+    const apiKeyPattern = /^[A-Za-z0-9_-]{35,}$/; // Example pattern for Google Maps API keys
+    return apiKeyPattern.test(apiKey);
   }
 }
