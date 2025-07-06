@@ -529,7 +529,7 @@ class QdrantVectorClient:
         
         try:
             start_embed = time.time()
-            embedding = await get_embedding(query)
+            embedding = await get_embedding(query, query_params=query_params)
             embed_time = time.time() - start_embed
             logger.debug(f"Generated embedding with dimension: {len(embedding)} in {embed_time:.2f}s")
             

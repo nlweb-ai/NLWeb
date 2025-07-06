@@ -8,6 +8,9 @@ import sys
 import asyncio
 import time
 
+# Add parent directory to path to allow imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 # Add error handling for imports
 try:
     from openai import OpenAI, AzureOpenAI
@@ -16,7 +19,7 @@ try:
     from core.config import CONFIG
 except ImportError as e:
     print(f"Error importing required libraries: {e}")
-    print("Please run: pip install -r requirements.txt")
+    print("Please ensure you are in the /code/python directory and run: pip install -r requirements.txt")
     sys.exit(1)
 
 async def check_azure_search_api():

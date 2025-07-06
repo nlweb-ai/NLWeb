@@ -394,7 +394,7 @@ class PgVectorClient:
         return inserted_count
     
     async def search(self, query: str, site: Union[str, List[str]], 
-                    num_results: int = 50, **kwargs) -> List[List[str]]:
+                    num_results: int = 50, query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
         """
         Search for documents matching the query and site.
         
@@ -413,7 +413,7 @@ class PgVectorClient:
         
         # Get vector embedding for the query
         try:
-            query_embedding = await get_embedding(query)
+            query_embedding = await get_embedding(query, query_params=query_params)
             logger.debug(f"Query embedding generated, dimensions: {len(query_embedding)}")
         except Exception as e:
             logger.exception(f"Error generating embedding for query: {e}")

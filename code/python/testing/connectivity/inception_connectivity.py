@@ -1,10 +1,15 @@
+import os
+import sys
+
+# Add parent directory to path to allow imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 try:
-    import sys
     from openai import OpenAI
     from core.config import CONFIG
 except ImportError as e:
     print(f"Error importing required libraries: {e}")
-    print("Please run: pip install -r requirements.txt")
+    print("Please ensure you are in the /code/python directory and run: pip install -r requirements.txt")
     sys.exit(1)
 
 async def check_inception_api():

@@ -165,7 +165,7 @@ Be specific and practical in your suggestions.""")
         try:
             # Get substitution suggestions from LLM
             logger.info("Generating substitution suggestions")
-            response = await ask_llm(prompt, response_structure, level="high")
+            response = await ask_llm(prompt, response_structure, level="high", query_params=self.handler.query_params)
             
             # Send the substitution suggestions
             await self._send_substitution_message(response, recipe_info_list)

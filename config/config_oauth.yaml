@@ -1,0 +1,77 @@
+# OAuth Configuration File
+# 
+# This file contains OAuth client credentials for various providers.
+# IMPORTANT: Keep this file secure and never commit it to public repositories!
+#
+# To use OAuth authentication:
+# 1. Register your application with each provider
+# 2. Fill in the client_id and client_secret below
+# 3. Set the redirect URI to: http://yourdomain/oauth/callback
+
+oauth:
+  # Google OAuth
+  # Register at: https://console.cloud.google.com/
+  google:
+    enabled: false
+    client_id: GOOGLE_AUTH_CLIENT_ID
+    client_secret: GOOGLE_AUTH_CLIENT_SECRET
+    # Scopes we request from Google
+    scopes:
+      - "openid"
+      - "profile"
+      - "email"
+  
+  # Facebook OAuth
+  # Register at: https://developers.facebook.com/
+  facebook:
+    enabled: false
+    client_id: FACEBOOK_APP_ID
+    client_secret: FACEBOOK_APP_SECRET
+    # Scopes we request from Facebook
+    scopes:
+      - "public_profile"
+      - "email"
+  
+  # Microsoft OAuth
+  # Register at: https://portal.azure.com/
+  microsoft:
+    enabled: false
+    client_id: MICROSOFT_CLIENT_ID
+    client_secret: MICROSOFT_CLIENT_SECRET
+    # Scopes we request from Microsoft
+    scopes:
+      - "openid"
+      - "profile"
+      - "email"
+      - "User.Read"
+  
+  # GitHub OAuth
+  # Register at: https://github.com/settings/applications/new
+  github:
+    enabled: true
+    client_id: GITHUB_CLIENT_ID
+    client_secret: GITHUB_CLIENT_SECRET
+    # Scopes we request from GitHub
+    scopes:
+      - "read:user"
+      - "user:email"
+
+# Session configuration
+session:
+  # Secret key for signing session tokens (generate a strong random key)
+  secret_key: "CHANGE_THIS_TO_A_RANDOM_SECRET_KEY"
+  # Session token expiration in seconds (default: 24 hours)
+  token_expiration: 86400
+  
+# Authentication settings
+auth:
+  # Whether authentication is required for API access
+  require_auth: false
+  # Allow anonymous access to certain endpoints
+  anonymous_endpoints:
+    - "/sites"
+    - "/who"
+  # Token validation settings
+  validate_token: true
+  # Store sessions in memory (for production, use Redis or database)
+  session_store: "memory"

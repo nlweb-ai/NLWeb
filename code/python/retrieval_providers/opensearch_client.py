@@ -453,7 +453,7 @@ class OpenSearchClient:
             raise
     
     async def search(self, query: str, site: Union[str, List[str]], 
-                    num_results: int = 50, **kwargs) -> List[List[str]]:
+                    num_results: int = 50, query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
         """
         Search for documents matching the query and site using vector similarity.
         
@@ -470,7 +470,7 @@ class OpenSearchClient:
         logger.info(f"Starting OpenSearch - query: '{query[:50]}...', site: {site}, index: {index_name}")
         
         start_embed = time.time()
-        embedding = await get_embedding(query)
+        embedding = await get_embedding(query, query_params=query_params)
         embed_time = time.time() - start_embed
         logger.debug(f"Embedding generated in {embed_time:.2f}s, dimension: {len(embedding)}")
         
@@ -752,7 +752,7 @@ class OpenSearchClient:
             raise
     
     async def search_all_sites(self, query: str, top_n: int = 10, 
-                             index_name: Optional[str] = None) -> List[List[str]]:
+                             index_name: Optional[str] = None, query_params: Optional[Dict[str, Any]] = None) -> List[List[str]]:
         """
         Search across all sites using vector similarity
         
@@ -769,7 +769,7 @@ class OpenSearchClient:
         logger.debug(f"Query: {query}")
         
         try:
-            query_embedding = await get_embedding(query)
+            query_embedding = await get_embedding(query, query_params=query_params)
             logger.debug(f"Generated embedding with dimension: {len(query_embedding)}")
             
             # Build OpenSearch query based on k-NN availability (no site filter)

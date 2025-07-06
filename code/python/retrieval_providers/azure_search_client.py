@@ -403,7 +403,7 @@ class AzureSearchClient:
         
         # Get embedding for the query
         start_embed = time.time()
-        embedding = await get_embedding(query)
+        embedding = await get_embedding(query, query_params=query_params)
         embed_time = time.time() - start_embed
         logger.debug(f"Embedding generated in {embed_time:.2f}s, dimension: {len(embedding)}")
         
@@ -580,7 +580,7 @@ class AzureSearchClient:
         logger.debug(f"Query: {query}")
         
         try:
-            query_embedding = await get_embedding(query)
+            query_embedding = await get_embedding(query, query_params=query_params)
             logger.debug(f"Generated embedding with dimension: {len(query_embedding)}")
             
             # Validate embedding dimension

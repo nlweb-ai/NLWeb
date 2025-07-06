@@ -125,7 +125,7 @@ async def search_db(query, site, num_results=50, endpoint_name=None, query_param
 
     try:
         start_embed = time.time()
-        embedding = await get_embedding(query)
+        embedding = await get_embedding(query, query_params=query_params)
         embed_time = time.time() - start_embed
 
         start_retrieve = time.time()

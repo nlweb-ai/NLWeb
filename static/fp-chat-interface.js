@@ -53,11 +53,13 @@ class ModernChatInterface {
   
   init() {
     // Initialize default values
-    this.selectedSite = 'all';
-    this.selectedMode = 'list'; // Default generate_mode
+    this.selectedSite = this.options.site || 'all';
+    this.selectedMode = this.options.mode || 'list'; // Default generate_mode
     
-    // Load saved conversations
-    this.loadConversations();
+    // Load saved conversations (async operation)
+    this.loadConversations().then(() => {
+      this.updateConversationsList();
+    });
     
     // Load remembered items
     this.loadRememberedItems();
@@ -72,6 +74,26 @@ class ModernChatInterface {
     
     // Bind events
     this.bindEvents();
+    
+    // Listen for auth state changes
+    window.addEventListener('authStateChanged', async (event) => {
+      // When auth state changes, reload conversations
+      console.log('Auth state changed:', event.detail);
+      
+      if (event.detail.isAuthenticated) {
+        // User just logged in
+        // First, try to migrate local conversations to server
+        await this.migrateLocalConversations();
+        
+        // Then load all conversations from server
+        await this.loadConversations();
+        this.updateConversationsList();
+      } else {
+        // User logged out, clear server conversations and keep only local ones
+        this.loadLocalConversations();
+        this.updateConversationsList();
+      }
+    });
     
     // Start with a blank page - don't load previous conversations
     // Skip auto-creating new chat if skipAutoInit option is set
@@ -463,6 +485,19 @@ class ModernChatInterface {
     // Add remembered items
     if (this.rememberedItems.length > 0) {
       params.append('item_to_remember', this.rememberedItems.join(', '));
+    }
+    
+    // Add authentication token and user ID if available
+    const authToken = localStorage.getItem('authToken');
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    if (authToken) {
+      params.append('auth_token', authToken);
+    }
+    if (userInfo && userInfo.id) {
+      params.append('user_id', userInfo.id);
+    } else if (userInfo && userInfo.email) {
+      // Use email as user_id if id is not available
+      params.append('user_id', userInfo.email);
     }
     
     // Create event source with full URL
@@ -1482,19 +1517,225 @@ class ModernChatInterface {
     });
   }
   
-  loadConversations() {
+  async loadConversations() {
+    // Check if user is logged in
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const authToken = localStorage.getItem('authToken');
+    
+    if (authToken && userInfo && (userInfo.id || userInfo.email)) {
+      // User is logged in, load conversations from server
+      try {
+        const userId = userInfo.id || userInfo.email;
+        const site = this.selectedSite;
+        const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
+        const url = `${baseUrl}/api/conversations?user_id=${encodeURIComponent(userId)}&site=${encodeURIComponent(site)}&limit=50`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Convert server conversations to our format
+          this.conversations = this.convertServerConversations(data.conversations);
+          
+          // Also check localStorage for any unsaved conversations
+          this.mergeLocalConversations();
+          
+          // Update the UI
+          this.updateConversationsList();
+          
+          console.log('Loaded', this.conversations.length, 'conversations from server');
+        } else {
+          console.error('Failed to load conversations from server:', response.status);
+          // Fall back to localStorage
+          this.loadLocalConversations();
+        }
+      } catch (error) {
+        console.error('Error loading conversations from server:', error);
+        // Fall back to localStorage
+        this.loadLocalConversations();
+      }
+    } else {
+      // User not logged in, use localStorage only
+      this.loadLocalConversations();
+    }
+  }
+  
+  loadLocalConversations() {
     const saved = localStorage.getItem('nlweb-modern-conversations');
     if (saved) {
       try {
         const allConversations = JSON.parse(saved);
         // Filter out empty conversations
-        this.conversations = allConversations.filter(conv => conv.messages && conv.messages.length > 0);
+        let filteredConversations = allConversations.filter(conv => conv.messages && conv.messages.length > 0);
+        
+        // If a specific site is selected, filter by site
+        if (this.selectedSite && this.selectedSite !== 'all') {
+          filteredConversations = filteredConversations.filter(conv => 
+            conv.site === this.selectedSite || 
+            (conv.siteInfo && conv.siteInfo.site === this.selectedSite)
+          );
+        }
+        
+        this.conversations = filteredConversations;
         // Save the cleaned list back
         this.saveConversations();
       } catch (e) {
         console.error('Error loading conversations:', e);
         this.conversations = [];
       }
+    }
+  }
+  
+  convertServerConversations(serverConversations) {
+    // Convert server format to local format
+    const convertedConversations = [];
+    
+    serverConversations.forEach(thread => {
+      if (!thread.conversations || thread.conversations.length === 0) return;
+      
+      // Get the latest conversation time
+      const latestTime = thread.conversations[thread.conversations.length - 1].time;
+      const timestamp = new Date(latestTime).getTime();
+      
+      // Generate title from first user prompt
+      const title = thread.conversations[0].user_prompt.substring(0, 50) + 
+                   (thread.conversations[0].user_prompt.length > 50 ? '...' : '');
+      
+      // Create a conversation object for this thread
+      const conversation = {
+        id: thread.id,
+        title: title,
+        timestamp: timestamp,
+        site: thread.site,
+        siteInfo: {
+          site: thread.site,
+          mode: 'list' // Default mode, could be stored in thread metadata
+        },
+        messages: []
+      };
+      
+      // Convert each conversation entry to a message pair
+      thread.conversations.forEach(conv => {
+        const convTime = new Date(conv.time).getTime();
+        
+        // Add user message
+        conversation.messages.push({
+          content: conv.user_prompt,
+          type: 'user',
+          timestamp: convTime
+        });
+        
+        // Add assistant message
+        conversation.messages.push({
+          content: conv.response,
+          type: 'assistant',
+          timestamp: convTime + 1
+        });
+      });
+      
+      convertedConversations.push(conversation);
+    });
+    
+    return convertedConversations.sort((a, b) => b.timestamp - a.timestamp);
+  }
+  
+  mergeLocalConversations() {
+    // Check if there are any conversations in localStorage that aren't on the server
+    const saved = localStorage.getItem('nlweb-modern-conversations');
+    if (saved) {
+      try {
+        const localConversations = JSON.parse(saved);
+        const serverIds = new Set(this.conversations.map(c => c.id));
+        
+        // Add any local conversations that aren't on the server
+        localConversations.forEach(localConv => {
+          if (!serverIds.has(localConv.id) && localConv.messages && localConv.messages.length > 0) {
+            // Check site filter
+            const convSite = localConv.site || (localConv.siteInfo && localConv.siteInfo.site) || 'all';
+            if (this.selectedSite === 'all' || convSite === this.selectedSite) {
+              this.conversations.push(localConv);
+            }
+          }
+        });
+        
+        // Sort by timestamp
+        this.conversations.sort((a, b) => b.timestamp - a.timestamp);
+      } catch (e) {
+        console.error('Error merging local conversations:', e);
+      }
+    }
+  }
+  
+  async migrateLocalConversations() {
+    // Migrate local conversations to server when user logs in
+    const saved = localStorage.getItem('nlweb-modern-conversations');
+    if (!saved) return;
+    
+    try {
+      const localConversations = JSON.parse(saved);
+      if (!localConversations || localConversations.length === 0) return;
+      
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const authToken = localStorage.getItem('authToken');
+      const userId = userInfo.id || userInfo.email;
+      
+      if (!userId || !authToken) return;
+      
+      // Convert local conversations to server format
+      const conversationsToMigrate = [];
+      
+      localConversations.forEach(conv => {
+        if (!conv.messages || conv.messages.length === 0) return;
+        
+        // Convert to server format - extract user/assistant message pairs
+        for (let i = 0; i < conv.messages.length - 1; i += 2) {
+          const userMsg = conv.messages[i];
+          const assistantMsg = conv.messages[i + 1];
+          
+          if (userMsg.type === 'user' && assistantMsg && assistantMsg.type === 'assistant') {
+            conversationsToMigrate.push({
+              thread_id: conv.id,
+              user_prompt: userMsg.content,
+              response: assistantMsg.content,
+              site: conv.site || conv.siteInfo?.site || 'all',
+              timestamp: new Date(userMsg.timestamp).toISOString()
+            });
+          }
+        }
+      });
+      
+      if (conversationsToMigrate.length === 0) return;
+      
+      // Send to server
+      const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
+      const response = await fetch(`${baseUrl}/api/conversations/migrate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          conversations: conversationsToMigrate
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log(`Successfully migrated ${result.migrated_count} conversations to server`);
+        
+        // Clear localStorage after successful migration
+        localStorage.removeItem('nlweb-modern-conversations');
+      } else {
+        console.error('Failed to migrate conversations:', response.status);
+      }
+    } catch (error) {
+      console.error('Error migrating conversations:', error);
     }
   }
   

@@ -122,7 +122,7 @@ class StatisticsHandler():
         
         try:
             # Pass the template variables (which now includes score) directly to LLM
-            response = await ask_llm(prompt, template['variables'], level="low")
+            response = await ask_llm(prompt, template['variables'], level="low", query_params=self.handler.query_params)
             
             # Extract the score and values from the response
             score = 0
@@ -217,7 +217,7 @@ class StatisticsHandler():
                 """
                 # Create async task for LLM call
                 async def get_variable_dcid(prompt=prompt):
-                    response = await ask_llm(prompt, {"dcid": "string"}, level="low")
+                    response = await ask_llm(prompt, {"dcid": "string"}, level="low", query_params=self.handler.query_params)
                     response = response.get('dcid', 'UNKNOWN') if isinstance(response, dict) else str(response).strip()
                     return response if response.strip() != "UNKNOWN" else None
                 
@@ -307,7 +307,7 @@ class StatisticsHandler():
         Return only the component name.
         """
         
-        response = await ask_llm(prompt, {"component_type": "string"}, level="low")
+        response = await ask_llm(prompt, {"component_type": "string"}, level="low", query_params=self.handler.query_params)
         print(f"Visualization type response: {response}")
         if isinstance(response, dict):
             return response.get('component_type', 'datacommons-highlight')

@@ -4,24 +4,27 @@ Run this script to validate environment variables and API access.
 """
 
 # Error handling for imports
-try:
-    import os
-    import sys
-    import asyncio
-    import time
-    import argparse
+import os
+import sys
+import asyncio
+import time
+import argparse
 
+# Add parent directory to path to allow imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+try:
     from core.config import CONFIG
     from core.llm import ask_llm
     from core.embedding import get_embedding
     from core.retriever import search, get_vector_db_client
-    from azure_connectivity import check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api
-    from snowflake_connectivity import check_embedding, check_complete, check_search
-    from inception_connectivity import check_inception_api
+    from testing.connectivity.azure_connectivity import check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api
+    from testing.connectivity.snowflake_connectivity import check_embedding, check_complete, check_search
+    from testing.connectivity.inception_connectivity import check_inception_api
 
 except ImportError as e:
     print(f"Error importing required libraries: {e}")
-    print("Please run: pip install -r requirements.txt")
+    print("Please ensure you are in the /code/python directory and run: pip install -r requirements.txt")
     sys.exit(1)
 
 

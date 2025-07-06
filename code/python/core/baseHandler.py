@@ -28,6 +28,7 @@ from core.utils.utils import get_param, siteToItemType, log
 from misc.logger.logger import get_logger, LogLevel
 from misc.logger.logging_config_helper import get_configured_logger
 from core.config import CONFIG
+from core.storage import add_conversation
 
 logger = get_configured_logger("nlweb_handler")
 
@@ -307,6 +308,43 @@ class NLWebHandler:
                 return self.return_value
                 
             await self.post_ranking_tasks()
+            
+            # Store conversation if we have a user_id
+            user_id = get_param(self.query_params, "user_id", str, None)
+            if user_id:
+                print(f"[NLWebHandler] user_id: {user_id}")  # Console output for debugging
+                try:
+                    # Get thread_id from query params
+                    thread_id = get_param(self.query_params, "thread_id", str, None)
+                    
+                    # Prepare the response summary
+                    response = ""
+                    if self.final_ranked_answers:
+                        # Create a summary of the top results
+                        results = []
+                        for answer in self.final_ranked_answers[:5]:  # Top 5 results
+                            if isinstance(answer, dict):
+                                name = answer.get('name', '')
+                                url = answer.get('url', '')
+                                if name and url:
+                                    results.append(f"- {name}: {url}")
+                        response = "\n".join(results) if results else "No results found"
+                    else:
+                        response = "No results found"
+                    
+                    # Store the conversation
+                    await add_conversation(
+                        user_id=user_id,
+                        site=self.site,
+                        thread_id=thread_id,
+                        user_prompt=self.query,
+                        response=response
+                    )
+                    logger.info(f"Stored conversation for user {user_id} in thread {thread_id}")
+                except Exception as e:
+                    logger.error(f"Error storing conversation: {e}")
+                    # Don't fail the request if storage fails
+            
             self.return_value["query_id"] = self.query_id
             logger.info(f"Query execution completed for query_id: {self.query_id}")
             return self.return_value
