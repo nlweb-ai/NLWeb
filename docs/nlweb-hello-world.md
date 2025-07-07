@@ -26,24 +26,24 @@ These instructions assume that you have Python 3.10+ installed locally.
     source myenv/bin/activate    # Or on Windows: myenv\Scripts\activate
     ```
 
-3. Go to the 'code' folder in NLWeb to install the dependencies. Note that this will also install the local vector database requirements so you don't need to install them separately.
-
-    ```sh
-    cd code
-    pip install -r requirements.txt
-    ```
-
-4. Copy the .env.template file to a new .env file and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.  Don't worry; you do not need to provide all of these providers in the file.  We explain below.
+3. Copy the .env.template file to a new .env file and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.  Don't worry; you do not need to provide all of these providers in the file.  We explain below.
 
     ```sh
     cp .env.template .env
     ```
 
-5. Update your config files (located in the code/config folder) to make sure your preferred providers match your .env file. There are three files that may need changes.
+4. Update your config files (located in the config folder) to make sure your preferred providers match your .env file. There are three files that may need changes.
 
     - config_llm.yaml: Update the first line to the LLM provider you set in the .env file.  By default it is Azure OpenAI.  You can also adjust the models you call here by updating the models noted.  By default, we are assuming 4.1 and 4.1-mini.
     - config_embedding.yaml: Update the first line to your preferred embedding provider.  By default it is Azure OpenAI, using text-embedding-3-small.
     - config_retrieval.yaml: Update this to qdrant_local for this exercise.  By default, this is Azure AI Search.
+
+5. Go to the 'code/python' folder in NLWeb to install the dependencies. Note that this will also install the local vector database requirements so you don't need to install them separately.
+
+    ```sh
+    cd code/python
+    pip install -r requirements.txt
+    ```
 
 6. You can verify that your configuration is set properly and you remembered to set all needed API keys by running the check-connectivity script from the code directory.  There is more information [here](nlweb-check-connectivity.md). 
 
