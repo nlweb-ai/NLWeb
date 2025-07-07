@@ -10,18 +10,18 @@ Run the examples script to see the ingress system in action:
 
 ```bash
 # From the code/tools/ingress directory
-python -m tools.ingress.examples
+python -m tools.verb_ingress.examples
 ```
 
 ### A Bit Longer Quick Start
 
-```
+```bash
 python -m venv myenv
 python -m pip install -r code\requirements.txt
 .\myenv\Scripts\activate
 cd code
-python -m tools.ingress.db_load ../demo/alaskaair_com.java alaskaair_com-api
-python cli-app.py -q "what api should I use to book an alaska airline flight?" --num-results 10 --format json --output results.json --quiet
+python -m tools.verb_ingress.db_load ../demo/verb_demo/alaskaair_com.java alaskaair_com-api
+python cli-app.py -q "what api should I use to book an alaska airline flight?" --num-results 10 --format json
 ```
 
 
@@ -32,38 +32,38 @@ The `db_load.py` script provides a CLI interface compatible with the legacy load
 **Load OpenAPI JSON files:**
 ```bash
 # Load a local OpenAPI specification
-python -m tools.ingress.db_load ../demo/github.openapi.json github-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/github.openapi.json github-api
 
 # Delete existing data
-python -m tools.ingress.db_load ../demo/github.openapi.json --delete-site github-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/github.openapi.json --delete-site github-api
 ```
 
 **Load Java interface files:**
 ```bash
 # Load a Java interface
-python -m tools.ingress.db_load ../demo/alaskaair_com.java alaskaair_com-api
-python -m tools.ingress.db_load ../demo/amazon_com.java amazon_com-api
-python -m tools.ingress.db_load ../demo/booking_com.java booking_com-api
-python -m tools.ingress.db_load ../demo/costco_com.java costco_com-api
-python -m tools.ingress.db_load ../demo/Wikimedia.java wikimedia-api
-python -m tools.ingress.db_load ../demo/GitHub.java GitHub-api
-python -m tools.ingress.db_load ../demo/maps_google_com.java maps_google_com-api
-python -m tools.ingress.db_load ../demo/Nasa.java Nasa-api
-python -m tools.ingress.db_load ../demo/News.java News-api
-python -m tools.ingress.db_load ../demo/OpenLibrary.java OpenLibrary-api
-python -m tools.ingress.db_load ../demo/OpenWeather.java OpenWeather-api
-python -m tools.ingress.db_load ../demo/redfin_com.java redfin_com-api
-python -m tools.ingress.db_load ../demo/Spotify.java Spotify-api
-python -m tools.ingress.db_load ../demo/teams_microsoft_com.java teams_microsoft_com-api
-python -m tools.ingress.db_load ../demo/Wikimedia.java Wikimedia-api
-python -m tools.ingress.db_load ../demo/youtube_com.java youtube_com-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/alaskaair_com.java alaskaair_com-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/amazon_com.java amazon_com-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/booking_com.java booking_com-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/costco_com.java costco_com-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/Wikimedia.java wikimedia-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/GitHub.java GitHub-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/maps_google_com.java maps_google_com-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/Nasa.java Nasa-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/News.java News-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/OpenLibrary.java OpenLibrary-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/OpenWeather.java OpenWeather-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/redfin_com.java redfin_com-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/Spotify.java Spotify-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/teams_microsoft_com.java teams_microsoft_com-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/Wikimedia.java Wikimedia-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/youtube_com.java youtube_com-api
 
 ```
 
 **Use specific database endpoint:**
 ```bash
 # Load to a specific vector database
-python -m tools.ingress.db_load ../demo/github.openapi.json --database qdrant_local
+python -m tools.verb_ingress.db_load ../demo/verb_demo/github.openapi.json --database qdrant_local
 ```
 
 ## Architecture
@@ -76,7 +76,7 @@ The ingress system uses two key design patterns:
 ### Core Components
 
 ```
-ingress/
+verb_ingress/
 ├── __init__.py              # Module exports
 ├── base_strategy.py         # Abstract base strategy interface
 ├── factory.py              # Factory for strategy selection
@@ -146,7 +146,7 @@ The factory automatically selects strategies based on:
 
 **Example usage:**
 ```python
-from ingress.factory import auto_select_strategy
+from verb_ingress.factory import auto_select_strategy
 
 # Auto-detect strategy from file
 strategy = auto_select_strategy(file_path="api-spec.json")
@@ -170,7 +170,7 @@ documents, texts = strategy.process_data(data, "https://api.example.com", "examp
 
 **Example usage:**
 ```python
-from ingress.factory import auto_select_strategy
+from verb_ingress.factory import auto_select_strategy
 
 # Auto-detect strategy from file
 strategy = auto_select_strategy(file_path="MyInterface.java")
@@ -187,7 +187,7 @@ documents, texts = strategy.process_data(java_code, "java://com.example.MyInterf
 ### Basic Usage
 
 ```python
-from ingress.factory import auto_select_strategy
+from verb_ingress.factory import auto_select_strategy
 
 # Automatic strategy selection
 strategy = auto_select_strategy(file_path="data.json")
@@ -208,7 +208,7 @@ else:
 ### Explicit Strategy Selection
 
 ```python
-from ingress.factory import create_strategy
+from verb_ingress.factory import create_strategy
 
 # Create specific strategy
 openapi_strategy = create_strategy("openapi")
@@ -221,7 +221,7 @@ documents, texts = openapi_strategy.process_data(json_data, source_url, site_nam
 
 ```python
 import asyncio
-from ingress.factory import auto_select_strategy
+from verb_ingress.factory import auto_select_strategy
 from embedding.embedding import batch_get_embeddings
 from retrieval.retriever import get_vector_db_client
 

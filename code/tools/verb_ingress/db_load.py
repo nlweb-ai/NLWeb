@@ -11,7 +11,7 @@ modular Strategy + Factory Pattern-based ingress system for supported data types
 other types (JSON, CSV, RSS, etc.).
 """
 
-from tools.ingress.factory import auto_select_strategy, get_available_strategies
+from tools.verb_ingress.factory import auto_select_strategy, get_available_strategies
 from retrieval.retriever import get_vector_db_client
 from embedding.embedding import batch_get_embeddings
 from config.config import CONFIG
@@ -91,7 +91,7 @@ async def process_with_ingress_system(file_path: str, site: str, batch_size: int
     try:
         # Special handling for different file types
         if file_path.lower().endswith('.java'):
-            from tools.ingress.java_strategy import JavaStrategy
+            from tools.verb_ingress.java_strategy import JavaStrategy
             data = JavaStrategy.load_from_file(file_path)
         else:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -195,7 +195,7 @@ async def process_url_with_ingress_system(url: str, site: str, batch_size: int =
     """
     # For now, only OpenAPI strategy supports URL fetching
     try:
-        from tools.ingress.openapi_strategy import OpenAPIStrategy
+        from tools.verb_ingress.openapi_strategy import OpenAPIStrategy
 
         strategy = OpenAPIStrategy()
 

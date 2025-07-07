@@ -6,7 +6,7 @@ This script demonstrates how to use the Strategy + Factory Pattern-based
 ingress system for processing different types of data.
 """
 
-from tools.ingress.factory import auto_select_strategy, create_strategy, print_strategy_info
+from tools.verb_ingress.factory import auto_select_strategy, create_strategy, print_strategy_info
 import asyncio
 import json
 import sys
