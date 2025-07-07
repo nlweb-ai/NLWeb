@@ -8,6 +8,9 @@ import sys
 import asyncio
 import time
 
+# Add parent directory to sys.path to allow imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 # Add error handling for imports
 try:
     from openai import OpenAI, AzureOpenAI

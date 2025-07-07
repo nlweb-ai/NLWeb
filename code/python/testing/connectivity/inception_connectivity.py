@@ -1,5 +1,10 @@
+import os
+import sys
+
+# Add parent directory to sys.path to allow imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
 try:
-    import sys
     from openai import OpenAI
     from core.config import CONFIG
 except ImportError as e:

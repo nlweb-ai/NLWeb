@@ -3,6 +3,11 @@ Check connectivity to Snowflake services.
 Run this script to validate environment variables and API access.
 """
 
+import os
+import sys
+
+# Add parent directory to sys.path to allow imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 try:
     import asyncio
@@ -10,7 +15,6 @@ try:
     from core.llm import ask_llm
     from core.embedding import get_embedding
     from core.retriever import search, search_all_sites, get_sites as get_sites_wrapper
-    import sys
     import traceback
 except ImportError as e:
     print(f"Error importing required libraries: {e}")
