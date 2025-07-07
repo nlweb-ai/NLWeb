@@ -161,20 +161,24 @@ async def check_retriever(retrieval_name) -> bool:
         # We need to use this specific vector db client to test its connectivity.  The general search will try all and hide errors.  
         client = get_vector_db_client(retrieval_name)
         resp = await client.search("e", site="all", num_results=1)
-        good_output = len(resp) > 0 #and len(resp[0]) == 4
         #print(f"Output from {retrieval_name}: {str(resp)}")
-        #print(f"Good Output from {retrieval_name}: {str(good_output)}")
-        if not resp:
-            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: No valid output received.")
-            return False
-        elif good_output:
-            print(f"✅ Retriever API connectivity check successful for {retrieval_name}. Output is in expected format.")
-            return True
-        elif not good_output:
-            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: Output is not in expected format.  Please verify manually: {str(resp)}")
-            return False
+        
+        # Check if the response is a valid list (even if empty)
+        if isinstance(resp, list):
+            if len(resp) > 0:
+                # Check if the response format is correct
+                if len(resp[0]) >= 4:
+                    print(f"✅ Retriever API connectivity check successful for {retrieval_name}. Found {len(resp)} results.")
+                    return True
+                else:
+                    print(f"❌ Retriever API connectivity check failed for {retrieval_name}: Output format is incorrect. Expected at least 4 fields per result.")
+                    return False
+            else:
+                # Empty results are OK - the retriever is working, just no data
+                print(f"✅ Retriever API connectivity check successful for {retrieval_name}. Connection established (no data in collection yet).")
+                return True
         else:
-            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: What is happening here?  Please verify manually: {str(resp)}")
+            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: Expected list response, got {type(resp).__name__}")
             return False
     except Exception as e:
         print(f"❌ Retriever API connectivity check failed for {retrieval_name}: {type(e).__name__}: {str(e)}")
