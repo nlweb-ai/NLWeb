@@ -18,9 +18,10 @@ export class MapDisplay {
     console.log('window.GOOGLE_MAPS_API_KEY === undefined?', window.GOOGLE_MAPS_API_KEY === undefined);
     
     // Check if API key is configured
-    const apiKey = window.GOOGLE_MAPS_API_KEY || 
-                  document.body.getAttribute('data-google-maps-api-key') || 
-                  'YOUR_API_KEY';
+    const rawApiKey = window.GOOGLE_MAPS_API_KEY || 
+                      document.body.getAttribute('data-google-maps-api-key') || 
+                      'YOUR_API_KEY';
+    const apiKey = MapDisplay.validateApiKey(rawApiKey) ? encodeURIComponent(rawApiKey) : 'YOUR_API_KEY';
     
     console.log('API Key resolution:');
     console.log('  - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY);
@@ -55,6 +56,9 @@ export class MapDisplay {
    * @returns {Promise} Promise that resolves when API is loaded
    */
   static loadGoogleMapsAPI(apiKey) {
+    if (!MapDisplay.validateApiKey(apiKey)) {
+      return Promise.reject(new Error('Invalid Google Maps API key'));
+    }
     return new Promise((resolve, reject) => {
       // Check if already loading
       if (window.googleMapsAPILoading) {
@@ -72,7 +76,7 @@ export class MapDisplay {
       
       // Create script element
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
       script.async = true;
       script.defer = true;
       
@@ -274,5 +278,15 @@ export class MapDisplay {
     mapDiv.appendChild(listContainer);
     
     console.log('Location list created and appended successfully');
+  }
+  /**
+   * Validate the format of the Google Maps API key
+   * @param {string} apiKey - The API key to validate
+   * @returns {boolean} True if the API key is valid, false otherwise
+   */
+  static validateApiKey(apiKey) {
+    // Example validation: Check if the API key matches a typical format
+    const apiKeyRegex = /^[A-Za-z0-9_-]{35,}$/; // Adjust regex as needed
+    return apiKeyRegex.test(apiKey);
   }
 }
