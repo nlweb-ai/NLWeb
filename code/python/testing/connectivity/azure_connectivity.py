@@ -11,16 +11,24 @@ import time
 # Add parent directory to sys.path to allow imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-# Add error handling for imports
-try:
-    from openai import OpenAI, AzureOpenAI
-    from azure.core.credentials import AzureKeyCredential
-    from azure.search.documents import SearchClient
-    from core.config import CONFIG
-except ImportError as e:
-    print(f"Error importing required libraries: {e}")
-    print("Please run: pip install -r requirements.txt")
-    sys.exit(1)
+# Import core module that should always be available
+from core.config import CONFIG
+
+# Lazy imports for Azure-specific libraries
+def get_azure_dependencies():
+    try:
+        from azure.core.credentials import AzureKeyCredential
+        from azure.search.documents import SearchClient
+        return AzureKeyCredential, SearchClient
+    except ImportError:
+        return None, None
+
+def get_openai_dependencies():
+    try:
+        from openai import OpenAI, AzureOpenAI
+        return OpenAI, AzureOpenAI
+    except ImportError:
+        return None, None
 
 async def check_azure_search_api():
     """Check Azure AI Search connectivity"""
@@ -45,6 +53,12 @@ async def check_azure_search_api():
         return False
     
     index_name = retrieval_config.index_name or "embeddings1536"
+    
+    # Get Azure dependencies
+    AzureKeyCredential, SearchClient = get_azure_dependencies()
+    if not AzureKeyCredential or not SearchClient:
+        print("❌ Azure libraries not installed. Please install: pip install azure-search-documents")
+        return False
     
     try:
         credential = AzureKeyCredential(api_key)
@@ -78,6 +92,12 @@ async def check_inception_api():
         print("❌ API key for Inception not configured")
         return False
     
+    # Get OpenAI dependencies
+    OpenAI, AzureOpenAI = get_openai_dependencies()
+    if not OpenAI:
+        print("❌ OpenAI library not installed. Please install: pip install openai")
+        return False
+        
     try:
         client = OpenAI(api_key=api_key, base_url="https://api.inceptionlabs.ai/v1")
         models = client.models.list()
@@ -103,6 +123,12 @@ async def check_openai_api():
         print("❌ API key for OpenAI not configured")
         return False
     
+    # Get OpenAI dependencies
+    OpenAI, AzureOpenAI = get_openai_dependencies()
+    if not OpenAI:
+        print("❌ OpenAI library not installed. Please install: pip install openai")
+        return False
+        
     try:
         client = OpenAI(api_key=api_key)
         models = client.models.list()
@@ -134,6 +160,12 @@ async def check_azure_openai_api():
         print("❌ Endpoint for Azure OpenAI not configured")
         return False
 
+    # Get OpenAI dependencies
+    OpenAI, AzureOpenAI = get_openai_dependencies()
+    if not AzureOpenAI:
+        print("❌ OpenAI library not installed. Please install: pip install openai")
+        return False
+        
     try:
         client = AzureOpenAI(
             azure_endpoint=endpoint,
@@ -176,6 +208,12 @@ async def check_azure_embedding_api():
         print("❌ Embedding model not configured, using default")
         embedding_model = "text-embedding-3-small"
     
+    # Get OpenAI dependencies
+    OpenAI, AzureOpenAI = get_openai_dependencies()
+    if not AzureOpenAI:
+        print("❌ OpenAI library not installed. Please install: pip install openai")
+        return False
+        
     try:
         client = AzureOpenAI(
             azure_endpoint=endpoint,

@@ -3,29 +3,51 @@ Check connectivity for all services required by the application.
 Run this script to validate environment variables and API access.
 """
 
-# Error handling for imports
+# Core imports that should always be available
+import os
+import sys
+import asyncio
+import time
+import argparse
+
+# Add parent directory to sys.path to allow imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+# Import core modules that should always be available
 try:
-    import os
-    import sys
-    import asyncio
-    import time
-    import argparse
-
-    # Add parent directory to sys.path to allow imports
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-
     from core.config import CONFIG
     from core.llm import ask_llm
     from core.embedding import get_embedding
     from core.retriever import search, get_vector_db_client
-    from testing.connectivity.azure_connectivity import check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api
-    from testing.connectivity.snowflake_connectivity import check_embedding, check_complete, check_search
-    from testing.connectivity.inception_connectivity import check_inception_api
-
 except ImportError as e:
-    print(f"Error importing required libraries: {e}")
-    print("Please run: pip install -r requirements.txt")
+    print(f"Error importing core libraries: {e}")
+    print("Please ensure the core modules are available.")
     sys.exit(1)
+
+# Lazy imports for provider-specific connectivity checks
+def get_azure_connectivity_functions():
+    try:
+        from testing.connectivity.azure_connectivity import check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api
+        return check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api
+    except ImportError as e:
+        print(f"Warning: Azure connectivity checks unavailable: {e}")
+        return None, None, None, None
+
+def get_snowflake_connectivity_functions():
+    try:
+        from testing.connectivity.snowflake_connectivity import check_embedding, check_complete, check_search
+        return check_embedding, check_complete, check_search
+    except ImportError as e:
+        print(f"Warning: Snowflake connectivity checks unavailable: {e}")
+        return None, None, None
+
+def get_inception_connectivity_function():
+    try:
+        from testing.connectivity.inception_connectivity import check_inception_api
+        return check_inception_api
+    except ImportError as e:
+        print(f"Warning: Inception connectivity checks unavailable: {e}")
+        return None
 
 
 # Generic function to log unknown provider configurations
@@ -42,6 +64,23 @@ async def check_llm_api(llm_name) -> bool:
         await log_unknown_provider("LLM", llm_name)
         return False
 
+    # Check if this is a provider that needs special handling
+    if llm_name in ["azure_openai", "openai"]:
+        check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api = get_azure_connectivity_functions()
+        if llm_name == "azure_openai" and check_azure_openai_api:
+            return await check_azure_openai_api()
+        elif llm_name == "openai" and check_openai_api:
+            return await check_openai_api()
+    elif llm_name == "inception":
+        check_inception_api = get_inception_connectivity_function()
+        if check_inception_api:
+            return await check_inception_api()
+    elif llm_name == "snowflake_complete":
+        check_embedding, check_complete, check_search = get_snowflake_connectivity_functions()
+        if check_complete:
+            return await check_complete()
+
+    # Default LLM check using ask_llm
     try:
         schema = {"capital": "string"}
         test_prompt = "What is the capital of France?"
@@ -69,6 +108,17 @@ async def check_embedding_api(embedding_name) -> bool:
         await log_unknown_provider("embedding", embedding_name)
         return False
 
+    # Check if this is a provider that needs special handling
+    if embedding_name == "azure_embedding":
+        check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api = get_azure_connectivity_functions()
+        if check_azure_embedding_api:
+            return await check_azure_embedding_api()
+    elif embedding_name == "snowflake_embedding":
+        check_embedding, check_complete, check_search = get_snowflake_connectivity_functions()
+        if check_embedding:
+            return await check_embedding()
+
+    # Default embedding check using get_embedding
     try:
         test_prompt = "What is the capital of France?"
         output = await get_embedding(test_prompt, provider=embedding_name, model=CONFIG.embedding_providers[embedding_name].model, timeout=30)
@@ -96,6 +146,17 @@ async def check_retriever(retrieval_name) -> bool:
         await log_unknown_provider("retriever", retrieval_name)
         return False
 
+    # Check if this is a provider that needs special handling
+    if retrieval_name in ["nlweb_west", "nlweb_east"] and CONFIG.retrieval_endpoints[retrieval_name].db_type == "azure_search":
+        check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api = get_azure_connectivity_functions()
+        if check_azure_search_api:
+            return await check_azure_search_api()
+    elif retrieval_name == "snowflake_retrieval":
+        check_embedding, check_complete, check_search = get_snowflake_connectivity_functions()
+        if check_search:
+            return await check_search()
+
+    # Default retriever check using get_vector_db_client
     try:
         # We need to use this specific vector db client to test its connectivity.  The general search will try all and hide errors.  
         client = get_vector_db_client(retrieval_name)
