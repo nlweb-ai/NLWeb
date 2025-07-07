@@ -58,7 +58,13 @@ def init():
                 elif db_type == "snowflake_cortex_search":
                     from retrieval_providers.snowflake_client import SnowflakeCortexSearchClient
                     _preloaded_modules[db_type] = SnowflakeCortexSearchClient
-                
+                elif db_type == "elasticsearch":
+                    from retrieval_providers.elasticsearch_client import ElasticsearchClient
+                    _preloaded_modules[db_type] = ElasticsearchClient
+                elif db_type == "postgres":
+                    from retrieval_providers.postgres_client import PgVectorClient
+                    _preloaded_modules[db_type] = PgVectorClient
+                    
                 print(f"Successfully preloaded {db_type} client module")
             except Exception as e:
                 print(f"Failed to preload {db_type} client module: {e}")
