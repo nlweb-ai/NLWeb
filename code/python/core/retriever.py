@@ -58,6 +58,12 @@ def init():
                 elif db_type == "snowflake_cortex_search":
                     from retrieval_providers.snowflake_client import SnowflakeCortexSearchClient
                     _preloaded_modules[db_type] = SnowflakeCortexSearchClient
+                elif db_type == "elasticsearch":
+                    from retrieval_providers.elasticsearch_client import ElasticsearchClient
+                    _preloaded_modules[db_type] = ElasticsearchClient
+                elif db_type == "postgres":
+                    from retrieval_providers.postgres_client import PgVectorClient
+                    _preloaded_modules[db_type] = PgVectorClient
                 
                 print(f"Successfully preloaded {db_type} client module")
             except Exception as e:
@@ -72,6 +78,8 @@ _db_type_packages = {
     "opensearch": ["httpx>=0.28.1"],
     "qdrant": ["qdrant-client>=1.14.0"],
     "snowflake_cortex_search": ["httpx>=0.28.1"],
+    "elasticsearch": ["elasticsearch[async]>=8,<9"],
+    "postgres": ["psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0", "pgvector>=0.4.0"],
 }
 
 # Cache for installed packages
@@ -90,7 +98,7 @@ def _ensure_package_installed(db_type: str):
     packages = _db_type_packages[db_type]
     for package in packages:
         # Extract package name without version for caching
-        package_name = package.split(">=")[0].split("==")[0]
+        package_name = package.split(">=")[0].split("==")[0].split("[")[0]
         
         if package_name in _installed_packages:
             continue
@@ -103,6 +111,10 @@ def _ensure_package_installed(db_type: str):
                 __import__("azure.search.documents")
             elif package_name == "qdrant-client":
                 __import__("qdrant_client")
+            elif package_name == "elasticsearch":
+                __import__("elasticsearch")
+            elif package_name == "psycopg":
+                __import__("psycopg")
             else:
                 __import__(package_name)
             _installed_packages.add(package_name)
@@ -404,6 +416,12 @@ class VectorDBClient:
                 return True  # Local file-based storage
             else:
                 return bool(config.api_endpoint)  # Remote server (api_key is optional)
+        elif db_type == "elasticsearch":
+            # Elasticsearch requires endpoint, API key is optional
+            return bool(config.api_endpoint)
+        elif db_type == "postgres":
+            # PostgreSQL requires endpoint (connection string) and optionally api_key (password)
+            return bool(config.api_endpoint)
         else:
             logger.warning(f"Unknown database type {db_type} for endpoint {name}")
             return False
@@ -459,6 +477,12 @@ class VectorDBClient:
                 elif db_type == "snowflake_cortex_search":
                     from retrieval_providers.snowflake_client import SnowflakeCortexSearchClient
                     client = SnowflakeCortexSearchClient(endpoint_name)
+                elif db_type == "elasticsearch":
+                    from retrieval_providers.elasticsearch_client import ElasticsearchClient
+                    client = ElasticsearchClient(endpoint_name)
+                elif db_type == "postgres":
+                    from retrieval_providers.postgres_client import PgVectorClient
+                    client = PgVectorClient(endpoint_name)
                 else:
                     error_msg = f"Unsupported database type: {db_type}"
                     logger.error(error_msg)
