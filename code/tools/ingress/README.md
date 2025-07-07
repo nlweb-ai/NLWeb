@@ -29,7 +29,23 @@ python -m tools.ingress.db_load ../demo/github.openapi.json --delete-site github
 **Load Java interface files:**
 ```bash
 # Load a Java interface
+python -m tools.ingress.db_load ../demo/alaskaair_com.java alaskaair_com-api
+python -m tools.ingress.db_load ../demo/amazon_com.java amazon_com-api
+python -m tools.ingress.db_load ../demo/booking_com.java booking_com-api
+python -m tools.ingress.db_load ../demo/costco_com.java costco_com-api
 python -m tools.ingress.db_load ../demo/Wikimedia.java wikimedia-api
+python -m tools.ingress.db_load ../demo/GitHub.java GitHub-api
+python -m tools.ingress.db_load ../demo/maps_google_com.java maps_google_com-api
+python -m tools.ingress.db_load ../demo/Nasa.java Nasa-api
+python -m tools.ingress.db_load ../demo/News.java News-api
+python -m tools.ingress.db_load ../demo/OpenLibrary.java OpenLibrary-api
+python -m tools.ingress.db_load ../demo/OpenWeather.java OpenWeather-api
+python -m tools.ingress.db_load ../demo/redfin_com.java redfin_com-api
+python -m tools.ingress.db_load ../demo/Spotify.java Spotify-api
+python -m tools.ingress.db_load ../demo/teams_microsoft_com.java teams_microsoft_com-api
+python -m tools.ingress.db_load ../demo/Wikimedia.java Wikimedia-api
+python -m tools.ingress.db_load ../demo/youtube_com.java youtube_com-api
+
 ```
 
 **Use specific database endpoint:**
