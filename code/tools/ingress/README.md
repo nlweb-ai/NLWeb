@@ -13,6 +13,16 @@ Run the examples script to see the ingress system in action:
 python -m tools.ingress.examples
 ```
 
+### A Bit Longer Quick Start
+
+```
+.\myenv\Scripts\activate
+cd code
+python -m tools.ingress.db_load ../demo/alaskaair_com.java alaskaair_com-api
+python cli-app.py -q "what api should I use to book an alaska airline flight?" --num-results 10 --format json --output results.json --quiet
+
+
+
 ### Loading Real Files with db_load.py
 
 The `db_load.py` script provides a CLI interface compatible with the legacy loader but uses the new ingress system for supported file types (OpenAPI JSON, Java interfaces).
