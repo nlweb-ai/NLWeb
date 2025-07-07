@@ -113,11 +113,30 @@
         
       } catch (error) {
         console.error('OAuth callback error:', error);
-        statusMessage.innerHTML = `
-          <span class="error">Login failed: ${error.message}</span>
-          <br><br>
-          <a href="#" onclick="window.close()">Close window</a>
-        `;
+        
+        // Clear existing content
+        statusMessage.innerHTML = '';
+        
+        // Create error message safely
+        const errorSpan = document.createElement('span');
+        errorSpan.className = 'error';
+        errorSpan.textContent = `Login failed: ${error.message}`;
+        statusMessage.appendChild(errorSpan);
+        
+        // Add line breaks
+        statusMessage.appendChild(document.createElement('br'));
+        statusMessage.appendChild(document.createElement('br'));
+        
+        // Create close link
+        const closeLink = document.createElement('a');
+        closeLink.href = '#';
+        closeLink.textContent = 'Close window';
+        closeLink.onclick = (e) => {
+          e.preventDefault();
+          window.close();
+        };
+        statusMessage.appendChild(closeLink);
+        
         document.querySelector('.spinner').style.display = 'none';
       }
     })();

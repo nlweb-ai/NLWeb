@@ -706,7 +706,7 @@ export class ManagedEventSource {
           ratingDiv.style.cssText = 'margin-top: 5px; color: #f39c12;';
           const stars = '★'.repeat(Math.round(ratingValue));
           const reviewText = reviewCount ? ` (${reviewCount} reviews)` : '';
-          ratingDiv.innerHTML = `Rating: ${stars} ${ratingValue}/5${reviewText}`;
+          ratingDiv.textContent = `Rating: ${stars} ${ratingValue}/5${reviewText}`;
           contentContainer.appendChild(ratingDiv);
         }
       }
@@ -763,6 +763,8 @@ export class ManagedEventSource {
     
     // Parse and inject the HTML content
     // The HTML should contain the Data Commons web component and script tag
+    // SECURITY NOTE: This HTML comes from the backend and should be sanitized server-side
+    // It contains Data Commons web components that require specific HTML structure
     chartContainer.innerHTML = data.html;
     
     console.log('Container element created:', chartContainer);
@@ -915,7 +917,14 @@ export class ManagedEventSource {
       
       console.log('Loading Google Maps API with key:', apiKey.substring(0, 10) + '...');
       
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      // Validate and encode the API key for security
+      if (!/^[a-zA-Z0-9_-]+$/.test(apiKey)) {
+        console.error('Invalid API key format');
+        reject(new Error('Invalid API key format'));
+        return;
+      }
+      
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
       script.async = true;
       script.defer = true;
       
@@ -1024,14 +1033,21 @@ export class ManagedEventSource {
     `;
     
     const legendTitle = document.createElement('div');
-    legendTitle.innerHTML = '<strong>Locations:</strong>';
+    legendTitle.innerHTML = ''; // Clear content
+    const titleStrong = document.createElement('strong');
+    titleStrong.textContent = 'Locations:';
+    legendTitle.appendChild(titleStrong);
     legendTitle.style.marginBottom = '5px';
     legendDiv.appendChild(legendTitle);
     
     locations.forEach((location, index) => {
       const legendItem = document.createElement('div');
       legendItem.style.cssText = 'padding: 2px 0;';
-      legendItem.innerHTML = `<strong>${index + 1}.</strong> ${location.title}`;
+      legendItem.innerHTML = ''; // Clear content
+      const indexStrong = document.createElement('strong');
+      indexStrong.textContent = `${index + 1}.`;
+      legendItem.appendChild(indexStrong);
+      legendItem.appendChild(document.createTextNode(` ${location.title}`));
       legendDiv.appendChild(legendItem);
     });
     
@@ -1167,6 +1183,8 @@ export class ManagedEventSource {
       // Add styling to reduce text size
       contentDiv.style.cssText = 'font-size: 0.9em; line-height: 1.5;';
       // Content is already HTML from the backend
+      // SECURITY NOTE: This content should be sanitized server-side before sending
+      // as it contains structured HTML for recipe substitutions
       contentDiv.innerHTML = data.content;
       
       // Apply additional styling to specific elements
