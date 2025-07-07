@@ -9,7 +9,7 @@ A modular, extensible data ingestion system for NLWeb using the Strategy Pattern
 Run the examples script to see the ingress system in action:
 
 ```bash
-# From the code/tools/ingress directory
+# From the code/ directory
 python -m tools.verb_ingress.examples
 ```
 
@@ -35,7 +35,7 @@ The `db_load.py` script provides a CLI interface compatible with the legacy load
 python -m tools.verb_ingress.db_load ../demo/verb_demo/github.openapi.json github-api
 
 # Delete existing data
-python -m tools.verb_ingress.db_load ../demo/verb_demo/github.openapi.json github-api --delete-site
+python -m tools.verb_ingress.db_load github-api --only-delete
 ```
 
 **Load Java interface files:**
@@ -58,6 +58,7 @@ python -m tools.verb_ingress.db_load ../demo/verb_demo/teams_microsoft_com.java 
 python -m tools.verb_ingress.db_load ../demo/verb_demo/Wikimedia.java Wikimedia-api
 python -m tools.verb_ingress.db_load ../demo/verb_demo/youtube_com.java youtube_com-api
 
+python cli-app.py -q "1. Search for hotels in Paris for the dates 2025-07-10 to 2025-07-15.  Find a list of top-rated hotels. 2. Find the direction to the Eiffel Tower. 3. On Amazon, buy a travel adaptor for France. 4. Send a Microsoft Teams message to foo@bar.com that contains the hotel and the purchase information."  --num-results 20
 ```
 
 **Use specific database endpoint:**
