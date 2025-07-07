@@ -539,7 +539,12 @@ class QdrantVectorClient:
             client = await self._get_qdrant_client()
             filter_condition = self._create_site_filter(site)
             
-            try:
+            # Ensure collection exists before searching
+            collection_created = not await self.ensure_collection_exists(collection_name, len(embedding))
+            if collection_created:
+                logger.info(f"Collection '{collection_name}' was just created. Returning empty results.")
+                results = []
+            else:
                 # Perform the search
                 search_result = (
                     await client.search(
@@ -553,16 +558,6 @@ class QdrantVectorClient:
                 
                 # Format the results
                 results = self._format_results(search_result)
-                
-            except Exception as e:
-                # If collection doesn't exist yet
-                if "Collection not found" in str(e):
-                    logger.warning(f"Collection '{collection_name}' not found. Creating it.")
-                    await self.create_collection(collection_name, len(embedding))
-                    # Return empty results since we just created the collection
-                    results = []
-                else:
-                    raise
             
             retrieve_time = time.time() - start_retrieve
             
