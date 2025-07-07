@@ -35,7 +35,7 @@ The `db_load.py` script provides a CLI interface compatible with the legacy load
 python -m tools.verb_ingress.db_load ../demo/verb_demo/github.openapi.json github-api
 
 # Delete existing data
-python -m tools.verb_ingress.db_load ../demo/verb_demo/github.openapi.json --delete-site github-api
+python -m tools.verb_ingress.db_load ../demo/verb_demo/github.openapi.json github-api --delete-site
 ```
 
 **Load Java interface files:**
