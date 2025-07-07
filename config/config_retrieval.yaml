@@ -1,4 +1,4 @@
-write_endpoint: nlweb_west
+write_endpoint: qdrant_local
 
 endpoints:
 
