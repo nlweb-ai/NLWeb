@@ -596,7 +596,7 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
                 await send_response(404, {'Content-Type': 'text/plain'})
                 await send_chunk("Home page not found".encode('utf-8'), end_response=True)
             return
-        elif (path.find("html/") != -1) or path.find("static/") != -1 or (path.find("png") != -1) or path == "/oauth-callback.html":
+        elif (path.find("html/") != -1) or path.find("static/") != -1 or (path.find("png") != -1):
             await send_static_file(path, send_response, send_chunk)
             return
         elif (path.find("who") != -1):

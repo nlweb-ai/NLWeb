@@ -97,9 +97,12 @@ class OAuthManager {
         const authToken = localStorage.getItem('authToken');
         const userInfo = localStorage.getItem('userInfo');
         
+        console.log('Checking existing session:', { authToken: !!authToken, userInfo: !!userInfo });
+        
         if (authToken && userInfo) {
             try {
                 const user = JSON.parse(userInfo);
+                console.log('Existing user session found:', user);
                 this.updateUIForLoggedInUser(user);
             } catch (error) {
                 console.error('Error parsing user info:', error);
@@ -216,15 +219,23 @@ class OAuthManager {
             return;
         }
         
-        if (event.data && event.data.type === 'oauth-success') {
-            const { user, token } = event.data;
+        if (event.data && event.data.type === 'oauth_callback') {
+            if (event.data.error) {
+                console.error('OAuth error:', event.data.error);
+                alert(`Login failed: ${event.data.error}`);
+                return;
+            }
             
-            // Store auth info
-            localStorage.setItem('authToken', token);
-            localStorage.setItem('userInfo', JSON.stringify(user));
-            
-            // Update UI
-            this.updateUIForLoggedInUser(user);
+            if (event.data.authData) {
+                const { access_token, user_info } = event.data.authData;
+                
+                // Store auth info
+                localStorage.setItem('authToken', access_token);
+                localStorage.setItem('userInfo', JSON.stringify(user_info));
+                
+                // Update UI
+                this.updateUIForLoggedInUser(user_info);
+            }
             
             // Close auth window if still open
             if (this.authWindow && !this.authWindow.closed) {
@@ -241,18 +252,27 @@ class OAuthManager {
             window.dispatchEvent(new CustomEvent('authStateChanged', {
                 detail: {
                     isAuthenticated: true,
-                    user: user
+                    user: event.data.authData ? event.data.authData.user_info : null
                 }
             }));
         }
     }
     
     updateUIForLoggedInUser(user) {
+        console.log('Updating UI for logged in user:', user);
+        
         // Update UI elements
         const loginBtn = document.getElementById('loginBtn');
         const userInfo = document.getElementById('userInfo');
         const userName = document.getElementById('userName');
         const providerIcon = document.getElementById('providerIcon');
+        
+        console.log('UI elements found:', {
+            loginBtn: !!loginBtn,
+            userInfo: !!userInfo,
+            userName: !!userName,
+            providerIcon: !!providerIcon
+        });
         
         if (loginBtn) loginBtn.style.display = 'none';
         if (userInfo) userInfo.style.display = 'flex';
@@ -261,6 +281,7 @@ class OAuthManager {
         // Set provider icon
         if (providerIcon && user.provider) {
             providerIcon.className = `provider-icon ${user.provider}`;
+            console.log('Set provider icon class:', providerIcon.className);
         }
         
         // Also set data-provider attribute on user-info for CSS

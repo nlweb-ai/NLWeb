@@ -195,7 +195,8 @@ Before setting up OAuth, ensure you have:
 
 2. **Access the Web Interface**
    - Open http://localhost:8000 in your browser
-   - Click the "Login" button in the top right
+   - Click the "Login" button in the top-right corner
+   - You should see login options for enabled providers
 
 3. **Test OAuth Login**
    - Select your preferred provider
@@ -237,7 +238,10 @@ Before setting up OAuth, ensure you have:
 
 ## Troubleshooting
 
-### Common Issues
+### "OAuth configuration not found for provider: unknown"
+- The OAuth callback couldn't identify which provider was used
+- Check that sessionStorage is enabled in the browser
+- Verify the OAuth state parameter is being passed correctly
 
 1. **"OAuth not configured" Error**
    - Ensure environment variables are set

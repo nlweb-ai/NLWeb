@@ -315,13 +315,10 @@ class NLWebHandler:
                 
             await self.post_ranking_tasks()
             
-            # Store conversation if we have a user_id
-            user_id = get_param(self.query_params, "user_id", str, None)
-            if user_id:
-                print(f"[NLWebHandler] user_id: {user_id}")  # Console output for debugging
+            # Store conversation if user is authenticated
+            if self.oauth_id and self.thread_id:
+                logger.info(f"Storing conversation for oauth_id: {self.oauth_id}, thread_id: {self.thread_id}")
                 try:
-                    # Get thread_id from query params
-                    thread_id = get_param(self.query_params, "thread_id", str, None)
                     
                     # Prepare the response summary
                     response = ""
@@ -340,13 +337,13 @@ class NLWebHandler:
                     
                     # Store the conversation
                     await add_conversation(
-                        user_id=user_id,
+                        user_id=self.oauth_id,
                         site=self.site,
-                        thread_id=thread_id,
+                        thread_id=self.thread_id,
                         user_prompt=self.query,
                         response=response
                     )
-                    logger.info(f"Stored conversation for user {user_id} in thread {thread_id}")
+                    logger.info(f"Stored conversation for user {self.oauth_id} in thread {self.thread_id}")
                 except Exception as e:
                     logger.error(f"Error storing conversation: {e}")
                     # Don't fail the request if storage fails

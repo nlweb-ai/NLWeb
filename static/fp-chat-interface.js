@@ -78,7 +78,6 @@ class ModernChatInterface {
     // Listen for auth state changes
     window.addEventListener('authStateChanged', async (event) => {
       // When auth state changes, reload conversations
-      console.log('Auth state changed:', event.detail);
       
       if (event.detail.isAuthenticated) {
         // User just logged in
@@ -1549,11 +1548,7 @@ class ModernChatInterface {
           const data = await response.json();
           
           // Convert server conversations to our format
-<<<<<<< HEAD
-          this.conversations = this.convertServerConversations(data);
-=======
           this.conversations = this.convertServerConversations(data.conversations);
->>>>>>> origin/pr-260
           
           // Also check localStorage for any unsaved conversations
           this.mergeLocalConversations();
