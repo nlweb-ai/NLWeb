@@ -24,7 +24,7 @@ import pgvector.psycopg
 from core.config import CONFIG
 from embedding_providers.embedding import get_embedding
 from misc.logger.logging_config_helper  import get_configured_logger
-from misc.logger import LogLevel
+from misc.logger.logger import LogLevel
 
 logger = get_configured_logger("postgres_client")
 

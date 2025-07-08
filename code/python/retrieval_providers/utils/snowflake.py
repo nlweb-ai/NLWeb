@@ -1,6 +1,6 @@
 """Functions for extracting Snowflake connection parameters from configuration."""
 
-from config.config import CONFIG, LLMProviderConfig, EmbeddingProviderConfig, RetrievalProviderConfig
+from core.config import CONFIG, LLMProviderConfig, EmbeddingProviderConfig, RetrievalProviderConfig
 
 class ConfigurationError(RuntimeError):
     """Raised when configuration is missing or invalid"""
