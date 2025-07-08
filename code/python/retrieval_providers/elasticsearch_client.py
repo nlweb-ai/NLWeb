@@ -12,10 +12,10 @@ from typing import List, Dict, Union, Optional, Any
 from elasticsearch import AsyncElasticsearch
 from elasticsearch.helpers import async_bulk
 
-from config.config import CONFIG
-from embedding.embedding import get_embedding
-from utils.logging_config_helper import get_configured_logger
-from utils.logger import LogLevel
+from core.config import CONFIG
+from core.embedding import get_embedding
+from misc.logger.logging_config_helper import get_configured_logger
+from misc.logger.logger import LogLevel
 
 logger = get_configured_logger("elasticsearch_client")
 

@@ -224,6 +224,240 @@ async def handle_client(reader, writer, fulfill_request):
         except Exception as e:
             logger.warning(f"[{request_id}] Error closing connection: {str(e)}")
 
+async def handle_oauth_token_exchange(method, headers, body, send_response, send_chunk):
+    """
+    Handle OAuth token exchange endpoint.
+    Exchanges authorization code for access token and fetches user info.
+    """
+    try:
+        if method != "POST":
+            await send_response(405, {'Content-Type': 'application/json'})
+            await send_chunk(json.dumps({"error": "Method not allowed"}), end_response=True)
+            return
+        
+        # Parse request body
+        if body:
+            try:
+                data = json.loads(body.decode('utf-8'))
+            except:
+                await send_response(400, {'Content-Type': 'application/json'})
+                await send_chunk(json.dumps({"error": "Invalid request body"}), end_response=True)
+                return
+        else:
+            await send_response(400, {'Content-Type': 'application/json'})
+            await send_chunk(json.dumps({"error": "Missing request body"}), end_response=True)
+            return
+        
+        code = data.get('code')
+        provider = data.get('provider')
+        redirect_uri = data.get('redirect_uri')
+        
+        if not code or not provider:
+            await send_response(400, {'Content-Type': 'application/json'})
+            await send_chunk(json.dumps({"error": "Missing required parameters"}), end_response=True)
+            return
+        
+        # Get OAuth credentials from config
+        provider_config = CONFIG.oauth_providers.get(provider, {})
+        
+        if not provider_config:
+            logger.error(f"OAuth configuration not found for provider: {provider}")
+            await send_response(500, {'Content-Type': 'application/json'})
+            await send_chunk(json.dumps({"error": f"OAuth not configured for {provider}"}), end_response=True)
+            return
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                if provider == "google":
+                    # Exchange code for token with Google
+                    token_response = await client.post(
+                        "https://oauth2.googleapis.com/token",
+                        data={
+                            "code": code,
+                            "client_id": provider_config.get('client_id'),
+                            "client_secret": provider_config.get('client_secret'),
+                            "redirect_uri": redirect_uri,
+                            "grant_type": "authorization_code"
+                        }
+                    )
+                    
+                    if token_response.status_code != 200:
+                        raise Exception(f"Token exchange failed: {token_response.text}")
+                    
+                    token_data = token_response.json()
+                    access_token = token_data.get('access_token')
+                    
+                    # Fetch user info
+                    user_response = await client.get(
+                        "https://www.googleapis.com/oauth2/v2/userinfo",
+                        headers={"Authorization": f"Bearer {access_token}"}
+                    )
+                    
+                    if user_response.status_code != 200:
+                        raise Exception(f"Failed to fetch user info: {user_response.text}")
+                    
+                    user_info = user_response.json()
+                    
+                elif provider == "facebook":
+                    # Exchange code for token with Facebook
+                    token_response = await client.get(
+                        "https://graph.facebook.com/v18.0/oauth/access_token",
+                        params={
+                            "code": code,
+                            "client_id": provider_config.get('client_id'),
+                            "client_secret": provider_config.get('client_secret'),
+                            "redirect_uri": redirect_uri
+                        }
+                    )
+                    
+                    if token_response.status_code != 200:
+                        raise Exception(f"Token exchange failed: {token_response.text}")
+                    
+                    token_data = token_response.json()
+                    access_token = token_data.get('access_token')
+                    
+                    # Fetch user info
+                    user_response = await client.get(
+                        "https://graph.facebook.com/me",
+                        params={
+                            "access_token": access_token,
+                            "fields": "id,name,email"
+                        }
+                    )
+                    
+                    if user_response.status_code != 200:
+                        raise Exception(f"Failed to fetch user info: {user_response.text}")
+                    
+                    user_info = user_response.json()
+                    
+                elif provider == "microsoft":
+                    # Exchange code for token with Microsoft
+                    token_response = await client.post(
+                        "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+                        data={
+                            "code": code,
+                            "client_id": provider_config.get('client_id'),
+                            "client_secret": provider_config.get('client_secret'),
+                            "redirect_uri": redirect_uri,
+                            "grant_type": "authorization_code",
+                            "scope": "openid profile email"
+                        }
+                    )
+                    
+                    if token_response.status_code != 200:
+                        raise Exception(f"Token exchange failed: {token_response.text}")
+                    
+                    token_data = token_response.json()
+                    access_token = token_data.get('access_token')
+                    
+                    # Fetch user info
+                    user_response = await client.get(
+                        "https://graph.microsoft.com/v1.0/me",
+                        headers={"Authorization": f"Bearer {access_token}"}
+                    )
+                    
+                    if user_response.status_code != 200:
+                        raise Exception(f"Failed to fetch user info: {user_response.text}")
+                    
+                    user_info = user_response.json()
+                    # Microsoft returns different field names
+                    user_info = {
+                        "id": user_info.get("id"),
+                        "email": user_info.get("mail") or user_info.get("userPrincipalName"),
+                        "name": user_info.get("displayName"),
+                        "provider": provider
+                    }
+                    
+                elif provider == "github":
+                    # Exchange code for token with GitHub
+                    token_response = await client.post(
+                        "https://github.com/login/oauth/access_token",
+                        data={
+                            "code": code,
+                            "client_id": provider_config.get('client_id'),
+                            "client_secret": provider_config.get('client_secret'),
+                            "redirect_uri": redirect_uri
+                        },
+                        headers={"Accept": "application/json"}
+                    )
+                    
+                    if token_response.status_code != 200:
+                        raise Exception(f"Token exchange failed: {token_response.text}")
+                    
+                    token_data = token_response.json()
+                    access_token = token_data.get('access_token')
+                    
+                    # Fetch user info
+                    user_response = await client.get(
+                        "https://api.github.com/user",
+                        headers={"Authorization": f"token {access_token}"}
+                    )
+                    
+                    if user_response.status_code != 200:
+                        raise Exception(f"Failed to fetch user info: {user_response.text}")
+                    
+                    user_info = user_response.json()
+                    
+                    # Fetch user email if not public
+                    if not user_info.get("email"):
+                        email_response = await client.get(
+                            "https://api.github.com/user/emails",
+                            headers={"Authorization": f"token {access_token}"}
+                        )
+                        if email_response.status_code == 200:
+                            emails = email_response.json()
+                            # Get primary email
+                            primary_email = next((e["email"] for e in emails if e["primary"]), None)
+                            if primary_email:
+                                user_info["email"] = primary_email
+                    
+                    # Normalize GitHub user info
+                    user_info = {
+                        "id": str(user_info.get("id")),
+                        "email": user_info.get("email"),
+                        "name": user_info.get("name") or user_info.get("login"),
+                        "provider": provider
+                    }
+                else:
+                    raise Exception(f"Unsupported provider: {provider}")
+                
+                # Generate a session token
+                session_token = secrets.token_urlsafe(32)
+                
+                # In a real application, you would:
+                # 1. Store the session token in a database with user info
+                # 2. Set an expiration time
+                # 3. Implement token refresh logic
+                
+                # For now, we'll include a hash of the token to identify the user
+                user_id = hashlib.sha256(f"{provider}:{user_info.get('id')}".encode()).hexdigest()[:16]
+                
+                # Return the session token and user info
+                response_data = {
+                    "access_token": session_token,
+                    "token_type": "Bearer",
+                    "user_info": {
+                        "id": user_id,
+                        "email": user_info.get("email"),
+                        "name": user_info.get("name"),
+                        "provider": provider
+                    }
+                }
+                
+                await send_response(200, {'Content-Type': 'application/json'})
+                await send_chunk(json.dumps(response_data), end_response=True)
+                
+        except Exception as e:
+            logger.error(f"OAuth provider error: {str(e)}")
+            await send_response(500, {'Content-Type': 'application/json'})
+            await send_chunk(json.dumps({"error": f"OAuth provider error: {str(e)}"}), end_response=True)
+        
+    except Exception as e:
+        logger.error(f"OAuth token exchange error: {str(e)}")
+        await send_response(500, {'Content-Type': 'application/json'})
+        await send_chunk(json.dumps({"error": "Internal server error"}), end_response=True)
+
+
 def handle_site_parameter(query_params):
     """
     Handle site parameter with configuration validation.
@@ -436,6 +670,115 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
             # Handle MCP requests with streaming parameter
             logger.info(f"Routing to MCP handler (streaming={use_streaming})")
             await handle_mcp_request(query_params, body, send_response, send_chunk, streaming=use_streaming)
+            return
+        elif path == "/oauth/callback" or path.startswith("/oauth/callback"):
+            # Serve the OAuth callback page
+            await send_static_file("/static/oauth-callback.html", send_response, send_chunk)
+            return
+        elif path == "/api/oauth/config":
+            # Return OAuth configuration for client
+            logger.info("OAuth config request received")
+            logger.info(f"OAuth providers configured: {list(CONFIG.oauth_providers.keys())}")
+            
+            oauth_config = {}
+            for provider_name, provider_config in CONFIG.oauth_providers.items():
+                logger.info(f"Processing provider {provider_name}: has client_id = {bool(provider_config.get('client_id'))}")
+                if provider_config.get("client_id"):
+                    oauth_config[provider_name] = {
+                        "enabled": True,
+                        "client_id": provider_config["client_id"],
+                        "auth_url": provider_config.get("auth_url"),
+                        "scope": provider_config.get("scope"),
+                        "redirect_uri": f"http://{headers.get('host', 'localhost:8000')}/oauth/callback"
+                    }
+                    # Facebook uses 'app_id' in frontend
+                    if provider_name == "facebook":
+                        oauth_config[provider_name]["app_id"] = provider_config["client_id"]
+            
+            logger.info(f"Returning OAuth config for providers: {list(oauth_config.keys())}")
+            await send_response(200, {'Content-Type': 'application/json'})
+            await send_chunk(json.dumps(oauth_config), end_response=True)
+            return
+        elif path == "/api/oauth/token":
+            # Handle OAuth token exchange
+            await handle_oauth_token_exchange(method, headers, body, send_response, send_chunk)
+            return
+        elif path == "/api/conversations" or path == "/api/conversations/migrate":
+            # Handle conversation history API
+            if method == "GET" and path == "/api/conversations":
+                # Get user_id from query params (handle list values)
+                user_id = query_params.get('user_id')
+                if isinstance(user_id, list):
+                    user_id = user_id[0] if user_id else None
+                
+                site = query_params.get('site', 'all')
+                if isinstance(site, list):
+                    site = site[0] if site else 'all'
+                
+                limit_param = query_params.get('limit', '50')
+                if isinstance(limit_param, list):
+                    limit_param = limit_param[0] if limit_param else '50'
+                limit = int(limit_param)
+                
+                if not user_id:
+                    await send_response(400, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps({"error": "user_id is required"}), end_response=True)
+                    return
+                
+                try:
+                    # TODO: Implement storage module
+                    # from core.storage import get_recent_conversations
+                    
+                    # Get conversation history
+                    # conversations = await get_recent_conversations(user_id, site, limit)
+                    conversations = []  # TODO: Implement storage
+                    
+                    await send_response(200, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps({
+                        "conversations": conversations,
+                        "user_id": user_id,
+                        "site": site
+                    }), end_response=True)
+                except Exception as e:
+                    logger.error(f"Error fetching conversations: {e}")
+                    await send_response(500, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps({"error": "Failed to fetch conversations"}), end_response=True)
+            elif method == "POST" and path == "/api/conversations/migrate":
+                # Migrate conversations from localStorage to server storage
+                if not body:
+                    await send_response(400, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps({"error": "Request body required"}), end_response=True)
+                    return
+                
+                try:
+                    data = json.loads(body.decode('utf-8'))
+                    user_id = data.get('user_id')
+                    conversations_data = data.get('conversations', [])
+                    
+                    if not user_id:
+                        await send_response(400, {'Content-Type': 'application/json'})
+                        await send_chunk(json.dumps({"error": "user_id is required"}), end_response=True)
+                        return
+                    
+                    # TODO: Implement storage module
+                    # from core.storage import migrate_from_localstorage
+                    
+                    # Migrate conversations
+                    # migrated_count = await migrate_from_localstorage(user_id, conversations_data)
+                    migrated_count = 0  # TODO: Implement storage
+                    
+                    await send_response(200, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps({
+                        "success": True,
+                        "migrated_count": migrated_count
+                    }), end_response=True)
+                except Exception as e:
+                    logger.error(f"Error migrating conversations: {e}")
+                    await send_response(500, {'Content-Type': 'application/json'})
+                    await send_chunk(json.dumps({"error": "Failed to migrate conversations"}), end_response=True)
+            else:
+                await send_response(405, {'Content-Type': 'application/json'})
+                await send_chunk(json.dumps({"error": "Method not allowed"}), end_response=True)
             return
         elif (path.find("ask") != -1):
             # Handle site parameter validation for ask endpoint

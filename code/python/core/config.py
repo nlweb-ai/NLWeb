@@ -13,6 +13,9 @@ import yaml
 from dataclasses import dataclass, field
 from dotenv import load_dotenv
 from typing import Dict, Optional, Any, List
+from misc.logger.logging_config_helper import get_configured_logger
+
+logger = get_configured_logger("config")
 
 @dataclass
 class ModelConfig:
@@ -85,9 +88,48 @@ class NLWebConfig:
     required_info_enabled: bool = True  # Enable or disable required info checking
     api_keys: Dict[str, str] = field(default_factory=dict)  # API keys for external services
 
+@dataclass
+class ConversationStorageConfig:
+    type: str  # "qdrant", "cosmos", "sqlite", "postgres", "mysql"
+    enabled: bool = True
+    # API/URL fields
+    api_key: Optional[str] = None
+    url: Optional[str] = None
+    endpoint: Optional[str] = None
+    database_path: Optional[str] = None
+    # Names
+    collection_name: Optional[str] = None
+    database_name: Optional[str] = None
+    container_name: Optional[str] = None
+    table_name: Optional[str] = None
+    # Connection details
+    host: Optional[str] = None
+    port: Optional[int] = None
+    user: Optional[str] = None
+    password: Optional[str] = None
+    connection_string: Optional[str] = None
+    # Other settings
+    vector_size: int = 1536
+    vector_dimensions: int = 1536
+    partition_key: Optional[str] = None
+    max_conversations: Optional[int] = None
+    ttl_seconds: Optional[int] = None
+
+@dataclass
+class StorageBehaviorConfig:
+    store_anonymous: bool = True
+    max_conversations_per_thread: int = 100
+    max_threads_per_user: int = 1000
+    retention_days: int = 365
+    compute_embeddings: bool = True
+    batch_size: int = 100
+    enable_search: bool = True
+    auto_migrate_on_login: bool = True
+    max_migrate_conversations: int = 500
+
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
-                   "config_webserver.yaml", "config_nlweb.yaml"]
+                   "config_webserver.yaml", "config_nlweb.yaml", "config_conv_store.yaml", "config_oauth.yaml"]
 
     def __init__(self):
         load_dotenv()
@@ -99,6 +141,8 @@ class AppConfig:
         self.load_retrieval_config()
         self.load_webserver_config()
         self.load_nlweb_config()
+        self.load_conversation_storage_config()
+        self.load_oauth_config()
 
     def _get_config_directory(self) -> str:
         """
@@ -570,6 +614,157 @@ class AppConfig:
             return self.llm_endpoints[self.preferred_llm_endpoint]
             
         return None
+    
+    def load_oauth_config(self, path: str = "config_oauth.yaml"):
+        """Load OAuth provider configuration."""
+        # Build the full path to the config file using the config directory
+        full_path = os.path.join(self.config_directory, path)
+        
+        try:
+            with open(full_path, "r") as f:
+                data = yaml.safe_load(f)
+        except FileNotFoundError:
+            # If config file doesn't exist, use defaults
+            logger.warning(f"{path} not found. OAuth authentication will not be available.")
+            self.oauth_providers = {}
+            self.oauth_session_secret = None
+            self.oauth_token_expiration = 86400
+            self.oauth_require_auth = False
+            self.oauth_anonymous_endpoints = []
+            return
+        
+        # Load OAuth providers
+        self.oauth_providers = {}
+        for provider_name, provider_data in data.get("providers", {}).items():
+            if provider_data.get("enabled", False):
+                client_id = self._get_config_value(provider_data.get("client_id_env"))
+                client_secret = self._get_config_value(provider_data.get("client_secret_env"))
+                
+                if client_id and client_secret:
+                    self.oauth_providers[provider_name] = {
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "auth_url": provider_data.get("auth_url"),
+                        "token_url": provider_data.get("token_url"),
+                        "userinfo_url": provider_data.get("userinfo_url"),
+                        "emails_url": provider_data.get("emails_url"),  # For GitHub
+                        "scope": provider_data.get("scope")
+                    }
+                    logger.info(f"Loaded OAuth provider: {provider_name}")
+                else:
+                    logger.warning(f"OAuth provider {provider_name} is enabled but missing credentials")
+        
+        # Load session configuration
+        session_config = data.get("session", {})
+        self.oauth_session_secret = self._get_config_value(session_config.get("secret_key_env"))
+        # Generate a default session secret if not provided
+        if not self.oauth_session_secret:
+            import secrets
+            self.oauth_session_secret = secrets.token_urlsafe(32)
+            logger.warning("No OAuth session secret configured, using generated secret (not recommended for production)")
+        self.oauth_token_expiration = session_config.get("token_expiration", 86400)
+        
+        # Load authentication settings
+        auth_config = data.get("auth", {})
+        self.oauth_require_auth = auth_config.get("require_auth", False)
+        self.oauth_anonymous_endpoints = auth_config.get("anonymous_endpoints", [])
+        
+        logger.info(f"Loaded {len(self.oauth_providers)} OAuth providers")
+
+    def load_conversation_storage_config(self, path: str = "config_conv_store.yaml"):
+        """Load conversation storage configuration."""
+        # Build the full path to the config file using the config directory
+        full_path = os.path.join(self.config_directory, path)
+        
+        try:
+            with open(full_path, "r") as f:
+                data = yaml.safe_load(f)
+                
+            # Load default storage endpoint
+            self.conversation_storage_default = data.get("default_storage", "qdrant_local")
+            
+            # Load storage endpoints
+            self.conversation_storage_endpoints: Dict[str, ConversationStorageConfig] = {}
+            for name, cfg in data.get("storage_endpoints", {}).items():
+                # Get enabled status
+                enabled = cfg.get("enabled", False)
+                if not enabled:
+                    continue
+                    
+                # Create storage config
+                storage_config = ConversationStorageConfig(
+                    type=cfg.get("type", "qdrant"),
+                    enabled=enabled,
+                    # API/URL fields
+                    api_key=self._get_config_value(cfg.get("api_key_env")),
+                    url=self._get_config_value(cfg.get("url_env")),
+                    endpoint=self._get_config_value(cfg.get("endpoint_env")),
+                    database_path=self._resolve_path(cfg.get("database_path")) if cfg.get("database_path") else None,
+                    # Names
+                    collection_name=cfg.get("collection_name"),
+                    database_name=cfg.get("database_name"),
+                    container_name=cfg.get("container_name"),
+                    table_name=cfg.get("table_name"),
+                    # Connection details
+                    host=self._get_config_value(cfg.get("host_env")),
+                    port=cfg.get("port"),
+                    user=self._get_config_value(cfg.get("user_env")),
+                    password=self._get_config_value(cfg.get("password_env")),
+                    connection_string=self._get_config_value(cfg.get("connection_string_env")),
+                    # Other settings
+                    vector_size=cfg.get("vector_size", 1536),
+                    vector_dimensions=cfg.get("vector_dimensions", 1536),
+                    partition_key=cfg.get("partition_key"),
+                    max_conversations=cfg.get("max_conversations"),
+                    ttl_seconds=cfg.get("ttl_seconds")
+                )
+                
+                self.conversation_storage_endpoints[name] = storage_config
+            
+            # Load storage behavior
+            behavior_data = data.get("storage_behavior", {})
+            migration_data = behavior_data.get("migration", {})
+            
+            self.conversation_storage_behavior = StorageBehaviorConfig(
+                store_anonymous=behavior_data.get("store_anonymous", True),
+                max_conversations_per_thread=behavior_data.get("max_conversations_per_thread", 100),
+                max_threads_per_user=behavior_data.get("max_threads_per_user", 1000),
+                retention_days=behavior_data.get("retention_days", 365),
+                compute_embeddings=behavior_data.get("compute_embeddings", True),
+                batch_size=behavior_data.get("batch_size", 100),
+                enable_search=behavior_data.get("enable_search", True),
+                auto_migrate_on_login=migration_data.get("auto_migrate_on_login", True),
+                max_migrate_conversations=migration_data.get("max_migrate_conversations", 500)
+            )
+            
+            # Set the active conversation storage config
+            if self.conversation_storage_default in self.conversation_storage_endpoints:
+                self.conversation_storage = self.conversation_storage_endpoints[self.conversation_storage_default]
+            else:
+                # Fallback to first enabled endpoint or create default
+                if self.conversation_storage_endpoints:
+                    self.conversation_storage = next(iter(self.conversation_storage_endpoints.values()))
+                else:
+                    # Create default local storage
+                    self.conversation_storage = ConversationStorageConfig(
+                        type="qdrant",
+                        enabled=True,
+                        database_path=self._resolve_path("../data/conversations_db"),
+                        collection_name="nlweb_conversations"
+                    )
+                    
+        except FileNotFoundError:
+            # If config file doesn't exist, use default configuration
+            print(f"Warning: {path} not found. Using default conversation storage configuration.")
+            self.conversation_storage = ConversationStorageConfig(
+                type="qdrant",
+                enabled=True,
+                database_path=self._resolve_path("../data/conversations_db"),
+                collection_name="nlweb_conversations"
+            )
+            self.conversation_storage_behavior = StorageBehaviorConfig()
+            self.conversation_storage_endpoints = {}
+            self.conversation_storage_default = "qdrant_local"
 
 # Global singleton
 CONFIG = AppConfig()

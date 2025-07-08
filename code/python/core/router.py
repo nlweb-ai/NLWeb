@@ -212,11 +212,11 @@ class ToolSelector:
                         tool_results.append(result)
                         
                         tool_name = result.get("tool", {}).name if result.get("tool") else "unknown"
-                        print(f"DEBUG: Tool {tool_name} completed with score {score}, threshold is {threshold}")
+                        # print(f"DEBUG: Tool {tool_name} completed with score {score}, threshold is {threshold}")
                         
                         # If score exceeds threshold, cancel remaining tasks
                         if score >= threshold:
-                            print(f"DEBUG: Score {score} >= threshold {threshold}, triggering early termination")
+                            # print(f"DEBUG: Score {score} >= threshold {threshold}, triggering early termination")
                             cancelled_count = 0
                             for task in tasks:
                                 if not task.done():
@@ -418,18 +418,19 @@ class ToolSelector:
             
             result = response or {"score": 0, "justification": "No response from LLM"}
             
-            # Print timing and response information
-            print(f"\n--- Tool Evaluation: {tool.name} ---")
-            print(f"Time taken: {elapsed_time:.3f} seconds")
-            print(f"Response: {result}")
-            print(f"Score: {result.get('score', 0)}")
-            print("-" * 40)
+            # Log timing and response information (commented out to reduce console output)
+            # print(f"\n--- Tool Evaluation: {tool.name} ---")
+            # print(f"Time taken: {elapsed_time:.3f} seconds")
+            # print(f"Response: {result}")
+            # print(f"Score: {result.get('score', 0)}")
+            # print("-" * 40)
             
             return {"tool": tool, "result": result, "score": result.get("score", 0)}
         except Exception as e:
-            print(f"\n--- Tool Evaluation ERROR: {tool.name} ---")
-            print(f"Error: {str(e)}")
-            print("-" * 40)
+            # print(f"\n--- Tool Evaluation ERROR: {tool.name} ---")
+            # print(f"Error: {str(e)}")
+            # print("-" * 40)
+            logger.error(f"Tool evaluation error for {tool.name}: {str(e)}")
             return {"tool": tool, "score": 0, "result": {"score": 0, "justification": f"Error: {str(e)}"}}
     
     async def _send_message(self, tool_scores, query, schema_type):
