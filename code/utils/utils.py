@@ -1,28 +1,24 @@
 
-recipe_sites = ['seriouseats', 'hebbarskitchen', 'latam_recipes',
-                'woksoflife', 'cheftariq',  'spruce', 'nytimes']
+health_sites = ['Healthdirect', 'Pregnancy-Birth-and-Baby', 'Medicines',
+                'Partner-Website']
 
-all_sites = recipe_sites + ["imdb", "npr podcasts", "neurips", "backcountry", "tripadvisor", "DataCommons"]
+all_sites = health_sites
 
 def siteToItemType(site):
     # For any single site's deployment, this can stay in code. But for the
     # multi-tenant, it should move to the database
     namespace = "http://nlweb.ai/base"
     et = "Item"
-    if site == "imdb":
-        et = "Movie"
-    elif site in recipe_sites:
-        et = "Recipe"
-    elif site == "npr podcasts":
-        et = "Thing"
-    elif site == "neurips":
-        et = "Paper"
-    elif site == "backcountry":
-        et = "Outdoor Gear"
-    elif site == "zillow":
-        et = "RealEstate"
-    elif site.lower() == "datacommons":
-        et = "Statistics"
+    if site == "Healthdirect":
+        et = "Webpage"
+    elif site == "Pregnancy-Birth-and-Baby":
+        et = "Webpage"
+    elif site == "Medicines":
+        et = "Drug"
+    elif site == "Partner-Website":
+        et = "Organization"
+    elif site == "Service-Finder":
+        et = "MedicalOrganization"
     else:
         et = "Items"
     return f"{{{namespace}}}{et}"

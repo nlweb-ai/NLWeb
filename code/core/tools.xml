@@ -6,16 +6,15 @@
   <Thing>
     <Tool name="search" enabled="true">
       <method>builtin</method>
-      <example>Find Italian restaurants near me</example>
-      <example>Show me action movies from the 1990s</example>
-      <example>I need vegetarian pasta recipes</example>
-      <example>Find wireless headphones under $200</example>
+      <example>Is it safe to give my 6 month old child Panadol?</example>
+      <example>I need to pee all the time</example>
+      <example>How should I dress my baby for the cold?</example>
+      <example>How can I care for a sprained ankle at home?</example>
       <prompt>
         The user has the following query: {request.query}.
 
         The search tool finds items that match specific search criteria. It's designed for:
-        - Finding recipes/movies/books/products that match certain requirements
-        - Discovering items based on attributes like genre, cuisine type, price range, or features
+        - Finding answers to health and medical questions that match certain requirements
         - Broad exploration when users want to see what's available
         
         The search tool is NOT the best choice if the user is asking for specific details 

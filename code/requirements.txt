@@ -27,7 +27,7 @@ seaborn>=0.13.0
 # anthropic>=0.18.1
 
 # For OpenAI (including Azure OpenAI, Llama Azure, DeepSeek Azure):
-# openai>=1.12.0
+openai>=1.12.0
 
 # For Google Gemini/Vertex AI:
 # google-genai>=0.7.1

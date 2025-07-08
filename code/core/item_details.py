@@ -20,7 +20,7 @@ from llm.llm import ask_llm
 
 logger = get_configured_logger("item_details")
 
-FIND_ITEM_THRESHOLD = 70
+FIND_ITEM_THRESHOLD = 80
 
 
 class ItemDetailsHandler():

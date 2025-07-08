@@ -24,7 +24,7 @@ class LLMProvider(ABC):
         prompt: str,
         schema: Dict[str, Any],
         model: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: float = 0.3,
         max_tokens: int = 2048,
         timeout: float = 30.0,
         **kwargs

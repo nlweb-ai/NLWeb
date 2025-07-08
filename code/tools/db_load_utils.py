@@ -12,16 +12,10 @@ from config.config import CONFIG
 from tools.trim_schema_json import trim_schema_json
 
 # Item type categorization
-SKIP_TYPES = ["ItemList", "ListItem", "AboutPage", "WebPage", "WebSite", "Person"]
+SKIP_TYPES = ["Place"]
 
-INCLUDE_TYPES = [
-    "Recipe", "NeurIPSPoster", "InvitedTalk", "Oral", "Movie", "LocalBusiness", "Review",
-    "TVShow", "TVEpisode", "Product", "Offer", "PodcastEpisode", "Book",
-    "Podcast", "TVSeries", "ProductGroup", "Event", "FoodEstablishment",
-    "Apartment", "House", "Home", "RealEstateListing", "SingleFamilyResidence", "Offer",
-    "AggregateOffer", "Event", "BusinessEvent", "Festival", "MusicEvent", "EducationEvent",
-    "SocialEvent", "SportsEvent"
-]
+INCLUDE_TYPES = []
+
 
 # Path constants (can be overridden by config)
 EMBEDDINGS_PATH_SMALL = "./data/embeddings/small/"

@@ -31,7 +31,7 @@ logger = get_configured_logger("generate_answer")
 
 class GenerateAnswer(NLWebHandler):
 
-    GATHER_ITEMS_THRESHOLD = 55
+    GATHER_ITEMS_THRESHOLD = 85
 
     RANKING_PROMPT_NAME = "RankingPromptForGenerate"
     SYNTHESIZE_PROMPT_NAME = "SynthesizePromptForGenerate"

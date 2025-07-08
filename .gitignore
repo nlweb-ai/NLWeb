@@ -18,6 +18,8 @@ data/
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
+
+
 # Mono auto generated files
 mono_crash.*
 
@@ -445,3 +447,5 @@ nlw2.zip
 /data
 
 refactored/code/set_keys.sh
+
+sitemap_clean.xml

@@ -13,7 +13,7 @@ data_folders:
 
 # Enable or disable tool selection
 # When set to false, queries will skip tool selection and go directly to search
-tool_selection_enabled: true
+tool_selection_enabled: false
 
 # Enable or disable memory functionality
 # When set to false, the system will not analyze queries for memory requests

@@ -116,7 +116,7 @@ def format_results(search_result):
     return results
 
 
-async def search_db(query, site, num_results=50, endpoint_name=None, query_params=None):
+async def search_db(query, site, num_results=25, endpoint_name=None, query_params=None):
     """Search Qdrant for records filtered by site and ranked by vector similarity."""
     endpoint_name = endpoint_name or CONFIG.write_endpoint
     logger.info(
