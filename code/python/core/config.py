@@ -46,7 +46,8 @@ class RetrievalProviderConfig:
     db_type: Optional[str] = None
     use_knn: Optional[bool] = None
     enabled: bool = False
-    vector_type: Optional[Dict[str, Any]] = None
+    vector_type: Optional[str] = None
+
 
 @dataclass
 class ConversationStorageConfig:
