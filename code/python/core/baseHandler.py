@@ -313,8 +313,6 @@ class NLWebHandler:
                 return self.return_value
                 
             await self.post_ranking_tasks()
-            
-            # TODO: Implement conversation storage for authenticated users
             # Store conversation if user is authenticated
             if self.oauth_id and self.thread_id:
                 logger.info(f"Storing conversation for oauth_id: {self.oauth_id}, thread_id: {self.thread_id}")
