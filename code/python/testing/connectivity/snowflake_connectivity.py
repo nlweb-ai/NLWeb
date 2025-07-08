@@ -9,13 +9,17 @@ import asyncio
 import time
 import traceback
 
-# Add parent directory to sys.path to allow imports
+# Add parent directory to path to allow imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-# Import core modules that should always be available
-from core.llm import ask_llm
-from core.embedding import get_embedding
-from core.retriever import search, search_all_sites, get_sites as get_sites_wrapper
+try:
+    from core.llm import ask_llm
+    from core.embedding import get_embedding
+    from core.retriever import search, search_all_sites, get_sites as get_sites_wrapper
+except ImportError as e:
+    print(f"Error importing required libraries: {e}")
+    print("Please ensure you are in the /code/python directory and run: pip install -r requirements.txt")
+    sys.exit(1)
 
 async def check_and_print(f) -> bool:
     try:

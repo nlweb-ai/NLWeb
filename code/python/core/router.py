@@ -412,7 +412,7 @@ class ToolSelector:
             # Use high level for all tools to ensure fair evaluation timing
             level = "high"
             start_time = time.time()
-            response = await ask_llm(filled_prompt, tool.return_structure, level=level)
+            response = await ask_llm(filled_prompt, tool.return_structure, level=level, query_params=self.handler.query_params)
             end_time = time.time()
             elapsed_time = end_time - start_time
             

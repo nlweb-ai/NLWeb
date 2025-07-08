@@ -128,7 +128,7 @@ class ItemDetailsHandler():
             pr_dict = {"item.description": description, "request.details_requested": details_requested}
             prompt = fill_prompt(prompt_str, self.handler, pr_dict)
             
-            response = await ask_llm(prompt, ans_struc, level="high")
+            response = await ask_llm(prompt, ans_struc, level="high", query_params=self.handler.query_params)
             if response and "score" in response:
                 score = int(response.get("score", 0))
                 explanation = response.get("explanation", "")
@@ -205,7 +205,7 @@ class ItemDetailsHandler():
                 }
                 prompt = fill_prompt(prompt_str, self.handler, pr_dict)
                 
-                response = await ask_llm(prompt, ans_struc, level="high")
+                response = await ask_llm(prompt, ans_struc, level="high", query_params=self.handler.query_params)
                 if response:
                     message = {
                         "message_type": "item_details",

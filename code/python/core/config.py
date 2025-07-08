@@ -45,7 +45,45 @@ class RetrievalProviderConfig:
     index_name: Optional[str] = None
     db_type: Optional[str] = None
     use_knn: Optional[bool] = None
-    enabled: bool = False  
+    enabled: bool = False
+
+@dataclass
+class ConversationStorageConfig:
+    type: str = "qdrant"
+    enabled: bool = True
+    # Common fields
+    api_key: Optional[str] = None
+    url: Optional[str] = None
+    endpoint: Optional[str] = None
+    database_path: Optional[str] = None
+    collection_name: Optional[str] = None
+    database_name: Optional[str] = None
+    container_name: Optional[str] = None
+    table_name: Optional[str] = None
+    # Connection details
+    host: Optional[str] = None
+    port: Optional[int] = None
+    user: Optional[str] = None
+    password: Optional[str] = None
+    connection_string: Optional[str] = None
+    # Other settings
+    vector_size: int = 1536
+    vector_dimensions: int = 1536
+    partition_key: Optional[str] = None
+    max_conversations: Optional[int] = None
+    ttl_seconds: Optional[int] = None
+
+@dataclass 
+class StorageBehaviorConfig:
+    store_anonymous: bool = True
+    max_conversations_per_thread: int = 100
+    max_threads_per_user: int = 1000
+    retention_days: int = 365
+    compute_embeddings: bool = True
+    batch_size: int = 100
+    enable_search: bool = True
+    auto_migrate_on_login: bool = True
+    max_migrate_conversations: int = 500  
 
 @dataclass
 class SSLConfig:
@@ -129,7 +167,7 @@ class StorageBehaviorConfig:
 
 class AppConfig:
     config_paths = ["config.yaml", "config_llm.yaml", "config_embedding.yaml", "config_retrieval.yaml", 
-                   "config_webserver.yaml", "config_nlweb.yaml", "config_conv_store.yaml", "config_oauth.yaml"]
+                   "config_webserver.yaml", "config_nlweb.yaml", "config_oauth.yaml", "config_conv_store.yaml"]
 
     def __init__(self):
         load_dotenv()
@@ -141,8 +179,8 @@ class AppConfig:
         self.load_retrieval_config()
         self.load_webserver_config()
         self.load_nlweb_config()
-        self.load_conversation_storage_config()
         self.load_oauth_config()
+        self.load_conversation_storage_config()
 
     def _get_config_directory(self) -> str:
         """
@@ -616,60 +654,52 @@ class AppConfig:
         return None
     
     def load_oauth_config(self, path: str = "config_oauth.yaml"):
-        """Load OAuth provider configuration."""
+        """Load OAuth configuration."""
         # Build the full path to the config file using the config directory
         full_path = os.path.join(self.config_directory, path)
         
         try:
             with open(full_path, "r") as f:
                 data = yaml.safe_load(f)
-        except FileNotFoundError:
-            # If config file doesn't exist, use defaults
-            logger.warning(f"{path} not found. OAuth authentication will not be available.")
-            self.oauth_providers = {}
-            self.oauth_session_secret = None
-            self.oauth_token_expiration = 86400
-            self.oauth_require_auth = False
-            self.oauth_anonymous_endpoints = []
-            return
-        
-        # Load OAuth providers
-        self.oauth_providers = {}
-        for provider_name, provider_data in data.get("providers", {}).items():
-            if provider_data.get("enabled", False):
-                client_id = self._get_config_value(provider_data.get("client_id_env"))
-                client_secret = self._get_config_value(provider_data.get("client_secret_env"))
                 
-                if client_id and client_secret:
-                    self.oauth_providers[provider_name] = {
-                        "client_id": client_id,
-                        "client_secret": client_secret,
-                        "auth_url": provider_data.get("auth_url"),
-                        "token_url": provider_data.get("token_url"),
-                        "userinfo_url": provider_data.get("userinfo_url"),
-                        "emails_url": provider_data.get("emails_url"),  # For GitHub
-                        "scope": provider_data.get("scope")
-                    }
-                    logger.info(f"Loaded OAuth provider: {provider_name}")
-                else:
-                    logger.warning(f"OAuth provider {provider_name} is enabled but missing credentials")
-        
-        # Load session configuration
-        session_config = data.get("session", {})
-        self.oauth_session_secret = self._get_config_value(session_config.get("secret_key_env"))
-        # Generate a default session secret if not provided
-        if not self.oauth_session_secret:
-            import secrets
-            self.oauth_session_secret = secrets.token_urlsafe(32)
-            logger.warning("No OAuth session secret configured, using generated secret (not recommended for production)")
-        self.oauth_token_expiration = session_config.get("token_expiration", 86400)
-        
-        # Load authentication settings
-        auth_config = data.get("auth", {})
-        self.oauth_require_auth = auth_config.get("require_auth", False)
-        self.oauth_anonymous_endpoints = auth_config.get("anonymous_endpoints", [])
-        
-        logger.info(f"Loaded {len(self.oauth_providers)} OAuth providers")
+            # Load OAuth provider configurations
+            self.oauth = {}
+            for provider, config in data.get("oauth", {}).items():
+                self.oauth[provider] = {
+                    "enabled": config.get("enabled", False),
+                    "client_id": self._get_config_value(config.get("client_id")),
+                    "client_secret": self._get_config_value(config.get("client_secret")),
+                    "scopes": config.get("scopes", [])
+                }
+            
+            # Load session configuration
+            self.session = {
+                "secret_key": self._get_config_value(data.get("session", {}).get("secret_key", "CHANGE_ME")),
+                "token_expiration": data.get("session", {}).get("token_expiration", 86400)
+            }
+            
+            # Load auth settings
+            self.auth = {
+                "require_auth": data.get("auth", {}).get("require_auth", False),
+                "anonymous_endpoints": data.get("auth", {}).get("anonymous_endpoints", []),
+                "validate_token": data.get("auth", {}).get("validate_token", True),
+                "session_store": data.get("auth", {}).get("session_store", "memory")
+            }
+            
+        except FileNotFoundError:
+            # If config file doesn't exist, use empty OAuth config
+            print(f"Warning: {path} not found. OAuth functionality will be disabled.")
+            self.oauth = {}
+            self.session = {
+                "secret_key": "CHANGE_ME",
+                "token_expiration": 86400
+            }
+            self.auth = {
+                "require_auth": False,
+                "anonymous_endpoints": [],
+                "validate_token": False,
+                "session_store": "memory"
+            }
 
     def load_conversation_storage_config(self, path: str = "config_conv_store.yaml"):
         """Load conversation storage configuration."""

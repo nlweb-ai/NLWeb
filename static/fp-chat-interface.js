@@ -53,11 +53,13 @@ class ModernChatInterface {
   
   init() {
     // Initialize default values
-    this.selectedSite = 'all';
-    this.selectedMode = 'list'; // Default generate_mode
+    this.selectedSite = this.options.site || 'all';
+    this.selectedMode = this.options.mode || 'list'; // Default generate_mode
     
-    // Load saved conversations
-    this.loadConversations();
+    // Load saved conversations (async operation)
+    this.loadConversations().then(() => {
+      this.updateConversationsList();
+    });
     
     // Load remembered items
     this.loadRememberedItems();
@@ -76,6 +78,7 @@ class ModernChatInterface {
     // Listen for auth state changes
     window.addEventListener('authStateChanged', async (event) => {
       // When auth state changes, reload conversations
+      console.log('Auth state changed:', event.detail);
       
       if (event.detail.isAuthenticated) {
         // User just logged in
@@ -1546,7 +1549,11 @@ class ModernChatInterface {
           const data = await response.json();
           
           // Convert server conversations to our format
+<<<<<<< HEAD
           this.conversations = this.convertServerConversations(data);
+=======
+          this.conversations = this.convertServerConversations(data.conversations);
+>>>>>>> origin/pr-260
           
           // Also check localStorage for any unsaved conversations
           this.mergeLocalConversations();
@@ -1577,7 +1584,17 @@ class ModernChatInterface {
       try {
         const allConversations = JSON.parse(saved);
         // Filter out empty conversations
-        this.conversations = allConversations.filter(conv => conv.messages && conv.messages.length > 0);
+        let filteredConversations = allConversations.filter(conv => conv.messages && conv.messages.length > 0);
+        
+        // If a specific site is selected, filter by site
+        if (this.selectedSite && this.selectedSite !== 'all') {
+          filteredConversations = filteredConversations.filter(conv => 
+            conv.site === this.selectedSite || 
+            (conv.siteInfo && conv.siteInfo.site === this.selectedSite)
+          );
+        }
+        
+        this.conversations = filteredConversations;
         // Save the cleaned list back
         this.saveConversations();
       } catch (e) {
@@ -1975,7 +1992,7 @@ class ModernChatInterface {
       // Restore original HTML content
       const originalContent = messageText.getAttribute('data-original-content');
       if (originalContent) {
-        messageText.innerHTML = originalContent;
+        messageText.textContent = originalContent;
         messageText.classList.remove('showing-debug');
         messageText.style.cssText = ''; // Reset inline styles
       }

@@ -29,7 +29,8 @@ async def get_embedding(
     text: str,
     provider: Optional[str] = None,
     model: Optional[str] = None,
-    timeout: int = 30
+    timeout: int = 30,
+    query_params: Optional[dict] = None
 ) -> List[float]:
     """
     Get embedding for the provided text using the specified provider and model.
@@ -39,10 +40,17 @@ async def get_embedding(
         provider: Optional provider name, defaults to preferred_embedding_provider
         model: Optional model name, defaults to the provider's configured model
         timeout: Maximum time to wait for embedding response in seconds
+        query_params: Optional query parameters from HTTP request
         
     Returns:
         List of floats representing the embedding vector
     """
+    # Allow overriding provider in development mode
+    if CONFIG.is_development_mode() and query_params:
+        if 'embedding_provider' in query_params:
+            provider = query_params['embedding_provider']
+            logger.debug(f"Overriding embedding provider to: {provider}")
+    
     provider = provider or CONFIG.preferred_embedding_provider
     
     # Truncate text to 20k characters to avoid token limit issues

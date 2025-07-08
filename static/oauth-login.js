@@ -210,127 +210,103 @@ class OAuthManager {
         }
     }
     
-    async handleAuthMessage(event) {
-        // Verify origin
+    handleAuthMessage(event) {
+        // Handle OAuth callback messages
         if (event.origin !== window.location.origin) {
             return;
         }
         
-        if (event.data && event.data.type === 'oauth_callback') {
+        if (event.data && event.data.type === 'oauth-success') {
+            const { user, token } = event.data;
+            
+            // Store auth info
+            localStorage.setItem('authToken', token);
+            localStorage.setItem('userInfo', JSON.stringify(user));
+            
+            // Update UI
+            this.updateUIForLoggedInUser(user);
+            
             // Close auth window if still open
             if (this.authWindow && !this.authWindow.closed) {
                 this.authWindow.close();
             }
             
-            if (event.data.error) {
-                console.error('OAuth error:', event.data.error);
-                alert(`Login failed: ${event.data.error}`);
-                return;
+            // Clear interval
+            if (this.authCheckInterval) {
+                clearInterval(this.authCheckInterval);
+                this.authCheckInterval = null;
             }
             
-            if (event.data.authData) {
-                // Store authentication data
-                localStorage.setItem('authToken', event.data.authData.access_token);
-                localStorage.setItem('userInfo', JSON.stringify(event.data.authData.user_info));
-                
-                // Update UI
-                this.updateUIForLoggedInUser(event.data.authData.user_info);
-                
-                // Dispatch auth events
-                window.dispatchEvent(new CustomEvent('oauthAuthenticated', { 
-                    detail: event.data.authData.user_info 
-                }));
-                
-                // Also dispatch authStateChanged for compatibility
-                window.dispatchEvent(new CustomEvent('authStateChanged', {
-                    detail: {
-                        isAuthenticated: true,
-                        authToken: event.data.authData.access_token,
-                        userInfo: event.data.authData.user_info
-                    }
-                }));
-            }
+            // Dispatch auth state change event
+            window.dispatchEvent(new CustomEvent('authStateChanged', {
+                detail: {
+                    isAuthenticated: true,
+                    user: user
+                }
+            }));
         }
     }
     
-    updateUIForLoggedInUser(userInfo) {
-        // Hide login button
+    updateUIForLoggedInUser(user) {
+        // Update UI elements
         const loginBtn = document.getElementById('loginBtn');
-        if (loginBtn) {
-            loginBtn.style.display = 'none';
+        const userInfo = document.getElementById('userInfo');
+        const userName = document.getElementById('userName');
+        const providerIcon = document.getElementById('providerIcon');
+        
+        if (loginBtn) loginBtn.style.display = 'none';
+        if (userInfo) userInfo.style.display = 'flex';
+        if (userName) userName.textContent = user.name || user.email || 'User';
+        
+        // Set provider icon
+        if (providerIcon && user.provider) {
+            providerIcon.className = `provider-icon ${user.provider}`;
         }
         
-        // Show user info
-        const userInfoDiv = document.getElementById('userInfo');
-        if (userInfoDiv) {
-            userInfoDiv.style.display = 'flex';
-            
-            // Update user name
-            const userName = document.getElementById('userName');
-            if (userName) {
-                userName.textContent = userInfo.name || userInfo.email || 'User';
-            }
-            
-            // Update provider icon
-            const providerIcon = document.getElementById('providerIcon');
-            if (providerIcon) {
-                providerIcon.className = `provider-icon ${userInfo.provider}`;
-            }
+        // Also set data-provider attribute on user-info for CSS
+        if (userInfo && user.provider) {
+            userInfo.setAttribute('data-provider', user.provider);
         }
     }
     
-    handleLogout() {
+    async handleLogout() {
+        try {
+            // Call logout endpoint
+            const authToken = localStorage.getItem('authToken');
+            if (authToken) {
+                await fetch(`${this.baseUrl}/api/oauth/logout`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Logout error:', error);
+        }
+        
         // Clear session
         this.clearSession();
         
-        // Update UI
+        // Reset UI
         const loginBtn = document.getElementById('loginBtn');
-        if (loginBtn) {
-            loginBtn.style.display = 'block';
-        }
+        const userInfo = document.getElementById('userInfo');
         
-        // Dispatch auth state changed event
+        if (loginBtn) loginBtn.style.display = 'block';
+        if (userInfo) userInfo.style.display = 'none';
+        
+        // Dispatch auth state change event
         window.dispatchEvent(new CustomEvent('authStateChanged', {
             detail: {
                 isAuthenticated: false,
-                authToken: null,
-                userInfo: null
+                user: null
             }
         }));
-        
-        const userInfoDiv = document.getElementById('userInfo');
-        if (userInfoDiv) {
-            userInfoDiv.style.display = 'none';
-        }
-        
-        // Dispatch logout event
-        window.dispatchEvent(new CustomEvent('oauthLoggedOut'));
     }
     
     clearSession() {
         localStorage.removeItem('authToken');
         localStorage.removeItem('userInfo');
-    }
-    
-    getAuthToken() {
-        return localStorage.getItem('authToken');
-    }
-    
-    getUserInfo() {
-        const userInfo = localStorage.getItem('userInfo');
-        if (userInfo) {
-            try {
-                return JSON.parse(userInfo);
-            } catch (error) {
-                console.error('Error parsing user info:', error);
-                return null;
-            }
-        }
-        return null;
-    }
-    
-    isAuthenticated() {
-        return !!this.getAuthToken();
     }
 }
 
@@ -342,6 +318,3 @@ if (document.readyState === 'loading') {
 } else {
     window.oauthManager = new OAuthManager();
 }
-
-// Export for use in other modules
-export default OAuthManager;

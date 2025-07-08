@@ -105,7 +105,7 @@ class CompareItemsHandler():
             description = trim_json(item[1])
             pr_dict = {"item.description": description, "item.name": item_name}
             prompt = fill_prompt(prompt_str, self.handler, pr_dict)
-            response = await ask_llm(prompt, ans_struc, level="high")
+            response = await ask_llm(prompt, ans_struc, level="high", query_params=self.handler.query_params)
             
             if response and "score" in response:
                 score = int(response["score"])
@@ -131,7 +131,7 @@ class CompareItemsHandler():
             desc2 = trim_json(item2[1])
             pr_dict = {"request.item1_description": desc1, "request.item2_description": desc2, "request.details_requested": details_requested}
             prompt = fill_prompt(prompt_str, self.handler, pr_dict)
-            response = await ask_llm(prompt, ans_struc, level="high")
+            response = await ask_llm(prompt, ans_struc, level="high", query_params=self.handler.query_params)
        
             if response :
                 message = {

@@ -13,13 +13,12 @@ This guide explains how to set up and use OAuth authentication in NLWeb, allowin
 - [NLWeb Configuration](#nlweb-configuration)
 - [Testing the Integration](#testing-the-integration)
 - [How It Works](#how-it-works)
-- [Security Considerations](#security-considerations)
 - [Troubleshooting](#troubleshooting)
-- [API Reference](#api-reference)
+- [Security Best Practices](#security-best-practices)
 
 ## Overview
 
-NLWeb implements OAuth 2.0 authentication using the secure Authorization Code flow. This allows users to authenticate using their existing accounts from major providers without sharing their passwords with NLWeb.
+NLWeb implements OAuth 2.0 authentication to allow users to log in using their existing accounts from major providers. This provides a secure, convenient way for users to authenticate without creating separate credentials for NLWeb.
 
 ### Key Features
 - Secure server-side token exchange
@@ -32,9 +31,8 @@ NLWeb implements OAuth 2.0 authentication using the secure Authorization Code fl
 
 Before setting up OAuth, ensure you have:
 - NLWeb installed and running
-- A public URL for your NLWeb instance (or use ngrok for local testing)
+- A public domain or ngrok for local development (OAuth callbacks require HTTPS in production)
 - Admin access to create OAuth applications with your chosen providers
-- The `httpx` Python package installed (included in requirements.txt)
 
 ## Provider Setup
 
@@ -52,13 +50,13 @@ Before setting up OAuth, ensure you have:
    - Go to "APIs & Services" → "Credentials"
    - Click "Create Credentials" → "OAuth client ID"
    - Choose "Web application"
-   - Add authorized redirect URI: `http://yourdomain.com/oauth/callback`
-   - Save your Client ID and Client Secret
+   - Add authorized redirect URIs:
+     - `http://localhost:8000/oauth/callback` (for local development)
+     - `https://yourdomain.com/oauth/callback` (for production)
 
-4. **Configure OAuth Consent Screen**
-   - Go to "OAuth consent screen"
-   - Fill in required information
-   - Add scopes: `openid`, `profile`, `email`
+4. **Save Your Credentials**
+   - Note your Client ID and Client Secret
+   - You'll need these for NLWeb configuration
 
 ### Facebook OAuth Setup
 
@@ -66,23 +64,19 @@ Before setting up OAuth, ensure you have:
    - Navigate to https://developers.facebook.com/
    - Click "My Apps" → "Create App"
 
-2. **Choose App Type**
-   - Select "Consumer" for general use
-   - Fill in app details
+2. **Create a New App**
+   - Choose "Consumer" as the app type
+   - Fill in the app details
 
-3. **Add Facebook Login**
-   - In your app dashboard, click "Add Product"
-   - Select "Facebook Login" → "Set Up"
-   - Choose "Web"
+3. **Configure Facebook Login**
+   - Add "Facebook Login" product
+   - In settings, add Valid OAuth Redirect URIs:
+     - `http://localhost:8000/oauth/callback` (for local development)
+     - `https://yourdomain.com/oauth/callback` (for production)
 
-4. **Configure OAuth Settings**
-   - Go to "Facebook Login" → "Settings"
-   - Add Valid OAuth Redirect URI: `http://yourdomain.com/oauth/callback`
-   - Save changes
-
-5. **Get App Credentials**
-   - Go to "Settings" → "Basic"
-   - Copy your App ID and App Secret
+4. **Get Your App Credentials**
+   - Go to Settings → Basic
+   - Note your App ID and App Secret
 
 ### Microsoft OAuth Setup
 
@@ -186,9 +180,9 @@ Before setting up OAuth, ensure you have:
 
 3. **Add to .gitignore**
    
-   If you're modifying the configuration file with actual values, add it to `.gitignore`:
+   If you're using a `.env` file for environment variables, add it to `.gitignore`:
    ```
-   config/config_oauth.yaml
+   .env
    ```
 
 ## Testing the Integration
@@ -201,154 +195,133 @@ Before setting up OAuth, ensure you have:
 
 2. **Access the Web Interface**
    - Open http://localhost:8000 in your browser
-   - Click the "Login" button in the top-right corner
-   - You should see login options for enabled providers
+   - Click the "Login" button in the top right
 
-3. **Test Authentication Flow**
-   - Click on a provider (e.g., "Continue with GitHub")
-   - Authorize the application
-   - You should be redirected back and logged in
-
-4. **Verify Session**
-   - Check that your username appears in the top-right
-   - Open browser developer tools and check localStorage for `authToken`
+3. **Test OAuth Login**
+   - Select your preferred provider
+   - Complete the OAuth flow
+   - Verify you're logged in (username should appear)
 
 ## How It Works
 
 ### Authentication Flow
 
-1. User clicks "Login" and selects a provider
-2. Browser redirects to provider's OAuth authorization page
-3. User authorizes the application
-4. Provider redirects to `/oauth/callback` with authorization code
-5. NLWeb exchanges the code for an access token (server-side)
-6. NLWeb fetches user information using the access token
-7. Session is created and user info is stored
-8. User is logged in and can access authenticated endpoints
+1. **User Initiates Login**
+   - User clicks "Login" and selects a provider
+   - Browser redirects to provider's OAuth page
 
-### Session Management
+2. **Provider Authentication**
+   - User logs in to their provider account
+   - Provider asks for permission to share data
 
-- Sessions are stored in memory by default
-- Session tokens are included in API requests via `Authorization` header
-- Sessions expire after 24 hours (configurable)
+3. **Authorization Code Exchange**
+   - Provider redirects back with authorization code
+   - NLWeb exchanges code for access token (server-side)
 
-### File Structure
+4. **Session Creation**
+   - NLWeb creates a session token
+   - Token is stored in browser localStorage
+   - User info is displayed in the UI
 
-```
-NLWeb/
-├── config/
-│   └── config_oauth.yaml          # OAuth configuration
-├── static/
-│   ├── oauth-login.js            # OAuth client logic
-│   ├── oauth-callback.html       # OAuth callback handler (served at /oauth/callback)
-│   └── fp-chat-interface.js      # Updated to include auth token
-├── code/python/
-│   ├── webserver/
-│   │   └── WebServer.py          # OAuth endpoints
-│   └── core/
-│       └── baseHandler.py        # Auth token validation
-```
+5. **API Authentication**
+   - Session token is automatically included in API requests
+   - Server validates token before processing requests
 
-## Security Considerations
+### Security Features
 
-1. **HTTPS in Production**
-   - Always use HTTPS in production environments
-   - OAuth providers may reject HTTP redirect URIs
-
-2. **Session Security**
-   - Use a strong, random session secret
-   - Rotate session secrets periodically
-   - Consider using Redis for session storage in production
-
-3. **Token Storage**
-   - Tokens are stored in localStorage (client-side)
-   - Server validates tokens on each request
-   - Implement token refresh for long-lived sessions
-
-4. **CORS Configuration**
-   - Configure CORS headers appropriately
-   - Restrict origins in production
+- **Server-side token exchange**: OAuth tokens never exposed to client
+- **Secure session tokens**: Cryptographically signed JWTs
+- **HTTPS enforcement**: OAuth requires secure connections in production
+- **Token expiration**: Sessions expire after 24 hours
+- **Environment variables**: Credentials never stored in code
 
 ## Troubleshooting
 
-### "OAuth configuration not found for provider: unknown"
-- The OAuth callback couldn't identify which provider was used
-- Check that sessionStorage is enabled in the browser
-- Verify the OAuth state parameter is being passed correctly
+### Common Issues
 
-### "No OAuth providers showing"
-- Check that providers are enabled in `config_oauth.yaml`
-- Verify environment variables are set correctly
-- Check browser console for configuration loading errors
+1. **"OAuth not configured" Error**
+   - Ensure environment variables are set
+   - Check that the provider is enabled in config_oauth.yaml
+   - Restart the server after setting environment variables
 
-### "Redirect URI mismatch"
-- Ensure the callback URL in your OAuth app matches exactly: `http://yourdomain.com/oauth/callback`
-- No trailing slashes or different protocols
-- Use the same URL you used when registering the app
+2. **Redirect URI Mismatch**
+   - Verify the redirect URI in provider settings matches exactly
+   - Include both http://localhost:8000/oauth/callback and your production URL
 
-### "404 on provider authorization page"
-- Verify the client ID is correct
-- Check that the OAuth app is not in test/sandbox mode
-- Ensure the provider URLs in config are correct
+3. **Invalid Client Error**
+   - Double-check client ID and secret
+   - Ensure no extra spaces in environment variables
 
-## API Reference
+4. **CORS Issues**
+   - For local development, ensure you're accessing via localhost, not 127.0.0.1
+   - Check browser console for specific CORS errors
 
-### OAuth Endpoints
+### Debug Mode
 
-#### `GET /api/oauth/config`
-Returns client-side OAuth configuration
+Enable debug logging to troubleshoot OAuth issues:
 
-Response:
-```json
-{
-  "google": {
-    "enabled": true,
-    "client_id": "...",
-    "auth_url": "...",
-    "redirect_uri": "http://localhost:8000/oauth/callback"
-  },
-  "github": {
-    "enabled": true,
-    "client_id": "...",
-    "auth_url": "...",
-    "redirect_uri": "http://localhost:8000/oauth/callback"
-  }
-}
+```python
+# In your environment
+export OAUTH_DEBUG=true
 ```
 
-#### `POST /api/oauth/token`
-Exchanges authorization code for access token
+## Security Best Practices
 
-Request:
-```json
-{
-  "code": "authorization_code",
-  "provider": "google",
-  "redirect_uri": "http://localhost:8000/oauth/callback"
-}
+1. **Protect Credentials**
+   - Never commit credentials to version control
+   - Use environment variables or secure vaults
+   - Rotate secrets regularly
+
+2. **Use HTTPS in Production**
+   - OAuth providers require HTTPS for production redirects
+   - Use proper SSL certificates
+
+3. **Validate Tokens**
+   - Always validate session tokens on the server
+   - Don't trust client-side user info
+
+4. **Limit Scopes**
+   - Only request necessary permissions
+   - Review and minimize OAuth scopes
+
+5. **Monitor Usage**
+   - Track OAuth login attempts
+   - Monitor for suspicious activity
+   - Set up alerts for failed authentications
+
+## Advanced Configuration
+
+### Custom Redirect URIs
+
+For deployments behind proxies or with custom domains:
+
+```yaml
+# In config_oauth.yaml
+redirect_uri_base: "https://custom.domain.com"
 ```
 
-Response:
-```json
-{
-  "access_token": "...",
-  "user_info": {
-    "id": "...",
-    "email": "user@example.com",
-    "name": "User Name",
-    "provider": "google"
-  }
-}
+### Session Storage Options
+
+For production deployments with multiple servers:
+
+```yaml
+session:
+  session_store: "redis"  # or "database"
+  redis_url: "redis://localhost:6379"
 ```
 
-### Including Auth Token in API Requests
+### Rate Limiting
 
-Once authenticated, include the token in API requests:
+Protect against brute force attempts:
 
-```javascript
-fetch('/api/endpoint', {
-  headers: {
-    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-  }
-})
+```yaml
+auth:
+  rate_limit:
+    enabled: true
+    max_attempts: 5
+    window_minutes: 15
 ```
+
+---
+
+For more help or to report issues, please visit the [NLWeb GitHub repository](https://github.com/ai-in-commerce/NLWeb).

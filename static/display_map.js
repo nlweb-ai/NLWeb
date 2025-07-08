@@ -56,6 +56,9 @@ export class MapDisplay {
    * @returns {Promise} Promise that resolves when API is loaded
    */
   static loadGoogleMapsAPI(apiKey) {
+    if (!MapDisplay.validateApiKey(apiKey)) {
+      return Promise.reject(new Error('Invalid Google Maps API key'));
+    }
     return new Promise((resolve, reject) => {
       // Check if already loading
       if (window.googleMapsAPILoading) {
@@ -79,7 +82,7 @@ export class MapDisplay {
         reject(new Error('Invalid Google Maps API key'));
         return;
       }
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
       script.async = true;
       script.defer = true;
       

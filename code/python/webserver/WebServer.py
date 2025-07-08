@@ -15,6 +15,10 @@ import sys
 import time
 import traceback
 import urllib.parse
+import secrets
+import hashlib
+import httpx
+from typing import Dict, Optional
 from methods.whoHandler import WhoHandler
 from webserver.mcp_wrapper import handle_mcp_request
 from core.utils.utils import get_param
@@ -592,7 +596,7 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
                 await send_response(404, {'Content-Type': 'text/plain'})
                 await send_chunk("Home page not found".encode('utf-8'), end_response=True)
             return
-        elif (path.find("html/") != -1) or path.find("static/") != -1 or (path.find("png") != -1):
+        elif (path.find("html/") != -1) or path.find("static/") != -1 or (path.find("png") != -1) or path == "/oauth-callback.html":
             await send_static_file(path, send_response, send_chunk)
             return
         elif (path.find("who") != -1):
@@ -726,12 +730,11 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
                     return
                 
                 try:
-                    # TODO: Implement storage module
-                    # from core.storage import get_recent_conversations
+                    # Import storage module
+                    from core.storage import get_recent_conversations
                     
                     # Get conversation history
-                    # conversations = await get_recent_conversations(user_id, site, limit)
-                    conversations = []  # TODO: Implement storage
+                    conversations = await get_recent_conversations(user_id, site, limit)
                     
                     await send_response(200, {'Content-Type': 'application/json'})
                     await send_chunk(json.dumps({
@@ -760,12 +763,11 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
                         await send_chunk(json.dumps({"error": "user_id is required"}), end_response=True)
                         return
                     
-                    # TODO: Implement storage module
-                    # from core.storage import migrate_from_localstorage
+                    # Import storage module
+                    from core.storage import migrate_from_localstorage
                     
                     # Migrate conversations
-                    # migrated_count = await migrate_from_localstorage(user_id, conversations_data)
-                    migrated_count = 0  # TODO: Implement storage
+                    migrated_count = await migrate_from_localstorage(user_id, conversations_data)
                     
                     await send_response(200, {'Content-Type': 'application/json'})
                     await send_chunk(json.dumps({

@@ -28,6 +28,7 @@ from core.utils.utils import get_param, siteToItemType, log
 from misc.logger.logger import get_logger, LogLevel
 from misc.logger.logging_config_helper import get_configured_logger
 from core.config import CONFIG
+from core.storage import add_conversation
 
 logger = get_configured_logger("nlweb_handler")
 
@@ -313,10 +314,15 @@ class NLWebHandler:
                 return self.return_value
                 
             await self.post_ranking_tasks()
-            # Store conversation if user is authenticated
-            if self.oauth_id and self.thread_id:
-                logger.info(f"Storing conversation for oauth_id: {self.oauth_id}, thread_id: {self.thread_id}")
+            
+            # Store conversation if we have a user_id
+            user_id = get_param(self.query_params, "user_id", str, None)
+            if user_id:
+                print(f"[NLWebHandler] user_id: {user_id}")  # Console output for debugging
                 try:
+                    # Get thread_id from query params
+                    thread_id = get_param(self.query_params, "thread_id", str, None)
+                    
                     # Prepare the response summary
                     response = ""
                     if self.final_ranked_answers:
@@ -332,18 +338,19 @@ class NLWebHandler:
                     else:
                         response = "No results found"
                     
-                    # TODO: Implement add_conversation function
-                    # await add_conversation(
-                    #     user_id=self.oauth_id,
-                    #     site=self.site,
-                    #     thread_id=self.thread_id,
-                    #     user_prompt=self.query,
-                    #     response=response
-                    # )
-                    logger.info(f"TODO: Store conversation for user {self.oauth_id} in thread {self.thread_id}")
+                    # Store the conversation
+                    await add_conversation(
+                        user_id=user_id,
+                        site=self.site,
+                        thread_id=thread_id,
+                        user_prompt=self.query,
+                        response=response
+                    )
+                    logger.info(f"Stored conversation for user {user_id} in thread {thread_id}")
                 except Exception as e:
                     logger.error(f"Error storing conversation: {e}")
                     # Don't fail the request if storage fails
+            
             self.return_value["query_id"] = self.query_id
             logger.info(f"Query execution completed for query_id: {self.query_id}")
             return self.return_value

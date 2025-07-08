@@ -53,5 +53,7 @@ auth:
     - /static
     - /api/oauth
     - /oauth
+    - /sites
+    - /who
   validate_token: true  # Whether to validate tokens on each request
   session_store: memory  # Options: memory, redis (future)

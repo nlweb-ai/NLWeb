@@ -485,7 +485,7 @@ class EnsembleToolHandler:
             # Fill the prompt with variables
             filled_prompt = fill_prompt(prompt_str, self.handler, pr_dict)
             
-            result = await ask_llm(filled_prompt, return_struc, level="low", timeout=5)
+            result = await ask_llm(filled_prompt, return_struc, level="low", timeout=5, query_params=self.handler.query_params)
             
             if result and 'score' in result:
                 return float(result['score'])
@@ -590,7 +590,7 @@ class EnsembleToolHandler:
         
         try:
             # Use the existing ask_llm function
-            response = await ask_llm(filled_prompt, return_struc, level="high", timeout=AGGREGATION_CALL_TIMEOUT, max_length=2056)
+            response = await ask_llm(filled_prompt, return_struc, level="high", timeout=AGGREGATION_CALL_TIMEOUT, max_length=2056, query_params=self.handler.query_params)
             
             if response:
                 logger.info(f"LLM ensemble response structure: {list(response.keys()) if isinstance(response, dict) else type(response)}")

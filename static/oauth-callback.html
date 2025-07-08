@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OAuth Callback - NLWeb</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f5f5f5;
+    }
+    .callback-container {
+      text-align: center;
+      padding: 40px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3498db;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .error {
+      color: #e74c3c;
+    }
+  </style>
+</head>
+<body>
+  <div class="callback-container">
+    <div class="spinner"></div>
+    <h2>Completing login...</h2>
+    <p id="status-message">Please wait while we authenticate you.</p>
+  </div>
+
+  <script>
+    // OAuth Callback Handler
+    (async function() {
+      const statusMessage = document.getElementById('status-message');
+      
+      try {
+        // Get OAuth code from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const state = urlParams.get('state');
+        const error = urlParams.get('error');
+        
+        if (error) {
+          throw new Error(`OAuth error: ${error}`);
+        }
+        
+        if (!code) {
+          throw new Error('No authorization code received');
+        }
+        
+        // Get the provider from session storage
+        const provider = sessionStorage.getItem('oauth_provider') || 'unknown';
+        
+        // Exchange the authorization code for an access token
+        const response = await fetch('/api/oauth/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code: code,
+            provider: provider,
+            redirect_uri: window.location.origin + '/oauth/callback'
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to exchange authorization code');
+        }
+        
+        const data = await response.json();
+        
+        // Store the auth token and user info
+        localStorage.setItem('authToken', data.access_token);
+        localStorage.setItem('userInfo', JSON.stringify(data.user_info));
+        
+        statusMessage.textContent = 'Login successful! Closing window...';
+        
+        // Send message to parent window
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({
+            type: 'oauth-callback',
+            success: true,
+            token: data.access_token,
+            userInfo: data.user_info,
+            provider: provider
+          }, window.location.origin);
+        }
+        
+        // Close the window after a short delay
+        setTimeout(() => {
+          window.close();
+        }, 1500);
+        
+      } catch (error) {
+        console.error('OAuth callback error:', error);
+        
+        // Clear existing content
+        statusMessage.innerHTML = '';
+        
+        // Create error message safely
+        const errorSpan = document.createElement('span');
+        errorSpan.className = 'error';
+        errorSpan.textContent = `Login failed: ${error.message}`;
+        statusMessage.appendChild(errorSpan);
+        
+        // Add line breaks
+        statusMessage.appendChild(document.createElement('br'));
+        statusMessage.appendChild(document.createElement('br'));
+        
+        // Create close link
+        const closeLink = document.createElement('a');
+        closeLink.href = '#';
+        closeLink.textContent = 'Close window';
+        closeLink.onclick = (e) => {
+          e.preventDefault();
+          window.close();
+        };
+        statusMessage.appendChild(closeLink);
+        
+        document.querySelector('.spinner').style.display = 'none';
+      }
+    })();
+  </script>
+</body>
+</html>

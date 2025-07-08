@@ -1,19 +1,16 @@
 import os
 import sys
 
-# Add parent directory to sys.path to allow imports
+# Add parent directory to path to allow imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-# Import core module that should always be available
-from core.config import CONFIG
-
-# Lazy import for OpenAI library
-def get_openai_client():
-    try:
-        from openai import OpenAI
-        return OpenAI
-    except ImportError:
-        return None
+try:
+    from openai import OpenAI
+    from core.config import CONFIG
+except ImportError as e:
+    print(f"Error importing required libraries: {e}")
+    print("Please ensure you are in the /code/python directory and run: pip install -r requirements.txt")
+    sys.exit(1)
 
 async def check_inception_api():
     """Check Inception API connectivity"""
@@ -31,12 +28,6 @@ async def check_inception_api():
         print("❌ API key for Inception not configured")
         return False
 
-    # Get OpenAI dependency
-    OpenAI = get_openai_client()
-    if not OpenAI:
-        print("❌ OpenAI library not installed. Please install: pip install openai")
-        return False
-        
     try:
         client = OpenAI(api_key=api_key, base_url="https://api.inceptionlabs.ai/v1")
         

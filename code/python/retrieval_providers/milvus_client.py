@@ -327,7 +327,7 @@ class MilvusVectorClient:
         
         try:
             # Generate embedding for the query
-            embedding = await get_embedding(query)
+            embedding = await get_embedding(query, query_params=query_params)
             logger.debug(f"Generated embedding with dimension: {len(embedding)}")
             
             # Run the search operation asynchronously
