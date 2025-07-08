@@ -15,6 +15,7 @@ export class JsonRenderer {
     
     // Registry for type-specific renderers
     this.typeRenderers = {};
+    this.validTypeRenderers = new Set(); // Whitelist of valid method names
   }
   
   /**
@@ -24,7 +25,12 @@ export class JsonRenderer {
    * @param {Function} renderer - The renderer function
    */
   registerTypeRenderer(type, renderer) {
-    this.typeRenderers[type] = renderer;
+    if (typeof type === 'string' && typeof renderer === 'function') {
+      this.typeRenderers[type] = renderer;
+      this.validTypeRenderers.add(type); // Add to whitelist
+    } else {
+      throw new Error('Invalid type or renderer');
+    }
   }
   
   /**
@@ -64,8 +70,9 @@ export class JsonRenderer {
     }
     if (item.schema_object && item.schema_object['@type']) {
       const type = item.schema_object['@type'];
-      if (Object.prototype.hasOwnProperty.call(this.typeRenderers, type) && 
-             typeof this.typeRenderers[type] === 'function') {
+      if (this.validTypeRenderers.has(type) && 
+          Object.prototype.hasOwnProperty.call(this.typeRenderers, type) && 
+          typeof this.typeRenderers[type] === 'function') {
         return this.typeRenderers[type](item, this);
       } 
     }
@@ -95,8 +102,9 @@ export class JsonRenderer {
     const description = document.createElement('div');
     description.className = 'item-description';
     
-    // Check if we have a details array (like ingredients)
-    if (item.details && Array.isArray(item.details)) {
+    const descContent = item.description || item.details || '';
+    
+    if (Array.isArray(descContent)) {
       // Create table for arrays (like ingredients)
       const table = document.createElement('table');
       table.style.cssText = 'width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.9em;';
@@ -113,7 +121,7 @@ export class JsonRenderer {
       
       // Create body with alternating row colors
       const tbody = document.createElement('tbody');
-      item.details.forEach((ingredient, index) => {
+      descContent.forEach((ingredient, index) => {
         const row = document.createElement('tr');
         const cell = document.createElement('td');
         cell.textContent = ingredient;
@@ -124,27 +132,9 @@ export class JsonRenderer {
       table.appendChild(tbody);
       
       description.appendChild(table);
-      
-      // Don't add the regular description if we already displayed details as a table
-      // This prevents duplicate display of ingredients
     } else {
-      // Use regular description
-      const descContent = item.description || item.details || '';
-      if (Array.isArray(descContent)) {
-        // Fallback for arrays in description field
-        const list = document.createElement('ul');
-        list.style.cssText = 'margin: 8px 0; padding-left: 20px;';
-        descContent.forEach(item => {
-          const li = document.createElement('li');
-          li.textContent = item;
-          li.style.cssText = 'margin: 4px 0;';
-          list.appendChild(li);
-        });
-        description.appendChild(list);
-      } else {
-        // Use textContent for safe insertion of description
-        description.textContent = descContent;
-      }
+      // Use textContent for safe insertion of description
+      description.textContent = descContent;
     }
     
     contentDiv.appendChild(description);
@@ -174,7 +164,7 @@ export class JsonRenderer {
     const titleLink = document.createElement('a');
     // FIX: Use sanitizeUrl instead of just escapeHtml for URLs
     titleLink.href = item.url ? this.sanitizeUrl(item.url) : '#';
-    const itemName = this.htmlUnescape(this.getItemName(item));
+    const itemName = this.getItemName(item);
     // Safe text insertion
     titleLink.textContent = itemName;
     titleLink.className = 'item-title-link';
@@ -247,42 +237,8 @@ export class JsonRenderer {
    * @returns {string|null} - The image URL or null
    */
   extractImage(schema_object) {
-    // Handle array of schema objects
-    if (Array.isArray(schema_object)) {
-      // Look for ImageObject first
-      const imageObj = schema_object.find(obj => obj['@type'] === 'ImageObject');
-      if (imageObj && imageObj.url) {
-        return imageObj.url;
-      }
-      
-      // Look for Recipe object with image
-      const recipeObj = schema_object.find(obj => obj['@type'] === 'Recipe');
-      if (recipeObj && recipeObj.image) {
-        return this.extractImageInternal(recipeObj.image);
-      }
-      
-      // Look for Article object with thumbnailUrl
-      const articleObj = schema_object.find(obj => obj['@type'] === 'Article');
-      if (articleObj && articleObj.thumbnailUrl) {
-        return articleObj.thumbnailUrl;
-      }
-      
-      // Check first object for any image property
-      if (schema_object[0]) {
-        schema_object = schema_object[0];
-      }
-    }
-    
-    // Handle single schema object
-    if (schema_object) {
-      // Check for direct image property
-      if (schema_object.image) {
-        return this.extractImageInternal(schema_object.image);
-      }
-      // Check for thumbnailUrl property
-      if (schema_object.thumbnailUrl) {
-        return schema_object.thumbnailUrl;
-      }
+    if (schema_object && schema_object.image) {
+      return this.extractImageInternal(schema_object.image);
     }
     return null;
   }
