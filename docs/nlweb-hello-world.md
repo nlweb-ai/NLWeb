@@ -26,7 +26,7 @@ These instructions assume that you have Python 3.10+ installed locally.
     source myenv/bin/activate    # Or on Windows: myenv\Scripts\activate
     ```
 
-3. Copy the .env.template file to a new .env file and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.  Don't worry; you do not need to provide all of these providers in the file.  We explain below.
+3. Copy the .env.template file in the `code` folder to a new .env file and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.  Don't worry; you do not need to provide all of these providers in the file.  We explain below.
 
     ```sh
     cp .env.template .env
