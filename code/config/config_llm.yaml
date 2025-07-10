@@ -1,4 +1,4 @@
-preferred_endpoint: azure_openai
+preferred_endpoint: qwen_openai
 
 endpoints:
   inception:
@@ -58,6 +58,14 @@ endpoints:
       high: deepseek-coder-33b
       low: deepseek-coder-7b
 
+  qwen_openai:
+    api_key_env: sk-8d92269162214b3da44e786fde398ae6
+    api_endpoint_env: https://dashscope.aliyuncs.com/compatible-mode/v1
+    llm_type: qwen_openai
+    models:
+      high: qwen-plus-latest
+      low: qwen-plus-latest
+      
   snowflake:
     api_key_env: SNOWFLAKE_PAT
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL

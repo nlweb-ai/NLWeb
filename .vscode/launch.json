@@ -3,14 +3,56 @@
     // Hover to view descriptions of existing attributes.
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
-    "configurations": [
-
+    "configurations": [     
+        {
+            "name": "Python Debugger: app-file",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/code/app-file.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/code",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/code"
+            }
+        },
+        {
+            "name": "Python Debugger: db_load with args",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tools.db_load",
+            "console": "integratedTerminal",
+            "args": "${command:pickArgs}",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/code",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/code"
+            }
+        },
+        {
+            "name": "Python Debugger: current file with args",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": "${command:pickArgs}",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/code",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/code"
+            }
+        },
         {
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/code",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/code"
+            }
         }
     ]
 }
