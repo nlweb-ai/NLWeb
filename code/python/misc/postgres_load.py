@@ -13,19 +13,33 @@ import argparse
 
 # More robust path handling for imports
 script_path = os.path.abspath(__file__)
-utils_dir = os.path.dirname(script_path)
-code_dir = os.path.dirname(utils_dir)
+misc_dir = os.path.dirname(script_path)
+python_dir = os.path.dirname(misc_dir)
 
 # Add both directories to path
-sys.path.insert(0, code_dir)  # Add code dir first
-sys.path.insert(1, utils_dir)  # Then utils dir
+sys.path.insert(0, python_dir)  # Add code dir first
+sys.path.insert(1, misc_dir)  # Then utils dir
+
+#pip install dependencies
+def init():
+    """Initialize the script by installing required packages"""
+    import subprocess
+    import sys
+
+    # Install required packages for PostgreSQL
+    for package in _db_type_packages.get("postgres", []):
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+_db_type_packages = {
+    "postgres": ["psycopg", "psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0", "pgvector>=0.4.0"],
+}
+init()
 
 # Import the required modules from the project
 try:
-    from retrieval.postgres_client import PgVectorClient
+    from retrieval_providers.postgres_client import PgVectorClient
 except ImportError as e:
     print(f"Failed to import required modules: {e}")
-    print(f"Make sure you're running this script from the code directory: {code_dir}")
+    print(f"Make sure you're running this script from the python directory: {python_dir}")
     sys.exit(1)
 
 # SQL for creating the table and indexes
