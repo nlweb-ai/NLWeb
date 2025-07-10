@@ -27,7 +27,7 @@ class FastTrack:
     def is_fastTrack_eligible(self):
         """Check if query is eligible for fast track processing"""
         # Skip fast track for sites without embeddings
-        if self.handler.site.lower() == "datacommons":
+        if "datacommons" in self.handler.site:
             logger.debug("Fast track not eligible: DataCommons site has no embeddings")
             return False
         if (self.handler.context_url != ''):

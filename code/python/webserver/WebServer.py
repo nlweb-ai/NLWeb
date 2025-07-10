@@ -477,38 +477,98 @@ def handle_site_parameter(query_params):
     logger.debug(f"Query params: {query_params}")
     # Get allowed sites from config
     allowed_sites = CONFIG.get_allowed_sites()
-    sites = []
-    if "site" in query_params and len(query_params["site"]) > 0:
-        sites = query_params["site"]
-        logger.debug(f"Sites: {sites}")
+    sites = query_params.get("site", [])
+    logger.debug(f"Sites from params: {sites}")
+    
     # Check if site parameter exists in query params
-    if  len(sites) > 0:
+    if sites:
         if isinstance(sites, list):
-            # Validate each site
-            valid_sites = []
-            for site in sites:
-                if CONFIG.is_site_allowed(site):
-                    valid_sites.append(site)
+            # If list has only one item, convert to string for backward compatibility
+            if len(sites) == 1:
+                site_value = sites[0]
+                if CONFIG.is_site_allowed(site_value):
+                    result_params["site"] = site_value  # Keep as string for single site
                 else:
-                    logger.warning(f"Site '{site}' is not in allowed sites list")
-            
-            if valid_sites:
-                result_params["site"] = valid_sites
+                    logger.warning(f"Site '{site_value}' is not in allowed sites list")
+                    # If no sites are configured, allow the requested site
+                    if not allowed_sites:
+                        result_params["site"] = site_value
+                    else:
+                        result_params["site"] = "all"  # Default to all if site not allowed
             else:
-                # No valid sites provided, use default from config
-                result_params["site"] = allowed_sites
+                # Multiple sites - validate each
+                valid_sites = []
+                for site in sites:
+                    if CONFIG.is_site_allowed(site):
+                        valid_sites.append(site)
+                    else:
+                        logger.warning(f"Site '{site}' is not in allowed sites list")
+                
+                if valid_sites:
+                    result_params["site"] = valid_sites
+                else:
+                    # No valid sites provided, use default from config
+                    result_params["site"] = allowed_sites
         else:
-            # Single site
+            # Single site (string) - for backward compatibility
             if CONFIG.is_site_allowed(sites):
-                result_params["site"] = [sites]
+                result_params["site"] = sites  # Keep as string for single site
             else:
                 logger.warning(f"Site '{sites}' is not in allowed sites list")
-                result_params["site"] = allowed_sites
+                # If no sites are configured, allow the requested site
+                if not allowed_sites:
+                    result_params["site"] = sites
+                else:
+                    result_params["site"] = "all"  # Default to all if site not allowed
     else:
         # No site parameter provided, use all allowed sites from config
         result_params["site"] = allowed_sites
     
     return result_params
+
+
+def parse_post_body(body, query_params):
+    """
+    Parse POST body and merge with query parameters, formatting values as lists
+    to match URL parameter format.
+    
+    Args:
+        body: Request body (bytes)
+        query_params: Existing query parameters (dict)
+        
+    Returns:
+        dict: Merged parameters with values formatted as lists
+    """
+    merged_params = query_params.copy()
+    if body:
+        try:
+            body_params = json.loads(body.decode('utf-8'))
+            
+            # Convert body params to list format (matching URL parameter format)
+            for key, value in body_params.items():
+                if isinstance(value, list):
+                    # Convert all values to strings to match URL parameter format
+                    converted_list = []
+                    for v in value:
+                        if isinstance(v, bool):
+                            converted_list.append(str(v).lower())
+                        else:
+                            converted_list.append(str(v))
+                    merged_params[key] = converted_list
+                elif value is not None:
+                    # Convert to string to match URL parameter format
+                    # Special handling for boolean values to lowercase
+                    if isinstance(value, bool):
+                        merged_params[key] = [str(value).lower()]
+                    else:
+                        merged_params[key] = [str(value)]
+                else:
+                    merged_params[key] = []
+            
+        except Exception as e:
+            logger.error(f"Failed to parse POST body as JSON: {e}")
+    return merged_params
+
 
 async def start_server(host=None, port=None, fulfill_request=None, use_https=False, 
                  ssl_cert_file=None, ssl_key_file=None):
@@ -665,6 +725,10 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
                 await send_chunk(json.dumps({"status": "ok"}), end_response=True)
                 return
 
+            # Parse POST body if present
+            if method == "POST":
+                query_params = parse_post_body(body, query_params)
+                
             # Check if streaming should be used from query parameters
             use_streaming = False
             if ("streaming" in query_params):
@@ -783,8 +847,20 @@ async def fulfill_request(method, path, headers, query_params, body, send_respon
                 await send_chunk(json.dumps({"error": "Method not allowed"}), end_response=True)
             return
         elif (path.find("ask") != -1):
+            # Parse POST body if present
+            if method == "POST":
+                query_params = parse_post_body(body, query_params)
+            
             # Handle site parameter validation for ask endpoint
             validated_query_params = handle_site_parameter(query_params)
+            
+            # Re-check streaming and generate_mode after merging POST body
+            if ("streaming" in validated_query_params):
+                strval = get_param(validated_query_params, "streaming", str, "True")
+                streaming = strval not in ["False", "false", "0"]
+            
+            if ("generate_mode" in validated_query_params):
+                generate_mode = get_param(validated_query_params, "generate_mode", str, "none")
             
             if (not streaming):
                 if (generate_mode == "generate"):

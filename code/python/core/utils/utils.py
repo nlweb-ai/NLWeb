@@ -8,6 +8,8 @@ def siteToItemType(site):
     # For any single site's deployment, this can stay in code. But for the
     # multi-tenant, it should move to the database
     namespace = "http://nlweb.ai/base"
+    if isinstance(site, list):
+        site = site[0]
     et = "Item"
     if site == "imdb":
         et = "Movie"
@@ -21,7 +23,7 @@ def siteToItemType(site):
         et = "Outdoor Gear"
     elif site == "zillow":
         et = "RealEstate"
-    elif site.lower() == "datacommons":
+    elif site == "datacommons":
         et = "Statistics"
     else:
         et = "Items"
@@ -48,27 +50,20 @@ def visibleUrl(url):
 
 def get_param(query_params, param_name, param_type=str, default_value=None):
     value = query_params.get(param_name, default_value)
-    if (value is not None and len(value) == 1):
-        value = value[0]
-        if param_type == str:
-            if value is None:
-                return ""
+    if (value is not None):
+        if param_type == str:\
             return value    
-        elif param_type == int:
-            if value is None:
-                return 0
+        elif param_type == int:\
             return int(value)
         elif param_type == float:
-            if value is None:
-                return 0.0
             return float(value) 
         elif param_type == bool:
-            if value is None:
-                return False
+            if isinstance(value, list):
+                return value[0].lower() == "true"
             return value.lower() == "true"
         elif param_type == list:
-            if value is None:
-                return []
+            if isinstance(value, list):
+                return value
             return [item.strip() for item in value.strip('[]').split(',') if item.strip()]
         else:
             raise ValueError(f"Unsupported parameter type: {param_type}")

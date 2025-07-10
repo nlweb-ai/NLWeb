@@ -100,7 +100,8 @@ def get_prompt_variable_value(variable, handler):
     value = ""
 
     if variable == "request.site":
-        value = site
+        if (isinstance(site, list)):
+            value = site
     elif variable == "site.itemType":
         item_type = handler.item_type
         value = item_type.split("}")[1]
@@ -145,21 +146,20 @@ def get_prompt_variable_value(variable, handler):
         value = ""
     
     logger.debug(f"Variable '{variable}' = '{str(value)[:100]}{'...' if len(str(value)) > 100 else ''}'")
+    
+    
     return value
 
 def fill_prompt(prompt_str, handler, pr_dict={}):
     logger.debug(f"Filling prompt template (length: {len(prompt_str)})")
-    
     try:
         variables = get_prompt_variables_from_prompt(prompt_str)
         logger.debug(f"Found {len(variables)} variables to fill")
-        
         for variable in variables:
             if (variable in pr_dict):
                 value = pr_dict[variable]
             else:
                 value = get_prompt_variable_value(variable, handler)
-            
             # Ensure value is a string
             if not isinstance(value, str):
                 value = str(value)
@@ -184,8 +184,8 @@ def get_cached_values(site, item_type, prompt_name):
     return None
 
 def find_prompt(site, item_type, prompt_name):  
-    logger.info(f"Finding prompt: '{prompt_name}' for site='{site}', item_type='{item_type}'")
-    
+    if (site):
+        site = site[0]
     if (prompt_roots == []):
         logger.debug("Prompt roots not initialized, initializing now")
         init_prompts()
@@ -209,29 +209,23 @@ def find_prompt(site, item_type, prompt_name):
     for root_element in prompt_roots:
         for site_element in root_element.findall(SITE_TAG):
             if site_element.get("ref") == site:
-                logger.debug(f"Found matching site element: {site}")
                 break
     
     candidate_roots = []
     if site_element is not None:
         candidate_roots.append(site_element)
-        logger.debug(f"Using site-specific search for prompts")
     else:
         candidate_roots = prompt_roots
-        logger.debug(f"No site-specific element found, searching all roots")
     
     # If site element found, search for matching Type element within it
     for candidate_root in candidate_roots:
         for child in candidate_root:
             if (super_class_of(item_type, child.tag)):
-                logger.debug(f"Found matching type element: {child.tag}")
                 children = child.findall(PROMPT_TAG)
-                logger.debug(f"Found {len(children)} prompt elements under type")
                 
                 for pe in children:
                     if pe.get("ref") == prompt_name:
                         prompt_element = pe
-                        logger.debug(f"Found matching prompt element: {prompt_name}")
                         break
     
     if prompt_element is not None:
@@ -245,16 +239,13 @@ def find_prompt(site, item_type, prompt_name):
             else:
                 try:
                     return_struc = json.loads(return_struc_text)
-                    logger.debug(f"Parsed return structure for prompt '{prompt_name}'")
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse return structure JSON: {e}")
                     return_struc = None
         else:
             return_struc = None
-            logger.debug(f"No return structure defined for prompt '{prompt_name}'")
         
         cached_prompts[(site, item_type, prompt_name)] = (prompt_text, return_struc)
-        logger.info(f"Successfully found and cached prompt '{prompt_name}'")
         return prompt_text, return_struc
     else:
         logger.warning(f"Prompt '{prompt_name}' not found for site='{site}', item_type='{item_type}'")
@@ -300,16 +291,13 @@ def get_prompt_variables_from_file(xml_file_path):
         
     except ET.ParseError as e:
         logger.error(f"Error parsing XML file {xml_file_path}: {str(e)}")
-        print(f"Error parsing XML file {xml_file_path}: {str(e)}")
         return set()
     except FileNotFoundError:
         logger.error(f"XML file not found: {xml_file_path}")
-        print(f"XML file not found: {xml_file_path}")
         return set()
     except Exception as e:
         logger.error(f"Error processing file {xml_file_path}: {str(e)}")
         logger.debug("Error details:", exc_info=True)
-        print(f"Error processing file {xml_file_path}: {str(e)}")
         return set()
 
 #print(get_prompt_variables_from_file("html/site_type.xml"))
@@ -319,23 +307,19 @@ class PromptRunner:
     """Class to run prompts with a given handler."""
 
     def get_prompt(self, prompt_name):
-        prompt_runner_logger.debug(f"Getting prompt: {prompt_name}")
         item_type = self.handler.item_type
         site = self.handler.site
         
-        prompt_runner_logger.debug(f"Looking for prompt '{prompt_name}' with site='{site}', item_type='{item_type}'")
         prompt_str, ans_struc = find_prompt(site, item_type, prompt_name)
 
         if (prompt_str is None):
             prompt_runner_logger.warning(f"Prompt '{prompt_name}' not found for site='{site}', item_type='{item_type}'")
             return None, None
         
-        prompt_runner_logger.debug(f"Found prompt '{prompt_name}', length: {len(prompt_str)} chars")
         return prompt_str, ans_struc
 
     def __init__(self, handler):
         self.handler = handler
-        prompt_runner_logger.debug(f"PromptRunner initialized with handler for site: {handler.site}")
 
     async def run_prompt(self, prompt_name, level="low", verbose=False, timeout=8):
         prompt_runner_logger.info(f"Running prompt: {prompt_name} with level={level}, timeout={timeout}s")

@@ -48,7 +48,7 @@ These instructions assume that you have Python 3.10+ installed locally.
 6. You can verify that your configuration is set properly and you remembered to set all needed API keys by running the check-connectivity script from the code directory.  There is more information [here](nlweb-check-connectivity.md). 
 
     ```sh
-    python check_connectivity.py
+    python testing/connectivity/check_connectivity.py
     ```
 
 7. Now we will load some data in our local vector database to test with. We've listed a few RSS feeds you can choose from below. Note, you can also load all of these on top of each other to have multiple 'sites' to search across as well.  By default it will search all sites you load, but this is configured in config_nlweb.yaml if you want to scope your search to specific sites.
