@@ -1,6 +1,6 @@
 # Memory
 
-One of the pre-retrieval steps (implemented using the DetectMemoryRequestPrompt in site_types.xml) is used to determine whether the statement by the user has something that should be remembered for the longer term. The code included in this repo will 'remember' that only for the conversation, so long as it is passed in the list of previous queries. However, as noted by the comment in pre_retrieval/memory.py, there is a hook for where a website may choose to keep this in longer term memory. It can be passed along in future calls to NLWeb as part of previous queries.
+One of the pre-retrieval steps (implemented using the DetectMemoryRequestPrompt in site_types.xml) is used to determine whether the statement by the user has something that should be remembered for the longer term. The code included in this repo will 'remember' that only for the conversation, so long as it is passed in the list of previous queries. However, as noted by the comment in code/python/core/memory.py, there is a hook for where a website may choose to keep this in longer term memory. It can be passed along in future calls to NLWeb as part of previous queries.
 
 The memory pre retrieval step, like other pre retrieval steps (and ranking) is implemented with a prompt, which can be specialized. For example, here is the generic memory prompt:
 
