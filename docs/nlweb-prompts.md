@@ -11,7 +11,7 @@ During the course of processing a single query from a user, NLWeb makes a number
   - Create summary of results
   - Try to answer the user's question using the top ranked results (this is closer to traditional RAG)
 
-The prompts used for these calls are in the file site_types.xml. The behaviour of the system can be modified by changing these prompts.
+The prompts used for these calls are in the file config/site_types.xml. The behaviour of the system can be modified by changing these prompts.
 
 Given below is a sample prompt:
 
@@ -45,7 +45,7 @@ follows a templated structure. Each string contains placeholders / variables
 during execution. The prompts typically begin by establishing context about
 the user's query and the site being searched, followed by specific instructions
 for analyzing or transforming the query or ranking the candidate item
-in the context of the query. The LLM calls always used structured output
+in the context of the query. The LLM calls always use structured output
 and the desired structure of the output is in the <tag>returnStruc</tag>
 The list of allowed placeholders is given at the end of this document.
 

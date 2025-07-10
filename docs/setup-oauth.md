@@ -3,6 +3,7 @@
 This guide explains how to set up and use OAuth authentication in NLWeb, allowing users to log in with Google, Facebook, Microsoft, or GitHub accounts.
 
 ## Table of Contents
+
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
 - [Provider Setup](#provider-setup)
@@ -21,6 +22,7 @@ This guide explains how to set up and use OAuth authentication in NLWeb, allowin
 NLWeb implements OAuth 2.0 authentication to allow users to log in using their existing accounts from major providers. This provides a secure, convenient way for users to authenticate without creating separate credentials for NLWeb.
 
 ### Key Features
+
 - Secure server-side token exchange
 - Support for Google, Facebook, Microsoft, and GitHub
 - Session-based authentication
@@ -30,6 +32,7 @@ NLWeb implements OAuth 2.0 authentication to allow users to log in using their e
 ## Prerequisites
 
 Before setting up OAuth, ensure you have:
+
 - NLWeb installed and running
 - A public domain or ngrok for local development (OAuth callbacks require HTTPS in production)
 - Admin access to create OAuth applications with your chosen providers
@@ -39,7 +42,7 @@ Before setting up OAuth, ensure you have:
 ### Google OAuth Setup
 
 1. **Go to Google Cloud Console**
-   - Navigate to https://console.cloud.google.com/
+   - Navigate to [Google Cloud Console](https://console.cloud.google.com/)
    - Create a new project or select an existing one
 
 2. **Enable Google+ API**
@@ -61,7 +64,7 @@ Before setting up OAuth, ensure you have:
 ### Facebook OAuth Setup
 
 1. **Go to Facebook Developers**
-   - Navigate to https://developers.facebook.com/
+   - Navigate to [Facebook Developers](https://developers.facebook.com/)
    - Click "My Apps" → "Create App"
 
 2. **Create a New App**
@@ -81,7 +84,7 @@ Before setting up OAuth, ensure you have:
 ### Microsoft OAuth Setup
 
 1. **Go to Azure Portal**
-   - Navigate to https://portal.azure.com/
+   - Navigate to [https://portal.azure.com/](https://portal.azure.com/)
    - Go to "Azure Active Directory" → "App registrations"
 
 2. **Register New Application**
@@ -104,7 +107,7 @@ Before setting up OAuth, ensure you have:
 ### GitHub OAuth Setup
 
 1. **Go to GitHub Settings**
-   - Navigate to https://github.com/settings/developers
+   - Navigate to [GitHub Developer Settings](https://github.com/settings/developers)
    - Click "OAuth Apps" in the left sidebar
    - Click "New OAuth App"
 
@@ -124,7 +127,7 @@ Before setting up OAuth, ensure you have:
 ## NLWeb Configuration
 
 1. **Set Environment Variables**
-   
+
    NLWeb reads OAuth credentials from environment variables. Set these before running NLWeb:
 
    ```bash
@@ -147,12 +150,12 @@ Before setting up OAuth, ensure you have:
    # Session Secret (required)
    # Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
    export OAUTH_SESSION_SECRET="your_random_session_secret"
-   ```
-   
+   ```bash
+
    **Note**: GitHub uses `GITHUB_CLIENT_ID` instead of `GITHUB_OAUTH_CLIENT_ID` for compatibility with existing setups.
 
 2. **Configure OAuth Providers**
-   
+
    The OAuth configuration is managed in `/config/config_oauth.yaml`. This file controls which providers are enabled:
 
    ```yaml
@@ -179,22 +182,24 @@ Before setting up OAuth, ensure you have:
    ```
 
 3. **Add to .gitignore**
-   
+
    If you're using a `.env` file for environment variables, add it to `.gitignore`:
-   ```
+
+   ```env
    .env
    ```
 
 ## Testing the Integration
 
 1. **Start NLWeb Server**
+
    ```bash
-   cd /path/to/NLWeb/code/python
+   cd NLWeb/code/python
    python app-file.py
    ```
 
 2. **Access the Web Interface**
-   - Open http://localhost:8000 in your browser
+   - Open [http://localhost:8000](http://localhost:8000) in your browser
    - Click the "Login" button in the top-right corner
    - You should see login options for enabled providers
 
@@ -239,6 +244,7 @@ Before setting up OAuth, ensure you have:
 ## Troubleshooting
 
 ### "OAuth configuration not found for provider: unknown"
+
 - The OAuth callback couldn't identify which provider was used
 - Check that sessionStorage is enabled in the browser
 - Verify the OAuth state parameter is being passed correctly
@@ -250,7 +256,7 @@ Before setting up OAuth, ensure you have:
 
 2. **Redirect URI Mismatch**
    - Verify the redirect URI in provider settings matches exactly
-   - Include both http://localhost:8000/oauth/callback and your production URL
+   - Include both <http://localhost:8000/oauth/callback> and your production URL
 
 3. **Invalid Client Error**
    - Double-check client ID and secret
@@ -325,7 +331,3 @@ auth:
     max_attempts: 5
     window_minutes: 15
 ```
-
----
-
-For more help or to report issues, please visit the [NLWeb GitHub repository](https://github.com/ai-in-commerce/NLWeb).

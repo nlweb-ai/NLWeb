@@ -3,10 +3,10 @@
 Incremental website crawler with schema markup extraction and database loading.
 This script crawls URLs one by one, maintaining state to allow resumption.
 
-Usage:
-    python -m code.scraping.incrementalCrawlAndLoad example.com
-    python -m code.scraping.incrementalCrawlAndLoad example.com --max-pages 100
-    python -m code.scraping.incrementalCrawlAndLoad example.com --resume
+Usage - run this from the 'python' directory:
+    python -m scraping.incrementalCrawlAndLoad example.com
+    python -m scraping.incrementalCrawlAndLoad example.com --max-pages 100
+    python -m scraping.incrementalCrawlAndLoad example.com --resume
 """
 
 import os
