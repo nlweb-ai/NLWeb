@@ -33,7 +33,7 @@
     </Tool>
 
     <Tool name="details" enabled="true">
-      <method>code</method>
+      <method>extension</method>
       <handler>methods.item_details.ItemDetailsHandler</handler>
       <example>What are the ingredients in Chicken Alfredo?</example>
       <example>Who directed The Dark Knight?</example>
@@ -63,7 +63,7 @@
     </Tool>
 
     <Tool name="compare" enabled="true">
-      <method>code</method>
+      <method>extension</method>
       <handler>methods.compare_items.CompareItemsHandler</handler>
       <example>Compare pizza margherita vs pepperoni pizza</example>
       <example>Which is better: iPhone vs Samsung Galaxy?</example>
@@ -95,34 +95,7 @@
   </Item>
 
   <Recipe>
-    <Tool name="search" enabled="true">
-      <method>builtin</method>
-      <example>Find quick vegetarian pasta recipes under 30 minutes</example>
-      <example>Show me gluten-free dessert recipes</example>
-      <example>I need chicken recipes that take less than 45 minutes</example>
-      <example>Find keto-friendly dinner recipes with salmon</example>
-      <prompt>
-        The user has the following query: {request.query}.
-
-        The recipe search tool finds recipes that match specific criteria such as cuisine type, dietary restrictions, cooking time, or ingredients. It's designed for:
-        - Finding recipes based on dietary needs (vegetarian, gluten-free, keto, etc.)
-        - Discovering recipes by cuisine type, cooking time, or difficulty
-        - Broad recipe exploration when users want to see what's available
-        
-        The search tool is NOT the best choice if:
-        - The user is asking for specific details about a PARTICULAR named recipe (like ingredients, instructions, nutrition info, etc.)
-        - The user is asking for multiple complementary items to form a complete meal (appetizer + main + dessert)
-        
-        Assign a score from 0 to 100 for whether the recipe search tool is appropriate.
-        Also provide the search query that should be passed to the tool.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "search_query": "the search query that should be passed to the tool"
-        }
-      </returnStruc>
-    </Tool>
+  
 
     <Tool name="details" enabled="true">
       <method>code</method>
@@ -139,6 +112,8 @@
         - Getting cooking instructions for a particular recipe
         - Getting nutritional information for a specific dish
         - Queries that mention a specific recipe name and ask for details about it
+
+        Queries that don't mention a very specific recipe should be scored LOW (0-30).
         
         The details tool should score HIGH (80-100) if the user names a specific recipe and wants details.
         The details tool should score LOW (0-30) if the user wants to find/search for recipes.
@@ -157,6 +132,7 @@
 
     <Tool name="compare" enabled="true">
       <method>code</method>
+      <handler>methods.compare_items.CompareItemsHandler</handler>
       <example>Compare the calories in pizza margherita vs pepperoni pizza</example>
       <example>Which has more protein: grilled chicken or salmon teriyaki?</example>
       <example>Compare cooking time between homemade bread and no-knead bread</example>
@@ -257,34 +233,7 @@
   </Recipe>
 
   <Movie>
-    <Tool name="search" enabled="true">
-      <method>builtin</method>
-      <example>Find action movies from the 1990s</example>
-      <example>Show me highly rated comedies from 2020-2023</example>
-      <example>I want to watch sci-fi movies with good ratings</example>
-      <example>Find family-friendly movies for kids</example>
-      <prompt>
-        The user has the following query: {request.query}.
-
-        The movie search tool finds movies based on criteria like genre, year, rating, director, or actor. It's designed for:
-        - Finding movies by genre, year, or rating criteria
-        - Discovering movies featuring specific actors or directors
-        - Broad movie exploration when users want to see what's available
-        
-        The search tool is NOT the best choice if the user is asking for specific details 
-        about a PARTICULAR named movie (like cast, plot, runtime, ratings, etc.).
-        
-        Assign a score from 0 to 100 for whether the movie search tool is appropriate.
-        Also provide the search query that should be passed to the tool.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "search_query": "the search query that should be passed to the tool"
-        }
-      </returnStruc>
-    </Tool>
-
+  
     <Tool name="details" enabled="true">
       <method>code</method>
       <handler>methods.item_details.ItemDetailsHandler</handler>
@@ -316,89 +265,10 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="compare" enabled="true">
-      <method>code</method>
-      <example>Compare The Dark Knight vs The Dark Knight Rises</example>
-      <example>Which made more money: Avengers or Avatar?</example>
-      <example>Compare the ratings of Inception vs Interstellar</example>
-      <example>Which has a better cast: Ocean's Eleven or Ocean's Twelve?</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        The movie compare tool compares two movies side by side for ratings, box office, cast, or other attributes. It's best for:
-        - Direct comparisons between two specific named movies
-        - Questions asking "which made more money" or "which has better ratings"
-        - Evaluating movies against each other on specific criteria
-        
-        Assign a score from 0 to 100 for whether the movie compare tool is appropriate.
-        If appropriate, identify the two movies being compared.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "item1": "the title or identifier of the first movie to compare",
-          "item2": "the title or identifier of the second movie to compare"
-        }
-      </returnStruc>
-    </Tool>
-
-    <Tool name="filmography_search" enabled="true">
-      <method>code</method>
-      <example>What movies has Leonardo DiCaprio been in?</example>
-      <example>Show me all Christopher Nolan films</example>
-      <example>Find all Tom Hanks movies from the 1990s</example>
-      <example>What horror movies has Jordan Peele directed?</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        The filmography search tool finds all movies featuring a specific actor or directed by a specific director. It's best for:
-        - Finding all movies by a specific actor or director
-        - Exploring someone's complete filmography
-        - Filtering movies by person and additional criteria like year or genre
-        
-        Assign a score from 0 to 100 for whether the filmography search tool is appropriate.
-        If appropriate, identify the person and their role (actor, director, etc.).
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "person_name": "name of the actor or director",
-          "role": "role type (actor, director, producer, writer)",
-          "year_range": "filter by release year range",
-          "genre": "filter by genre"
-        }
-      </returnStruc>
-    </Tool>
   </Movie>
 
   <Product>
-    <Tool name="search" enabled="true">
-      <method>builtin</method>
-      <example>Find laptops under $1000 with good ratings</example>
-      <example>Show me Nike running shoes in size 10</example>
-      <example>I need a wireless Bluetooth speaker under $200</example>
-      <example>Find organic skincare products with 4+ star reviews</example>
-      <prompt>
-        The user has the following query: {request.query}.
-
-        The product search tool finds products that match specific criteria such as category, price range, brand, features, or customer ratings. It's designed for:
-        - Finding products by category, price, brand, or features
-        - Discovering products that meet specific requirements
-        - Broad product exploration when users want to see what's available
-        
-        The search tool is NOT the best choice if the user is asking for specific details 
-        about a PARTICULAR named product (like price, specs, colors, reviews, etc.).
-        
-        Assign a score from 0 to 100 for whether the product search tool is appropriate.
-        Also provide the search query that should be passed to the tool.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "search_query": "the search query that should be passed to the tool"
-        }
-      </returnStruc>
-    </Tool>
+   
 
     <Tool name="details" enabled="true">
       <method>code</method>
@@ -433,6 +303,7 @@
 
     <Tool name="compare" enabled="true">
       <method>code</method>
+      <handler>methods.compare_items.CompareItemsHandler</handler>
       <example>Compare iPhone 15 vs Samsung Galaxy S24 prices and features</example>
       <example>Which is better: Sony WH-1000XM5 or Bose QuietComfort headphones?</example>
       <example>Compare these three laptops for gaming performance</example>
@@ -544,64 +415,8 @@
       </returnStruc>
     </Tool>
 
-    <Tool name="restaurant_menu" enabled="true">
-      <method>code</method>
-      <example>What vegetarian options does Olive Garden have?</example>
-      <example>Show me gluten-free dishes at this Italian restaurant</example>
-      <example>What can I order at McDonald's if I'm on keto?</example>
-      <example>Does this restaurant have nut-free desserts?</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        The restaurant menu tool gets menu information for a specific restaurant and suggests dishes based on dietary constraints or preferences. It's best for:
-        - Getting menu options for specific dietary needs at a named restaurant
-        - Finding dishes that meet dietary restrictions at a particular restaurant
-        - Getting recommendations based on preferences at a specific restaurant
-        
-        Assign a score from 0 to 100 for whether the restaurant menu tool is appropriate.
-        If appropriate, identify the restaurant and any dietary constraints or preferences.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "restaurant_name": "name of the restaurant",
-          "restaurant_id": "unique identifier of the restaurant",
-          "dietary_constraint": "dietary restrictions",
-          "meal_type": "type of meal",
-          "allergens": "food allergies to avoid"
-        }
-      </returnStruc>
-    </Tool>
 
-    <Tool name="restaurant_nearby" enabled="true">
-      <method>code</method>
-      <example>Find restaurants near the Eiffel Tower</example>
-      <example>What's good to eat near Times Square?</example>
-      <example>Show me restaurants within walking distance of the hotel</example>
-      <example>Find coffee shops near the university campus</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        The restaurant nearby tool finds restaurants close to a specific location, landmark, or address. It's best for:
-        - Finding restaurants near a specific location or landmark
-        - Getting dining options within a certain distance of a place
-        - Location-based restaurant discovery
-        
-        Assign a score from 0 to 100 for whether the restaurant nearby tool is appropriate.
-        If appropriate, identify the location and any preferences like cuisine or price range.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "reference_location": "specific place, landmark, or address",
-          "radius": "search radius in miles or kilometers",
-          "cuisine": "preferred cuisine type",
-          "open_now": "filter for currently open restaurants",
-          "price_preference": "preferred price range"
-        }
-      </returnStruc>
-    </Tool>
-  </Restaurant>
+</Restaurant>
 
   <Item>
     <Tool name="ensemble">
@@ -622,7 +437,8 @@
         - Any request asking for multiple complementary items
         
         The ensemble tool should score HIGH (80-100) if the user wants multiple related items that form a cohesive set.
-        The ensemble tool should score LOW (0-30) if the user wants just one specific item or unrelated items.
+        The ensemble tool should score LOW (0-30) if the user wants just one specific item type (e.g, spices for 
+        a particular recipe, or a specific type of clothing for a specific occasion).
         
         Assign a score from 0 to 100 for whether the ensemble tool is appropriate.
         
@@ -643,75 +459,7 @@
   </Item>
 
   <Statistics>
-    <Tool name="search" enabled="true">
-      <method>builtin</method>
-      <example>Find statistical reports about climate change</example>
-      <example>Search for data visualization tools</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        IMPORTANT: In the Statistics context, this is a specialized search tool that should ONLY find documents and reports,
-        NOT retrieve actual statistical data. The statistics_query tool handles all data retrieval.
-        
-        If the query contains words like "correlation", "median", "population", "income", "age", "compare", "ranking", "top", "highest", 
-        "lowest", or mentions any US geographic places (counties, cities, states), immediately return a score of 5 or less.
-        
-        The search tool should score VERY LOW (0-10) for:
-        - Queries asking for specific statistical values (population, income, etc.)
-        - Queries about demographic or economic data for specific places
-        - Any query that can be answered with data from Data Commons
-        - Correlation queries between variables (e.g., "correlation between X and Y")
-        - Ranking queries (e.g., "top counties by X")
-        - Comparison queries between places (e.g., "compare X between county A and B")
-        
-        The search tool should score HIGH (80-100) only for:
-        - Finding statistical reports or documents
-        - Searching for analysis tools or methodologies
-        - General exploration without specific data requests
-        
-        Assign a score from 0 to 100 for whether the search tool is appropriate.
-        Also provide the search query that should be passed to the tool.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "search_query": "the search query that should be passed to the tool"
-        }
-      </returnStruc>
-    </Tool>
-    
-    <Tool name="details" enabled="true">
-      <method>code</method>
-      <handler>methods.item_details.ItemDetailsHandler</handler>
-      <example>What are the hours for the statistics office?</example>
-      <example>Show me details about the Data Commons organization</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        This is a Statistics-type query context. The details tool is NOT appropriate for statistical queries
-        about demographic or economic data. It should only be used for non-statistical details about 
-        organizations or offices.
-        
-        The details tool should score VERY LOW (0-10) for:
-        - Any query asking about statistical values (population, income, demographics)
-        - Any query about data for geographic places
-        - Any query with statistical variables
-        
-        The details tool should score HIGH only for:
-        - Details about organizations (not their statistics)
-        - Operating hours, contact information, etc.
-        
-        Assign a score from 0 to 100 for whether the details tool is appropriate.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "item_name": "the name or identifier of the specific item for which details are being sought",
-          "details_requested": "the details that the user is asking for"
-        }
-      </returnStruc>
-    </Tool>
-    
+   
     <Tool name="statistics_query" enabled="true">
       <method>code</method>
       <handler>methods.statistics_handler.StatisticsHandler</handler>
@@ -771,37 +519,6 @@
       </returnStruc>
     </Tool>
     
-    <Tool name="compare" enabled="true">
-      <method>code</method>
-      <handler>methods.compare_items.CompareItemsHandler</handler>
-      <example>Compare statistical methodologies between Census and ACS</example>
-      <example>Which data source is more reliable: BLS or Census?</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        In the Statistics context, the compare tool should only be used for comparing methodologies,
-        data sources, or organizations - NOT for comparing statistical values between places.
-        
-        The compare tool should score VERY LOW (0-10) for:
-        - Comparing statistical values between places (use statistics_query instead)
-        - Comparing demographics between counties/cities
-        - Any statistical data comparison
-        
-        The compare tool should score HIGH only for:
-        - Comparing data collection methodologies
-        - Comparing data sources or organizations
-        
-        Assign a score from 0 to 100 for whether the compare tool is appropriate.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "item1_name": "the name or identifier of the first item to compare",
-          "item2_name": "the name or identifier of the second item to compare",
-          "details_requested": "the details that the user is asking for"
-        }
-      </returnStruc>
-    </Tool>
   </Statistics>
 
 </Tools>

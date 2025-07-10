@@ -375,7 +375,6 @@ class AzureSearchClient:
                 return search_client.upload_documents(documents)
             
             await asyncio.get_event_loop().run_in_executor(None, upload_sync)
-            logger.info(f"Successfully uploaded {len(documents)} documents to index '{index_name}'")
             return len(documents)
         except Exception as e:
             logger.error(f"Error uploading documents to index '{index_name}': {str(e)}")
@@ -398,30 +397,18 @@ class AzureSearchClient:
             List[List[str]]: List of search results
         """
         index_name = index_name or self.default_index_name
-        logger.info(f"Starting Azure Search - index: {index_name}, site: {site}, num_results: {num_results}")
-        logger.debug(f"Query: {query}")
         
         # Get embedding for the query
         start_embed = time.time()
         embedding = await get_embedding(query, query_params=query_params)
         embed_time = time.time() - start_embed
-        logger.debug(f"Embedding generated in {embed_time:.2f}s, dimension: {len(embedding)}")
         
         # Perform the search
         start_retrieve = time.time()
         results = await self._retrieve_by_site_and_vector(site, embedding, num_results, index_name)
         retrieve_time = time.time() - start_retrieve
         
-        logger.log_with_context(
-            LogLevel.INFO,
-            "Azure Search completed",
-            {
-                "embedding_time": f"{embed_time:.2f}s",
-                "retrieval_time": f"{retrieve_time:.2f}s",
-                "total_time": f"{embed_time + retrieve_time:.2f}s",
-                "results_count": len(results)
-            }
-        )
+       
         return results
     
     async def _retrieve_by_site_and_vector(self, sites: Union[str, List[str]], 
