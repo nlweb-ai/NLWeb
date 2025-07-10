@@ -1,9 +1,10 @@
 
-### OpenSearch Configuration
+# OpenSearch Configuration
 
 OpenSearch supports two modes: with k-NN plugin (faster) and without (using script_score).
 
-#### Option 1: With k-NN Plugin
+## Option 1: With k-NN Plugin
+
 ```yaml
 opensearch_knn:
   enabled: false
@@ -14,7 +15,8 @@ opensearch_knn:
   use_knn: true
 ```
 
-#### Option 2: Without k-NN Plugin (Fallback)
+## Option 2: Without k-NN Plugin (Fallback)
+
 ```yaml
 opensearch_script:
   enabled: false
@@ -25,7 +27,8 @@ opensearch_script:
   use_knn: false
 ```
 
-#### `use_knn`
+## `use_knn`
+
 - **Purpose**: Determines whether to use the k-NN plugin for vector search
 - **Type**: Boolean
 - **Default**: `true`
@@ -33,7 +36,8 @@ opensearch_script:
   - `true`: Uses native k-NN plugin (faster, requires plugin installation)
   - `false`: Uses script_score for similarity (slower but works without plugins)
 
-#### `api_key_env`
+## `api_key_env`
+
 - **Purpose**: Environment variable containing authentication credentials
 - **Type**: String (environment variable name)
 - **Format**: Can be either:

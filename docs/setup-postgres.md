@@ -1,8 +1,8 @@
-## PostgreSQL with pgvector
+# PostgreSQL with pgvector
 
 NLWeb supports PostgreSQL with the pgvector extension for vector similarity search. This provides a powerful and scalable option for storing and retrieving vector embeddings using standard SQL database technology.
 
-### Setup Requirements
+## Setup Requirements
 
 1. PostgreSQL database (version 11 or higher recommended)
 2. pgvector extension installed in the database
@@ -24,19 +24,20 @@ ON documents USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 200);
 ```
 
-### Setup Schema
+## Setup Schema
 
 NOTE: If you are using Azure Postgres Flexible server make sure you have `vector` [extension allow-listed](https://learn.microsoft.com/azure/postgresql/flexible-server/how-to-use-pgvector#enable-extension)
 
 To setup you PostgreSQL configuration, you can use the provided setup scripts:
 
-In the `code` directory run
+In the `python` directory run
+
 ```bash
 # Setup the Postgres server
-python tools/postgres_load.py
+python misc/postgres_load.py
 ```
 
-### Dependencies
+## Dependencies
 
 Make sure you have the required Python packages installed:
 
@@ -49,6 +50,7 @@ pip install pgvector
 ```
 
 The following packages are needed:
+
 - `psycopg` - The PostgreSQL adapter for Python (psycopg3)
 - `psycopg[binary]` - Binary dependencies for psycopg
 - `psycopg[pool]` - Connection pooling support
