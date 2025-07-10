@@ -48,6 +48,7 @@ class RetrievalProviderConfig:
     enabled: bool = False
     vector_type: Optional[str] = None
 
+
 @dataclass
 class ConversationStorageConfig:
     type: str = "qdrant"
@@ -355,7 +356,9 @@ class AppConfig:
                 database_path=self._get_config_value(cfg.get("database_path")),
                 index_name=self._get_config_value(cfg.get("index_name")),
                 db_type=self._get_config_value(cfg.get("db_type")),  # Add db_type
-                enabled=cfg.get("enabled", False)  # Add enabled field
+                enabled=cfg.get("enabled", False),  # Add enabled field
+                use_knn=cfg.get("use_knn"),
+                vector_type=cfg.get("vector_type")
             )
     
     def load_webserver_config(self, path: str = "config_webserver.yaml"):
