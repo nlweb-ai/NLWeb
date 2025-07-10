@@ -11,9 +11,10 @@ services:
     environment:
       - PYTHONPATH=/app
       - PORT=8000
+      - NLWEB_CONFIG_DIR=/app/config
     volumes:
-      - ./data:/data
-      - ./code/config:/app/config:ro
+      - ./data:/app/data
+      - ./config:/app/config:ro
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000')\""]
       interval: 30s
