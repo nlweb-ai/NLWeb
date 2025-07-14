@@ -1,33 +1,27 @@
 
+from core.config import CONFIG
+
 recipe_sites = ['seriouseats', 'hebbarskitchen', 'latam_recipes',
                 'woksoflife', 'cheftariq',  'spruce', 'nytimes']
 
 all_sites = recipe_sites + ["imdb", "npr podcasts", "neurips", "backcountry", "tripadvisor", "DataCommons"]
 
 def siteToItemType(site):
-    # For any single site's deployment, this can stay in code. But for the
-    # multi-tenant, it should move to the database
+    # Get item type from configuration
     namespace = "http://nlweb.ai/base"
-    if isinstance(site, list):
-        site = site[0]
-    et = "Item"
-    if site == "imdb":
-        et = "Movie"
-    elif site in recipe_sites:
-        et = "Recipe"
-    elif site == "npr podcasts":
-        et = "Thing"
-    elif site == "neurips":
-        et = "Paper"
-    elif site == "backcountry":
-        et = "Outdoor Gear"
-    elif site == "zillow":
-        et = "RealEstate"
-    elif site == "datacommons":
-        et = "Statistics"
-    else:
-        et = "Items"
-    return f"{{{namespace}}}{et}"
+    
+    # Try to get from configuration
+    try:
+        site_config = CONFIG.get_site_config(site.lower())
+        if site_config and site_config.item_types:
+            # Return the first item type for the site
+            return f"{{{namespace}}}{site_config.item_types[0]}"
+    except:
+        pass
+    
+    # Default to Item if not found in configuration
+    return f"{{{namespace}}}Item"
+
     
 
 def itemTypeToSite(item_type):

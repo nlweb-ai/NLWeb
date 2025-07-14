@@ -10,12 +10,18 @@ Backwards compatibility is not guaranteed at this time.
 
 import os
 import yaml
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from dotenv import load_dotenv
 from typing import Dict, Optional, Any, List
 from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("config")
+
+@dataclass
+class SiteConfig:
+    item_types: List[str]
+    description: str
 
 @dataclass
 class ModelConfig:
@@ -117,6 +123,7 @@ class ServerConfig:
 @dataclass
 class NLWebConfig:
     sites: List[str]  # List of allowed sites
+    site_configs: Dict[str, SiteConfig] = field(default_factory=dict)  # Site-specific configurations
     json_data_folder: str = "./data/json"  # Default folder for JSON data
     json_with_embeddings_folder: str = "./data/json_with_embeddings"  # Default folder for JSON with embeddings
     chatbot_instructions: Dict[str, str] = field(default_factory=dict)  # Dictionary of chatbot instructions
@@ -181,6 +188,7 @@ class AppConfig:
         self.load_retrieval_config()
         self.load_webserver_config()
         self.load_nlweb_config()
+        self.load_sites_config()
         self.load_conversation_storage_config()
         self.load_oauth_config()
 
@@ -630,6 +638,59 @@ class AppConfig:
     def is_required_info_enabled(self) -> bool:
         """Check if required info checking is enabled."""
         return self.nlweb.required_info_enabled if hasattr(self, 'nlweb') else True
+    
+    def load_sites_config(self, path: str = "sites.xml"):
+        """Load site configurations from XML file."""
+        # Build the full path to the config file using the config directory
+        full_path = os.path.join(self.config_directory, path)
+        
+        try:
+            # Parse the XML file
+            tree = ET.parse(full_path)
+            root = tree.getroot()
+            
+            # Dictionary to store site configurations
+            site_configs = {}
+            
+            # Parse each Site element
+            for site_elem in root.findall('Site'):
+                # Get site name
+                site_name = site_elem.get('name')
+                if not site_name:
+                    continue
+                
+                # Get item types
+                item_types = []
+                for item_type_elem in site_elem.findall('itemType'):
+                    if item_type_elem.text:
+                        item_types.append(item_type_elem.text.strip())
+                
+                # Get description
+                description_elem = site_elem.find('description')
+                description = description_elem.text.strip() if description_elem is not None and description_elem.text else ""
+                
+                # Create SiteConfig object mapped by site name
+                if item_types:
+                    site_configs[site_name] = SiteConfig(
+                        item_types=item_types,
+                        description=description
+                    )
+            
+            # Store the site configurations in nlweb config
+            if hasattr(self, 'nlweb'):
+                self.nlweb.site_configs = site_configs
+                logger.info(f"Loaded {len(site_configs)} site configurations from {path}")
+            
+        except FileNotFoundError:
+            logger.warning(f"{path} not found. Site configurations will not be available.")
+        except ET.ParseError as e:
+            logger.error(f"Error parsing {path}: {e}")
+    
+    def get_site_config(self, site_name: str) -> Optional[SiteConfig]:
+        """Get site configuration for a specific site."""
+        if hasattr(self, 'nlweb') and self.nlweb.site_configs:
+            return self.nlweb.site_configs.get(site_name)
+        return None
     
     def get_embedding_provider(self, provider_name: Optional[str] = None) -> Optional[EmbeddingProviderConfig]:
         """Get the specified embedding provider config or the preferred one if not specified."""
