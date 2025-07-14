@@ -63,3 +63,6 @@ seaborn>=0.13.0
 
 # For Ollama
 # ollama>=0.5.1
+
+# For Elasticsearch:
+# elasticsearch[async]>=8,<9

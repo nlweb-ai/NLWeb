@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text Input Chat Interface</title>
+  <!-- Import styles first -->
+  <script type="module">
+    import { applyStyles } from './styles.js';
+    // Apply styles immediately
+    applyStyles();
+  </script>
+</head>
+<body>
+  <!-- Chat container that will be populated by the interfaces -->
+  <div id="chat-container" class="chat-container"></div>
+  
+  <!-- Import and initialize modules -->
+  <script type="module">
+    // Import the required modules
+    import { ChatInterface } from './chat-interface.js';
+    import { DropdownInterface } from './dropdown-interface.js';
+    
+    // Configuration option to enable/disable database selector
+    const ENABLE_DATABASE_SELECTOR = true;
+    
+    // Initialize on DOM load
+    document.addEventListener('DOMContentLoaded', () => {
+      // Get display mode from URL or use default
+      const urlParams = new URLSearchParams(window.location.search);
+      const display_mode = urlParams.get('display_mode') || 'dropdown';
+      const container = document.getElementById('chat-container');
+      
+      // If display mode is dropdown, initialize the dropdown interface first
+      if (display_mode === 'dropdown') {
+        // Create chat interface but don't append elements yet
+        const chatInterface = new ChatInterface(
+          null,           // Default site
+          display_mode,   // Display mode from URL or default
+          "list",         // Default generate mode
+          false           // Don't append elements yet
+        );
+        
+        // Pass configuration for database selector
+        chatInterface.enableDatabaseSelector = ENABLE_DATABASE_SELECTOR;
+        
+        // Initialize dropdown interface with option to use text input for site
+        const dropdownInterface = new DropdownInterface(
+          chatInterface,
+          container,
+          { useTextInputForSite: true }  // Use text input instead of dropdown
+        );
+        
+        // Now append chat elements after dropdown
+        chatInterface.appendInterfaceElements(container);
+      } else {
+        // Normal initialization for non-dropdown mode
+        const chatInterface = new ChatInterface(
+          null,
+          display_mode,
+          "list"
+        );
+      }
+    });
+  </script>
+</body>
+</html>

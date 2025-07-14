@@ -17,6 +17,18 @@ from dotenv import load_dotenv
 def main():
     # Load environment variables from .env file
     load_dotenv()
+    
+    # Initialize router
+    import core.router as router
+    router.init()
+    
+    # Initialize LLM providers
+    import llm.llm as llm
+    llm.init()
+    
+    # Initialize retrieval clients
+    import retrieval.retriever as retriever
+    retriever.init()
 
     # Get port from Azure environment or use default
     port = int(os.environ.get('PORT', 8000))

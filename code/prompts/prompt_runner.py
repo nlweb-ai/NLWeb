@@ -35,7 +35,7 @@ class PromptRunner:
         self.handler = handler
         logger.debug(f"PromptRunner initialized with handler for site: {handler.site}")
 
-    async def run_prompt(self, prompt_name, level="low", verbose=False, timeout=8):
+    async def run_prompt(self, prompt_name, level="low", verbose=False, timeout=80):
         logger.info(f"Running prompt: {prompt_name} with level={level}, timeout={timeout}s")
         
         try:

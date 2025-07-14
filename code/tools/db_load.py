@@ -27,7 +27,7 @@ from tools.db_load_utils import (
 )
 
 # Import vector database client directly
-from retrieval.retriever import get_vector_db_client
+from retrieval.retriever import get_vector_db_client, upload_documents, delete_documents_by_site
 
 # Import RSS to Schema converter
 import tools.rss2schema as rss2schema
@@ -107,20 +107,19 @@ async def delete_site_from_database(site: str, database: str = None):
         Number of entries deleted
     """
     # Use specified database or fall back to preferred endpoint
-    endpoint_name = database or CONFIG.preferred_retrieval_endpoint
+    endpoint_name = database or CONFIG.write_endpoint
     
     # Ensure the endpoint exists in configuration
     if endpoint_name not in CONFIG.retrieval_endpoints:
         raise ValueError(f"Database endpoint '{endpoint_name}' not found in configuration")
     
-    # Get a client for the specified endpoint, using query_params for development mode override
-    query_params = {"db": [endpoint_name]} if database else None
-    client = get_vector_db_client(query_params=query_params)
+    # Use query_params for development mode override
+    query_params = {"db": database} if database else None
     
-    print(f"Deleting entries for site '{site}' from {client.db_type} using endpoint '{endpoint_name}'...")
+    print(f"Deleting entries for site '{site}' using endpoint '{endpoint_name}'...")
     
-    # Use the client's delete_documents_by_site method
-    deleted_count = await client.delete_documents_by_site(site)
+    # Use the wrapper function for deletion
+    deleted_count = await delete_documents_by_site(site, query_params=query_params)
     
     print(f"Deleted {deleted_count} documents for site '{site}'")
     return deleted_count
@@ -325,6 +324,13 @@ async def detect_file_type(file_path: str) -> Tuple[str, bool]:
                     if (embedding_part.startswith('[') and embedding_part.endswith(']')) or \
                        (embedding_part.replace(',', '').replace('-', '').replace('.', '').replace('e', '').replace('E', '').replace('+', '').isdigit()):
                         has_embeddings = True
+                elif len(parts) == 2:
+                    # Check if this is URL + JSON format (2 tab-separated parts)
+                    try:
+                        json.loads(parts[1])
+                        return 'json', has_embeddings
+                    except:
+                        pass
             
             # If we're checking a file with embeddings, it's a special JSON format
             if has_embeddings:
@@ -612,7 +618,7 @@ async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int 
                         resolved_path = embeddings_path
         
         # Use specified database or fall back to preferred endpoint
-        endpoint_name = database or CONFIG.preferred_retrieval_endpoint
+        endpoint_name = database or CONFIG.write_endpoint
         
         print(f"Loading data with embeddings from {resolved_path} for site {site} using database endpoint '{endpoint_name}'")
         
@@ -630,9 +636,8 @@ async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int 
         
         print(f"Found {total_lines} lines in the file")
         
-        # Get client for the specified retrieval endpoint, using query_params for development mode override
-        query_params = {"db": [endpoint_name]} if database else None
-        client = get_vector_db_client(query_params=query_params)
+        # Use query_params for development mode override
+        query_params = {"db": database} if database else None
         
         # Process lines in batches
         batch_documents = []
@@ -650,9 +655,9 @@ async def loadJsonWithEmbeddingsToDB(file_path: str, site: str, batch_size: int 
                         batch_idx = i // batch_size
                         total_batches = (total_lines + batch_size - 1) // batch_size
                         
-                        # Upload directly using the client interface
+                        # Upload directly using the wrapper function
                         print(f"Uploading batch {batch_idx+1} of {total_batches} ({len(batch_documents)} documents)")
-                        await client.upload_documents(batch_documents)
+                        await upload_documents(batch_documents, query_params=query_params)
                         print(f"Successfully uploaded batch {batch_idx+1}")
                         
                         total_documents += len(batch_documents)
@@ -721,7 +726,7 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
                     resolved_path = file_path
         
         # Use specified database or fall back to preferred endpoint
-        endpoint_name = database or CONFIG.preferred_retrieval_endpoint
+        endpoint_name = database or CONFIG.write_endpoint
         
         print(f"Loading data from {original_path} (resolved to {resolved_path}) for site {site} using database endpoint '{endpoint_name}'")
         
@@ -750,6 +755,8 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
             if use_existing:
                 # Use the existing file with embeddings
                 return await loadJsonWithEmbeddingsToDB(embeddings_path, site, batch_size, delete_existing, endpoint_name)
+            else:
+                print(f"Proceeding to compute new embeddings for {original_path}")
         
         # If we get here, we need to process the file based on its type and compute embeddings
         
@@ -757,9 +764,8 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
         if delete_existing:
             await delete_site_from_database(site, endpoint_name)
         
-        # Get client for the specified retrieval endpoint, using query_params for development mode override
-        query_params = {"db": [endpoint_name]} if database else None
-        client = get_vector_db_client(query_params=query_params)
+        # Use query_params for development mode override
+        query_params = {"db": database} if database else None
         
         # Get embedding provider from config
         provider = CONFIG.preferred_embedding_provider
@@ -878,7 +884,7 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
                             total_batches = (len(all_documents) + batch_size - 1) // batch_size
                             
                             print(f"Uploading batch {batch_idx+1} of {total_batches} ({len(docs_with_embeddings)} documents)")
-                            await client.upload_documents(docs_with_embeddings)
+                            await upload_documents(docs_with_embeddings, query_params=query_params)
                             print(f"Successfully uploaded batch {batch_idx+1}")
                             
                             total_documents += len(docs_with_embeddings)
@@ -891,6 +897,7 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
             
             print(f"Loading completed. Added {total_documents} documents to the database.")
             print(f"Saved file with embeddings to {embeddings_path}")
+            
             return total_documents
         else:
             print("No documents were extracted from the file.")
@@ -922,7 +929,7 @@ async def loadUrlListToDB(file_path: str, site: str, batch_size: int = 100, dele
         Total number of documents loaded
     """
     # Use specified database or fall back to preferred endpoint
-    endpoint_name = database or CONFIG.preferred_retrieval_endpoint
+    endpoint_name = database or CONFIG.write_endpoint
     
     # Check if the file_path is a URL
     is_url_list_remote = await is_url(file_path)
@@ -958,7 +965,7 @@ async def loadUrlListToDB(file_path: str, site: str, batch_size: int = 100, dele
             await delete_site_from_database(site, endpoint_name)
         
         # Get client directly from the factory function, using query_params for development mode override
-        query_params = {"db": [endpoint_name]} if database else None
+        query_params = {"db": database} if database else None
         client = get_vector_db_client(query_params=query_params)
         
         # Process each URL
@@ -1015,7 +1022,7 @@ async def loadUrlListToDB(file_path: str, site: str, batch_size: int = 100, dele
                                 total_batches = (len(docs) + batch_size - 1) // batch_size
                                 
                                 print(f"Uploading batch {batch_idx+1} of {total_batches} ({len(docs_with_embeddings)} documents)")
-                                await client.upload_documents(docs_with_embeddings)
+                                await upload_documents(docs_with_embeddings, query_params=query_params)
                                 print(f"Successfully uploaded batch {batch_idx+1}")
                                 
                                 doc_count += len(docs_with_embeddings)

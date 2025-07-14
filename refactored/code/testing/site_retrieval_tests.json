@@ -1,0 +1,32 @@
+[
+  {
+    "test_type": "site_retrieval",
+    "description": "Test get_sites from Azure AI Search",
+    "retrieval_backend": "azure_ai_search",
+    "expected_min_sites": 1
+  },
+  {
+    "test_type": "site_retrieval",
+    "description": "Test get_sites from Azure AI Search Backup",
+    "retrieval_backend": "azure_ai_search_backup",
+    "expected_min_sites": 1
+  },
+  {
+    "test_type": "site_retrieval",
+    "description": "Test get_sites from Qdrant Local",
+    "retrieval_backend": "qdrant_local",
+    "expected_min_sites": 1
+  },
+  {
+    "test_type": "site_retrieval",
+    "description": "Test get_sites from Qdrant URL",
+    "retrieval_backend": "qdrant_url",
+    "expected_min_sites": 1
+  },
+  {
+    "test_type": "site_retrieval",
+    "description": "Test get_sites from Snowflake Cortex Search",
+    "retrieval_backend": "snowflake_cortex_search_1",
+    "expected_min_sites": 1
+  }
+]

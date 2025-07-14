@@ -29,13 +29,13 @@ from .extractMarkup import extract_schema_markup, extract_canonical_url
 # Import database and embedding modules
 from tools.db_load_utils import prepare_documents_from_json
 from embedding.embedding import batch_get_embeddings
-from retrieval.retriever import get_vector_db_client
+from retrieval.retriever import upload_documents
 
 # Import common utilities
-from utils.logger import get_logger
+from utils.logging_config_helper import get_configured_logger
 from config.config import CONFIG
 
-logger = get_logger("incremental_crawl_and_load")
+logger = get_configured_logger("incremental_crawl_and_load")
 
 # Suppress httpx INFO logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -292,10 +292,12 @@ class IncrementalCrawler:
             if schemas_str:
                 try:
                     schemas = json.loads(schemas_str)
+                    logger.debug(f"Extracted {len(schemas)} schemas from {url}")
                 except json.JSONDecodeError:
                     logger.error(f"Failed to parse schemas for {url}")
             
             if not schemas:
+                logger.debug(f"No schemas found for {url}, skipping upload")
                 self.status[url_hash]["json_size"] = 0
                 self.status[url_hash]["schema_count"] = 0
                 self.status[url_hash]["completed"] = True
@@ -304,6 +306,9 @@ class IncrementalCrawler:
                 self._save_status()
                 self.stats["successful"] += 1
                 return True
+            
+
+            logger.debug(f"Processing {len(schemas)} schemas from {url}")
             
             # Process schemas and prepare for upload
             total_json_size = len(schemas_str.encode('utf-8'))
@@ -325,8 +330,13 @@ class IncrementalCrawler:
             
             # Step 3: Prepare documents for database
             documents_to_upload = []
+                
+            # Log successful upload
+            logger.debug(f"Preparing {len(schemas)} schemas for upload from {url}")
             docs, _ = prepare_documents_from_json(final_url, schemas_str, self.db_name)
             documents_to_upload.extend(docs)
+            # Log successful upload
+            logger.debug(f"Prepared {len(documents_to_upload)} documents from {url}")
             
             # Step 4: Generate embeddings and upload
             if documents_to_upload:
@@ -349,11 +359,10 @@ class IncrementalCrawler:
                 # Upload to database
                 # Use specified database or default
                 query_params = {"db": [self.database]} if self.database else None
-                client = get_vector_db_client(query_params=query_params)
-                await client.upload_documents(documents_to_upload)
+                await upload_documents(documents_to_upload, query_params=query_params)
                 
                 # Log successful upload
-                logger.debug(f"Uploaded {len(documents_to_upload)} documents from {url} to {client.db_type}")
+                logger.debug(f"Uploaded {len(documents_to_upload)} documents from {url}")
                 
                 self.status[url_hash]["uploaded_at"] = datetime.now().isoformat()
                 self.status[url_hash]["documents_uploaded"] = len(documents_to_upload)
@@ -418,7 +427,7 @@ class IncrementalCrawler:
         if self.database:
             logger.info(f"Data uploaded to: {self.database}")
         else:
-            logger.info(f"Data uploaded to: {CONFIG.preferred_retrieval_endpoint} (default)")
+            logger.info(f"Data uploaded to: {CONFIG.write_endpoint} (default)")
 
 
 async def main():
