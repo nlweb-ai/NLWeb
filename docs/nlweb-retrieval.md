@@ -1,89 +1,126 @@
 # NLWeb Retrieval System
 
+This document explains the configuration options available in `config_retrieval.yaml` for setting up and managing retrieval endpoints in NLWeb.
+
 ## Overview
 
-NLWeb's retrieval system has been significantly enhanced to support multiple concurrent retrieval backends. This architecture enables improved performance, redundancy, and flexibility in how data is stored and retrieved.
+The `config_retrieval.yaml` file configures the vector database endpoints that NLWeb uses for searching and retrieving documents. NLWeb supports multiple retrieval endpoints simultaneously and can aggregate results from all enabled endpoints.
+
+## Contents
+[Multi-Backend Architecture](#multi-backend-architecture)
+[Write Configuration](#write-configuration)
+[Endpoint Configuration](#endpoint-configuration)
+[Multiple Endpoints](#multiple-endpoints)
+[Example Configuration](#example-configuration)
+[Implementation Details](#implementation-details)
+[Adding a New Backend](#adding-a-new-backend)
+[Best Practices](#best-practices)
+[Troubleshooting](#troubleshooting)
+[Migration Guide (from single provider version)](#migration-guide)
 
 ## Multi-Backend Architecture
 
-Prior to this release, `config_retrieval.yaml` supported only a single active backend at any time. The new architecture allows multiple backends to be concurrently active:
+ The new architecture allows multiple backends to be concurrently active:
 
 - **Concurrent Queries**: All enabled backends are queried in parallel for every search request
 - **Duplicate Removal**: Results are automatically deduplicated across backends
 - **Result Ranking**: The top-N results are selected and returned based on relevance
 - **Write Operations**: Data writes continue to target a single backend specified by `write_endpoint`
 
-## Configuration
+## Write Configuration
 
 The retrieval configuration is managed through `code/config/config_retrieval.yaml`:
 
+### `write_endpoint`
 ```yaml
-# Specify the backend for write operations
+write_endpoint: qdrant_local
+```
+- **Purpose**: Specifies which endpoint should be used for write operations (document upload and deletion)
+- **Type**: String (must match one of the endpoint names defined in the `endpoints` section)
+- **Note**: Only one endpoint can be designated for write operations at a time
+
+## Endpoint Configuration
+
+Below the write configuration, the `endpoints` section defines all available retrieval endpoints. Each endpoint is identified by a unique name and contains configuration specific to its database type. You must set at least one retrieval provider to get started.
+
+### Common Fields
+
+These fields are common across most endpoint types:
+
+#### `enabled`
+- **Purpose**: Controls whether this endpoint is active
+- **Type**: Boolean (`true` or `false`)
+- **Default**: `false`
+- **Example**: `enabled: true`
+
+#### `db_type`
+- **Purpose**: Specifies the type of vector database
+- **Type**: String
+- **Valid values**:
+  - `azure_ai_search`
+  - `qdrant`
+  - `milvus`
+  - `snowflake_cortex_search`
+  - `opensearch`
+- **Example**: `db_type: azure_ai_search`
+
+#### `index_name`
+- **Purpose**: The name of the index/collection to use in the database
+- **Type**: String
+- **Example**: `index_name: embeddings1536`
+
+## Multiple Endpoints
+
+NLWeb can query multiple enabled endpoints simultaneously and aggregate the results. This provides:
+
+1. **Redundancy**: If one endpoint fails, others can still provide results
+2. **Comprehensive results**: Different endpoints may have different data
+3. **Performance**: Parallel queries to multiple endpoints
+
+### How It Works
+
+1. When multiple endpoints are enabled, NLWeb queries all of them in parallel
+2. Results are aggregated and deduplicated by URL
+3. If the same URL appears in multiple endpoints, the JSON data is merged
+4. The `write_endpoint` is used for all write operations
+
+## Example Configuration
+
+Here's an example with multiple endpoints enabled:
+
+```yaml
 write_endpoint: qdrant_local
 
 endpoints:
- 
- 
-  # Production Azure AI Search endpoint
-  nlweb_west:
+  # Primary Azure endpoint
+  azure_primary:
     enabled: true
-    api_key_env: NLWEB_WEST_API_KEY
-    api_endpoint_env: NLWEB_WEST_ENDPOINT
+    api_key_env: AZURE_API_KEY_PRIMARY
+    api_endpoint_env: AZURE_ENDPOINT_PRIMARY
     index_name: embeddings1536
     db_type: azure_ai_search
-
-  # Local Qdrant instance for development
+  
+  # Local Qdrant for testing
   qdrant_local:
     enabled: true
     database_path: "../data/db"
-    index_name: nlweb_collection
+    index_name: test_collection
     db_type: qdrant
-
-  # Snowflake Cortex Search integration
-  snowflake_cortex:
-    enabled: false
-    account_env: SNOWFLAKE_ACCOUNT
-    username_env: SNOWFLAKE_USERNAME
-    password_env: SNOWFLAKE_PASSWORD
-    database: NLWEB_DB
-    schema: PUBLIC
-    table: EMBEDDINGS
-    index_name: nlweb_embeddings
-    db_type: snowflake
+  
+  # Backup Azure endpoint
+  azure_backup:
+    enabled: true
+    api_key_env: AZURE_API_KEY_BACKUP
+    api_endpoint_env: AZURE_ENDPOINT_BACKUP
+    index_name: embeddings1536
+    db_type: azure_ai_search
 ```
-
-### Key Configuration Elements
-
-- **write_endpoint**: Specifies which backend receives write operations
-- **enabled**: Boolean flag to enable/disable each backend
-- **db_type**: Supported types include `azure_ai_search`, `qdrant`, `milvus`, `opensearch`, and `snowflake`
-- **Environment Variables**: API keys and endpoints are configured via environment variables for security
-
-## Retrieval APIs
-
-Each backend must implement the following core retrieval APIs:
-
-### Search APIs
-- **Search by Site and Query**: `search(query, site, num_results)`
-  - Returns items matching the query within a specific site
-- **Search by URL**: `search_by_url(url)`
-  - Retrieves items associated with a specific URL
-- **Search All Sites**: `search_all_sites(query, top_n)`
-  - Searches across all sites in the database
-- **Get Sites**: `get_sites()`
-  - Returns a list of all available sites in the database
-
-### Data Management APIs (Optional)
-- **Upload Items**: `upload_item_site_pairs(items)`
-  - Adds new item-site pairs to the database
-- **Delete Site**: `delete_site(site_name)`
-  - Removes all data associated with a specific site
 
 ## Implementation Details
 
 ### Backend Client Architecture
 
-Each retrieval backend extends the base `VectorDBClient` class:
+Each retrieval backend extends the base `VectorDBClient` class: (as defined in code/python/core/retriever.py)
 
 ```python
 class VectorDBClient:
@@ -119,12 +156,7 @@ When a search request is received:
 
 ## Adding a New Backend
 
-To add support for a new retrieval backend:
-
-1. Create a new client class in `code/retrieval/` that extends `VectorDBClient`
-2. Implement all required search methods
-3. Add configuration support in `config_retrieval.yaml`
-4. Register the backend type in the retriever factory
+To add support for a new retrieval backend, see our [instructions for adding a new provider](docs/nlweb-providers.md)
 
 ## Best Practices
 
@@ -134,7 +166,32 @@ To add support for a new retrieval backend:
 4. **Logging**: Use the configured logger for debugging and monitoring
 5. **Testing**: Test each backend independently and in combination with others
 
+## Troubleshooting
+
+1. **Endpoint not working**: Check that:
+   - `enabled: true` is set
+   - Required environment variables are set
+   - API keys and endpoints are valid
+   - The index/collection exists in the database
+
+2. **Write operations failing**: Ensure:
+   - `write_endpoint` points to a valid, enabled endpoint
+   - The endpoint has write permissions
+   - The specified index/collection exists
+
+3. **No results returned**: Verify:
+   - At least one endpoint is enabled
+   - The endpoints contain data for the queried sites
+   - Network connectivity to remote endpoints
+
+4. **Authentication errors**: Confirm:
+   - Environment variables are correctly named
+   - API keys are valid and not expired
+   - Credentials have necessary permissions
+
 ## Migration Guide
+
+In our early releases, `config_retrieval.yaml` supported only a single active backend at any time.
 
 If upgrading from a single-backend system:
 

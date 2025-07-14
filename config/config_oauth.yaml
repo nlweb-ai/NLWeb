@@ -1,0 +1,59 @@
+# OAuth Configuration
+# This file contains configuration for OAuth providers and authentication settings
+
+# OAuth Providers Configuration
+providers:
+  google:
+    enabled: true
+    client_id_env: GOOGLE_OAUTH_CLIENT_ID
+    client_secret_env: GOOGLE_OAUTH_CLIENT_SECRET
+    auth_url: https://accounts.google.com/o/oauth2/v2/auth
+    token_url: https://oauth2.googleapis.com/token
+    userinfo_url: https://www.googleapis.com/oauth2/v1/userinfo
+    scope: openid email profile
+    
+  facebook:
+    enabled: false
+    client_id_env: FACEBOOK_OAUTH_CLIENT_ID
+    client_secret_env: FACEBOOK_OAUTH_CLIENT_SECRET
+    auth_url: https://www.facebook.com/v18.0/dialog/oauth
+    token_url: https://graph.facebook.com/v18.0/oauth/access_token
+    userinfo_url: https://graph.facebook.com/me?fields=id,name,email,picture
+    scope: email public_profile
+    
+  microsoft:
+    enabled: false
+    client_id_env: MICROSOFT_OAUTH_CLIENT_ID
+    client_secret_env: MICROSOFT_OAUTH_CLIENT_SECRET
+    auth_url: https://login.microsoftonline.com/common/oauth2/v2.0/authorize
+    token_url: https://login.microsoftonline.com/common/oauth2/v2.0/token
+    userinfo_url: https://graph.microsoft.com/v1.0/me
+    scope: openid email profile User.Read
+    
+  github:
+    enabled: true
+    client_id_env: GITHUB_CLIENT_ID
+    client_secret_env: GITHUB_CLIENT_SECRET
+    auth_url: https://github.com/login/oauth/authorize
+    token_url: https://github.com/login/oauth/access_token
+    userinfo_url: https://api.github.com/user
+    emails_url: https://api.github.com/user/emails
+    scope: read:user user:email
+
+# Session Configuration
+session:
+  secret_key_env: OAUTH_SESSION_SECRET
+  token_expiration: 86400  # 24 hours in seconds
+
+# Authentication Settings  
+auth:
+  require_auth: false  # Set to true to require authentication for all endpoints
+  anonymous_endpoints:  # Endpoints that don't require authentication when require_auth is true
+    - /
+    - /static
+    - /api/oauth
+    - /oauth
+    - /sites
+    - /who
+  validate_token: true  # Whether to validate tokens on each request
+  session_store: memory  # Options: memory, redis (future)

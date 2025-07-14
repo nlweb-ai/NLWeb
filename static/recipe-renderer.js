@@ -67,7 +67,9 @@ export class RecipeRenderer {
         }
         
         if (authorName) {
-          authorDiv.textContent = `By ${authorName}`;
+          // Decode HTML entities in author name
+          const decodedAuthorName = this.jsonRenderer.htmlUnescape(authorName);
+          authorDiv.textContent = `By ${decodedAuthorName}`;
           authorDiv.style.fontSize = '0.85em';
           authorDiv.style.color = '#666';
           authorDiv.style.marginTop = '5px';

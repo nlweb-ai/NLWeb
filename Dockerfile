@@ -11,7 +11,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy requirements file
-COPY code/requirements.txt .
+COPY code/python/requirements.txt .
 
 # Install Python packages
 RUN pip install --no-cache-dir -r requirements.txt
@@ -52,4 +52,4 @@ ENV PYTHONPATH=/app
 ENV PORT=8000
 
 # Command to run the application
-CMD ["python", "app-file.py"]
+CMD ["python", "python/app-file.py"]
