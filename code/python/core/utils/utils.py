@@ -21,6 +21,7 @@ def siteToItemType(site):
     
     # Default to Item if not found in configuration
     return f"{{{namespace}}}Item"
+
     
 
 def itemTypeToSite(item_type):
@@ -43,27 +44,22 @@ def visibleUrl(url):
 
 def get_param(query_params, param_name, param_type=str, default_value=None):
     value = query_params.get(param_name, default_value)
-    if (value is not None and len(value) == 1):
-        value = value[0]
-        if param_type == str:
-            if value is None:
-                return ""
+    if (value is not None):
+        if param_type == str:\
+            if isinstance(value, list):
+                return value[0] if value else ""
             return value    
-        elif param_type == int:
-            if value is None:
-                return 0
+        elif param_type == int:\
             return int(value)
         elif param_type == float:
-            if value is None:
-                return 0.0
             return float(value) 
         elif param_type == bool:
-            if value is None:
-                return False
+            if isinstance(value, list):
+                return value[0].lower() == "true"
             return value.lower() == "true"
         elif param_type == list:
-            if value is None:
-                return []
+            if isinstance(value, list):
+                return value
             return [item.strip() for item in value.strip('[]').split(',') if item.strip()]
         else:
             raise ValueError(f"Unsupported parameter type: {param_type}")

@@ -7,11 +7,13 @@ The Statistics Tool enables querying and visualizing statistical data from Data 
 ## Architecture
 
 ### 1. Tool Definition (tools.xml)
+
 - Located in the `<Statistics>` section
 - Handles queries about statistical data, demographics, and economic indicators
 - Scores queries based on statistical intent and extracts key components
 
 ### 2. Query Templates (statistics_templates.txt)
+
 - Contains 40+ query patterns covering:
   - Single value lookups (e.g., "What is the median income in X county?")
   - Comparisons between places
@@ -22,6 +24,7 @@ The Statistics Tool enables querying and visualizing statistical data from Data 
   - Ratios and percentages
 
 ### 3. DCID Mappings (dcid_mappings.json)
+
 - Maps human-readable variable names to Data Commons DCIDs
 - Current mappings include:
   - population → Count_Person
@@ -33,7 +36,7 @@ The Statistics Tool enables querying and visualizing statistical data from Data 
 
 ### 4. Handler Implementation (statistics_handler.py)
 
-#### Key Methods:
+#### Key Methods
 
 1. **Template Matching**
    - `match_templates()`: Scores all templates against user query in parallel
@@ -71,6 +74,7 @@ The Statistics Tool enables querying and visualizing statistical data from Data 
 To add support for new statistical variables:
 
 1. Add the mapping to `dcid_mappings.json`:
+
 ```json
 {
   "variables": {
@@ -79,7 +83,7 @@ To add support for new statistical variables:
 }
 ```
 
-2. Find DCIDs at: https://datacommons.org/browser
+2. Find DCIDs at: [https://datacommons.org/browser](https://datacommons.org/browser)
 
 ## Example Queries
 
@@ -93,6 +97,7 @@ To add support for new statistical variables:
 ## Testing
 
 Test the tool with various query types:
+
 1. Single value queries
 2. Comparisons
 3. Rankings

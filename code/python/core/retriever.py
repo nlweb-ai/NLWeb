@@ -79,7 +79,7 @@ _db_type_packages = {
     "qdrant": ["qdrant-client>=1.14.0"],
     "snowflake_cortex_search": ["httpx>=0.28.1"],
     "elasticsearch": ["elasticsearch[async]>=8,<9"],
-    "postgres": ["psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0", "pgvector>=0.4.0"],
+    "postgres": ["psycopg", "psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0", "pgvector>=0.4.0"],
 }
 
 # Cache for installed packages

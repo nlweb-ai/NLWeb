@@ -48,6 +48,10 @@ class NLWebHandler:
 
         # the site that is being queried
         self.site = get_param(query_params, "site", str, "all")  
+        
+        # Parse comma-separated sites
+        if self.site and isinstance(self.site, str) and "," in self.site:
+            self.site = [s.strip() for s in self.site.split(",") if s.strip()]
 
         # the query that the user entered
         self.query = get_param(query_params, "query", str, "")
@@ -150,7 +154,7 @@ class NLWebHandler:
         logger.debug(f"Last answers: {self.last_answers}")
         
         log(f"NLWebHandler initialized with site: {self.site}, query: {self.query}, prev_queries: {self.prev_queries}, mode: {self.generate_mode}, query_id: {self.query_id}, context_url: {self.context_url}")
-    
+
     @property 
     def is_connection_alive(self):
         return self.connection_alive_event.is_set()
@@ -392,8 +396,7 @@ class NLWebHandler:
         logger.info(f"Checking retrieval_done_event for site: {self.site}")
         if not self.retrieval_done_event.is_set():
             # Skip retrieval for sites without embeddings
-            logger.info(f"Retrieval not done, checking if site is DataCommons: {self.site.lower() == 'datacommons'}")
-            if self.site.lower() == "datacommons":
+            if "datacommons" in self.site:
                 logger.info("Skipping retrieval for DataCommons - no embeddings")
                 self.final_retrieved_items = []
                 self.retrieval_done_event.set()
