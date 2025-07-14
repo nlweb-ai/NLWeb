@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test OAuth Display</title>
+    <link rel="stylesheet" href="/static/common-chat-styles.css">
+    <link rel="stylesheet" href="/static/chat-page-styles.css">
+    <style>
+        body {
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .test-button {
+            padding: 8px 16px;
+            background: #5e5eff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #4d4dff;
+        }
+        .test-result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>OAuth Display Test</h1>
+        
+        <div class="test-header">
+            <div>
+                <button class="login-button" id="loginBtn">Login</button>
+                <div class="user-info" id="userInfo" style="display: none;">
+                    <span class="provider-icon" id="providerIcon"></span>
+                    <span class="user-name" id="userName"></span>
+                    <button class="logout-button" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            <h3>Test Different Provider Icons:</h3>
+            <button class="test-button" onclick="testProvider('google', 'Test User', 'test@gmail.com')">Test Google</button>
+            <button class="test-button" onclick="testProvider('github', 'GitHub User', 'github@test.com')">Test GitHub</button>
+            <button class="test-button" onclick="testProvider('facebook', 'FB User', 'fb@test.com')">Test Facebook</button>
+            <button class="test-button" onclick="testProvider('microsoft', 'MS User', 'ms@test.com')">Test Microsoft</button>
+            <button class="test-button" onclick="clearAuth()">Clear Auth</button>
+        </div>
+        
+        <div>
+            <h3>Current Auth State:</h3>
+            <div class="test-result" id="authState"></div>
+        </div>
+    </div>
+    
+    <script>
+        function updateAuthState() {
+            const authToken = localStorage.getItem('authToken');
+            const userInfo = localStorage.getItem('userInfo');
+            const stateDiv = document.getElementById('authState');
+            
+            stateDiv.textContent = `AuthToken: ${authToken ? 'Present' : 'None'}\n`;
+            if (userInfo) {
+                try {
+                    const parsed = JSON.parse(userInfo);
+                    stateDiv.textContent += `UserInfo: ${JSON.stringify(parsed, null, 2)}`;
+                } catch (e) {
+                    stateDiv.textContent += `UserInfo: Invalid JSON`;
+                }
+            } else {
+                stateDiv.textContent += `UserInfo: None`;
+            }
+        }
+        
+        function testProvider(provider, name, email) {
+            const userInfo = {
+                id: '12345',
+                name: name,
+                email: email,
+                provider: provider
+            };
+            
+            localStorage.setItem('authToken', 'test_token_' + provider);
+            localStorage.setItem('userInfo', JSON.stringify(userInfo));
+            
+            updateUI(userInfo);
+            updateAuthState();
+        }
+        
+        function updateUI(userInfo) {
+            const loginBtn = document.getElementById('loginBtn');
+            const userInfoDiv = document.getElementById('userInfo');
+            const userName = document.getElementById('userName');
+            const providerIcon = document.getElementById('providerIcon');
+            
+            loginBtn.style.display = 'none';
+            userInfoDiv.style.display = 'flex';
+            userName.textContent = userInfo.name || userInfo.email || 'User';
+            
+            // Set provider icon
+            if (providerIcon && userInfo.provider) {
+                providerIcon.className = `provider-icon ${userInfo.provider}`;
+                console.log('Set provider icon class to:', providerIcon.className);
+            }
+        }
+        
+        function clearAuth() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userInfo');
+            
+            document.getElementById('loginBtn').style.display = 'block';
+            document.getElementById('userInfo').style.display = 'none';
+            
+            updateAuthState();
+        }
+        
+        // Check existing auth on load
+        window.onload = function() {
+            const userInfoStr = localStorage.getItem('userInfo');
+            if (userInfoStr) {
+                try {
+                    const userInfo = JSON.parse(userInfoStr);
+                    updateUI(userInfo);
+                } catch (e) {
+                    console.error('Failed to parse userInfo:', e);
+                }
+            }
+            updateAuthState();
+        };
+    </script>
+</body>
+</html>

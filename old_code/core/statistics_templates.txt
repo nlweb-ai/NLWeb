@@ -1,0 +1,46 @@
+
+
+
+1. What is the <variable> in the xyz county {county: 'name of county', variable: 'variable being asked for'}
+2. Which <place> has the highest <variable> {place: 'name of place', variable: 'variable being asked for'}
+3. What is the correlation between <variable1> and <variable2> across <place-type> {variable1: "first variable", variable2: "second variable"}
+4. How does <variable> in <county A> compare to <county B>? {county_a: 'name', county_b: 'name', variable: 'variable'}
+5. What's the difference in <variable> between <county A> and <county B>? {county_a: 'name', county_b: 'name', variable: 'variable'}
+6. What are the top <N> counties by <variable>? {n: number, variable: 'variable'}
+7. What are the bottom <N> counties by <variable>? {n: number, variable: 'variable'}
+8. Where does <county> rank in terms of <variable>? {county: 'name', variable: 'variable'}
+9. What's the average <variable> across all counties? {variable: 'variable'}
+10. What's the median <variable> across all counties? {variable: 'variable'}
+11. What counties are above/below the average <variable>? {variable: 'variable', comparison: 'above'|'below'}
+12. Which counties have <variable> greater than <threshold>? {variable: 'variable', threshold: number}
+13. Which counties have both <variable1> above <threshold1> and <variable2> below <threshold2>? {variable1: 'variable', threshold1: number, variable2: 'variable', threshold2: number}
+14. How has <variable> changed in <county> from <year1> to <year2>? {variable: 'variable', county: 'name', year1: number, year2: number}
+15. Which county had the largest increase/decrease in <variable> between <year1> and <year2>? {variable: 'variable', year1: number, year2: number, direction: 'increase'|'decrease'}
+16. What's the ratio of <variable1> to <variable2> in <county>? {variable1: 'variable', variable2: 'variable', county: 'name'}
+17. Which counties have the highest <variable1> per <variable2>? {variable1: 'variable', variable2: 'variable'}
+18. What percentile is <county> in for <variable>? {county: 'name', variable: 'variable'}
+19. Which counties are in the top/bottom <X>% for <variable>? {percentage: number, variable: 'variable', position: 'top'|'bottom'}
+20. Which counties are outliers in both <variable1> and <variable2>? {variable1: 'variable', variable2: 'variable'}
+21. What's the relationship between population size and <variable>? {variable: 'variable'}
+22. What's the growth rate of <variable> in <county> over the past <N> years? {variable: 'variable', county: 'name', years: number}
+23. Which counties have declining <variable> over time? {variable: 'variable'}
+24. What's the percentage of <variable1> relative to <variable2> in <county>? {variable1: 'variable', variable2: 'variable', county: 'name'}
+25. Which counties have similar demographic profiles to <county>? {county: 'name'}
+26. What counties have <variable> within <X>% of the state average? {variable: 'variable', percentage: number}
+27. Which counties are consistently in the top/bottom <N> for <variable> across multiple years? {n: number, variable: 'variable', position: 'top'|'bottom'}
+28. What's the trend for <variable> across all counties over the last <N> years? {variable: 'variable', years: number}
+29. Which counties have the most volatile <variable> over time? {variable: 'variable'}
+30. What counties have both high <variable1> and low <variable2>? {variable1: 'variable', variable2: 'variable'}
+31. Which counties are underperforming/overperforming relative to their population size? {metric: 'variable'}
+32. What's the standard deviation of <variable> across counties? {variable: 'variable'}
+33. Which counties have <variable> values more than <N> standard deviations from the mean? {variable: 'variable', std_devs: number}
+34. What's the range (min to max) of <variable> across all counties? {variable: 'variable'}
+35. Which counties have the most balanced demographics across multiple variables? {variables: ['list', 'of', 'variables']}
+36. What counties experienced the biggest year-over-year change in <variable>? {variable: 'variable'}
+37. Which counties have <variable> closest to the national/state median? {variable: 'variable'}
+38. What's the distribution of <variable> across counties (quartiles)? {variable: 'variable'}
+39. Which counties are improving/declining faster than the average rate for <variable>? {variable: 'variable', direction: 'improving'|'declining'}
+40. What counties have unusual ratios between <variable1> and <variable2> compared to similar-sized places? {variable1: 'variable', variable2: 'variable'}
+41. Which counties would be good matches for <county> based on <criteria>? {county: 'name', criteria: ['list', 'of', 'variables']}
+
+

@@ -134,6 +134,12 @@ export class ManagedEventSource {
     
     const messageType = data.message_type;
     
+    // Always clear all temp_intermediate divs when ANY new message arrives
+    if (chatInterface.bubble) {
+      const tempDivs = chatInterface.bubble.querySelectorAll('.temp_intermediate');
+      tempDivs.forEach(div => div.remove());
+    }
+    
     // Store all messages for debug mode
     if (chatInterface.debugMessages) {
       chatInterface.debugMessages.push({
@@ -179,10 +185,11 @@ export class ManagedEventSource {
         break;
       case "item_details":
         chatInterface.noResponse = false;
-        // Map details to description for proper rendering
+        // Keep details separate from description
         const mappedData = {
           ...data,
-          description: data.details  // Map details to description
+          details: data.details,  // Keep details as-is
+          description: Array.isArray(data.details) ? '' : (data.description || (data.schema_object && data.schema_object.description) || '')
         };
         
         const items = {
@@ -200,11 +207,25 @@ export class ManagedEventSource {
         }
         break;
       case "intermediate_message":
-        // Ensure message is a string
-        if (typeof data.message === 'string') {
-          chatInterface.noResponse = false;
-          chatInterface.bubble.appendChild(chatInterface.createIntermediateMessageHtml(data.message));
+        chatInterface.noResponse = false;
+        // Create a temporary container for intermediate content
+        const tempContainer = document.createElement('div');
+        tempContainer.className = 'temp_intermediate';
+        
+        // Handle both results data and text messages
+        if (data.results) {
+          // Use the same rendering as result_batch
+          const resultsHtml = chatInterface.renderItems(data.results);
+          tempContainer.innerHTML = resultsHtml;
+        } else if (typeof data.message === 'string') {
+          // Handle text-only intermediate messages in italics
+          const textDiv = document.createElement('div');
+          textDiv.style.fontStyle = 'italic';
+          textDiv.textContent = data.message;
+          tempContainer.appendChild(textDiv);
         }
+        
+        chatInterface.bubble.appendChild(tempContainer);
         break;
       case "summary":
         // Ensure message is a string
@@ -262,6 +283,12 @@ export class ManagedEventSource {
       case "chart_result":
         chatInterface.noResponse = false;
         this.handleChartResult(data, chatInterface);
+        break;
+      case "results_map":
+        console.log('=== RESULTS_MAP MESSAGE RECEIVED ===');
+        console.log('Message data:', JSON.stringify(data, null, 2));
+        chatInterface.noResponse = false;
+        this.handleResultsMap(data, chatInterface);
         break;
       case "no_results":
         chatInterface.noResponse = false;
@@ -330,6 +357,14 @@ export class ManagedEventSource {
       case "header":
       case "time-to-first-result":
         // These are header/metadata messages, no action needed
+        break;
+      case "api_key":
+        // Handle API key configuration
+        if (data.key_name === 'google_maps' && data.key_value) {
+          // Store the Google Maps API key globally
+          window.GOOGLE_MAPS_API_KEY = data.key_value;
+          console.log('Received Google Maps API key from server');
+        }
         break;
       default:
         console.log("Unknown message type:", messageType);
@@ -671,7 +706,7 @@ export class ManagedEventSource {
           ratingDiv.style.cssText = 'margin-top: 5px; color: #f39c12;';
           const stars = '★'.repeat(Math.round(ratingValue));
           const reviewText = reviewCount ? ` (${reviewCount} reviews)` : '';
-          ratingDiv.innerHTML = `Rating: ${stars} ${ratingValue}/5${reviewText}`;
+          ratingDiv.textContent = `Rating: ${stars} ${ratingValue}/5${reviewText}`;
           contentContainer.appendChild(ratingDiv);
         }
       }
@@ -728,6 +763,8 @@ export class ManagedEventSource {
     
     // Parse and inject the HTML content
     // The HTML should contain the Data Commons web component and script tag
+    // SECURITY NOTE: This HTML comes from the backend and should be sanitized server-side
+    // It contains Data Commons web components that require specific HTML structure
     chartContainer.innerHTML = data.html;
     
     console.log('Container element created:', chartContainer);
@@ -741,6 +778,385 @@ export class ManagedEventSource {
     
     // The Data Commons script should automatically initialize the web component
     // when it's added to the DOM
+  }
+
+  /**
+   * Handles results map messages
+   * 
+   * @param {Object} data - The message data containing locations
+   * @param {Object} chatInterface - The chat interface instance
+   */
+  handleResultsMap(data, chatInterface) {
+    console.log('=== handleResultsMap Called ===');
+    console.log('Received data:', data);
+    console.log('chatInterface:', chatInterface);
+    console.log('chatInterface.bubble:', chatInterface.bubble);
+    console.log('Current Google Maps API Key:', window.GOOGLE_MAPS_API_KEY || 'Not set');
+    
+    // Validate data
+    if (!data || !data.locations || !Array.isArray(data.locations) || data.locations.length === 0) {
+      console.error('Invalid results map data - validation failed');
+      console.log('data:', data);
+      console.log('data.locations:', data ? data.locations : 'data is null/undefined');
+      return;
+    }
+    
+    console.log('Data validation passed, creating map container...');
+    
+    // Create container for the map
+    const mapContainer = document.createElement('div');
+    mapContainer.className = 'results-map-container';
+    mapContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px;';
+    
+    // Create the map div
+    const mapDiv = document.createElement('div');
+    mapDiv.id = 'results-map-' + Date.now(); // Unique ID for each map
+    mapDiv.style.cssText = 'width: 100%; height: 400px; border-radius: 6px;';
+    
+    // Add a title
+    const mapTitle = document.createElement('h3');
+    mapTitle.textContent = 'Result Locations';
+    mapTitle.style.cssText = 'margin: 0 0 10px 0; color: #333; font-size: 1.1em;';
+    
+    mapContainer.appendChild(mapTitle);
+    mapContainer.appendChild(mapDiv);
+    
+    console.log('Map container created, appending to bubble...');
+    
+    // Append to chat interface
+    chatInterface.bubble.appendChild(mapContainer);
+    
+    console.log('Map container appended to bubble, initializing map...');
+    console.log('Map div ID:', mapDiv.id);
+    console.log('Locations to display:', data.locations);
+    
+    // Initialize the map
+    this.initializeGoogleMap(mapDiv, data.locations);
+  }
+  
+  /**
+   * Initialize Google Map with markers
+   * 
+   * @param {HTMLElement} mapDiv - The map container element
+   * @param {Array} locations - Array of location objects with title and address
+   */
+  initializeGoogleMap(mapDiv, locations) {
+    console.log('=== initializeGoogleMap Called ===');
+    console.log('mapDiv:', mapDiv);
+    console.log('locations:', locations);
+    
+    // Check if API key is configured
+    const apiKey = window.GOOGLE_MAPS_API_KEY || 
+                  document.body.getAttribute('data-google-maps-api-key') || 
+                  'YOUR_API_KEY';
+    
+    console.log('API Key found:', apiKey);
+    
+    if (apiKey === 'YOUR_API_KEY' || !apiKey || apiKey === 'GOOGLE_MAPS_API_KEY') {
+      console.warn('Google Maps API key not configured, showing location list instead');
+      // Show location list instead of map
+      this.showLocationList(mapDiv, locations);
+      return;
+    }
+    
+    // Check if Google Maps API is loaded
+    if (typeof google === 'undefined' || !google.maps) {
+      console.log('Google Maps API not loaded, loading now...');
+      this.loadGoogleMapsAPI().then(() => {
+        this.createMap(mapDiv, locations);
+      }).catch(error => {
+        console.error('Failed to load Google Maps API:', error);
+        // Fallback to showing location list
+        this.showLocationList(mapDiv, locations);
+      });
+    } else {
+      this.createMap(mapDiv, locations);
+    }
+  }
+  
+  /**
+   * Load Google Maps API dynamically
+   * 
+   * @returns {Promise} Promise that resolves when API is loaded
+   */
+  loadGoogleMapsAPI() {
+    return new Promise((resolve, reject) => {
+      // Check if already loading
+      if (window.googleMapsAPILoading) {
+        // Wait for existing load to complete
+        const checkInterval = setInterval(() => {
+          if (typeof google !== 'undefined' && google.maps) {
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100);
+        return;
+      }
+      
+      window.googleMapsAPILoading = true;
+      
+      // Create script element
+      const script = document.createElement('script');
+      
+      // Get API key from various sources
+      const apiKey = window.GOOGLE_MAPS_API_KEY || 
+                    document.body.getAttribute('data-google-maps-api-key') || 
+                    'YOUR_API_KEY';
+      
+      // Validate API key format (alphanumeric and dashes, 39-40 characters typical for Google Maps API keys)
+      const apiKeyPattern = /^[A-Za-z0-9\-_]{39,40}$/;
+      if (!apiKeyPattern.test(apiKey) || apiKey === 'YOUR_API_KEY' || apiKey === 'GOOGLE_MAPS_API_KEY') {
+        console.error('Invalid or missing Google Maps API key. Please set GOOGLE_MAPS_API_KEY environment variable or configure it in config_nlweb.yaml');
+        mapDiv.innerHTML = `
+          <div style="text-align: center; padding: 20px; color: #666;">
+            <p><strong>Map unavailable</strong></p>
+            <p style="font-size: 0.9em;">Invalid or missing Google Maps API key.</p>
+          </div>
+        `;
+        reject(new Error('Invalid or missing API key'));
+        return;
+      }
+      
+      console.log('Loading Google Maps API with key:', apiKey.substring(0, 10) + '...');
+      
+      // Validate and encode the API key for security
+      if (!/^[a-zA-Z0-9_-]+$/.test(apiKey)) {
+        console.error('Invalid API key format');
+        reject(new Error('Invalid API key format'));
+        return;
+      }
+      
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        window.googleMapsAPILoading = false;
+        resolve();
+      };
+      
+      script.onerror = () => {
+        window.googleMapsAPILoading = false;
+        reject(new Error('Failed to load Google Maps API'));
+      };
+      
+      document.head.appendChild(script);
+    });
+  }
+  
+  /**
+   * Create the Google Map with markers
+   * 
+   * @param {HTMLElement} mapDiv - The map container element
+   * @param {Array} locations - Array of location objects
+   */
+  createMap(mapDiv, locations) {
+    // Initialize the map
+    const map = new google.maps.Map(mapDiv, {
+      zoom: 10,
+      center: { lat: 0, lng: 0 }, // Will be updated based on markers
+      mapTypeId: 'roadmap'
+    });
+    
+    // Geocoding service to convert addresses to coordinates
+    const geocoder = new google.maps.Geocoder();
+    const bounds = new google.maps.LatLngBounds();
+    const markers = [];
+    let geocodedCount = 0;
+    
+    // Process each location
+    locations.forEach((location, index) => {
+      // Use setTimeout to avoid rate limiting
+      setTimeout(() => {
+        geocoder.geocode({ address: location.address }, (results, status) => {
+          if (status === 'OK' && results[0]) {
+            const position = results[0].geometry.location;
+            
+            // Create marker
+            const marker = new google.maps.Marker({
+              position: position,
+              map: map,
+              title: location.title,
+              label: {
+                text: (index + 1).toString(),
+                color: 'white',
+                fontWeight: 'bold'
+              }
+            });
+            
+            // Create info window
+            const infoWindow = new google.maps.InfoWindow({
+              content: `
+                <div style="padding: 5px;">
+                  <h4 style="margin: 0 0 5px 0; color: #333;">${location.title}</h4>
+                  <p style="margin: 0; color: #666; font-size: 0.9em;">${location.address}</p>
+                </div>
+              `
+            });
+            
+            // Add click listener to marker
+            marker.addListener('click', () => {
+              infoWindow.open(map, marker);
+            });
+            
+            markers.push(marker);
+            bounds.extend(position);
+            
+            geocodedCount++;
+            
+            // If all locations are geocoded, fit the map to show all markers
+            if (geocodedCount === locations.length) {
+              map.fitBounds(bounds);
+              
+              // Adjust zoom if only one marker
+              if (locations.length === 1) {
+                map.setZoom(15);
+              }
+            }
+          } else {
+            console.error('Geocode failed for location:', location.address, 'Status:', status);
+            geocodedCount++;
+          }
+        });
+      }, index * 200); // 200ms delay between requests
+    });
+    
+    // Add a legend showing numbered locations
+    const legendDiv = document.createElement('div');
+    legendDiv.style.cssText = `
+      background: white;
+      padding: 10px;
+      margin: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      font-size: 14px;
+      max-height: 200px;
+      overflow-y: auto;
+    `;
+    
+    const legendTitle = document.createElement('div');
+    legendTitle.innerHTML = ''; // Clear content
+    const titleStrong = document.createElement('strong');
+    titleStrong.textContent = 'Locations:';
+    legendTitle.appendChild(titleStrong);
+    legendTitle.style.marginBottom = '5px';
+    legendDiv.appendChild(legendTitle);
+    
+    locations.forEach((location, index) => {
+      const legendItem = document.createElement('div');
+      legendItem.style.cssText = 'padding: 2px 0;';
+      legendItem.innerHTML = ''; // Clear content
+      const indexStrong = document.createElement('strong');
+      indexStrong.textContent = `${index + 1}.`;
+      legendItem.appendChild(indexStrong);
+      legendItem.appendChild(document.createTextNode(` ${location.title}`));
+      legendDiv.appendChild(legendItem);
+    });
+    
+    map.controls[google.maps.ControlPosition.RIGHT_TOP].push(legendDiv);
+  }
+  
+  /**
+   * Show location list as a fallback when map cannot be displayed
+   * 
+   * @param {HTMLElement} mapDiv - The container element
+   * @param {Array} locations - Array of location objects with title and address
+   */
+  showLocationList(mapDiv, locations) {
+    console.log('=== showLocationList Called ===');
+    console.log('mapDiv:', mapDiv);
+    console.log('locations:', locations);
+    console.log('Number of locations:', locations.length);
+    
+    mapDiv.style.height = 'auto';
+    mapDiv.innerHTML = '';
+    
+    // Create a styled list container
+    const listContainer = document.createElement('div');
+    listContainer.style.cssText = `
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 15px;
+    `;
+    
+    // Add a header
+    const header = document.createElement('h4');
+    header.textContent = 'Location Addresses:';
+    header.style.cssText = 'margin: 0 0 15px 0; color: #333;';
+    listContainer.appendChild(header);
+    
+    // Create the location list
+    const list = document.createElement('div');
+    list.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
+    
+    locations.forEach((location, index) => {
+      const locationItem = document.createElement('div');
+      locationItem.style.cssText = `
+        background: white;
+        padding: 12px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      `;
+      
+      // Number badge
+      const numberBadge = document.createElement('div');
+      numberBadge.textContent = (index + 1).toString();
+      numberBadge.style.cssText = `
+        background: #4285f4;
+        color: white;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 12px;
+        flex-shrink: 0;
+      `;
+      
+      // Location details
+      const details = document.createElement('div');
+      details.style.cssText = 'flex: 1;';
+      
+      const title = document.createElement('div');
+      title.textContent = location.title;
+      title.style.cssText = 'font-weight: 600; color: #333; margin-bottom: 5px;';
+      
+      const address = document.createElement('div');
+      // Clean up the address if needed
+      let cleanAddress = location.address;
+      if (cleanAddress.includes('{')) {
+        cleanAddress = cleanAddress.split(', {')[0];
+      }
+      address.textContent = cleanAddress;
+      address.style.cssText = 'color: #666; font-size: 0.9em; line-height: 1.4;';
+      
+      details.appendChild(title);
+      details.appendChild(address);
+      
+      locationItem.appendChild(numberBadge);
+      locationItem.appendChild(details);
+      
+      list.appendChild(locationItem);
+    });
+    
+    listContainer.appendChild(list);
+    
+    // Add a note about the map
+    const note = document.createElement('p');
+    note.textContent = 'Map view requires a Google Maps API key to be configured.';
+    note.style.cssText = 'margin: 15px 0 0 0; font-size: 0.85em; color: #888; font-style: italic;';
+    listContainer.appendChild(note);
+    
+    mapDiv.appendChild(listContainer);
+    
+    console.log('Location list created and appended successfully');
+    console.log('Final mapDiv contents:', mapDiv.innerHTML);
   }
 
   /**
@@ -769,6 +1185,8 @@ export class ManagedEventSource {
       // Add styling to reduce text size
       contentDiv.style.cssText = 'font-size: 0.9em; line-height: 1.5;';
       // Content is already HTML from the backend
+      // SECURITY NOTE: This content should be sanitized server-side before sending
+      // as it contains structured HTML for recipe substitutions
       contentDiv.innerHTML = data.content;
       
       // Apply additional styling to specific elements

@@ -1,12 +1,12 @@
-## PostgreSQL with pgvector
+# PostgreSQL with pgvector
 
 NLWeb supports PostgreSQL with the pgvector extension for vector similarity search. This provides a powerful and scalable option for storing and retrieving vector embeddings using standard SQL database technology.
 
-### Setup Requirements
+## Setup Requirements
 
 1. PostgreSQL database (version 11 or higher recommended)
 2. pgvector extension installed in the database
-3. A table with the following schema (or compatible):
+3. A table with the following schema (or compatible) - note that this should be done for you when you first load data.
 
 ```sql
 CREATE TABLE documents (
@@ -24,39 +24,9 @@ ON documents USING hnsw (embedding vector_cosine_ops)
 WITH (m = 16, ef_construction = 200);
 ```
 
-### Setup Schema
+### Configure your Postgres endpoint
 
-NOTE: If you are using Azure Postgres Flexible server make sure you have `vector` [extension allow-listed](https://learn.microsoft.com/azure/postgresql/flexible-server/how-to-use-pgvector#enable-extension)
-
-To setup you PostgreSQL configuration, you can use the provided setup scripts:
-
-In the `code` directory run
-```bash
-# Setup the Postgres server
-python tools/postgres_load.py
-```
-
-### Dependencies
-
-Make sure you have the required Python packages installed:
-
-```bash
-# Install PostgreSQL client libraries
-pip install psycopg
-pip install psycopg-binary  # PostgreSQL adapter (psycopg3)
-pip install psycopg-pool  # Connection pooling for psycopg3
-pip install pgvector
-```
-
-The following packages are needed:
-- `psycopg` - The PostgreSQL adapter for Python (psycopg3)
-- `psycopg[binary]` - Binary dependencies for psycopg
-- `psycopg[pool]` - Connection pooling support
-- `pgvector` - Support for pgvector operations (vector types and indexing)
-
-### Configuration
-
-Update the `.env` file:
+Update the `.env` file with this information after you have deployed your Postgres database:
 
 ```bash
 # If using Postgres connection string
@@ -81,7 +51,29 @@ endpoints:
 
 ```
 
+## Setup Schema
+
+NOTE: If you are using Azure Postgres Flexible server make sure you have `vector` [extension allow-listed](https://learn.microsoft.com/azure/postgresql/flexible-server/how-to-use-pgvector#enable-extension)
+
+To setup your PostgreSQL configuration, run the following setup script:
+
+In the `python` directory run
+
+```bash
+# Setup the Postgres server
+python misc/postgres_load.py
+```
+
 You can provide credentials directly or via environment variables (recommended for security).
+
+## Dependencies
+
+The following will be automatically installed when you run the Setup Schema or call the Postgres Client:
+
+- `psycopg` - The PostgreSQL adapter for Python (psycopg3)
+- `psycopg[binary]` - Binary dependencies for psycopg
+- `psycopg[pool]` - Connection pooling support
+- `pgvector` - Support for pgvector operations (vector types and indexing)
 
 ### Usage
 

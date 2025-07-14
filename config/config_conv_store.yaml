@@ -1,0 +1,116 @@
+# Conversation storage configuration
+# This file configures where and how conversation history is stored
+
+# Default storage endpoint to use
+default_storage: qdrant_local
+
+# Storage endpoints configuration
+storage_endpoints:
+  
+  # Local Qdrant storage (default)
+  qdrant_local:
+    enabled: true
+    type: qdrant
+    # Local file-based storage path
+    database_path: "../data/conversations_db"
+    # Collection name for conversations
+    collection_name: nlweb_conversations
+    # Vector size for embeddings
+    vector_size: 1536
+    
+  # Remote Qdrant server
+  qdrant_remote:
+    enabled: false
+    type: qdrant
+    # Qdrant server URL (from environment variable)
+    url_env: QDRANT_CONVERSATIONS_URL
+    # API key for authentication (from environment variable)
+    api_key_env: QDRANT_CONVERSATIONS_API_KEY
+    # Collection name for conversations
+    collection_name: nlweb_conversations
+    # Vector size for embeddings
+    vector_size: 1536
+    
+  # Azure AI Search storage
+  azure_search:
+    enabled: false
+    type: azure_ai_search
+    # Azure Search endpoint (from environment variable)
+    endpoint_env: AZURE_SEARCH_CONVERSATIONS_ENDPOINT
+    # API key (from environment variable)
+    api_key_env: AZURE_SEARCH_CONVERSATIONS_KEY
+    # Index name for conversations
+    collection_name: nlweb_conversations
+    # Vector size for embeddings
+    vector_size: 1536
+    
+  # Azure Cosmos DB storage
+  cosmos_db:
+    enabled: false
+    type: azure_cosmos
+    # Cosmos DB endpoint (from environment variable)
+    endpoint_env: COSMOS_DB_ENDPOINT
+    # Primary key (from environment variable)
+    key_env: COSMOS_DB_KEY
+    # Database name
+    database_name: nlweb_conversations
+    # Container name
+    container_name: conversations
+    # Partition key path
+    partition_key: /user_id
+    
+  # PostgreSQL with pgvector
+  postgres:
+    enabled: false
+    type: postgres
+    # Connection string (from environment variable)
+    connection_string_env: POSTGRES_CONV_CONNECTION_STRING
+    # Or individual connection parameters
+    host_env: POSTGRES_CONV_HOST
+    port: 5432
+    database: nlweb_conversations
+    user_env: POSTGRES_CONV_USER
+    password_env: POSTGRES_CONV_PASSWORD
+    # Table name
+    table_name: conversations
+    # Vector dimensions
+    vector_dimensions: 1536
+    
+  # In-memory storage (for testing only)
+  memory:
+    enabled: false
+    type: memory
+    # Maximum conversations to keep in memory
+    max_conversations: 10000
+    # TTL in seconds (optional)
+    ttl_seconds: 86400  # 24 hours
+
+# Storage behavior configuration
+storage_behavior:
+  # Whether to store conversations for anonymous users
+  store_anonymous: true
+  
+  # Maximum conversation history per thread
+  max_conversations_per_thread: 100
+  
+  # Maximum threads per user
+  max_threads_per_user: 1000
+  
+  # Conversation retention policy (in days)
+  retention_days: 365
+  
+  # Whether to compute embeddings for conversations
+  compute_embeddings: true
+  
+  # Batch size for bulk operations
+  batch_size: 100
+  
+  # Enable conversation search
+  enable_search: true
+  
+  # Migration settings
+  migration:
+    # Auto-migrate from localStorage when user logs in
+    auto_migrate_on_login: true
+    # Maximum conversations to migrate per user
+    max_migrate_conversations: 500
