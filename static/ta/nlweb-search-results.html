@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLWeb Search Results - Bon Appétit Style</title>
+    <link rel="stylesheet" href="nlweb-search-results.css">
+    <link rel="stylesheet" href="../common-chat-styles.css">
+</head>
+<body>
+    <!-- Header with Search Bar -->
+    <header class="site-header">
+        <div class="header-container">
+            <div class="logo">
+                <a href="/">Bon Appétit</a>
+            </div>
+            <div class="search-bar-wrapper">
+                <form id="search-form" class="search-form">
+                    <input 
+                        type="search" 
+                        id="search-input" 
+                        class="search-input" 
+                        placeholder="Search for recipes, ingredients, or techniques..."
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="search-button">
+                        <svg viewBox="0 0 16 16" width="16" height="16">
+                            <path fill="currentColor" d="M12 7A5 5 0 1 1 2 7a5 5 0 0 1 10 0Zm-1.126 4.582a6 6 0 1 1 .707-.707l3.773 3.771-.707.708-3.773-3.772Z"></path>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Search Results Header -->
+        <div class="search-header">
+            <p class="search-label">Search results for</p>
+            <h1 id="search-query" class="search-query">spicy crunchy snacks</h1>
+            
+            <!-- Results Count and Filters -->
+            <div class="search-controls">
+                <div class="result-counts">
+                    <button class="filter-button active" data-type="all">
+                        <span class="count">0</span> All Results
+                    </button>
+                    <button class="filter-button" data-type="Recipe">
+                        <span class="count">0</span> Recipes
+                    </button>
+                    <button class="filter-button" data-type="Article">
+                        <span class="count">0</span> Articles
+                    </button>
+                </div>
+                
+                <div class="sort-controls">
+                    <label for="sort-select">Sort by:</label>
+                    <select id="sort-select" class="sort-select">
+                        <option value="relevance">Most Relevant</option>
+                        <option value="date">Most Recent</option>
+                        <option value="rating">Highest Rated</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="loading-state">
+            <div class="loading-spinner"></div>
+            <p>Searching for delicious results...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error-state" class="error-state" style="display: none;">
+            <p>Sorry, something went wrong. Please try again.</p>
+        </div>
+
+        <!-- Search Results Grid -->
+        <div id="search-results" class="search-results-grid" style="display: none;">
+            <!-- Results will be dynamically inserted here -->
+        </div>
+
+        <!-- No Results State -->
+        <div id="no-results" class="no-results" style="display: none;">
+            <h2>No results found</h2>
+            <p>Try adjusting your search terms or browse our categories.</p>
+        </div>
+    </main>
+
+    <script type="module" src="nlweb-search-results.js"></script>
+</body>
+</html>

@@ -173,8 +173,8 @@ export class NLWebDropdownChat {
         this.chatInterface.createNewChat = (searchInputId, site) => {
             originalCreateNewChat(searchInputId, site || this.config.site);
             
-            const conversation = this.chatInterface.conversations.find(
-                c => c.id === this.chatInterface.currentConversationId
+            const conversation = this.chatInterface.conversationManager.findConversation(
+                this.chatInterface.currentConversationId
             );
             if (conversation) {
                 if (!conversation.site) {
@@ -183,7 +183,7 @@ export class NLWebDropdownChat {
                 if (!conversation.timestamp) {
                     conversation.timestamp = Date.now();
                 }
-                this.chatInterface.saveConversations();
+                this.chatInterface.conversationManager.saveConversations();
             }
         };
         
@@ -206,8 +206,9 @@ export class NLWebDropdownChat {
         this.chatInterface.addMessage = (content, type) => {
             originalAddMessage(content, type);
             
-            const conversation = this.chatInterface.conversations.find(
-                c => c.id === this.chatInterface.currentConversationId
+            // Access conversations through conversationManager
+            const conversation = this.chatInterface.conversationManager.findConversation(
+                this.chatInterface.currentConversationId
             );
             if (conversation) {
                 if (conversation.site !== this.config.site) {
@@ -216,7 +217,7 @@ export class NLWebDropdownChat {
                 if (!conversation.timestamp) {
                     conversation.timestamp = Date.now();
                 }
-                this.chatInterface.saveConversations();
+                this.chatInterface.conversationManager.saveConversations();
             }
         };
         
@@ -334,7 +335,8 @@ export class NLWebDropdownChat {
     updateConversationsList() {
         this.dropdownConversationsList.innerHTML = '';
         
-        const siteConversations = this.chatInterface.conversations.filter(conv => 
+        const allConversations = this.chatInterface.conversationManager.getConversations();
+        const siteConversations = allConversations.filter(conv => 
             conv.site === this.config.site && conv.messages && conv.messages.length > 0
         );
         
@@ -368,7 +370,7 @@ export class NLWebDropdownChat {
             
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.chatInterface.loadConversation(conv.id);
+                this.chatInterface.conversationManager.loadConversation(conv.id, this.chatInterface);
                 
                 const firstUserMessage = conv.messages.find(m => m.type === 'user');
                 if (firstUserMessage) {
@@ -393,11 +395,8 @@ export class NLWebDropdownChat {
     }
     
     deleteConversation(conversationId) {
-        this.chatInterface.conversations = this.chatInterface.conversations.filter(
-            c => c.id !== conversationId
-        );
-        
-        this.chatInterface.saveConversations();
+        // Use conversationManager's deleteConversation method
+        this.chatInterface.conversationManager.deleteConversation(conversationId, this.chatInterface);
         
         if (this.chatInterface.currentConversationId === conversationId) {
             this.chatInterface.createNewChat(null, this.config.site);

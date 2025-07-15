@@ -27,12 +27,14 @@
     <Prompt ref="PrevQueryDecontextualizer">
       <promptString>
         The user is querying the site {request.site} which has {site.itemType}s.
-        Does answering this query require access to earlier queries or 
-        previous answers?
-        If so, rewrite the query to decontextualize it so that it can be answered 
-        without reference to earlier queries or previous answers. Keep the decontextualized query short and 
-        do not reference the site. If the query does not reference earlier 
-        queries or previous answers, don't change the query.
+        Rewrite the query, incorporating the context of the previous queries and answers.
+        Keep the decontextualized query short and do not reference the site. 
+
+        If the query very clearly does not reference earlier queries, 
+        don't change the query. Err on the side of incorporating the context of the 
+        previous queries. If you are not sure whether this is a brand new query, 
+        or follow up, it is likely a follow up. Try your best to incorporate the 
+        context from the previous queries.
 
         The user's query is: {request.rawQuery}. 
         Previous queries were: {request.previousQueries}.
