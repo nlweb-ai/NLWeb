@@ -22,6 +22,7 @@ _provider_locks = {
     "openai": threading.Lock(),
     "gemini": threading.Lock(),
     "azure_openai": threading.Lock(),
+    "qwen_openai": threading.Lock(),
     "snowflake": threading.Lock()
 }
 
@@ -119,7 +120,18 @@ async def get_embedding(
             )
             logger.debug(f"Azure embeddings received, dimension: {len(result)}")
             return result
-            
+
+        if provider == "qwen_openai":
+            logger.debug("Getting Qwen OpenAI embeddings")
+            # Import here to avoid potential circular imports
+            from embedding_providers.qwen_embedding import get_qwen_embedding
+            result = await asyncio.wait_for(
+                get_qwen_embedding(text, model=model_id),
+                timeout=timeout
+            )
+            logger.debug(f"Qwen OpenAI embeddings received, dimension: {len(result)}")
+            return result
+        
         if provider == "snowflake":
             logger.debug("Getting Snowflake embeddings")
             # Import here to avoid potential circular imports
@@ -204,6 +216,16 @@ async def batch_get_embeddings(
     
     try:
         # Provider-specific batch implementations with timeout handling
+        if provider == "qwen_openai":
+            logger.debug("Getting Qwen OpenAI batch embeddings")
+            from embedding_providers.qwen_embedding import get_qwen_batch_embeddings
+            result = await asyncio.wait_for(
+                get_qwen_batch_embeddings(texts, model=model_id),
+                timeout=timeout
+            )
+            logger.debug(f"Qwen OpenAI batch embeddings received, count: {len(result)}")
+            return result
+        
         if provider == "openai":
             # Use OpenAI's batch embedding API
             logger.debug("Getting OpenAI batch embeddings")

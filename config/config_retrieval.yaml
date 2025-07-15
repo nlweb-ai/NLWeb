@@ -3,7 +3,7 @@ write_endpoint: qdrant_local
 endpoints:
 
   nlweb_west:
-    enabled: true
+    enabled: false
     api_key_env: NLWEB_WEST_API_KEY
     api_endpoint_env: NLWEB_WEST_ENDPOINT
     index_name: embeddings1536
@@ -72,7 +72,7 @@ endpoints:
     use_knn: false
 
   postgres:
-    enabled: true
+    enabled: false
     # Database connection details (i.e. "postgresql://<HOST>:<PORT>/<DATABASE>?user=<USERNAME>&sslmode=require")
     api_endpoint_env: POSTGRES_CONNECTION_STRING
     # Password for authentication 
@@ -84,7 +84,7 @@ endpoints:
 
   # Option 1: Local file-based Qdrant storage
   qdrant_local:
-    enabled: true
+    enabled: false
     # Use local file-based storage with a specific path
     database_path: "../data/db"
     # Set the collection name to use
@@ -94,13 +94,13 @@ endpoints:
     
   # Option 2: Remote Qdrant server
   qdrant_url:
-    enabled: false
+    enabled: true
     # Connect to a Qdrant server at a specific URL
     api_endpoint_env: QDRANT_URL
     # Optional API key for authentication
     api_key_env: QDRANT_API_KEY
     # Set the collection name to use
-    index_name: nlweb_collection
+    index_name: nl_collection
     # Specify the database type
     db_type: qdrant
 

@@ -10,6 +10,7 @@ import os
 import sys
 import json
 import csv
+import pandas as pd
 import asyncio
 import aiohttp
 import tempfile
@@ -287,6 +288,8 @@ async def detect_file_type(file_path: str) -> Tuple[str, bool]:
         return 'json', has_embeddings
     elif ext == '.csv':
         return 'csv', has_embeddings
+    elif ext == '.xlsx':
+        return 'xlsx', has_embeddings
     elif ext in ['.xml', '.rss', '.atom']:
         # Check if file contains RSS-like elements
         try:
@@ -364,6 +367,76 @@ async def detect_file_type(file_path: str) -> Tuple[str, bool]:
     
     return 'unknown', has_embeddings
 
+async def process_xlsx_file(file_path: str, site: str) -> list:
+    """
+    处理 Excel 文件（.xlsx），转为文档对象列表
+    Args:
+        file_path: Excel 文件路径
+        site: 站点标识
+    Returns:
+        文档对象列表
+    """
+    print(f"Processing XLSX file: {file_path}")
+    documents = []
+    error_count = 0
+    success_count = 0
+
+    try:
+        df = pd.read_excel(file_path, dtype=str)  # 读为字符串，避免类型问题
+        if df.empty:
+            print(f"Warning: XLSX file {file_path} is empty.")
+            return documents
+
+        for index, row in df.iterrows():
+            try:
+                row_data = row.to_dict()
+                # 尝试提取 url/id 字段
+                url = None
+                for col in ['url', 'URL', 'link', 'Link', 'id', 'ID', 'identifier']:
+                    if col in row_data and row_data[col]:
+                        url = str(row_data[col])
+                        break
+                if not url:
+                    url = f"xlsx:{os.path.basename(file_path)}:{index}"
+
+                # 转为 JSON
+                json_data = json.dumps(row_data, ensure_ascii=False)
+
+                # 尝试提取 name/title 字段
+                name = None
+                for col in ['name', 'Name', 'title', 'Title', 'heading', 'Heading']:
+                    if col in row_data and row_data[col]:
+                        name = str(row_data[col])
+                        break
+                if not name:
+                    name = f"Row {index} from {os.path.basename(file_path)}"
+
+                # 组装文档对象
+                document = {
+                    "id": str(hash(url) % (2**63)),
+                    "schema_json": json_data,
+                    "url": url,
+                    "name": name,
+                    "site": site
+                }
+                documents.append(document)
+                success_count += 1
+
+                if (index + 1) % 1000 == 0:
+                    print(f"Processed {index + 1} rows ({success_count} successful, {error_count} errors)")
+
+            except Exception as row_error:
+                error_count += 1
+                print(f"Error processing row {index}: {str(row_error)}")
+                continue
+
+        print(f"XLSX processing complete: {success_count} rows processed successfully, {error_count} rows had errors")
+        return documents
+
+    except Exception as e:
+        print(f"Fatal error processing XLSX file: {str(e)}")
+        return documents 
+              
 async def process_csv_file(file_path: str, site: str) -> List[Dict[str, Any]]:
     """
     Process a standard CSV file into document objects without using pandas.
@@ -793,6 +866,9 @@ async def loadJsonToDB(file_path: str, site: str, batch_size: int = 100, delete_
         if file_type == 'csv':
             # Process standard CSV file
             all_documents = await process_csv_file(resolved_path, site)
+        elif file_type == 'xlsx':
+            # Process standard CSV file
+            all_documents = await process_xlsx_file(resolved_path, site)
         elif file_type == 'rss' or (file_type == 'xml' and ('/feed' in original_path.lower() or '/rss' in original_path.lower())):
             # Process RSS/Atom feed
             print("Processing as RSS feed...")
