@@ -511,3 +511,39 @@
         left: -200px;
     }
 }
+
+/* Fix conversations panel positioning on narrow windows */
+@media (max-width: 750px) {
+    /* When window is too narrow, use a different approach */
+    .nlweb-dropdown-conversations-panel {
+        position: fixed;
+        left: -100vw;
+        top: 0;
+        bottom: 0;
+        width: 100vw;
+        max-width: 300px;
+        border-radius: 0;
+        transform: translateX(0);
+        transition: transform 0.3s ease;
+    }
+    
+    .nlweb-dropdown-conversations-panel.show {
+        left: -100vw;
+        width: 100vw;
+        max-width: 300px;
+        transform: translateX(100vw);
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Add overlay for mobile */
+    .nlweb-dropdown-conversations-panel.show::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.3);
+        z-index: -1;
+    }
+}
