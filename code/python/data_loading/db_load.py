@@ -369,12 +369,12 @@ async def detect_file_type(file_path: str) -> Tuple[str, bool]:
 
 async def process_xlsx_file(file_path: str, site: str) -> list:
     """
-    ´¦Àí Excel ÎÄ¼þ£¨.xlsx£©£¬×ªÎªÎÄµµ¶ÔÏóÁÐ±í
+    å¤„ç† Excel æ–‡ä»¶ï¼ˆ.xlsxï¼‰ï¼Œè½¬ä¸ºæ–‡æ¡£å¯¹è±¡åˆ—è¡¨
     Args:
-        file_path: Excel ÎÄ¼þÂ·¾¶
-        site: Õ¾µã±êÊ¶
+        file_path: Excel æ–‡ä»¶è·¯å¾„
+        site: ç«™ç‚¹æ ‡è¯†
     Returns:
-        ÎÄµµ¶ÔÏóÁÐ±í
+        æ–‡æ¡£å¯¹è±¡åˆ—è¡¨
     """
     print(f"Processing XLSX file: {file_path}")
     documents = []
@@ -382,7 +382,7 @@ async def process_xlsx_file(file_path: str, site: str) -> list:
     success_count = 0
 
     try:
-        df = pd.read_excel(file_path, dtype=str)  # ¶ÁÎª×Ö·û´®£¬±ÜÃâÀàÐÍÎÊÌâ
+        df = pd.read_excel(file_path, dtype=str)  # è¯»ä¸ºå­—ç¬¦ä¸²ï¼Œé¿å…ç±»åž‹é—®é¢˜
         if df.empty:
             print(f"Warning: XLSX file {file_path} is empty.")
             return documents
@@ -390,7 +390,7 @@ async def process_xlsx_file(file_path: str, site: str) -> list:
         for index, row in df.iterrows():
             try:
                 row_data = row.to_dict()
-                # ³¢ÊÔÌáÈ¡ url/id ×Ö¶Î
+                # å°è¯•æå– url/id å­—æ®µ
                 url = None
                 for col in ['url', 'URL', 'link', 'Link', 'id', 'ID', 'identifier']:
                     if col in row_data and row_data[col]:
@@ -399,10 +399,10 @@ async def process_xlsx_file(file_path: str, site: str) -> list:
                 if not url:
                     url = f"xlsx:{os.path.basename(file_path)}:{index}"
 
-                # ×ªÎª JSON
+                # è½¬ä¸º JSON
                 json_data = json.dumps(row_data, ensure_ascii=False)
 
-                # ³¢ÊÔÌáÈ¡ name/title ×Ö¶Î
+                # å°è¯•æå– name/title å­—æ®µ
                 name = None
                 for col in ['name', 'Name', 'title', 'Title', 'heading', 'Heading']:
                     if col in row_data and row_data[col]:
@@ -411,7 +411,7 @@ async def process_xlsx_file(file_path: str, site: str) -> list:
                 if not name:
                     name = f"Row {index} from {os.path.basename(file_path)}"
 
-                # ×é×°ÎÄµµ¶ÔÏó
+                # ç»„è£…æ–‡æ¡£å¯¹è±¡
                 document = {
                     "id": str(hash(url) % (2**63)),
                     "schema_json": json_data,
@@ -435,7 +435,7 @@ async def process_xlsx_file(file_path: str, site: str) -> list:
 
     except Exception as e:
         print(f"Fatal error processing XLSX file: {str(e)}")
-        return documents 
+        return documents
               
 async def process_csv_file(file_path: str, site: str) -> List[Dict[str, Any]]:
     """

@@ -8,25 +8,25 @@
             "name": "Python Debugger: app-file",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/code/app-file.py",
+            "program": "${workspaceFolder}/code/python/app-file.py",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "cwd": "${workspaceFolder}/code",
+            "cwd": "${workspaceFolder}/code/python",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/code"
+                "PYTHONPATH": "${workspaceFolder}/code/python"
             }
         },
         {
             "name": "Python Debugger: db_load with args",
             "type": "debugpy",
             "request": "launch",
-            "module": "tools.db_load",
+            "module": "data_loading.db_load",
             "console": "integratedTerminal",
             "args": "${command:pickArgs}",
             "justMyCode": true,
-            "cwd": "${workspaceFolder}/code",
+            "cwd": "${workspaceFolder}/code/python",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/code"
+                "PYTHONPATH": "${workspaceFolder}/code/python"
             }
         },
         {
@@ -37,9 +37,9 @@
             "console": "integratedTerminal",
             "args": "${command:pickArgs}",
             "justMyCode": true,
-            "cwd": "${workspaceFolder}/code",
+            "cwd": "${workspaceFolder}/code/python",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/code"
+                "PYTHONPATH": "${workspaceFolder}/code/python"
             }
         },
         {
@@ -49,9 +49,9 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true,
-            "cwd": "${workspaceFolder}/code",
+            "cwd": "${workspaceFolder}/code/python",
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/code"
+                "PYTHONPATH": "${workspaceFolder}/code/python"
             }
         }
     ]
