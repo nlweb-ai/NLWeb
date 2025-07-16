@@ -28,7 +28,7 @@ openai>=1.12.0
 # anthropic>=0.18.1
 
 # For OpenAI (including Azure OpenAI, Llama Azure, DeepSeek Azure):
-# openai>=1.12.0
+openai>=1.12.0
 
 # For Google Gemini/Vertex AI:
 # google-genai>=0.7.1
@@ -53,11 +53,11 @@ openai>=1.12.0
 # azure-search-documents>=11.4.0
 
 # For Milvus:
-# pymilvus>=1.1.0
-# numpy
+pymilvus>=1.1.0
+numpy
 
 # For Qdrant:
-# qdrant-client>=1.14.0
+qdrant-client>=1.14.0
 
 # For OpenSearch or Snowflake (both use httpx):
 # httpx>=0.28.1

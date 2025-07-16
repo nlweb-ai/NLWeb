@@ -17,6 +17,11 @@ logging:
       default_level: ERROR
       log_file: "llm_wrapper.log"
     
+    qwen_llm:
+      env_var: "QWEN_LLM_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "qwen_llm.log"
+
     azure_openai:
       env_var: "AZURE_OPENAI_LOG_LEVEL"
       default_level: ERROR
@@ -117,6 +122,7 @@ logging:
 # Environment variable mappings for quick reference
 environment_variables:
   LLM_LOG_LEVEL: "Controls logging for the LLM wrapper module"
+  QWEN_LLM_LOG_LEVEL: "Controls logging for the Qwen LLM module"
   AZURE_OPENAI_LOG_LEVEL: "Controls logging for Azure OpenAI operations"
   NLWEB_HANDLER_LOG_LEVEL: "Controls logging for the main NLWeb handler"
   RANKING_LOG_LEVEL: "Controls logging for the ranking engine"

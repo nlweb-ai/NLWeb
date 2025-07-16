@@ -1,4 +1,4 @@
-preferred_provider: azure_openai
+preferred_provider: qwen_openai
 
 providers:
   openai:
@@ -21,3 +21,8 @@ providers:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     api_version_env: "2024-10-01"
     model: snowflake-arctic-embed-m-v1.5
+  
+  qwen_openai:
+    api_key_env: sk-8d92269162214b3da44e786fde398ae6
+    api_endpoint_env: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: text-embedding-v3
