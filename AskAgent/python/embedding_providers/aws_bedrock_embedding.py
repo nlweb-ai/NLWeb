@@ -15,10 +15,10 @@ from typing import List, Optional, Any
 from botocore.config import Config
 
 import boto3
-from config.config import CONFIG
+from core.config import CONFIG
 import threading
 
-from utils.logging_config_helper import get_configured_logger, LogLevel
+from misc.logger.logging_config_helper import get_configured_logger, LogLevel
 
 logger = get_configured_logger("aws_bedrock_embedding")
 
@@ -79,8 +79,16 @@ def get_runtime_client(timeout: float = 30.0) -> Any:
         if aws_bedrock_client is None:
             try:
                 api_key = get_aws_bedrock_api_key()
-                aws_access_key_id = api_key.split(":")[0]
-                aws_secret_access_key = api_key.split(":")[1]
+                
+                # Validate API key format
+                parts = api_key.split(":")
+                if len(parts) != 2:
+                    error_msg = "AWS Bedrock API key must be in format 'access_key_id:secret_access_key'"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+                    
+                aws_access_key_id = parts[0]
+                aws_secret_access_key = parts[1]
                 aws_region = get_aws_bedrock_region()
 
                 aws_bedrock_client = boto3.client(
@@ -96,7 +104,6 @@ def get_runtime_client(timeout: float = 30.0) -> Any:
                 raise
 
     return aws_bedrock_client
-
 
 def get_aws_bedrock_embeddings(
     text: str, model: Optional[str] = None, timeout: float = 30.0
@@ -119,7 +126,7 @@ def get_aws_bedrock_embeddings(
             model = provider_config.model
         else:
             # Default to a common embedding model
-            model = "amazon.titan-embed-text-v1"
+            model = "amazon.titan-embed-text-v2:0"
 
     logger.debug(f"Generating AWS Bedrock embedding with model: {model}")
     logger.debug(f"Text length: {len(text)} chars")

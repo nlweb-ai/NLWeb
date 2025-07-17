@@ -16,12 +16,12 @@ from botocore.exceptions import ReadTimeoutError, ConnectTimeoutError
 from botocore.config import Config
 
 import boto3
-from config.config import CONFIG
+from core.config import CONFIG
 import threading
 
-from llm.llm_provider import LLMProvider
+from llm_providers.llm_provider import LLMProvider
 
-from utils.logging_config_helper import get_configured_logger
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("llm")
 
@@ -250,7 +250,7 @@ class AWSBedrockProvider(LLMProvider):
             # Run the synchronous boto3 client in a thread pool executor
             response = client.invoke_model(modelId=model, body=json.dumps(body))
         except ReadTimeoutError:
-            logger.error("⏰ Read timeout: el modelo tardó demasiado en responder.")
+            logger.error("⏰ Read timeout: the model took too long to respond..")
             return {}
         except ConnectTimeoutError:
             logger.error("🚫 Completion request timed out after %s seconds.", timeout)
