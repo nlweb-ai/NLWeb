@@ -22,7 +22,8 @@ _provider_locks = {
     "openai": threading.Lock(),
     "gemini": threading.Lock(),
     "azure_openai": threading.Lock(),
-    "snowflake": threading.Lock()
+    "snowflake": threading.Lock(),
+    "elasticsearch": threading.Lock()
 }
 
 async def get_embedding(
@@ -131,6 +132,24 @@ async def get_embedding(
             logger.debug(f"Snowflake Cortex embeddings received, dimension: {len(result)}")
             return result
 
+        if provider == "elasticsearch":
+            # Use Elasticsearch's embedding API
+            global elasticsearch_embedding
+            logger.debug("Getting Elasticsearch embeddings")
+            from embedding_providers.elasticsearch_embedding import ElasticsearchEmbedding
+
+            elasticsearch_embedding = ElasticsearchEmbedding()
+
+            result = await elasticsearch_embedding.get_embeddings(
+                text,
+                model=model_id,
+                timeout=timeout
+            )
+            await elasticsearch_embedding.close()  # Ensure cleanup
+
+            logger.debug(f"Elasticsearch embeddings received, count: {len(result)}")
+            return result
+        
         error_msg = f"No embedding implementation for provider '{provider}'"
         logger.error(error_msg)
         raise ValueError(error_msg)
@@ -249,6 +268,23 @@ async def batch_get_embeddings(
             logger.debug(f"Gemini batch embeddings received, count: {len(result)}")
             return result
     
+        if provider == "elasticsearch":
+            # Use Elasticsearch's batch embedding API
+            logger.debug("Getting Elasticsearch batch embeddings")
+            from embedding_providers.elasticsearch_embedding import ElasticsearchEmbedding
+    
+            elasticsearch_embedding = ElasticsearchEmbedding()
+
+            result = await elasticsearch_embedding.get_batch_embeddings(
+                texts,
+                model=model_id,
+                timeout=timeout
+            )
+            await elasticsearch_embedding.close()  # Ensure cleanup
+
+            logger.debug(f"Elasticsearch batch embeddings received, count: {len(result)}")
+            return result
+        
         # Default implementation if provider doesn't match any above
         logger.debug(f"No specific batch implementation for {provider}, processing sequentially")
         results = []
