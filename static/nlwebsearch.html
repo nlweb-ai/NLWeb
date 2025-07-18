@@ -8,8 +8,12 @@
   }
 </style>
 <script type="module">
-  // Import the ChatInterface from the module
-  import { ChatInterface } from './streaming.js';
+  // Import styles first
+  import { applyStyles } from './styles.js';
+  applyStyles();
+  
+  // Import the ChatInterface from the correct module
+  import { ChatInterface } from './chat-interface.js';
   
   // Make it available globally
   window.ChatInterface = ChatInterface;

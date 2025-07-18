@@ -6,7 +6,7 @@ NLWeb now supports a flexible tool calling system that allows different methods 
 
 ## Architecture
 
-Tools are defined in XML format in `code/core/tools.xml`. The system:
+Tools are defined in XML format in `code/config/tools.xml`. The system:
 
 1. Analyzes the incoming query and its associated schema.org type
 2. Collects applicable tools based on the type hierarchy
@@ -56,27 +56,35 @@ Each tool is defined within its applicable schema.org type:
 ## Available Tools
 
 ### Search Tool
+
 The default tool for finding items based on criteria:
+
 - Searches for recipes, movies, products, etc. matching requirements
 - Handles broad exploration queries
 - Returns ranked results from the vector database
 
 ### Details Tool
+
 Retrieves specific information about a named item:
+
 - Gets ingredients, instructions, or nutritional info for recipes
 - Retrieves cast, plot, or ratings for movies
 - Shows specifications or pricing for products
 - Example: "What are the ingredients in Chicken Alfredo?"
 
 ### Compare Tool
+
 Performs side-by-side comparisons of two items:
+
 - Compares nutritional content between recipes
 - Contrasts features between products
 - Evaluates movies or restaurants against each other
 - Example: "Compare pizza margherita vs pepperoni pizza"
 
 ### Ensemble Tool
+
 Creates cohesive sets of related items:
+
 - **Meal Planning**: Appetizer + Main Course + Dessert
 - **Travel Itineraries**: Museums + Restaurants + Activities
 - **Outfit Recommendations**: Clothing + Accessories for specific conditions
@@ -88,7 +96,7 @@ When a user asks: "Give me an appetizer, main and dessert for an Asian fusion di
 
 1. The ensemble tool extracts three queries:
    - "Asian fusion appetizer"
-   - "Asian fusion main course" 
+   - "Asian fusion main course"
    - "Asian fusion dessert"
 
 2. Each query is sent to the retrieval backend in parallel
@@ -100,6 +108,7 @@ When a user asks: "Give me an appetizer, main and dessert for an Asian fusion di
 5. An LLM creates a cohesive recommendation combining all items
 
 The ensemble prompt structure:
+
 ```json
 {
   "score": 95,
@@ -115,13 +124,17 @@ The ensemble prompt structure:
 ### Recipe-Specific Tools
 
 #### Substitution Tool
+
 Finds ingredient substitutions for recipes:
+
 - Handles dietary restrictions (vegan, gluten-free, etc.)
 - Suggests alternatives for unavailable ingredients
 - Example: "I need a vegan substitute for eggs in this cake recipe"
 
 #### Accompaniment Tool
+
 Suggests complementary items:
+
 - Wine pairings for dishes
 - Side dishes for main courses
 - Sauces that balance flavors
@@ -141,6 +154,7 @@ Suggests complementary items:
 To add a new tool:
 
 1. **Define the Tool** in `tools.xml`:
+
 ```xml
 <YourType>
   <Tool name="your_tool" enabled="true">
@@ -157,6 +171,7 @@ To add a new tool:
 ```
 
 2. **Implement the Handler**:
+
 ```python
 class YourHandler:
     def __init__(self, params, handler):

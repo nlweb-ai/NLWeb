@@ -1,4 +1,4 @@
-import { ChatInterface } from './streaming.js';
+import { ChatInterface } from './chat-interface.js';
 
 // Make ChatInterface available globally
 window.ChatInterface = ChatInterface;

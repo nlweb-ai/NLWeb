@@ -1,0 +1,142 @@
+# Logging Configuration for NLWeb System
+# This file defines logging levels for all modules in the system.
+# Valid levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+logging:
+  # Default log level to use if environment variable is not set
+  default_level: ERROR
+  
+  # Log files directory (optional - if not specified, logs will be in current directory)
+  log_directory: "logs"
+  
+  # Individual module log levels
+  # These can be overridden by environment variables
+  modules:
+    # LLM Wrapper and Provider Modules
+    llm_wrapper:
+      env_var: "LLM_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "llm_wrapper.log"
+    
+    azure_openai:
+      env_var: "AZURE_OPENAI_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "azure_openai.log"
+    
+    gemini:
+      env_var: "GEMINI_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "gemini.log"
+
+    gemini_embedding:
+      env_var: "GEMINI_EMBEDDING_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "gemini_embedding.log"
+    
+    # Core Handler Modules
+    nlweb_handler:
+      env_var: "NLWEB_HANDLER_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "nlweb_handler.log"
+    
+    ranking_engine:
+      env_var: "RANKING_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "ranking.log"
+    
+    fast_track:
+      env_var: "FASTTRACK_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "fasttrack.log"
+    
+    # Prompt System Modules
+    prompt_runner:
+      env_var: "PROMPT_RUNNER_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "prompt_runner.log"
+    
+    prompts_manager:
+      env_var: "PROMPTS_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "prompts.log"
+
+    decontextualizer:
+      env_var: "DECONTEXTUALIZER_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "decontextualizer.log"
+
+    embedding_wrapper:
+      env_var: "EMBEDDING_WRAPPER_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "embedding_wrapper.log"
+    
+    incremental_crawl_and_load:
+      env_var: "INCREMENTAL_CRAWL_LOADER_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "incremental_crawl_loader.log"
+    
+    memory:
+      env_var: "MEMORY_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "memory.log"
+    
+    analyze_query:
+      env_var: "ANALYZE_QUERY_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "analyze_query.log"
+
+    required_info:
+      env_var: "REQUIRED_INFO_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "required_info.log"
+    
+    webserver:
+      env_var: "WEBSERVER_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "webserver.log"
+  
+  # Global settings
+  global:
+    # Format for all log messages
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    
+    # Format for file logs (can be different from console)
+    file_format: "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+    
+    # Maximum log file size in MB (optional)
+    max_file_size_mb: 10
+    
+    # Number of backup files to keep (optional)
+    backup_count: 5
+    
+    # Enable console output (in addition to file logging)
+    console_output: true
+    
+    # Enable file output
+    file_output: true
+
+# Environment variable mappings for quick reference
+environment_variables:
+  LLM_LOG_LEVEL: "Controls logging for the LLM wrapper module"
+  AZURE_OPENAI_LOG_LEVEL: "Controls logging for Azure OpenAI operations"
+  NLWEB_HANDLER_LOG_LEVEL: "Controls logging for the main NLWeb handler"
+  RANKING_LOG_LEVEL: "Controls logging for the ranking engine"
+  FASTTRACK_LOG_LEVEL: "Controls logging for fast track processing"
+  PROMPT_RUNNER_LOG_LEVEL: "Controls logging for prompt execution"
+  PROMPTS_LOG_LEVEL: "Controls logging for prompt management and parsing"
+
+# Production vs Development settings
+profiles:
+  development:
+    default_level: DEBUG
+    console_output: true
+    file_output: true
+    
+  production:
+    default_level: ERROR
+    console_output: false
+    file_output: true
+    
+  testing:
+    default_level: WARNING
+    console_output: true
+    file_output: false
