@@ -637,6 +637,22 @@ class ModernChatInterface {
             console.log('key_name:', data.key_name, 'has value?', !!data.key_value);
           }
           
+        } else if (data.message_type === 'nlws') {
+          // Handle NLWS message type (Natural Language Web Search synthesized response)
+          
+          // Update the answer if provided
+          if (data.answer && typeof data.answer === 'string') {
+            messageContent = data.answer + '\n\n';
+          }
+          
+          // Update the items if provided
+          if (data.items && Array.isArray(data.items)) {
+            allResults = data.items;
+          }
+          
+          // Always update the display with current answer and items
+          textDiv.innerHTML = messageContent + this.renderItems(allResults);
+          
         } else if (data.message_type === 'chart_result') {
           // Handle chart result (web components)
           console.log('=== Chart Result Handler Called ===');
