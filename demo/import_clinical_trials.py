@@ -19,8 +19,8 @@ def main():
     logging.info(f"Reading from JSON directory: {json_dir}")
 
     # Use a limit if you want to process only a subset of files
-    limit = 500
-    i = 0
+    #limit = 500
+    #i = 0
 
     instructions = "Full instructions are available at https://github.com/microsoft/NLWeb/tree/main/demo#ask-questions-of-clinical-trial-data."
     if not json_dir:
@@ -35,6 +35,7 @@ def main():
     if not os.path.exists(processed_dir):
         os.makedirs(processed_dir)
 
+    count = 0
     for filename in os.listdir(json_dir):
         if filename.endswith(".json"):
             with open(os.path.join(json_dir, filename), "r", encoding="utf-8") as file:
@@ -65,12 +66,14 @@ def main():
                     f.write("\n")
 
                 logging.info(f"Processed {filename}")
+                count += 1
 
             # Break if we reach the limit
-            i+=1
-            if i >= limit:
-                break
+            #i+=1
+            #if i >= limit:
+            #    break
 
+    logging.info(f"Processed {count} files in total.")
 
 if __name__ == "__main__":
     main()
