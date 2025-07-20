@@ -42,6 +42,7 @@ class EmbeddingProviderConfig:
     endpoint: Optional[str] = None
     api_version: Optional[str] = None
     model: Optional[str] = None
+    config: Optional[Dict[str, Any]] = None
 
 @dataclass
 class RetrievalProviderConfig:
@@ -325,13 +326,15 @@ class AppConfig:
             api_endpoint = self._get_config_value(cfg.get("api_endpoint_env"))
             api_version = self._get_config_value(cfg.get("api_version_env"))
             model = self._get_config_value(cfg.get("model"))
+            config = self._get_config_value(cfg.get("config"))
 
             # Create the embedding provider config
             self.embedding_providers[name] = EmbeddingProviderConfig(
                 api_key=api_key,
                 endpoint=api_endpoint,
                 api_version=api_version,
-                model=model
+                model=model,
+                config=config
             )
 
     def load_retrieval_config(self, path: str = "config_retrieval.yaml"):
