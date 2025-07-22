@@ -1,4 +1,5 @@
 from core.baseHandler import NLWebHandler
+import traceback
 
 # Who handler is work in progress for answering questions about who
 # might be able to answer a given query
