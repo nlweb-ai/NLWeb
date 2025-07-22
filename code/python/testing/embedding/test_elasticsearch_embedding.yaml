@@ -1,0 +1,17 @@
+preferred_provider: elasticsearch
+
+providers:
+  elasticsearch:
+    # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
+    api_endpoint_env: ELASTICSEARCH_URL
+    # Authentication credentials
+    api_key_env: ELASTICSEARCH_API_KEY
+    # Model name (inference endpoint)
+    model: .multilingual-e5-small-elasticsearch
+    # Service configuration
+    config: 
+      service: elasticsearch
+      service_settings:
+        num_allocations: 1
+        num_threads: 1
+        model_id: .multilingual-e5-small_linux-x86_64

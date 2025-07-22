@@ -79,7 +79,20 @@ class MCPHandler:
                 print(f"=== TOOLS/CALL: initialized={self.initialized} ===")
                 if not self.initialized:
                     raise Exception("Server not initialized")
-                result = await self.handle_tools_call(params, query_params)
+                
+                # Check if this is a streaming request
+                is_streaming = (
+                    query_params.get('streaming') == ['true'] and 
+                    params.get("arguments", {}).get("streaming", False)
+                )
+                
+                if is_streaming:
+                    # Handle streaming request with SSE
+                    await self.handle_streaming_tools_call(params, query_params, send_response, send_chunk)
+                    return
+                else:
+                    # Handle regular request
+                    result = await self.handle_tools_call(params, query_params)
             else:
                 # Unknown method
                 raise Exception(f"Method not found: {method}")
@@ -172,6 +185,84 @@ class MCPHandler:
         
         return {"tools": available_tools}
     
+    async def handle_streaming_tools_call(self, params, query_params, send_response, send_chunk):
+        """Handle streaming tools/call request with SSE"""
+        tool_name = params.get("name", "")
+        arguments = params.get("arguments", {})
+        
+        logger.info(f"MCP streaming tool call: {tool_name}")
+        
+        if tool_name == "ask_nlweb":
+            # Set SSE headers
+            await send_response(200, {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive'
+            })
+            
+            # Handle the main query tool with streaming
+            query = arguments.get("query", "")
+            sites = arguments.get("site", [])
+            generate_mode = arguments.get("generate_mode", "list")
+            
+            # Update query params
+            query_params["query"] = [query] if query else []
+            if sites:
+                query_params["site"] = sites if isinstance(sites, list) else [sites]
+            query_params["generate_mode"] = [generate_mode] if generate_mode else ["list"]
+            
+            # Create a streaming wrapper that sends SSE events
+            class SSEStreamer:
+                async def write_stream(self, data, end_response=False):
+                    # Convert data to streaming event
+                    if isinstance(data, dict):
+                        chunk = json.dumps(data)
+                    elif isinstance(data, bytes):
+                        chunk = data.decode('utf-8')
+                    else:
+                        chunk = str(data)
+                    
+                    # Send as SSE event
+                    event_data = {
+                        "type": "function_stream_event",
+                        "content": {"partial_response": chunk}
+                    }
+                    sse_data = f"data: {json.dumps(event_data)}\n\n"
+                    await send_chunk(sse_data.encode('utf-8'), end_response=False)
+            
+            stream_chunk = SSEStreamer()
+            
+            try:
+                # Process the query using NLWebHandler
+                handler = NLWebHandler(query_params, stream_chunk)
+                await handler.runQuery()
+                
+                # Send final event
+                final_event = {
+                    "type": "function_stream_end",
+                    "status": "success"
+                }
+                sse_data = f"data: {json.dumps(final_event)}\n\n"
+                await send_chunk(sse_data.encode('utf-8'), end_response=False)
+                
+            except Exception as e:
+                # Send error event
+                error_event = {
+                    "type": "function_stream_end",
+                    "status": "error",
+                    "error": str(e)
+                }
+                sse_data = f"data: {json.dumps(error_event)}\n\n"
+                await send_chunk(sse_data.encode('utf-8'), end_response=False)
+            
+            # End the stream
+            await send_chunk(b"", end_response=True)
+        else:
+            # Other tools not supported for streaming
+            await send_response(400, {'Content-Type': 'application/json'})
+            error_response = {"error": "Streaming not supported for this tool"}
+            await send_chunk(json.dumps(error_response).encode('utf-8'), end_response=True)
+
     async def handle_tools_call(self, params, query_params):
         """Handle tools/call request"""
         tool_name = params.get("name")
@@ -228,7 +319,8 @@ class MCPHandler:
                         "type": "text",
                         "text": full_response
                     }
-                ]
+                ],
+                "isError": False
             }
         
         elif tool_name == "list_sites":
@@ -249,7 +341,8 @@ class MCPHandler:
                             "type": "text",
                             "text": json.dumps({"sites": sites}, indent=2)
                         }
-                    ]
+                    ],
+                    "isError": False
                 }
             except Exception as e:
                 logger.error(f"Error getting sites: {str(e)}")
@@ -259,7 +352,8 @@ class MCPHandler:
                             "type": "text",
                             "text": f"Error retrieving sites: {str(e)}"
                         }
-                    ]
+                    ],
+                    "isError": True
                 }
         
         else:

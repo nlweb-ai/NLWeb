@@ -375,10 +375,7 @@
                     <ul class="examples-list">
                         <li onclick="loadStreamingExample('Movies that have been inspired by Star Trek', 'scifi_movies')">Streaming: Movies that have been inspired by Star Trek</li>
                         <li onclick="loadStreamingExample('Movies with characters like Spock and Data', 'scifi_movies')">Streaming: Characters like Spock and Data</li>
-                        <li onclick="loadStreamingExample('I mean in movies other than the Star Trek movies', 'scifi_movies', 
-                        '[\'Characters like Spock and Data\', 
-                            \'Movies that have been inspired by Star Trek\']')">
-                            Streaming: I mean in movies other than the Star Trek movies</li>
+                        <li onclick="loadStreamingExample('I mean in movies other than the Star Trek movies', 'scifi_movies', '[Characters like Spock and Data, Movies that have been inspired by Star Trek]')">Streaming: I mean in movies other than the Star Trek movies</li>
                     </ul>
                 </div>
                 
@@ -756,16 +753,52 @@
             
             // Build MCP request payload
             const payload = {
-                function_call: {
-                    name: "ask",
-                    arguments: JSON.stringify(args)
+                jsonrpc: "2.0",
+                id: 2,
+                method: "tools/call",
+                params: {
+                    name: "ask_nlweb",
+                    arguments: args
                 }
             };
             
             try {
-                statusEl.textContent = `Sending request with ID: ${queryId}...`;
+                statusEl.textContent = "Initializing MCP server...";
                 responseEl.textContent = "";
                 document.getElementById('standard-json-tree').innerHTML = "";
+                
+                // Step 1: Initialize
+                await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: "2.0",
+                        id: 1,
+                        method: "initialize",
+                        params: {
+                            protocolVersion: "2024-11-05",
+                            capabilities: {},
+                            clientInfo: { name: "nlweb-mcp-test", version: "1.0" }
+                        }
+                    })
+                });
+                
+                // Step 2: Send initialized notification
+                try {
+                    await fetch(serverUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            jsonrpc: "2.0",
+                            method: "notifications/initialized",
+                            params: {}
+                        })
+                    });
+                } catch (e) {
+                    // Notifications return empty response, this is expected
+                }
+                
+                statusEl.textContent = `Sending request with ID: ${queryId}...`;
                 
                 const response = await fetch(serverUrl, {
                     method: 'POST',
@@ -825,16 +858,52 @@
             
             // Build MCP request payload
             const payload = {
-                function_call: {
-                    name: "ask",
-                    arguments: JSON.stringify(args)
+                jsonrpc: "2.0",
+                id: 2,
+                method: "tools/call",
+                params: {
+                    name: "ask_nlweb",
+                    arguments: args
                 }
             };
             
             try {
-                statusEl.textContent = "Starting stream...";
+                statusEl.textContent = "Initializing MCP server...";
                 responseEl.textContent = "";
                 jsonTreeEl.innerHTML = "";
+                
+                // Step 1: Initialize
+                await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: "2.0",
+                        id: 1,
+                        method: "initialize",
+                        params: {
+                            protocolVersion: "2024-11-05",
+                            capabilities: {},
+                            clientInfo: { name: "nlweb-mcp-test", version: "1.0" }
+                        }
+                    })
+                });
+                
+                // Step 2: Send initialized notification
+                try {
+                    await fetch(serverUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            jsonrpc: "2.0",
+                            method: "notifications/initialized",
+                            params: {}
+                        })
+                    });
+                } catch (e) {
+                    // Notifications return empty response, this is expected
+                }
+                
+                statusEl.textContent = "Starting stream...";
                 
                 // For tracking complete response for JSON tree view
                 let completeResponse = "";
@@ -855,6 +924,29 @@
                 
                 if (!response.ok) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                // Check if response is JSON-RPC instead of SSE
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    // Handle as JSON-RPC response (like standard request)
+                    const data = await response.json();
+                    
+                    // Extract text content from MCP response
+                    if (data.result && data.result.content && data.result.content[0] && data.result.content[0].text) {
+                        const textContent = data.result.content[0].text;
+                        responseEl.textContent = textContent;
+                        completeResponse = textContent;
+                        
+                        // Update JSON tree with the full response
+                        renderJsonTree(data, 'streaming-json-tree');
+                    } else {
+                        responseEl.textContent = JSON.stringify(data, null, 2);
+                        renderJsonTree(data, 'streaming-json-tree');
+                    }
+                    
+                    statusEl.textContent = `Stream completed (JSON response): ${new Date().toLocaleTimeString()}`;
+                    return; // Exit early since this is not SSE
                 }
                 
                 // Process the event stream
@@ -905,16 +997,21 @@
                                         // Add to the complete response for JSON tree view later
                                         completeResponse += content.partial_response;
                                         
-                                        // Update raw text view
+                                        // Update raw text view with streaming indicator
                                         responseEl.textContent += content.partial_response;
                                         
                                         // Auto-scroll to bottom
                                         responseEl.scrollTop = responseEl.scrollHeight;
                                         
+                                        // Update status to show streaming progress
+                                        statusEl.textContent = `Streaming... (${completeResponse.length} chars received)`;
+                                        
                                         // Update JSON tree with current state
                                         const currentJsonObj = {
-                                            type: "partial_response",
-                                            response: completeResponse,
+                                            type: "streaming_in_progress",
+                                            chunks_received: completeResponse.split('\n').length,
+                                            total_characters: completeResponse.length,
+                                            current_response: completeResponse,
                                             last_chunk: content.partial_response,
                                             timestamp: new Date().toISOString()
                                         };
@@ -922,17 +1019,20 @@
                                     }
                                 } else if (eventData.type === 'function_stream_end') {
                                     // Final event
-                                    statusEl.textContent = `Stream completed with status: ${eventData.status} at ${new Date().toLocaleTimeString()}`;
+                                    const finalCharCount = completeResponse.length;
+                                    statusEl.textContent = `✅ Stream completed! ${finalCharCount} characters received at ${new Date().toLocaleTimeString()}`;
                                     if (eventData.error) {
-                                        statusEl.textContent += ` Error: ${eventData.error}`;
+                                        statusEl.textContent = `❌ Stream failed: ${eventData.error} at ${new Date().toLocaleTimeString()}`;
                                     }
                                     
                                     // Update final JSON view
                                     finalJsonObj = {
-                                        type: "final_response",
+                                        type: "stream_completed",
                                         status: eventData.status,
-                                        response: completeResponse,
-                                        timestamp: new Date().toISOString()
+                                        total_characters: finalCharCount,
+                                        total_chunks: completeResponse.split('\n').length,
+                                        final_response: completeResponse,
+                                        completed_at: new Date().toISOString()
                                     };
                                     
                                     if (eventData.error) {

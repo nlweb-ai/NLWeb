@@ -9,9 +9,9 @@ import time
 import uuid
 import threading
 from typing import List, Dict, Union, Optional, Any
+
 from elasticsearch import AsyncElasticsearch
 from elasticsearch.helpers import async_bulk
-
 from core.config import CONFIG
 from core.embedding import get_embedding
 from misc.logger.logging_config_helper import get_configured_logger
@@ -34,8 +34,8 @@ class ElasticsearchClient:
         """
         self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         self._client_lock = threading.Lock()
-        self._es_clients = {}  # Cache for Qdrant clients
-        
+        self._es_clients = {}  # Cache for Elasticsearch clients
+
         # Get endpoint configuration
         self.endpoint_config = self._get_endpoint_config()
         # Handle None values from configuration
@@ -49,6 +49,27 @@ class ElasticsearchClient:
             raise ValueError(f"API key not configured for {self.endpoint_name}. Check environment variable configuration.")
             
         logger.info(f"Initialized Elasticsearch for endpoint: {self.endpoint_name}")
+    
+    async def __aenter__(self):
+        """Async context manager entry"""
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit"""
+        await self.close()
+    
+    async def close(self):
+        """Close the Elasticsearch client connections"""
+        if self._es_clients:
+            try:
+                for each_client in self._es_clients.values():
+                    logger.debug(f"Closing Elasticsearch client for endpoint: {self.endpoint_name}")
+                    await each_client.close()
+                logger.debug("Elasticsearch client connections closed")
+            except Exception as e:
+                logger.warning(f"Error closing Elasticsearch client: {str(e)}")
+            finally:
+                self._es_clients = {}
     
     def _get_endpoint_config(self):
         """Get the Elasticsearch endpoint configuration from CONFIG"""
@@ -150,40 +171,16 @@ class ElasticsearchClient:
         # Define index mapping based on k-NN availability
         properties = {
             "url": {
-                "type": "text",
-                "fields": {
-                    "keyword": {
-                        "type": "keyword",
-                        "ignore_above": 2048
-                    }
-                }
+                "type": "text"
             },
             "site": {
-                "type": "text",
-                "fields": {
-                    "keyword": {
-                        "type": "keyword",
-                        "ignore_above": 256
-                    }
-                }
+                "type": "keyword"
             },
             "name": {
-                "type": "text",
-                "fields": {
-                    "keyword": {
-                        "type": "keyword",
-                        "ignore_above": 512
-                    }
-                }
+                "type": "text"
             },
             "schema_json": {
-                "type": "text",
-                "fields": {
-                    "keyword": {
-                        "type": "keyword",
-                        "ignore_above": 256
-                    }
-                }
+                "type": "text"
             },
             "embedding": self._create_vector_properties()
         }
@@ -222,8 +219,9 @@ class ElasticsearchClient:
         client = await self._get_es_client()
         
         try:
-            await client.delete(index=index_name)
-                    
+            await client.indices.delete(index=index_name)
+            return True
+                
         except Exception as e:
             logger.exception(f"Error deleting index {index_name}: {e}")
             logger.log_with_context(
@@ -235,7 +233,7 @@ class ElasticsearchClient:
                     "index_name": index_name
                 }
             )
-            raise
+            return False
        
     async def delete_documents_by_site(self, site: str, **kwargs) -> int:
         """
@@ -255,7 +253,7 @@ class ElasticsearchClient:
 
         try:
             response = await client.delete_by_query(index=index_name, query={
-                "term": {
+                "match": {
                     "site": site
                 }
             })
@@ -333,7 +331,6 @@ class ElasticsearchClient:
                 raise_on_error=True,
                 stats_only=True
             )
-
             if error_count > 0:
                 logger.warning(f"{error_count} out of {num_documents} documents failed to upload")
             
@@ -403,7 +400,7 @@ class ElasticsearchClient:
             search_query['knn']['filter'] = filter
 
         try:
-            return await client.search(index=index_name, query=search_query, source=source)           
+            return await client.search(index=index_name, query=search_query, source=source, size=k)
         except Exception as e:
             logger.exception(f"Error in Elasticsearch")
             logger.log_with_context(
@@ -427,6 +424,7 @@ class ElasticsearchClient:
             query: Search query string
             site: Site identifier or list of sites
             num_results: Maximum number of results to return
+            query_params: Query parameters for embedding generation
             **kwargs: Additional parameters
             
         Returns:
@@ -461,11 +459,10 @@ class ElasticsearchClient:
             k=num_results,
             source=source,
             filter=filter
-        ) 
+        )
         retrieve_time = time.time() - start_retrieve
         
         results = await self._format_es_response(response)
-        
         logger.log_with_context(
             LogLevel.INFO,
             "Elasticsearch search completed",
@@ -501,7 +498,6 @@ class ElasticsearchClient:
             id = str(uuid.uuid5(uuid.NAMESPACE_URL, url))
         
             response = await client.get(index = index_name, id = id, source = source)
-            
             source = response.get('_source', {})
             if source:
                 url = source.get('url', '')
@@ -533,10 +529,11 @@ class ElasticsearchClient:
         Args:
             query: The search query to embed and search with
             num_results: Maximum number of results to return (default 50)
+            query_params: Optional parameters for embedding generation
             **kwargs: Additional parameters
             
         Returns:
-            List[List[str]]: List of search results
+            List[List[str]]: List of search results [url, schema_json, name, site]
         """
         index_name = kwargs.get('index_name', self.default_index_name)
         logger.info(f"Starting global Elasticsearch (all sites) - index: {index_name}, num_results: {num_results}")
@@ -605,7 +602,7 @@ class ElasticsearchClient:
         aggs = {
             "unique_sites": {
                 "terms": {
-                    "field": "site.keyword",
+                    "field": "site",
                     "size": size
                 }
             }
