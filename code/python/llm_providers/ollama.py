@@ -8,7 +8,7 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 import json
-from code.python.llm_providers.ollama import AsyncClient
+from ollama import AsyncClient
 import os
 from config.config import CONFIG
 import asyncio
