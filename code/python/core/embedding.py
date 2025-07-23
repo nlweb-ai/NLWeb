@@ -22,7 +22,8 @@ _provider_locks = {
     "openai": threading.Lock(),
     "gemini": threading.Lock(),
     "azure_openai": threading.Lock(),
-    "snowflake": threading.Lock()
+    "snowflake": threading.Lock(),
+    "elasticsearch": threading.Lock()
 }
 
 async def get_embedding(
@@ -119,6 +120,18 @@ async def get_embedding(
             )
             logger.debug(f"Azure embeddings received, dimension: {len(result)}")
             return result
+        
+        if provider == "ollama":
+            logger.debug("Getting Ollama embeddings")
+            # Import here to avoid potential circular imports
+            from embedding_providers.ollama_embedding import get_ollama_embedding
+            # For Ollama, model_id is the model
+            result = await asyncio.wait_for(
+                get_ollama_embedding(text, model=model_id),
+                timeout=timeout
+            )
+            logger.debug(f"Ollama embeddings received, dimension: {len(result)}")
+            return result
             
         if provider == "snowflake":
             logger.debug("Getting Snowflake embeddings")
@@ -131,6 +144,24 @@ async def get_embedding(
             logger.debug(f"Snowflake Cortex embeddings received, dimension: {len(result)}")
             return result
 
+        if provider == "elasticsearch":
+            # Use Elasticsearch's embedding API
+            global elasticsearch_embedding
+            logger.debug("Getting Elasticsearch embeddings")
+            from embedding_providers.elasticsearch_embedding import ElasticsearchEmbedding
+
+            elasticsearch_embedding = ElasticsearchEmbedding()
+
+            result = await elasticsearch_embedding.get_embeddings(
+                text,
+                model=model_id,
+                timeout=timeout
+            )
+            await elasticsearch_embedding.close()  # Ensure cleanup
+
+            logger.debug(f"Elasticsearch embeddings received, count: {len(result)}")
+            return result
+        
         error_msg = f"No embedding implementation for provider '{provider}'"
         logger.error(error_msg)
         raise ValueError(error_msg)
@@ -248,7 +279,34 @@ async def batch_get_embeddings(
             )
             logger.debug(f"Gemini batch embeddings received, count: {len(result)}")
             return result
+        
+        if provider == "ollama":
+            logger.debug("Getting Ollama batch embeddings")
+            from embedding_providers.ollama_embedding import get_ollama_batch_embeddings
+            result = await asyncio.wait_for(
+                get_ollama_batch_embeddings(texts, model=model_id),
+                timeout=timeout*5  # Ollama may take longer for batch processing
+            )
+            logger.debug(f"Ollama batch embeddings received, count: {len(result)}")
+            return result
     
+        if provider == "elasticsearch":
+            # Use Elasticsearch's batch embedding API
+            logger.debug("Getting Elasticsearch batch embeddings")
+            from embedding_providers.elasticsearch_embedding import ElasticsearchEmbedding
+    
+            elasticsearch_embedding = ElasticsearchEmbedding()
+
+            result = await elasticsearch_embedding.get_batch_embeddings(
+                texts,
+                model=model_id,
+                timeout=timeout
+            )
+            await elasticsearch_embedding.close()  # Ensure cleanup
+
+            logger.debug(f"Elasticsearch batch embeddings received, count: {len(result)}")
+            return result
+        
         # Default implementation if provider doesn't match any above
         logger.debug(f"No specific batch implementation for {provider}, processing sequentially")
         results = []

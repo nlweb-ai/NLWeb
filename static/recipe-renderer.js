@@ -80,53 +80,68 @@ export class RecipeRenderer {
       }
       
       // Add rating as stars
-      if (schema.aggregateRating) {
+      if (schema.aggregateRating !== undefined && schema.aggregateRating !== null) {
         let rating = 0;
-        let reviewCount = 0;
+        let reviewCount = null;
         
-        // Safe data handling for rating value
-        if (schema.aggregateRating.ratingValue !== undefined) {
-          const ratingValue = parseFloat(schema.aggregateRating.ratingValue);
-          if (!isNaN(ratingValue)) {
-            rating = ratingValue;
+        // Handle both simple number rating and object rating
+        if (typeof schema.aggregateRating === 'number') {
+          rating = schema.aggregateRating;
+        } else if (typeof schema.aggregateRating === 'object') {
+          // Safe data handling for rating value
+          if (schema.aggregateRating.ratingValue !== undefined) {
+            const ratingValue = parseFloat(schema.aggregateRating.ratingValue);
+            if (!isNaN(ratingValue)) {
+              rating = ratingValue;
+            }
+          }
+          
+          // Safe data handling for review count
+          if (schema.aggregateRating.ratingCount !== undefined) {
+            const parsedCount = parseInt(schema.aggregateRating.ratingCount, 10);
+            if (!isNaN(parsedCount)) {
+              reviewCount = parsedCount;
+            }
+          } else if (schema.aggregateRating.reviewCount !== undefined) {
+            const parsedCount = parseInt(schema.aggregateRating.reviewCount, 10);
+            if (!isNaN(parsedCount)) {
+              reviewCount = parsedCount;
+            }
           }
         }
         
-        // Safe data handling for review count
-        const reviewArrayCount = schema.review && Array.isArray(schema.review) ? schema.review.length : 0;
-        let ratingObjectCount = 0;
-        
-        if (schema.aggregateRating.ratingCount !== undefined) {
-          const parsedCount = parseInt(schema.aggregateRating.ratingCount, 10);
-          if (!isNaN(parsedCount)) {
-            ratingObjectCount = parsedCount;
-          }
+        // Only check review array if we don't have a review count
+        if (reviewCount === null && schema.review && Array.isArray(schema.review)) {
+          reviewCount = schema.review.length;
         }
         
-        reviewCount = Math.max(reviewArrayCount, ratingObjectCount);
-        
-        const ratingDiv = document.createElement('div');
-        ratingDiv.className = 'recipe-rating';
-        ratingDiv.style.marginTop = '8px';
-        ratingDiv.style.marginBottom = '8px';
-        
-        // Create star rating display
-        const starsSpan = document.createElement('span');
-        starsSpan.className = 'recipe-stars';
-        starsSpan.textContent = this.generateStars(rating);
-        starsSpan.style.color = '#FFD700'; // Gold color
-        starsSpan.style.fontSize = '0.85em';
-        ratingDiv.appendChild(starsSpan);
-        
-        // Add review count
-        const reviewSpan = document.createElement('span');
-        reviewSpan.className = 'recipe-reviews';
-        reviewSpan.textContent = ` (${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'})`;
-        reviewSpan.style.fontSize = '0.85em';
-        reviewSpan.style.color = '#666';
-        ratingDiv.appendChild(reviewSpan);
-        
-        detailsDiv.appendChild(ratingDiv);
+        // Only show rating if we have a valid rating value
+        if (rating > 0) {
+          const ratingDiv = document.createElement('div');
+          ratingDiv.className = 'recipe-rating';
+          ratingDiv.style.marginTop = '8px';
+          ratingDiv.style.marginBottom = '8px';
+          
+          // Create star rating display
+          const starsSpan = document.createElement('span');
+          starsSpan.className = 'recipe-stars';
+          starsSpan.textContent = this.generateStars(rating);
+          starsSpan.style.color = '#FFD700'; // Gold color
+          starsSpan.style.fontSize = '0.85em';
+          ratingDiv.appendChild(starsSpan);
+          
+          // Add review count only if we have it
+          if (reviewCount !== null && reviewCount > 0) {
+            const reviewSpan = document.createElement('span');
+            reviewSpan.className = 'recipe-reviews';
+            reviewSpan.textContent = ` (${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'})`;
+            reviewSpan.style.fontSize = '0.85em';
+            reviewSpan.style.color = '#666';
+            ratingDiv.appendChild(reviewSpan);
+          }
+          
+          detailsDiv.appendChild(ratingDiv);
+        }
       }
       
       // Add preparation/total time

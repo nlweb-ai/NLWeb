@@ -10,7 +10,7 @@ Assumes you have [Ollama](https://ollama.com/) installed on your machine and you
 
 ## Setting up LLM
 
-Go to `code/config/config_llm.yaml` file. At the top of the file select `ollama` as your `preferred_endpoint`
+Go to `config/config_llm.yaml` file. At the top of the file select `ollama` as your `preferred_endpoint`
 
 ```
 preferred_endpoint: ollama
@@ -25,7 +25,7 @@ Go to your `.env` file add your Ollama instance's url in the `OLLAMA_URL` field
 
 ## Setting up Embedding
 
-Go to `code/config/config_embedding.yaml` file. At the top of the file select `ollama` as your `preferred_provider`
+Go to `config/config_embedding.yaml` file. At the top of the file select `ollama` as your `preferred_provider`
 ```
 preferred_provider: ollama
 .

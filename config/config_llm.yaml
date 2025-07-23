@@ -1,4 +1,4 @@
-preferred_endpoint: ollama
+preferred_endpoint: azure_openai
 
 endpoints:
   inception:
