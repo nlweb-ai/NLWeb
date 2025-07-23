@@ -10,7 +10,7 @@ Backwards compatibility is not guaranteed at this time.
 import json
 from ollama import AsyncClient
 import os
-from config.config import CONFIG
+from core.config import CONFIG
 import asyncio
 import threading
 import re
