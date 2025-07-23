@@ -53,7 +53,7 @@ class MCPHandler:
         is_notification = request_id is None
         
         logger.info(f"MCP request: method={method}, id={request_id}, is_notification={is_notification}")
-        print(f"=== MCP REQUEST: method={method}, id={request_id}, initialized={self.initialized} ===")
+        print(f"=== MCP REQUEST: method={method}, id={request_id}, initialized={self.initialized}, handler_id={id(self)} ===")
         
         try:
             # Route based on method
@@ -77,8 +77,9 @@ class MCPHandler:
                 result = await self.handle_tools_list(params)
             elif method == "tools/call":
                 print(f"=== TOOLS/CALL: initialized={self.initialized} ===")
-                if not self.initialized:
-                    raise Exception("Server not initialized")
+                # Remove the initialization check - MCP clients might not send initialize first
+                # if not self.initialized:
+                #     raise Exception("Server not initialized")
                 
                 # Check if this is a streaming request
                 is_streaming = (
@@ -93,6 +94,11 @@ class MCPHandler:
                 else:
                     # Handle regular request
                     result = await self.handle_tools_call(params, query_params)
+            elif method == "notifications/cancelled":
+                # Handle cancellation notification
+                logger.info(f"Received cancellation for request {params.get('requestId')}: {params.get('reason')}")
+                # For notifications, we don't send a response
+                return
             else:
                 # Unknown method
                 raise Exception(f"Method not found: {method}")
@@ -146,7 +152,7 @@ class MCPHandler:
         
         # Add the main ask/query tool
         available_tools.append({
-            "name": "ask_nlweb",
+            "name": "ask",
             "description": "Query NLWeb to search and analyze information from configured data sources",
             "inputSchema": {
                 "type": "object",
@@ -192,7 +198,7 @@ class MCPHandler:
         
         logger.info(f"MCP streaming tool call: {tool_name}")
         
-        if tool_name == "ask_nlweb":
+        if tool_name == "ask":
             # Set SSE headers
             await send_response(200, {
                 'Content-Type': 'text/event-stream',
@@ -272,9 +278,11 @@ class MCPHandler:
         print(f"=== TOOL CALL: {tool_name} ===")
         print(f"Arguments: {json.dumps(arguments, indent=2)}")
         
-        if tool_name == "ask_nlweb":
+        if tool_name == "ask":
             # Handle the main query tool
             query = arguments.get("query", "")
+            print(f"=== PROCESSING ASK TOOL ===")
+            print(f"Query: {query}")
             sites = arguments.get("site", [])
             generate_mode = arguments.get("generate_mode", "list")
             
@@ -305,9 +313,26 @@ class MCPHandler:
             
             capture_chunk = ChunkCapture()
             
-            # Process the query using NLWebHandler
+            # Process the query using NLWebHandler with a timeout
+            print(f"=== CREATING NLWebHandler ===")
+            print(f"Query params: {query_params}")
             handler = NLWebHandler(query_params, capture_chunk)
-            result = await handler.runQuery()
+            try:
+                print(f"=== CALLING handler.runQuery() ===")
+                # Add a 10-second timeout for MCP requests
+                result = await asyncio.wait_for(handler.runQuery(), timeout=10.0)
+                print(f"=== HANDLER RETURNED: {result} ===")
+            except asyncio.TimeoutError:
+                logger.warning("MCP tool call timed out after 10 seconds")
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Request timed out. The query is taking longer than expected. Please try a simpler query or specify a more specific site."
+                        }
+                    ],
+                    "isError": True
+                }
             
             # Join all chunks
             full_response = ''.join(response_content)
@@ -362,6 +387,7 @@ class MCPHandler:
 
 # Global MCP handler instance
 mcp_handler = MCPHandler()
+print(f"=== GLOBAL MCP HANDLER CREATED: id={id(mcp_handler)} ===")
 
 async def handle_mcp_request(query_params, body, send_response, send_chunk, streaming=False):
     """
