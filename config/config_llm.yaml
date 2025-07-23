@@ -73,3 +73,10 @@ endpoints:
     models:
       high: Qwen/Qwen2.5-72B-Instruct
       low: Qwen/Qwen2.5-Coder-7B-Instruct
+
+  ollama:
+    api_endpoint_env: OLLAMA_URL
+    llm_type: ollama
+    models:
+      high: qwen3:0.6b
+      low: qwen3:0.6b

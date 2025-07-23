@@ -21,6 +21,10 @@ providers:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     api_version_env: "2024-10-01"
     model: snowflake-arctic-embed-m-v1.5
+  
+  ollama:
+    api_endpoint_env: OLLAMA_URL
+    model: qwen3:0.6b
 
   elasticsearch:
     # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)

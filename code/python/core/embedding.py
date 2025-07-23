@@ -120,6 +120,18 @@ async def get_embedding(
             )
             logger.debug(f"Azure embeddings received, dimension: {len(result)}")
             return result
+        
+        if provider == "ollama":
+            logger.debug("Getting Ollama embeddings")
+            # Import here to avoid potential circular imports
+            from embedding_providers.ollama_embedding import get_ollama_embedding
+            # For Ollama, model_id is the model
+            result = await asyncio.wait_for(
+                get_ollama_embedding(text, model=model_id),
+                timeout=timeout
+            )
+            logger.debug(f"Ollama embeddings received, dimension: {len(result)}")
+            return result
             
         if provider == "snowflake":
             logger.debug("Getting Snowflake embeddings")
@@ -266,6 +278,16 @@ async def batch_get_embeddings(
                 timeout=30  # Individual timeout per text
             )
             logger.debug(f"Gemini batch embeddings received, count: {len(result)}")
+            return result
+        
+        if provider == "ollama":
+            logger.debug("Getting Ollama batch embeddings")
+            from embedding_providers.ollama_embedding import get_ollama_batch_embeddings
+            result = await asyncio.wait_for(
+                get_ollama_batch_embeddings(texts, model=model_id),
+                timeout=timeout*5  # Ollama may take longer for batch processing
+            )
+            logger.debug(f"Ollama batch embeddings received, count: {len(result)}")
             return result
     
         if provider == "elasticsearch":
