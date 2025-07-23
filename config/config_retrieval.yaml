@@ -84,7 +84,7 @@ endpoints:
 
   # Option 1: Local file-based Qdrant storage
   qdrant_local:
-    enabled: false
+    enabled: true
     # Use local file-based storage with a specific path
     database_path: "../data/db"
     # Set the collection name to use
