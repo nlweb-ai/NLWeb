@@ -39,5 +39,5 @@ Scroll down find the `ollama` section, enter your preferred model name that you 
 ```
 ollama:
     api_endpoint_env: OLLAMA_URL
-    model: llama3
+    model: qwen3:0.6b
 ```
