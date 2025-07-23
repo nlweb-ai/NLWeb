@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLWeb Dropdown Chat - Integration Example</title>
+    
+    <!-- Include the dropdown chat CSS -->
+    <link rel="stylesheet" href="nlweb-dropdown-chat.css">
+    
+    <!-- Page-specific styles -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        .header p {
+            margin: 0;
+            color: #666;
+        }
+        
+        
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .section h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        
+        /* Custom styling for the search container */
+        #recipe-search-container {
+            margin-bottom: 30px;
+        }
+        
+        #product-search-container {
+            max-width: 500px;
+            margin: 20px 0;
+        }
+        
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        
+        code {
+            background: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .code-section {
+            margin-top: 20px;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #27ae60;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>NLWeb Dropdown Chat Example</h1>
+        <p>This page demonstrates the NLWeb Dropdown Chat component for recipe search</p>
+    </div>
+    
+    <div class="section" style="max-width: 800px; margin: 0 auto;">
+        <h2>Recipe Search</h2>
+        <p>Try searching for recipes using natural language queries:</p>
+        
+        <!-- Search box instance -->
+        <div id="recipe-search-container"></div>
+        
+        <div style="margin-top: 30px;">
+            <h3>Example queries:</h3>
+            <ul>
+                <li>Chocolate cake recipes</li>
+                <li>Spicy vegetarian dishes</li>
+                <li>Quick pasta recipes under 30 minutes</li>
+                <li>Remember that I'm vegetarian</li>
+            </ul>
+        </div>
+        
+        <div class="code-section">
+            <h3>Features:</h3>
+            <ul class="feature-list">
+                <li>Natural language search</li>
+                <li>Conversation history </li>
+                <li>Memory for user preferences</li>
+                <li>Follow-up questions support</li>
+                <li>Clean dropdown interface</li>
+            </ul>
+            
+            <h3>Integration Code:</h3>
+            <pre><code>&lt;!-- Include CSS --&gt;
+&lt;link rel="stylesheet" href="nlweb-dropdown-chat.css"&gt;
+
+&lt;!-- Add container --&gt;
+&lt;div id="recipe-search-container"&gt;&lt;/div&gt;
+
+&lt;!-- Include JavaScript --&gt;
+&lt;script type="module"&gt;
+  import { NLWebDropdownChat } from './nlweb-dropdown-chat.js';
+  
+  const chat = new NLWebDropdownChat({
+    containerId: 'recipe-search-container',
+    site: 'seriouseats',
+    placeholder: 'Search for recipes...',
+    endpoint: window.location.origin
+  });
+&lt;/script&gt;</code></pre>
+        </div>
+    </div>
+    
+    <!-- Include the dropdown chat JavaScript -->
+    <script type="module">
+        import { NLWebDropdownChat } from './nlweb-dropdown-chat.js';
+        
+        // Initialize the search instance
+        const chat = new NLWebDropdownChat({
+            containerId: 'recipe-search-container',
+            site: 'seriouseats',
+            placeholder: 'Search for recipes...',
+            endpoint: window.location.origin
+        });
+        
+        // Make it available for debugging
+        window.nlwebChat = chat;
+    </script>
+</body>
+</html>

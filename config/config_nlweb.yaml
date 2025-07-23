@@ -1,0 +1,65 @@
+# NLWeb Configuration
+# This file contains settings specific to the NLWeb functionality
+
+# Comma-separated list of allowed sites, if you have multiple sites
+# in your store and want to restrict search to some sites. Defaults 
+# to all, for now.
+#sites: "yoursite"
+
+# Data folders for JSON files and embeddings
+data_folders:
+  json_data: "../data/json"
+  json_with_embeddings: "../data/json_with_embeddings"
+
+# Enable or disable tool selection
+# When set to false, queries will skip tool selection and go directly to search
+tool_selection_enabled: true
+
+# Enable or disable memory functionality
+# When set to false, the system will not analyze queries for memory requests
+memory_enabled: true
+
+# Enable or disable query analysis
+# When set to false, the system will skip item type detection, multi-item type detection, and query type detection
+analyze_query_enabled: true
+
+# Enable or disable decontextualization
+# When set to false, the system will not attempt to decontextualize queries based on previous context
+decontextualize_enabled: true
+
+# Enable or disable required info checking
+# When set to false, the system will not check if required information is present before processing queries
+required_info_enabled: true
+
+# Headers for HTTP requests
+headers:
+  # User-Agent header
+  user_agent: "NLWeb/1.0"
+  data_retention: "Data will be retained for 30 minutes"
+
+# Chatbot formatting instructions
+chatbot_instructions:
+  # Instructions for formatting search results
+  search_results: >
+    IMPORTANT FORMATTING INSTRUCTION: When presenting these results to the user:
+    1. For each item in the 'results' array, format the 'name' field as a hyperlink using the
+       'url' field as the link destination. For example, convert: 
+         name: 'Open Studio', url: 'https://example.com/event' 
+       to: 
+         [Open Studio](https://example.com/event)
+    2. If the item has an 'image' field (which may be in the value of the schema_object field of the item), include the image in your response using markdown image syntax:
+         ![Event Name](image_url)
+    3. Include relevant details like location, date, and description after the link.
+    Every result should be presented with the name as a clickable link, an image if available,
+    and key information about the event.
+
+# Headers to include in API responses (sent before results)
+headers:
+  license: "This data is provided under MIT License. See https://opensource.org/license/mit for details."
+  data_retention: "Data provided may be retained for up to 1 day."
+  ui_component: "This field may be used to provide a link to the web components that can be used to display the results."
+
+# API Keys
+api_keys:
+  google_maps: GOOGLE_MAPS_API_KEY  # Set via environment variable
+  
