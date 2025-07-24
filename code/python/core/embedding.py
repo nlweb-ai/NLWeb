@@ -180,6 +180,18 @@ async def get_embedding(
             )
             logger.debug(f"Azure embeddings received, dimension: {len(result)}")
             return result
+        
+        if provider == "ollama":
+            logger.debug("Getting Ollama embeddings")
+            # Import here to avoid potential circular imports
+            from embedding_providers.ollama_embedding import get_ollama_embedding
+            # For Ollama, model_id is the model
+            result = await asyncio.wait_for(
+                get_ollama_embedding(text, model=model_id),
+                timeout=timeout
+            )
+            logger.debug(f"Ollama embeddings received, dimension: {len(result)}")
+            return result
             
         if provider == "snowflake":
             logger.debug("Getting Snowflake embeddings")
@@ -335,16 +347,16 @@ async def batch_get_embeddings(
             )
             logger.debug(f"Gemini batch embeddings received, count: {len(result)}")
             return result
-
-        if provider == "aws_bedrock":
-            logger.debug("Getting AWS Bedrock batch embeddings")
-            from embedding_providers.aws_bedrock_embedding import get_aws_bedrock_embeddings
-            results = []
-            for text in texts:
-                result = get_aws_bedrock_embeddings(text, model=model_id, timeout=timeout)
-                results.append(result)
-            logger.debug(f"AWS Bedrock batch embeddings received, count: {len(results)}")
-            return results
+        
+        if provider == "ollama":
+            logger.debug("Getting Ollama batch embeddings")
+            from embedding_providers.ollama_embedding import get_ollama_batch_embeddings
+            result = await asyncio.wait_for(
+                get_ollama_batch_embeddings(texts, model=model_id),
+                timeout=timeout*5  # Ollama may take longer for batch processing
+            )
+            logger.debug(f"Ollama batch embeddings received, count: {len(result)}")
+            return result
     
         if provider == "elasticsearch":
             # Use Elasticsearch's batch embedding API
@@ -362,6 +374,16 @@ async def batch_get_embeddings(
 
             logger.debug(f"Elasticsearch batch embeddings received, count: {len(result)}")
             return result
+
+        if provider == "aws_bedrock":
+            logger.debug("Getting AWS Bedrock batch embeddings")
+            from embedding_providers.aws_bedrock_embedding import get_aws_bedrock_embeddings
+            results = []
+            for text in texts:
+                result = get_aws_bedrock_embeddings(text, model=model_id, timeout=timeout)
+                results.append(result)
+            logger.debug(f"AWS Bedrock batch embeddings received, count: {len(results)}")
+            return results
         
         # Default implementation if provider doesn't match any above
         logger.debug(f"No specific batch implementation for {provider}, processing sequentially")

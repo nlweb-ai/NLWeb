@@ -1074,6 +1074,48 @@ async def delete_site(site: str, database: str = None):
     count = await delete_site_from_database(site, database)
     print(f"Deleted {count} entries for site '{site}'")
 
+async def process_normal_path(input_file_path: str, site: str, batch_size: int = 100, delete_site: bool = False, force_recompute: bool = False, database: str = None):
+    # Check if file exists at the specified path
+    if not await is_url(input_file_path) and not os.path.exists(input_file_path):
+        print(f"Warning: File not found at '{input_file_path}'. Will try to resolve or download it.")
+    
+    # Determine if the file is a URL
+    is_url_path = await is_url(input_file_path)
+    temp_path = None
+    file_path = input_file_path
+
+    # If it's a URL, fetch the content
+    if is_url_path:
+        print(f"Fetching content from URL: {input_file_path}")
+        temp_path, _ = await save_url_content(input_file_path)
+        file_path = temp_path
+    
+    try:
+        # Detect file type and if it contains embeddings
+        if os.path.exists(file_path):
+            file_type, has_embeddings = await detect_file_type(file_path)
+            print(f"Detected file type: {file_type}, contains embeddings: {'Yes' if has_embeddings else 'No'}")
+            
+            # Process based on whether the file has embeddings
+            if has_embeddings and not force_recompute:
+                print("File already contains embeddings, loading directly...")
+                await loadJsonWithEmbeddingsToDB(file_path, site, batch_size, delete_site, database)
+            else:
+                print("Computing embeddings for file...")
+                await loadJsonToDB(file_path, site, batch_size, delete_site, force_recompute, database)
+        else:
+            print(f"Error: File not found at '{file_path}'")
+            sys.exit(1)
+    finally:
+        # Clean up temporary file if needed
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+                print(f"Cleaned up temporary file: {temp_path}")
+            except Exception:
+                pass
+
+
 async def main():
     """
     Main function for command-line use.
@@ -1099,7 +1141,9 @@ async def main():
                         help="Force recomputation of embeddings even if a file with embeddings exists")
     parser.add_argument("--url-list", action="store_true",
                         help="Treat the input file as a list of URLs to process (one URL per line). The list file itself can be local or a URL.")
-    parser.add_argument("file_path", nargs="?", help="Path to the input file or URL")
+    parser.add_argument("--directory", action="store_true",
+                        help="Treat the input file path as a directory containing files to process.")
+    parser.add_argument("file_path", nargs="?", help="Path to the input file or URL or directory containing files to process")
     parser.add_argument("site", help="Site identifier")
     parser.add_argument("--batch-size", type=int, default=100,
                         help="Batch size for processing and uploading")
@@ -1132,46 +1176,25 @@ async def main():
         await loadUrlListToDB(args.file_path, args.site, args.batch_size, args.delete_site, args.force_recompute, args.database)
         return
     
-    # Normal processing mode
-    # Check if file exists at the specified path
-    if not await is_url(args.file_path) and not os.path.exists(args.file_path):
-        print(f"Warning: File not found at '{args.file_path}'. Will try to resolve or download it.")
-    
-    # Determine if the file is a URL
-    is_url_path = await is_url(args.file_path)
-    temp_path = None
-    file_path = args.file_path
-    
-    # If it's a URL, fetch the content
-    if is_url_path:
-        print(f"Fetching content from URL: {args.file_path}")
-        temp_path, _ = await save_url_content(args.file_path)
-        file_path = temp_path
-    
-    try:
-        # Detect file type and if it contains embeddings
-        if os.path.exists(file_path):
-            file_type, has_embeddings = await detect_file_type(file_path)
-            print(f"Detected file type: {file_type}, contains embeddings: {'Yes' if has_embeddings else 'No'}")
-            
-            # Process based on whether the file has embeddings
-            if has_embeddings and not args.force_recompute:
-                print("File already contains embeddings, loading directly...")
-                await loadJsonWithEmbeddingsToDB(file_path, args.site, args.batch_size, args.delete_site, args.database)
-            else:
-                print("Computing embeddings for file...")
-                await loadJsonToDB(file_path, args.site, args.batch_size, args.delete_site, args.force_recompute, args.database)
-        else:
-            print(f"Error: File not found at '{file_path}'")
+    if args.directory:
+        # Handle directory mode
+        if not os.path.isdir(args.file_path):
+            print(f"Error: '{args.file_path}' is not a valid directory.")
             sys.exit(1)
-    finally:
-        # Clean up temporary file if needed
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.unlink(temp_path)
-                print(f"Cleaned up temporary file: {temp_path}")
-            except Exception:
-                pass
+        
+        print(f"Processing all files in directory: {args.file_path}")
+        
+        # List all files in the directory
+        for filename in os.listdir(args.file_path):
+            file_path = os.path.join(args.file_path, filename)
+            if os.path.isfile(file_path):
+                # The downside of this approach is that we aren't taking advantage of the batch functionality
+                print(f"Processing file: {file_path}")
+                await process_normal_path(file_path, args.site, args.batch_size, args.delete_site, args.force_recompute, args.database)
+        return
+    
+    # Normal processing mode
+    await process_normal_path(args.file_path, args.site, args.batch_size, args.delete_site, args.force_recompute, args.database)
 
 if __name__ == "__main__":
     asyncio.run(main())

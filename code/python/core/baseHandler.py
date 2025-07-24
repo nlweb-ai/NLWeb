@@ -153,7 +153,7 @@ class NLWebHandler:
         logger.debug(f"Previous queries: {self.prev_queries}")
         logger.debug(f"Last answers: {self.last_answers}")
         
-        log(f"NLWebHandler initialized with site: {self.site}, query: {self.query}, prev_queries: {self.prev_queries}, mode: {self.generate_mode}, query_id: {self.query_id}, context_url: {self.context_url}")
+        # log(f"NLWebHandler initialized with site: {self.site}, query: {self.query}, prev_queries: {self.prev_queries}, mode: {self.generate_mode}, query_id: {self.query_id}, context_url: {self.context_url}")
 
     @property 
     def is_connection_alive(self):

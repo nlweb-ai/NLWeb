@@ -230,10 +230,10 @@ async def get_gemini_batch_embeddings(
                     )
                     raise
         
-        logger.debug(
-            f"Gemini batch embeddings generated, count: {len(embeddings)}"
-        )
-        return embeddings
+    logger.debug(
+        f"Gemini batch embeddings generated, count: {len(embeddings)}"
+    )
+    return embeddings
 
 
 # Note: The GenAI client handles single embeddings efficiently.

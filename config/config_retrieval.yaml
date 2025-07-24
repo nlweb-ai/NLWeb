@@ -10,7 +10,7 @@ endpoints:
     db_type: azure_ai_search
 
   azure_ai_search:
-    enabled: false
+    enabled: true
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536
@@ -38,6 +38,14 @@ endpoints:
     vector_type:
       type: dense_vector
 
+  clinical_trials_search:
+    enabled: false
+    api_key_env: CLINICAL_TRIALS_API_KEY
+    api_endpoint_env: CLINICAL_TRIALS_ENDPOINT
+    index_name: embeddings1536
+    db_type: azure_ai_search
+
+  # Milvus is still under development and not yet supported. 
   milvus:
     enabled: false
     api_endpoint_env: MILVUS_ENDPOINT

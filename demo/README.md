@@ -4,6 +4,8 @@
 
 [Agent-enable your Github data](#agent-enable-your-github-data)
 
+[Ask questions of clinical trial data](#ask-questions-of-clinical-trial-data)
+
 ## Import data from an RSS feed
 With NLWeb, you can easily import data from an RSS feed for querying over in natural language using a script.  
 
@@ -58,3 +60,35 @@ Then in a web browser, navigate to http://localhost:8000/static/str_chat.html.  
 
 !["Screenshot showing a chat interface with a question 'What repos have the MIT license?' and a list of code repositories returned"](img/github.jpg)
 
+
+## Ask questions of clinical trial data
+In this demonstration, we will import data on clinical trials that is available on the website https://clinicaltrials.gov.  
+
+First, search the website and download the latest clinical trial data on any topic.  For example, you can search for "cancer" with this query: https://clinicaltrials.gov/expert-search?term=Cancer 
+
+Then, on the search results page, click the "Download" button.  This will present a screen like the following.  Choose to download JSON (and check the box to put each study into a separate file and download them as a zip archive), the number of results you would like, and all available data fields.  
+
+![Download Options](img/download-options.png)
+
+If you encounter any issues, there is more information on how to download the clinical trial data at https://clinicaltrials.gov/data-api/how-download-study-records.  
+
+Once you have downloaded the zip file, extract all files from the zip into a directory and note the name of that directory.  In the sample code, we have downloaded to `C:\Data\ctg-studies`.  
+
+In the demo folder, open the file called `import_clinical_trials.py` and set the `json_dir` variable near the top to the value of the directory where your extracted json files are.  
+
+Now, we will run two commands to process the data.  These commands should be run from the "code" directory.  In the second command, replace 'C:\Data\ctg-studies' with the value of the directory where you extracted the files (**but note that 'processed' should remain appended to the end**).  
+
+```
+python ..\demo\import_clinical_trials.py
+python -m tools.db_load C:\Data\ctg-studies\processed\ CancerClinicalTrials --directory
+```
+
+Finally, you can query the data that you have imported.  Still in the code directory, start the service by running:
+
+```
+python app-file.py
+```
+
+Open a web browser and navigate to http://localhost:8000/static/fp_chat.html.  You should be able to ask questions of this data.  
+
+![Cancer Questions](img/cancerquestions.jpg)
