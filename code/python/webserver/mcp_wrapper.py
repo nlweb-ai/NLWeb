@@ -122,9 +122,17 @@ class MCPHandler:
                 }
             }
         
-        # Send the response
-        await send_response(200, {'Content-Type': 'application/json'})
-        await send_chunk(json.dumps(response).encode('utf-8'), end_response=True)
+        # Encode the response
+        response_body = json.dumps(response).encode('utf-8')
+        
+        # Send the response with keep-alive headers and Content-Length
+        await send_response(200, {
+            'Content-Type': 'application/json',
+            'Content-Length': str(len(response_body)),
+            'Connection': 'keep-alive',
+            'Keep-Alive': 'timeout=600, max=1000'
+        })
+        await send_chunk(response_body, end_response=False)
     
     async def handle_initialize(self, params):
         """Handle initialize request"""
@@ -426,8 +434,14 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                         "message": f"Parse error: {str(e)}"
                     }
                 }
-                await send_response(200, {'Content-Type': 'application/json'})
-                await send_chunk(json.dumps(error_response).encode('utf-8'), end_response=True)
+                error_body = json.dumps(error_response).encode('utf-8')
+                await send_response(200, {
+                    'Content-Type': 'application/json',
+                    'Content-Length': str(len(error_body)),
+                    'Connection': 'keep-alive',
+                    'Keep-Alive': 'timeout=600, max=1000'
+                })
+                await send_chunk(error_body, end_response=False)
         else:
             logger.error("Empty MCP request body")
             error_response = {
@@ -438,8 +452,14 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                     "message": "Invalid request: Empty body"
                 }
             }
-            await send_response(200, {'Content-Type': 'application/json'})
-            await send_chunk(json.dumps(error_response).encode('utf-8'), end_response=True)
+            error_body = json.dumps(error_response).encode('utf-8')
+            await send_response(200, {
+                'Content-Type': 'application/json',
+                'Content-Length': str(len(error_body)),
+                'Connection': 'keep-alive',
+                'Keep-Alive': 'timeout=600, max=1000'
+            })
+            await send_chunk(error_body, end_response=False)
     
     except Exception as e:
         logger.error(f"Error in handle_mcp_request: {str(e)}")
@@ -452,5 +472,11 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                 "message": f"Internal error: {str(e)}"
             }
         }
-        await send_response(200, {'Content-Type': 'application/json'})
-        await send_chunk(json.dumps(error_response).encode('utf-8'), end_response=True)
+        error_body = json.dumps(error_response).encode('utf-8')
+        await send_response(200, {
+            'Content-Type': 'application/json',
+            'Content-Length': str(len(error_body)),
+            'Connection': 'keep-alive',
+            'Keep-Alive': 'timeout=600, max=1000'
+        })
+        await send_chunk(error_body, end_response=False)

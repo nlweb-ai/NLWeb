@@ -608,9 +608,12 @@ async def start_server(host=None, port=None, fulfill_request=None, use_https=Fal
         except (ssl.SSLError, FileNotFoundError) as e:
             raise ValueError(f"Failed to load SSL certificate: {e}")
     
-    # Start server with or without SSL
+    # Import the keep-alive version of handle_client
+    from webserver.WebServerKeepAlive import handle_client_with_keepalive
+    
+    # Start server with or without SSL using keep-alive handler
     server = await asyncio.start_server(
-        lambda r, w: handle_client(r, w, fulfill_request), 
+        lambda r, w: handle_client_with_keepalive(r, w, fulfill_request), 
         host, 
         port,
         ssl=ssl_context
