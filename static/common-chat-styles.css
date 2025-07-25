@@ -145,14 +145,13 @@ body {
   border-color: var(--primary-color);
 }
 
-.plus-icon {
-  font-size: 20px;
-  font-weight: bold;
-  line-height: 1;
+.home-icon {
+  width: 20px;
+  height: 20px;
   color: var(--text-secondary);
 }
 
-.new-chat-icon-btn:hover .plus-icon {
+.new-chat-icon-btn:hover .home-icon {
   color: var(--primary-color);
 }
 
@@ -251,6 +250,16 @@ body {
 
 .site-group-header.collapsed .chevron {
   transform: rotate(-90deg);
+}
+
+.site-group-header .site-name {
+  flex-grow: 1;
+  padding-right: 8px;
+}
+
+.site-group-header .site-name:hover {
+  color: var(--primary-color);
+  text-decoration: underline;
 }
 
 .site-conversations {

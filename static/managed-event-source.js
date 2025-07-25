@@ -358,14 +358,6 @@ export class ManagedEventSource {
       case "time-to-first-result":
         // These are header/metadata messages, no action needed
         break;
-      case "api_key":
-        // Handle API key configuration
-        if (data.key_name === 'google_maps' && data.key_value) {
-          // Store the Google Maps API key globally
-          window.GOOGLE_MAPS_API_KEY = data.key_value;
-          console.log('Received Google Maps API key from server');
-        }
-        break;
       default:
         console.log("Unknown message type:", messageType);
         console.log("Full message data:", data);
@@ -791,7 +783,6 @@ export class ManagedEventSource {
     console.log('Received data:', data);
     console.log('chatInterface:', chatInterface);
     console.log('chatInterface.bubble:', chatInterface.bubble);
-    console.log('Current Google Maps API Key:', window.GOOGLE_MAPS_API_KEY || 'Not set');
     
     // Validate data
     if (!data || !data.locations || !Array.isArray(data.locations) || data.locations.length === 0) {
@@ -853,7 +844,6 @@ export class ManagedEventSource {
     console.log('API Key found:', apiKey);
     
     if (apiKey === 'YOUR_API_KEY' || !apiKey || apiKey === 'GOOGLE_MAPS_API_KEY') {
-      console.warn('Google Maps API key not configured, showing location list instead');
       // Show location list instead of map
       this.showLocationList(mapDiv, locations);
       return;
@@ -861,11 +851,9 @@ export class ManagedEventSource {
     
     // Check if Google Maps API is loaded
     if (typeof google === 'undefined' || !google.maps) {
-      console.log('Google Maps API not loaded, loading now...');
       this.loadGoogleMapsAPI().then(() => {
         this.createMap(mapDiv, locations);
       }).catch(error => {
-        console.error('Failed to load Google Maps API:', error);
         // Fallback to showing location list
         this.showLocationList(mapDiv, locations);
       });
@@ -906,7 +894,6 @@ export class ManagedEventSource {
       // Validate API key format (alphanumeric and dashes, 39-40 characters typical for Google Maps API keys)
       const apiKeyPattern = /^[A-Za-z0-9\-_]{39,40}$/;
       if (!apiKeyPattern.test(apiKey) || apiKey === 'YOUR_API_KEY' || apiKey === 'GOOGLE_MAPS_API_KEY') {
-        console.error('Invalid or missing Google Maps API key. Please set GOOGLE_MAPS_API_KEY environment variable or configure it in config_nlweb.yaml');
         mapDiv.innerHTML = `
           <div style="text-align: center; padding: 20px; color: #666;">
             <p><strong>Map unavailable</strong></p>
@@ -917,7 +904,6 @@ export class ManagedEventSource {
         return;
       }
       
-      console.log('Loading Google Maps API with key:', apiKey.substring(0, 10) + '...');
       
       // Validate and encode the API key for security
       if (!/^[a-zA-Z0-9_-]+$/.test(apiKey)) {

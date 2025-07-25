@@ -60,8 +60,10 @@ class OAuthManager {
             logoutBtn.addEventListener('click', this.handleLogout);
         }
         
-        // Setup OAuth provider buttons
+        // Setup OAuth provider buttons and check if any are enabled
         const providers = ['google', 'facebook', 'microsoft', 'github'];
+        let hasEnabledProviders = false;
+        
         providers.forEach(provider => {
             const btn = document.getElementById(`${provider}LoginBtn`);
             if (btn) {
@@ -70,11 +72,18 @@ class OAuthManager {
                 // Show/hide based on configuration
                 if (this.config && this.config[provider] && this.config[provider].enabled) {
                     btn.style.display = 'flex';
+                    hasEnabledProviders = true;
                 } else {
                     btn.style.display = 'none';
                 }
             }
         });
+        
+        // Hide login button if no OAuth providers are enabled
+        if (loginBtn && !hasEnabledProviders) {
+            loginBtn.style.display = 'none';
+            console.log('No OAuth providers enabled, hiding login button');
+        }
         
         // Setup popup close button
         const closeBtn = document.querySelector('.oauth-popup-close');

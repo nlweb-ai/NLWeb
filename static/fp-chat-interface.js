@@ -639,6 +639,8 @@ class ModernChatInterface {
           
         } else if (data.message_type === 'nlws') {
           // Handle NLWS message type (Natural Language Web Search synthesized response)
+          console.log('=== NLWS MESSAGE RECEIVED ===');
+          console.log('NLWS data:', data);
           
           // Update the answer if provided
           if (data.answer && typeof data.answer === 'string') {

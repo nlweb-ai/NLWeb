@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Change to the application directory
-cd /home/site/wwwroot/code
+cd /home/site/wwwroot/code/
+source set_keys.sh
+cd python
 echo "Python version:"
 python --version
 echo "Directory contents:"

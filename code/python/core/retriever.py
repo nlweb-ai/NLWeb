@@ -29,6 +29,11 @@ _client_cache_lock = asyncio.Lock()
 # Preloaded client modules
 _preloaded_modules = {}
 
+# Global cache for sites data with TTL
+_sites_cache = {}
+_sites_cache_lock = asyncio.Lock()
+SITES_CACHE_TTL = 300  # 5 minutes TTL for sites cache - adjust this value to change cache duration
+
 def init():
     """Initialize retrieval clients based on configuration."""
     print("=== Retrieval initialization starting ===")
@@ -897,6 +902,22 @@ class VectorDBClient:
             temp_client = VectorDBClient(endpoint_name=endpoint_name)
             return await temp_client.get_sites(**kwargs)
         
+        # Create cache key based on endpoints
+        cache_key = f"{self.endpoint_name or 'all'}_{str(sorted(self.enabled_endpoints.keys()))}"
+        
+        # Check global cache first
+        async with _sites_cache_lock:
+            if cache_key in _sites_cache:
+                cached_data = _sites_cache[cache_key]
+                # Check if cache is still valid
+                if time.time() - cached_data['timestamp'] < SITES_CACHE_TTL:
+                    logger.info(f"Returning cached sites data (age: {time.time() - cached_data['timestamp']:.1f}s)")
+                    return cached_data['sites']
+                else:
+                    # Cache expired, remove it
+                    del _sites_cache[cache_key]
+                    logger.info("Sites cache expired, fetching fresh data")
+        
         async with self._retrieval_lock:
             logger.info("Retrieving list of sites from database")
             
@@ -924,6 +945,14 @@ class VectorDBClient:
                     logger.info(f"Backend doesn't support get_sites, will query for all sites")
                     return []
                 
+                # Cache the results
+                async with _sites_cache_lock:
+                    _sites_cache[cache_key] = {
+                        'sites': sites,
+                        'timestamp': time.time()
+                    }
+                    logger.info(f"Cached {len(sites)} sites for future requests")
+                
                 logger.log_with_context(
                     LogLevel.INFO,
                     "Sites retrieved",
@@ -949,6 +978,17 @@ class VectorDBClient:
                     }
                 )
                 return []
+
+
+def clear_sites_cache():
+    """
+    Clear the global sites cache. This can be useful after data updates
+    or for administrative purposes.
+    """
+    global _sites_cache
+    with asyncio.Lock():
+        _sites_cache.clear()
+        logger.info("Sites cache cleared")
 
 
 # Factory function to make it easier to get a client with the right type

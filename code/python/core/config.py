@@ -508,7 +508,6 @@ class AppConfig:
             for key, value in data["api_keys"].items():
                 resolved_value = self._get_config_value(value)
                 api_keys[key] = resolved_value
-                print(f"Loaded API key '{key}': {'*' * 10 if resolved_value else 'Not set'} (from {value})")
         
         # Convert relative paths to use NLWEB_OUTPUT_DIR if available
         base_output_dir = self.base_output_directory
