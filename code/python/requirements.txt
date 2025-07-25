@@ -1,0 +1,74 @@
+# Core dependencies - always required
+azure-search-documents>=11.4.0
+# Core dependencies - always required
+azure-identity>=1.15.0
+chardet>=5.2.0
+jsonschema>=4.19.1
+mcp>=1.0.0
+marshmallow<4.0.0
+packaging<24,>=16.8
+protobuf<5,>=3.20
+matplotlib>=3.8.0
+python-dotenv>=1.0.0
+aiohttp>=3.9.1
+pyyaml>=6.0.1
+feedparser>=6.0.1
+httpx>=0.28.1
+seaborn>=0.13.0
+openai>=1.12.0
+
+# Optional LLM provider dependencies
+# NOTE: These packages will be installed AUTOMATICALLY at runtime when you first use a provider.
+# You do NOT need to install them manually unless you want to pre-install them.
+# The system will detect missing packages and install them on-demand using pip.
+#
+# If you prefer to pre-install specific providers, you can uncomment the lines below:
+
+# For Anthropic Claude:
+# anthropic>=0.18.1
+
+# For OpenAI (including Azure OpenAI, Llama Azure, DeepSeek Azure):
+# openai>=1.12.0
+
+# For Google Gemini/Vertex AI:
+# google-genai>=0.7.1
+# google-cloud-aiplatform>=1.38.0
+
+# For Hugging Face:
+# huggingface_hub>=0.31.0
+
+# For Azure AI Inference:
+# azure-ai-inference>=1.0.0b9
+# azure-core>=1.30.0
+
+# Optional Retrieval Backend dependencies
+# NOTE: These packages will also be installed AUTOMATICALLY at runtime when you first use a backend.
+# You do NOT need to install them manually unless you want to pre-install them.
+# The system will detect missing packages and install them on-demand using pip.
+#
+# If you prefer to pre-install specific backends, you can uncomment the lines below:
+
+# For Azure AI Search:
+# azure-core>=1.30.0
+# azure-search-documents>=11.4.0
+
+# For Milvus:
+# pymilvus>=1.1.0
+# numpy
+
+# For Qdrant:
+# qdrant-client>=1.14.0
+
+# For OpenSearch or Snowflake (both use httpx):
+# httpx>=0.28.1
+
+# For Ollama
+# ollama>=0.5.1
+
+# For Elasticsearch:
+# elasticsearch[async]>=8,<9
+
+# For Postgres:
+# psycopg[binary]>=3.1.12  # PostgreSQL adapter (psycopg3)
+# psycopg[pool]>=3.2.0  # Connection pooling for psycopg3
+# pgvector>=0.4.0

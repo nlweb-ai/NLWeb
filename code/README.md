@@ -32,6 +32,7 @@ code/
 |   ├── azure_oai_embedding.py    #
 |   ├── embedding.py              #
 |   ├── gemini_embedding.py       #
+|   ├── ollama_embedding.py       #
 |   ├── openai_embedding.py       #
 |   ├── snowflake_embedding.py    #
 ├── llm/
@@ -44,6 +45,7 @@ code/
 |   ├── inception.py              #
 |   ├── llm_provider.py           #
 |   ├── llm.py                    #
+|   ├── ollama.py                 #
 |   ├── openai.py                 #
 |   └── snowflake.py              #
 ├── logs/                         # folder to which all logs are sent
@@ -105,6 +107,7 @@ docs/
 |   ├── RestAPI.md                # NLWeb & MCP API information
 |   ├── Retreival.md              # How to configure your vector DB provider
 |   ├── Snowflake.md              # Instructions to configure and use Snowflake
+|   ├── setup-ollama.md           # Instructions to configure and use Ollama
 |   └── UserInterface.md          # Instructions to configure your user interface
 images/                           # Folder for images in md files 
 scripts/

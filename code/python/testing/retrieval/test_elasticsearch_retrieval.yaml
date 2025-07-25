@@ -1,0 +1,16 @@
+write_endpoint: elasticsearch
+
+endpoints:
+  elasticsearch:
+    enabled: true
+    # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
+    api_endpoint_env: ELASTICSEARCH_URL
+    # Authentication credentials
+    api_key_env: ELASTICSEARCH_API_KEY
+    # Index name to search in
+    index_name: nlweb_test_retrieval
+    # Database type
+    db_type: elasticsearch
+    # Vector properties
+    vector_type:
+      type: dense_vector

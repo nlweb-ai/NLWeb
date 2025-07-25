@@ -15,4 +15,5 @@ pip install -r requirements.txt
 echo "Starting application..."
 
 #python app-file.py
-python -m webserver.WebServer
+#python -m webserver.WebServer
+python python/app-aiohttp.py

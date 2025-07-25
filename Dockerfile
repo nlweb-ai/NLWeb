@@ -11,7 +11,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy requirements file
-COPY code/requirements.txt .
+COPY code/python/requirements.txt .
 
 # Install Python packages
 RUN pip install --no-cache-dir -r requirements.txt
@@ -50,6 +50,7 @@ EXPOSE 8000
 ENV NLWEB_OUTPUT_DIR=/app
 ENV PYTHONPATH=/app
 ENV PORT=8000
+ENV NLWEB_CONFIG_DIR=/app/config
 
 # Command to run the application
-CMD ["python", "app-file.py"]
+CMD ["python", "python/app-file.py"]

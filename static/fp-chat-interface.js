@@ -6,11 +6,15 @@
 import { JsonRenderer } from './json-renderer.js';
 import { TypeRendererFactory } from './type-renderers.js';
 import { RecipeRenderer } from './recipe-renderer.js';
+import { MapDisplay } from './display_map.js';
+import { ConversationManager } from './conversation-manager.js';
 
 class ModernChatInterface {
-  constructor() {
+  constructor(options = {}) {
+    console.log('ModernChatInterface constructor called with options:', options);
+    
     // Initialize properties
-    this.conversations = [];
+    this.conversationManager = new ConversationManager();
     this.currentConversationId = null;
     this.eventSource = null;
     this.isStreaming = false;
@@ -18,6 +22,9 @@ class ModernChatInterface {
     this.prevQueries = [];  // Track previous queries
     this.lastAnswers = [];  // Track last answers
     this.rememberedItems = [];  // Track remembered items
+    
+    // Store options
+    this.options = options;
     
     // Initialize JSON renderer
     this.jsonRenderer = new JsonRenderer();
@@ -48,8 +55,31 @@ class ModernChatInterface {
   }
   
   init() {
-    // Load saved conversations
-    this.loadConversations();
+    // Initialize default values
+    this.selectedSite = this.options.site || 'all';
+    this.selectedMode = this.options.mode || 'list'; // Default generate_mode
+    
+    // Load saved conversations (async operation)
+    this.conversationManager.loadConversations(this.selectedSite, this.elements).then(() => {
+      this.updateConversationsList();
+      
+      // After loading conversations, decide what to show
+      if (!this.options.skipAutoInit) {
+        const conversations = this.conversationManager.getConversations();
+        console.log('Loaded conversations:', conversations.length);
+        
+        // Always show centered input for new page loads to match user expectation
+        console.log('Showing centered input for new page load');
+        this.showCenteredInput();
+      }
+    }).catch(error => {
+      console.error('Error loading conversations:', error);
+      // Show centered input as fallback
+      if (!this.options.skipAutoInit) {
+        console.log('Error loading conversations, showing centered input as fallback');
+        this.showCenteredInput();
+      }
+    });
     
     // Load remembered items
     this.loadRememberedItems();
@@ -65,8 +95,24 @@ class ModernChatInterface {
     // Bind events
     this.bindEvents();
     
-    // Start with a blank page - don't load previous conversations
-    this.createNewChat();
+    // Listen for auth state changes
+    window.addEventListener('authStateChanged', async (event) => {
+      // When auth state changes, reload conversations
+      
+      if (event.detail.isAuthenticated) {
+        // User just logged in
+        // First, try to migrate local conversations to server
+        await this.conversationManager.migrateLocalConversations();
+        
+        // Then load all conversations from server
+        await this.conversationManager.loadConversations(this.selectedSite, this.elements);
+        this.updateConversationsList();
+      } else {
+        // User logged out, clear server conversations and keep only local ones
+        this.conversationManager.loadLocalConversations(this.selectedSite);
+        this.updateConversationsList();
+      }
+    });
   }
   
   bindEvents() {
@@ -105,9 +151,51 @@ class ModernChatInterface {
       this.elements.chatInput.style.height = 'auto';
       this.elements.chatInput.style.height = Math.min(this.elements.chatInput.scrollHeight, 200) + 'px';
     });
+    
+    // Mode selector
+    const modeSelectorIcon = document.getElementById('mode-selector-icon');
+    const modeDropdown = document.getElementById('mode-dropdown');
+    
+    if (modeSelectorIcon && modeDropdown) {
+      modeSelectorIcon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        modeDropdown.classList.toggle('show');
+      });
+      
+      // Mode selection
+      const modeItems = modeDropdown.querySelectorAll('.mode-dropdown-item');
+      modeItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const mode = item.getAttribute('data-mode');
+          this.selectedMode = mode;
+          
+          // Update UI
+          modeItems.forEach(i => i.classList.remove('selected'));
+          item.classList.add('selected');
+          modeDropdown.classList.remove('show');
+          
+          // Update icon title
+          modeSelectorIcon.title = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+        });
+      });
+      
+      // Set initial selection
+      const initialItem = modeDropdown.querySelector(`[data-mode="${this.selectedMode}"]`);
+      if (initialItem) {
+        initialItem.classList.add('selected');
+      }
+      modeSelectorIcon.title = `Mode: ${this.selectedMode.charAt(0).toUpperCase() + this.selectedMode.slice(1)}`;
+    }
+    
+    // Click outside to close mode dropdown
+    document.addEventListener('click', (e) => {
+      if (modeDropdown && !e.target.closest('.input-mode-selector')) {
+        modeDropdown.classList.remove('show');
+      }
+    });
   }
   
-  createNewChat() {
+  createNewChat(existingInputElementId = null, site = null) {
     // Create new conversation
     // Create new conversation ID but don't add to conversations array yet
     this.currentConversationId = Date.now().toString();
@@ -125,75 +213,58 @@ class ModernChatInterface {
     // Update UI without saving
     this.updateConversationsList();
     
-    // Show centered input for new chat
-    this.showCenteredInput();
+    // Show centered input for new chat or use existing element
+    if (existingInputElementId) {
+      // Use existing DOM element as input
+      const existingInput = document.getElementById(existingInputElementId);
+      if (existingInput) {
+        // Store reference to the external input
+        this.externalInput = existingInput;
+        
+        // Add event listener for sending message
+        const sendHandler = (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            const message = existingInput.value.trim();
+            if (message) {
+              this.sendMessage(message);
+              existingInput.value = '';
+            }
+          }
+        };
+        
+        // Remove any existing listeners and add new one
+        existingInput.removeEventListener('keydown', sendHandler);
+        existingInput.addEventListener('keydown', sendHandler);
+        
+        // Focus the external input
+        existingInput.focus();
+      } else {
+        console.warn(`Element with id "${existingInputElementId}" not found. Falling back to centered input.`);
+        this.showCenteredInput();
+      }
+    } else {
+      // Show the default centered input
+      console.log('Showing centered input from createNewChat');
+      this.showCenteredInput();
+    }
     
-    // Reload sites for the dropdown
-    this.loadSites();
+    // If site is specified, use it; otherwise load sites
+    if (site) {
+      this.selectedSite = site;
+      // Update UI elements
+      if (this.siteSelectorIcon) {
+        this.siteSelectorIcon.title = `Site: ${site}`;
+      }
+      if (this.elements.chatSiteInfo) {
+        this.elements.chatSiteInfo.textContent = `Asking ${site}`;
+      }
+    } else {
+      // Load sites for the dropdown
+      this.loadSites();
+    }
   }
   
-  loadConversation(id) {
-    const conversation = this.conversations.find(c => c.id === id);
-    if (!conversation) return;
-    
-    this.currentConversationId = id;
-    
-    // Restore the site selection for this conversation
-    if (conversation.site) {
-      this.selectedSite = conversation.site;
-      // Update the UI to reflect the site
-      if (this.elements.chatSiteInfo) {
-        this.elements.chatSiteInfo.textContent = `Asking ${conversation.site}`;
-      }
-      // Update site selector icon if it exists
-      if (this.siteSelectorIcon) {
-        this.siteSelectorIcon.title = `Site: ${conversation.site}`;
-      }
-    }
-    
-    // Clear messages
-    this.elements.messagesContainer.innerHTML = '';
-    
-    // Rebuild context arrays from conversation history
-    this.prevQueries = conversation.messages
-      .filter(m => m.type === 'user')
-      .slice(-10)
-      .map(m => m.content);
-    
-    this.lastAnswers = [];
-    const assistantMessages = conversation.messages.filter(m => m.type === 'assistant');
-    for (const msg of assistantMessages.slice(-5)) {
-      if (msg.parsedAnswers && Array.isArray(msg.parsedAnswers)) {
-        this.lastAnswers.push(...msg.parsedAnswers);
-      }
-    }
-    this.lastAnswers = this.lastAnswers.slice(-20);
-    
-    // Load messages
-    conversation.messages.forEach((msg, index) => {
-      // Set pendingDebugIcon for user messages so the next assistant message gets the icon
-      if (msg.type === 'user' && index < conversation.messages.length - 1) {
-        const nextMsg = conversation.messages[index + 1];
-        if (nextMsg && nextMsg.type === 'assistant') {
-          this.pendingDebugIcon = true;
-        }
-      }
-      this.addMessageToUI(msg.content, msg.type, false);
-    });
-    
-    // Update title
-    const title = conversation.title || 'New chat';
-    this.elements.chatTitle.textContent = title;
-    
-    // Update sidebar
-    this.updateConversationsList();
-    
-    // Hide centered input and show regular chat input
-    this.hideCenteredInput();
-    
-    // Scroll to bottom
-    this.scrollToBottom();
-  }
   
   sendMessage(messageText = null) {
     const message = messageText || this.elements.chatInput.value.trim();
@@ -215,7 +286,7 @@ class ModernChatInterface {
     this.addMessageToUI(content, type, true);
     
     // Find or create conversation
-    let conversation = this.conversations.find(c => c.id === this.currentConversationId);
+    let conversation = this.conversationManager.findConversation(this.currentConversationId);
     
     // If conversation doesn't exist, create it now (this happens on first message)
     if (!conversation) {
@@ -226,20 +297,29 @@ class ModernChatInterface {
         timestamp: Date.now(),
         site: this.selectedSite || 'all'
       };
-      this.conversations.unshift(conversation);
+      this.conversationManager.addConversation(conversation);
     }
     
     // Add message to conversation
     conversation.messages.push({ content, type, timestamp: Date.now() });
     
-    // Update title if first message
-    if (conversation.messages.length === 1 && type === 'user') {
+    // Update title from first user message
+    if (type === 'user' && (!conversation.title || conversation.title === 'New chat')) {
       conversation.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
-      this.elements.chatTitle.textContent = conversation.title;
+      
+      // Only update UI element if it exists
+      if (this.elements.chatTitle) {
+        this.elements.chatTitle.textContent = conversation.title;
+      }
+      
+      console.log('Set conversation title:', conversation.title, 'for conversation:', conversation.id);
+      
+      // Also update in conversationManager to ensure it's saved
+      this.conversationManager.updateConversation(conversation.id, { title: conversation.title });
     }
     
     conversation.timestamp = Date.now();
-    this.saveConversations();
+    this.conversationManager.saveConversations();
     this.updateConversationsList();
     
     // When user sends a message, we'll add debug icon to the next assistant message
@@ -258,23 +338,23 @@ class ModernChatInterface {
     
     // Create message layout container
     const messageLayout = document.createElement('div');
-    messageLayout.style.cssText = 'display: flex; align-items: flex-start; gap: 8px;';
+    messageLayout.className = 'message-layout';
     
-    // Add debug icon for assistant messages if pending
+    // Only create header row if there's a debug icon to show
     if (type === 'assistant' && this.pendingDebugIcon) {
+      const headerRow = document.createElement('div');
+      headerRow.className = 'message-layout-header';
+      
       const debugIcon = document.createElement('span');
       debugIcon.className = 'message-debug-icon';
       debugIcon.textContent = '{}';
       debugIcon.title = 'Show debug info';
-      debugIcon.style.marginTop = '4px';
       debugIcon.addEventListener('click', () => this.toggleDebugInfo());
-      messageLayout.appendChild(debugIcon);
+      headerRow.appendChild(debugIcon);
       this.pendingDebugIcon = false;
+      
+      messageLayout.appendChild(headerRow);
     }
-    
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = type === 'user' ? 'U' : 'A';
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
@@ -299,7 +379,6 @@ class ModernChatInterface {
     contentDiv.appendChild(textDiv);
     
     // Build the message structure
-    messageLayout.appendChild(avatar);
     messageLayout.appendChild(contentDiv);
     messageDiv.appendChild(messageLayout);
     
@@ -314,12 +393,14 @@ class ModernChatInterface {
       }, 10);
     }
     
-    // For user messages, scroll to bottom. For assistant messages, keep user message in view
+    // For user messages, scroll to top of viewport
     if (type === 'user') {
-      this.scrollToBottom();
-    } else {
-      this.scrollToUserMessage();
+      // Wait a bit for the message to be fully rendered
+      setTimeout(() => {
+        this.scrollToUserMessage();
+      }, 50);
     }
+    // For assistant messages, scrolling is handled when first result appears
     
     return { messageDiv, textDiv };
   }
@@ -350,7 +431,7 @@ class ModernChatInterface {
     // Build URL with parameters - using 'query' instead of 'question'
     const params = new URLSearchParams({
       query: query,  // Changed from 'question' to 'query'
-      generate_mode: 'list',
+      generate_mode: this.selectedMode || 'list',
       display_mode: 'full',
       site: this.selectedSite || 'all'
     });
@@ -358,13 +439,18 @@ class ModernChatInterface {
     // Add previous queries (not including current query)
     if (this.prevQueries.length > 0) {
       params.append('prev', JSON.stringify(this.prevQueries));
-      console.log('Sending prev:', this.prevQueries); // Debug log
+    }
+    
+    // Add current query to prevQueries NOW (before sending) for next request
+    // This ensures follow-up queries have the previous query
+    this.prevQueries.push(query);
+    if (this.prevQueries.length > 10) {
+      this.prevQueries = this.prevQueries.slice(-10);
     }
     
     // Add last answers for context
     if (this.lastAnswers.length > 0) {
       params.append('last_ans', JSON.stringify(this.lastAnswers));
-      console.log('Sending last_ans:', this.lastAnswers); // Debug log
     }
     
     // Add remembered items
@@ -372,16 +458,36 @@ class ModernChatInterface {
       params.append('item_to_remember', this.rememberedItems.join(', '));
     }
     
+    // Add authentication token and user ID if available
+    const authToken = localStorage.getItem('authToken');
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    if (authToken) {
+      params.append('auth_token', authToken);
+    }
+    if (userInfo && userInfo.id) {
+      params.append('oauth_id', userInfo.id);
+      params.append('user_id', userInfo.id);
+    } else if (userInfo && userInfo.email) {
+      // Use email as user_id if id is not available
+      params.append('oauth_id', userInfo.email);
+      params.append('user_id', userInfo.email);
+    }
+    
+    // Add thread_id (current conversation ID)
+    if (this.currentConversationId) {
+      params.append('thread_id', this.currentConversationId);
+    }
+    
     // Create event source with full URL
     const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
     const url = `${baseUrl}/ask?${params.toString()}`;
     
-    console.log('Connecting to:', url); // Debug log
     
     // Use native EventSource directly
     this.eventSource = new EventSource(url);
     
     let firstChunk = true;
+    let firstResultShown = false;
     let messageContent = '';
     let allResults = [];
     
@@ -391,7 +497,6 @@ class ModernChatInterface {
     this.eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Received data:', data); // Debug log
         
         // Always store debug messages for the current request
         this.debugMessages.push({
@@ -406,6 +511,20 @@ class ModernChatInterface {
           firstChunk = false;
         }
         
+        // Scroll to user message when first actual result appears
+        if (!firstResultShown && (data.message_type === 'fast_track' || 
+            (data.message_type === 'content' && data.content) || 
+            (data.items && data.items.length > 0))) {
+          firstResultShown = true;
+          this.scrollToUserMessage();
+        }
+        
+        // Always clear temp_intermediate divs when ANY new message arrives
+        if (textDiv) {
+          const tempDivs = textDiv.querySelectorAll('.temp_intermediate');
+          tempDivs.forEach(div => div.remove());
+        }
+        
         // Handle different message types
         if (data.message_type === 'summary' && data.message) {
           messageContent += data.message + '\n\n';
@@ -413,11 +532,26 @@ class ModernChatInterface {
         } else if (data.message_type === 'result_batch' && data.results) {
           // Accumulate all results instead of replacing
           allResults = allResults.concat(data.results);
-          console.log('Results with scores:', data.results.map(r => ({ title: r.title || r.name, score: r.score }))); // Debug log
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
-        } else if (data.message_type === 'intermediate_message' && data.message) {
-          messageContent += data.message + '\n';
+        } else if (data.message_type === 'intermediate_message') {
+          // Handle intermediate messages with temp_intermediate class
+          const tempContainer = document.createElement('div');
+          tempContainer.className = 'temp_intermediate';
+          
+          if (data.results) {
+            // Use the same rendering as result_batch
+            tempContainer.innerHTML = this.renderItems(data.results);
+          } else if (data.message) {
+            // Handle text-only intermediate messages in italics
+            const textSpan = document.createElement('span');
+            textSpan.style.fontStyle = 'italic';
+            textSpan.textContent = data.message;
+            tempContainer.appendChild(textSpan);
+          }
+          
+          // Update textDiv to include existing content plus the temp container
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
+          textDiv.appendChild(tempContainer);
         } else if (data.message_type === 'ask_user' && data.message) {
           messageContent += data.message + '\n';
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
@@ -435,9 +569,18 @@ class ModernChatInterface {
         } else if (data.message_type === 'item_details') {
           // Handle item_details message type
           // Map details to description for proper rendering
+          let description = data.details;
+          
+          // If details is an object (like nutrition info), format it as a string
+          if (typeof data.details === 'object' && data.details !== null) {
+            description = Object.entries(data.details)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(', ');
+          }
+          
           const mappedData = {
             ...data,
-            description: data.details  // Map details to description
+            description: description
           };
           
           // Add to results array
@@ -476,6 +619,40 @@ class ModernChatInterface {
             this.addRememberedItem(data.item_to_remember);
           }
 
+        } else if (data.message_type === 'api_key') {
+          // Handle API key configuration EARLY to ensure it's available for maps
+          console.log('=== API KEY MESSAGE RECEIVED ===');
+          console.log('API key message:', data);
+          console.log('Before setting - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY);
+          if (data.key_name === 'google_maps' && data.key_value) {
+            // Store the Google Maps API key globally
+            window.GOOGLE_MAPS_API_KEY = data.key_value;
+            console.log('Google Maps API key set from server:', data.key_value.substring(0, 10) + '...');
+            console.log('After setting - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY.substring(0, 10) + '...');
+            // Verify it's actually set
+            console.log('Verification - window.GOOGLE_MAPS_API_KEY exists?', !!window.GOOGLE_MAPS_API_KEY);
+            console.log('Verification - typeof window.GOOGLE_MAPS_API_KEY:', typeof window.GOOGLE_MAPS_API_KEY);
+          } else {
+            console.log('API key message not for google_maps or no value');
+            console.log('key_name:', data.key_name, 'has value?', !!data.key_value);
+          }
+          
+        } else if (data.message_type === 'nlws') {
+          // Handle NLWS message type (Natural Language Web Search synthesized response)
+          
+          // Update the answer if provided
+          if (data.answer && typeof data.answer === 'string') {
+            messageContent = data.answer + '\n\n';
+          }
+          
+          // Update the items if provided
+          if (data.items && Array.isArray(data.items)) {
+            allResults = data.items;
+          }
+          
+          // Always update the display with current answer and items
+          textDiv.innerHTML = messageContent + this.renderItems(allResults);
+          
         } else if (data.message_type === 'chart_result') {
           // Handle chart result (web components)
           console.log('=== Chart Result Handler Called ===');
@@ -525,6 +702,49 @@ class ModernChatInterface {
             }
           }
 
+        } else if (data.message_type === 'results_map') {
+          // Handle results map
+          console.log('=== RESULTS_MAP MESSAGE RECEIVED ===');
+          console.log('Message data:', JSON.stringify(data, null, 2));
+          
+          if (data.locations && Array.isArray(data.locations) && data.locations.length > 0) {
+            console.log('Creating map with locations:', data.locations);
+            
+            // Create container for the map
+            const mapContainer = document.createElement('div');
+            mapContainer.className = 'results-map-container';
+            mapContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px;';
+            
+            // Create the map div
+            const mapDiv = document.createElement('div');
+            mapDiv.id = 'results-map-' + Date.now();
+            mapDiv.style.cssText = 'width: 100%; height: 250px; border-radius: 6px;';
+            
+            // Add a title
+            const mapTitle = document.createElement('h3');
+            mapTitle.textContent = 'Result Locations';
+            mapTitle.style.cssText = 'margin: 0 0 10px 0; color: #333; font-size: 1.1em;';
+            
+            mapContainer.appendChild(mapTitle);
+            mapContainer.appendChild(mapDiv);
+            
+            // Prepend map BEFORE the results
+            textDiv.innerHTML = ''; // Clear existing content
+            textDiv.appendChild(mapContainer); // Add map first
+            
+            // Then add the message content and results
+            const contentDiv = document.createElement('div');
+            contentDiv.innerHTML = messageContent + this.renderItems(allResults);
+            textDiv.appendChild(contentDiv);
+            
+            console.log('Map container appended, calling MapDisplay.initializeResultsMap');
+            
+            // Initialize the map using the imported MapDisplay class
+            MapDisplay.initializeResultsMap(mapDiv, data.locations);
+          } else {
+            console.log('No valid locations data in results_map message');
+          }
+
         } else if (data.message_type === 'complete') {
           this.endStreaming();
           return; // Exit early to avoid setting content on null
@@ -535,7 +755,6 @@ class ModernChatInterface {
           this.currentStreamingMessage.content = messageContent;
           this.currentStreamingMessage.allResults = allResults;
         }
-        this.scrollToUserMessage();
       } catch (e) {
         console.error('Error parsing streaming data:', e);
       }
@@ -554,11 +773,7 @@ class ModernChatInterface {
       console.log('EventSource connection opened');
     };
     
-    // Add current query to prevQueries after sending (keep last 10)
-    this.prevQueries.push(query);
-    if (this.prevQueries.length > 10) {
-      this.prevQueries = this.prevQueries.slice(-10);
-    }
+    // prevQueries already updated above before sending the request
   }
   
   handleStreamingData(data) {
@@ -578,8 +793,6 @@ class ModernChatInterface {
       // Stream complete
       this.endStreaming();
     }
-    
-    this.scrollToUserMessage();
   }
   
   renderItems(items) {
@@ -595,52 +808,12 @@ class ModernChatInterface {
     // Create a container for all results
     const resultsContainer = document.createElement('div');
     resultsContainer.className = 'search-results';
-    resultsContainer.style.cssText = 'display: flex; flex-direction: column; gap: 12px; margin-top: 16px;';
     
     sortedItems.forEach(item => {
       // Use JsonRenderer to create the item HTML
       const itemElement = this.jsonRenderer.createJsonItemHtml(item);
       
-      // Apply tighter spacing styles
-      if (itemElement.className === 'item-container') {
-        itemElement.style.cssText = 'display: flex; gap: 12px; padding: 12px; background-color: #f7f7f8; border-radius: 8px; margin-bottom: 0;';
-      }
-      
-      // Adjust image styling if present
-      const img = itemElement.querySelector('.item-image');
-      if (img) {
-        img.style.cssText = 'width: 100px; height: 75px; object-fit: cover; border-radius: 6px;';
-      }
-      
-      // Adjust content styling
-      const content = itemElement.querySelector('.item-content');
-      if (content) {
-        content.style.cssText = 'flex: 1; min-width: 0;';
-      }
-      
-      // Style the title link
-      const titleLink = itemElement.querySelector('.item-title-link');
-      if (titleLink) {
-        titleLink.style.cssText = 'color: #5e5eff; text-decoration: none; font-weight: 500; font-size: 15px; display: block; margin-bottom: 4px;';
-        titleLink.addEventListener('mouseover', () => {
-          titleLink.style.textDecoration = 'underline';
-        });
-        titleLink.addEventListener('mouseout', () => {
-          titleLink.style.textDecoration = 'none';
-        });
-      }
-      
-      // Style the description
-      const description = itemElement.querySelector('.item-description');
-      if (description) {
-        description.style.cssText = 'color: #666; font-size: 14px; line-height: 1.4; margin-bottom: 4px;';
-      }
-      
-      // Style the site link
-      const siteLink = itemElement.querySelector('.item-site-link');
-      if (siteLink) {
-        siteLink.style.cssText = 'color: #999; font-size: 13px; text-decoration: none;';
-      }
+      // No inline styles - let CSS handle all styling
       
       resultsContainer.appendChild(itemElement);
     });
@@ -911,7 +1084,7 @@ class ModernChatInterface {
     // Save the final message
     if (this.currentStreamingMessage) {
       const finalContent = this.currentStreamingMessage.textDiv.innerHTML || this.currentStreamingMessage.content;
-      const conversation = this.conversations.find(c => c.id === this.currentConversationId);
+      const conversation = this.conversationManager.findConversation(this.currentConversationId);
       if (conversation) {
         // Extract answers (title and URL) from the accumulated results
         const parsedAnswers = [];
@@ -944,7 +1117,7 @@ class ModernChatInterface {
             parsedAnswers: parsedAnswers
           });
         }
-        this.saveConversations();
+        this.conversationManager.saveConversations();
       }
     }
     
@@ -1208,158 +1381,21 @@ class ModernChatInterface {
     return null;
   }
   
-  updateConversationsList() {
-    this.elements.conversationsList.innerHTML = '';
-    
-    // Only show conversations that have messages
-    const conversationsWithContent = this.conversations.filter(conv => conv.messages && conv.messages.length > 0);
-    
-    // Group conversations by site
-    const conversationsBySite = {};
-    conversationsWithContent.forEach(conv => {
-      const site = conv.site || 'all';
-      if (!conversationsBySite[site]) {
-        conversationsBySite[site] = [];
-      }
-      conversationsBySite[site].push(conv);
-    });
-    
-    // Sort sites alphabetically, but keep 'all' at the top
-    const sites = Object.keys(conversationsBySite).sort((a, b) => {
-      if (a === 'all') return -1;
-      if (b === 'all') return 1;
-      return a.toLowerCase().localeCompare(b.toLowerCase());
-    });
-    
-    // Create UI for each site group
-    sites.forEach(site => {
-      const conversations = conversationsBySite[site];
-      
-      // Create site header
-      const siteHeader = document.createElement('div');
-      siteHeader.className = 'site-group-header';
-      
-      // Add site name
-      const siteName = document.createElement('span');
-      siteName.textContent = site;
-      siteHeader.appendChild(siteName);
-      
-      // Add chevron icon
-      const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      chevron.setAttribute('class', 'chevron');
-      chevron.setAttribute('viewBox', '0 0 24 24');
-      chevron.setAttribute('fill', 'none');
-      chevron.setAttribute('stroke', 'currentColor');
-      chevron.setAttribute('stroke-width', '2');
-      chevron.innerHTML = '<polyline points="6 9 12 15 18 9"></polyline>';
-      siteHeader.appendChild(chevron);
-      
-      // Create container for conversations
-      const conversationsContainer = document.createElement('div');
-      conversationsContainer.className = 'site-conversations';
-      
-      // Check if this group should be collapsed (stored in localStorage)
-      const isCollapsed = localStorage.getItem(`nlweb-site-collapsed-${site}`) === 'true';
-      if (isCollapsed) {
-        siteHeader.classList.add('collapsed');
-        conversationsContainer.classList.add('collapsed');
-      }
-      
-      // Add click handler to toggle collapse
-      siteHeader.addEventListener('click', () => {
-        const isCurrentlyCollapsed = siteHeader.classList.contains('collapsed');
-        if (isCurrentlyCollapsed) {
-          siteHeader.classList.remove('collapsed');
-          conversationsContainer.classList.remove('collapsed');
-          localStorage.setItem(`nlweb-site-collapsed-${site}`, 'false');
-        } else {
-          siteHeader.classList.add('collapsed');
-          conversationsContainer.classList.add('collapsed');
-          localStorage.setItem(`nlweb-site-collapsed-${site}`, 'true');
-        }
-      });
-      
-      this.elements.conversationsList.appendChild(siteHeader);
-      
-      // Add conversations for this site
-      conversations.forEach(conv => {
-        const item = document.createElement('div');
-        item.className = 'conversation-item';
-        if (conv.id === this.currentConversationId) {
-          item.classList.add('active');
-        }
-        
-        // Create title span
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'conversation-title';
-        titleSpan.textContent = conv.title;
-        titleSpan.addEventListener('click', () => this.loadConversation(conv.id));
-        
-        // Create delete button
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'conversation-delete';
-        deleteBtn.innerHTML = '&times;';  // HTML entity for multiplication sign
-        deleteBtn.title = 'Delete conversation';
-        deleteBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          this.deleteConversation(conv.id);
-        });
-        
-        item.appendChild(titleSpan);
-        item.appendChild(deleteBtn);
-        
-        conversationsContainer.appendChild(item);
-      });
-      
-      // Append the conversations container after the header
-      this.elements.conversationsList.appendChild(conversationsContainer);
-      
-      // Add spacing between groups
-      if (sites.indexOf(site) < sites.length - 1) {
-        const spacer = document.createElement('div');
-        spacer.style.cssText = 'height: 8px;';
-        this.elements.conversationsList.appendChild(spacer);
-      }
-    });
-  }
   
-  loadConversations() {
-    const saved = localStorage.getItem('nlweb-modern-conversations');
-    if (saved) {
-      try {
-        const allConversations = JSON.parse(saved);
-        // Filter out empty conversations
-        this.conversations = allConversations.filter(conv => conv.messages && conv.messages.length > 0);
-        // Save the cleaned list back
-        this.saveConversations();
-      } catch (e) {
-        console.error('Error loading conversations:', e);
-        this.conversations = [];
-      }
-    }
+  /**
+   * Updates the list of conversations displayed in the UI.
+   * 
+   * @param {HTMLElement|null} container - The container element where the conversations list will be rendered.
+   *                                       If null, defaults to `this.elements.conversationsList`.
+   */
+  updateConversationsList(container = null) {
+    this.conversationManager.updateConversationsList(this, container);
   }
-  
+
   deleteConversation(conversationId) {
-    // Remove from conversations array
-    this.conversations = this.conversations.filter(conv => conv.id !== conversationId);
-    
-    // Save updated list
-    this.saveConversations();
-    
-    // Update UI
-    this.updateConversationsList();
-    
-    // If we deleted the current conversation, create a new one
-    if (conversationId === this.currentConversationId) {
-      this.createNewChat();
-    }
+    this.conversationManager.deleteConversation(conversationId, this);
   }
   
-  saveConversations() {
-    // Only save conversations that have messages
-    const conversationsToSave = this.conversations.filter(conv => conv.messages && conv.messages.length > 0);
-    localStorage.setItem('nlweb-modern-conversations', JSON.stringify(conversationsToSave));
-  }
   
   scrollToBottom() {
     this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
@@ -1383,6 +1419,7 @@ class ModernChatInterface {
   }
   
   showCenteredInput() {
+    console.log('showCenteredInput called');
     // Remove any existing centered input first
     const existingCentered = document.querySelector('.centered-input-container');
     if (existingCentered) {
@@ -1391,8 +1428,10 @@ class ModernChatInterface {
     
     // Hide the normal chat input area
     const chatInputContainer = document.querySelector('.chat-input-container');
+    console.log('Found chat input container:', !!chatInputContainer);
     if (chatInputContainer) {
       chatInputContainer.style.display = 'none';
+      console.log('Hidden chat input container');
     }
     
     // Create centered input container
@@ -1401,33 +1440,52 @@ class ModernChatInterface {
     centeredContainer.innerHTML = `
       <div class="centered-input-wrapper">
         <div class="centered-input-box">
-          <div class="input-site-selector">
-            <button class="site-selector-icon" id="site-selector-icon" title="Select site">
+          <div class="input-box-top-row">
+            <textarea 
+              class="centered-chat-input" 
+              id="centered-chat-input"
+              placeholder="Ask"
+              rows="2"
+            ></textarea>
+            <button class="centered-send-button" id="centered-send-button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
               </svg>
             </button>
-            <div class="site-dropdown" id="site-dropdown">
-              <div class="site-dropdown-header">Select site</div>
-              <div id="site-dropdown-items">
-                <!-- Sites will be added here -->
+          </div>
+          <div class="input-box-bottom-row">
+            <div class="input-site-selector">
+              <button class="site-selector-icon" id="site-selector-icon" title="Select site">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+              </button>
+              <div class="site-dropdown" id="site-dropdown">
+                <div class="site-dropdown-header">Select site</div>
+                <div id="site-dropdown-items">
+                  <!-- Sites will be added here -->
+                </div>
+              </div>
+            </div>
+            <div class="input-mode-selector">
+              <button class="mode-selector-icon" id="centered-mode-selector-icon" title="Select mode">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="9" y1="9" x2="15" y2="9"></line>
+                  <line x1="9" y1="12" x2="15" y2="12"></line>
+                  <line x1="9" y1="15" x2="11" y2="15"></line>
+                </svg>
+              </button>
+              <div class="mode-dropdown" id="centered-mode-dropdown">
+                <div class="mode-dropdown-item" data-mode="list">List</div>
+                <div class="mode-dropdown-item" data-mode="summarize">Summarize</div>
+                <div class="mode-dropdown-item" data-mode="generate">Generate</div>
               </div>
             </div>
           </div>
-          <textarea 
-            class="centered-chat-input" 
-            id="centered-chat-input"
-            placeholder="Send a message..."
-            rows="2"
-          ></textarea>
-          <button class="centered-send-button" id="centered-send-button">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
         </div>
       </div>
     `;
@@ -1451,10 +1509,48 @@ class ModernChatInterface {
       this.toggleSiteDropdown();
     });
     
+    // Mode selector events for centered input
+    const centeredModeSelectorIcon = document.getElementById('centered-mode-selector-icon');
+    const centeredModeDropdown = document.getElementById('centered-mode-dropdown');
+    
+    if (centeredModeSelectorIcon && centeredModeDropdown) {
+      centeredModeSelectorIcon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        centeredModeDropdown.classList.toggle('show');
+      });
+      
+      // Mode selection
+      const modeItems = centeredModeDropdown.querySelectorAll('.mode-dropdown-item');
+      modeItems.forEach(item => {
+        item.addEventListener('click', () => {
+          const mode = item.getAttribute('data-mode');
+          this.selectedMode = mode;
+          
+          // Update UI
+          modeItems.forEach(i => i.classList.remove('selected'));
+          item.classList.add('selected');
+          centeredModeDropdown.classList.remove('show');
+          
+          // Update icon title
+          centeredModeSelectorIcon.title = `Mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`;
+        });
+      });
+      
+      // Set initial selection
+      const initialItem = centeredModeDropdown.querySelector(`[data-mode="${this.selectedMode}"]`);
+      if (initialItem) {
+        initialItem.classList.add('selected');
+      }
+      centeredModeSelectorIcon.title = `Mode: ${this.selectedMode.charAt(0).toUpperCase() + this.selectedMode.slice(1)}`;
+    }
+    
     // Close dropdown when clicking outside
     document.addEventListener('click', (e) => {
       if (!this.siteDropdown.contains(e.target) && !this.siteSelectorIcon.contains(e.target)) {
         this.siteDropdown.classList.remove('show');
+      }
+      if (centeredModeDropdown && !e.target.closest('.input-mode-selector')) {
+        centeredModeDropdown.classList.remove('show');
       }
     });
     
@@ -1473,6 +1569,14 @@ class ModernChatInterface {
     
     // Focus the input
     this.centeredInput.focus();
+    
+    // Load sites if not already loaded AND no specific site is selected
+    if ((!this.sites || this.sites.length === 0) && (!this.selectedSite || this.selectedSite === 'all')) {
+      this.loadSites();
+    } else {
+      // If sites are already loaded, populate the dropdown
+      this.populateSiteDropdown();
+    }
   }
   
   hideCenteredInput() {
@@ -1518,7 +1622,7 @@ class ModernChatInterface {
       // Restore original HTML content
       const originalContent = messageText.getAttribute('data-original-content');
       if (originalContent) {
-        messageText.innerHTML = originalContent;
+        messageText.textContent = originalContent;
         messageText.classList.remove('showing-debug');
         messageText.style.cssText = ''; // Reset inline styles
       }
@@ -1681,10 +1785,10 @@ class ModernChatInterface {
         }
         
         // Update the current conversation's site if it exists
-        const conversation = this.conversations.find(c => c.id === this.currentConversationId);
+        const conversation = this.conversationManager.findConversation(this.currentConversationId);
         if (conversation) {
           conversation.site = site;
-          this.saveConversations();
+          this.conversationManager.saveConversations();
         }
       });
       this.siteDropdownItems.appendChild(item);
@@ -1834,6 +1938,11 @@ class ModernChatInterface {
         if (this.elements.chatSiteInfo) {
           this.elements.chatSiteInfo.textContent = `Asking ${this.selectedSite}`;
         }
+        
+        // Populate the site dropdown if it exists
+        if (this.siteDropdownItems) {
+          this.populateSiteDropdown();
+        }
       }
     } catch (error) {
       console.error('Error loading sites:', error);
@@ -1852,11 +1961,28 @@ class ModernChatInterface {
       if (this.elements.chatSiteInfo) {
         this.elements.chatSiteInfo.textContent = `Site: ${this.selectedSite}`;
       }
+      
+      // Populate the site dropdown if it exists
+      if (this.siteDropdownItems) {
+        this.populateSiteDropdown();
+      }
     }
   }
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  new ModernChatInterface();
-});
+// Export the class for use in other modules
+export { ModernChatInterface };
+
+// Initialize when DOM is ready (only if not imported as module)
+if (typeof window !== 'undefined' && !window.ModernChatInterfaceExported) {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOMContentLoaded - initializing ModernChatInterface');
+    try {
+      new ModernChatInterface();
+      console.log('ModernChatInterface initialized successfully');
+    } catch (error) {
+      console.error('Error initializing ModernChatInterface:', error);
+    }
+  });
+  window.ModernChatInterfaceExported = true;
+}

@@ -6,7 +6,7 @@ The script in static/index.html, given below, with comments, is a very simple ex
 
 The main method is 'ChatInterface', which can be initialized with a default value for 'site' and 'mode' (see Rest API documentation). It also takes a display_mode argument, which can either be dropdown (which is used in static/debug.html to give more options) or 'nlwebsearch'.
 
-```
+```js
 <script>
     document.addEventListener('DOMContentLoaded', () => {
          const searchInput = document.getElementById('ai-search-input');
