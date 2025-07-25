@@ -50,7 +50,7 @@ Note: The `--push` flag is required for multi-architecture builds. If you want t
 To run the Docker container:
 
 ```bash
-docker run -p 8000:8000 -v ./code/config:/app/config:ro -v ./data:/data nlweb:latest
+docker run -p 8000:8000 -v ./config:/app/config:ro -v ./data:/data nlweb:latest
 ```
 
 This will start the NLWeb application and expose it on port 8000.
@@ -136,20 +136,20 @@ The `docker-compose.yaml` file is configured with the following volume mounts:
 
 1. **Data Directory**: Mounts the `./data` directory from your host to `/app/data` in the container. This allows data to persist between container restarts.
 
-2. **Configuration Directory**: Mounts the `./code/config` directory from your host to `/app/config` in the container as read-only. This provides access to configuration files without allowing the container to modify them, ensuring configuration integrity and security.
+2. **Configuration Directory**: Mounts the `./config` directory from your host to `/app/config` in the container as read-only. This provides access to configuration files without allowing the container to modify them, ensuring configuration integrity and security.
 
 ### Loading Data with Docker Compose
 
 To load data into the knowledge base when using Docker Compose:
 
 ```bash
-docker-compose exec nlweb python -m tools.db_load <url> <name>
+docker-compose exec nlweb python -m data_loading.db_load <url> <name>
 ```
 
 For example:
 
 ```bash
-docker-compose exec nlweb python -m tools.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
+docker-compose exec nlweb python -m data_loading.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
 ```
 
 ## Loading Data with Docker
@@ -157,13 +157,13 @@ docker-compose exec nlweb python -m tools.db_load https://feeds.libsyn.com/12169
 To load data into the knowledge base when using Docker directly:
 
 ```bash
-docker exec -it <container_id> python -m tools.db_load <url> <name>
+docker exec -it <container_id> python -m data_loading.db_load <url> <name>
 ```
 
 For example:
 
 ```bash
-docker exec -it <container_id> python -m tools.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
+docker exec -it <container_id> python -m data_loading.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
 ```
 
 ## Accessing the Application
