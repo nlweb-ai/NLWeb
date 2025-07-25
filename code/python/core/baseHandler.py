@@ -79,6 +79,14 @@ class NLWebHandler:
         # this is the query id which is useful for some bookkeeping
         self.query_id = get_param(query_params, "query_id", str, "")
 
+        # Auto-generate query_id if none specified
+        if not self.query_id:
+            import time
+            timestamp = int(time.time() * 1000)
+            import random
+            random_suffix = random.randint(100, 999)
+            self.query_id = f"query_{timestamp}_{random_suffix}"
+
         # OAuth user ID for conversation storage
         self.oauth_id = get_param(query_params, "oauth_id", str, "")
         
