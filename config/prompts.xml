@@ -97,6 +97,33 @@
       </returnStruc>
     </Prompt>
 
+    <Prompt ref="QueryRewrite">
+      <promptString>
+        You are helping to rewrite a complex search query into simpler keyword queries for a traditional keyword-based search engine.
+        The search engine works best with short, focused queries containing important keywords.
+        
+        Take the following query and break it down into up to 5 simpler search queries.
+        Each query should:
+        - Contain no more than 3 words
+        - Focus on the most important keywords and concepts
+        - Be diverse to cover different aspects of the original query
+        - Use only essential nouns, adjectives, or product terms
+        - Avoid common words like "for", "the", "some", "are", "that", "would", "be"
+        
+        For example:
+        - "what are some options for plates that would be appropriate for serving vegetables" → ["vegetable plates", "serving plates", "dinner plates", "salad plates", "ceramic plates"]
+        - "looking for a tea pot that can brew green tea" → ["tea pot", "green tea", "teapot ceramic", "japanese teapot", "brewing pot"]
+        
+        The original query is: {request.query}
+      </promptString>
+      <returnStruc>
+        {
+          "rewritten_queries": ["query1", "query2", "query3", "query4", "query5"],
+          "query_count": "Number of queries generated (1-5)"
+        }
+      </returnStruc>
+    </Prompt>
+
     <Prompt ref="DetectMultiItemTypeQueryPrompt">
       <promptString>
         Analyze the following query from the user.
@@ -374,7 +401,9 @@
           "memory_request": "The memory request, if any"
         }
       </returnStruc>
-    </Prompt>
+     </Prompt>
+
+
 
  <Prompt ref="ItemMatchingPrompt">
       <promptString>

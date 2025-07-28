@@ -6,6 +6,7 @@ Unified vector database interface with support for Azure AI Search, Milvus, and 
 This module provides abstract base classes and concrete implementations for database operations.
 """
 
+import os
 import time
 import asyncio
 import subprocess
@@ -64,6 +65,9 @@ def init():
                 elif db_type == "postgres":
                     from retrieval_providers.postgres_client import PgVectorClient
                     _preloaded_modules[db_type] = PgVectorClient
+                elif db_type == "shopify_mcp":
+                    from retrieval_providers.shopify_mcp import ShopifyMCPClient
+                    _preloaded_modules[db_type] = ShopifyMCPClient
                 
                 print(f"Successfully preloaded {db_type} client module")
             except Exception as e:
@@ -80,6 +84,7 @@ _db_type_packages = {
     "snowflake_cortex_search": ["httpx>=0.28.1"],
     "elasticsearch": ["elasticsearch[async]>=8,<9"],
     "postgres": ["psycopg", "psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0", "pgvector>=0.4.0"],
+    "shopify_mcp": ["aiohttp>=3.8.0"],
 }
 
 # Cache for installed packages
@@ -328,6 +333,7 @@ class VectorDBClient:
         
         # Cache for endpoint sites - will be populated lazily
         self._endpoint_sites_cache: Dict[str, Optional[List[str]]] = {}
+        
     
     async def _get_endpoint_sites(self, endpoint_name: str) -> Optional[List[str]]:
         """
@@ -347,11 +353,14 @@ class VectorDBClient:
             client = await self.get_client(endpoint_name)
             sites = await client.get_sites()
             self._endpoint_sites_cache[endpoint_name] = sites
-            logger.info(f"Endpoint {endpoint_name} has {len(sites)} sites: {sites[:5]}{'...' if len(sites) > 5 else ''}")
+            if sites:
+                logger.info(f"Endpoint {endpoint_name} has {len(sites)} sites: {sites[:5]}{'...' if len(sites) > 5 else ''}")
+            else:
+                logger.info(f"Endpoint {endpoint_name} returned empty sites list")
             return sites
         except Exception as e:
             # Any error means the backend doesn't support get_sites or it failed
-            logger.info(f"Backend for endpoint {endpoint_name} does not support get_sites() or it failed: {e}")
+            logger.error(f"Backend for endpoint {endpoint_name} does not support get_sites() or it failed: {e}", exc_info=True)
             # Cache None to indicate unsupported
             self._endpoint_sites_cache[endpoint_name] = None
             return None
@@ -374,6 +383,7 @@ class VectorDBClient:
             return True
             
         endpoint_sites = await self._get_endpoint_sites(endpoint_name)
+        
         if endpoint_sites is None:
             # Backend doesn't support get_sites, assume it might have the site
             return True
@@ -388,11 +398,13 @@ class VectorDBClient:
             sites_to_check = site
         
         # Check if any requested site is available in the endpoint
+        found = False
         for site_name in sites_to_check:
             if site_name in endpoint_sites:
-                return True
+                found = True
+                break
         
-        return False
+        return found
     
     def _has_valid_credentials(self, name: str, config) -> bool:
         """
@@ -422,6 +434,9 @@ class VectorDBClient:
         elif db_type == "postgres":
             # PostgreSQL requires endpoint (connection string) and optionally api_key (password)
             return bool(config.api_endpoint)
+        elif db_type == "shopify_mcp":
+            # Shopify MCP doesn't require authentication
+            return True
         else:
             logger.warning(f"Unknown database type {db_type} for endpoint {name}")
             return False
@@ -483,6 +498,9 @@ class VectorDBClient:
                 elif db_type == "postgres":
                     from retrieval_providers.postgres_client import PgVectorClient
                     client = PgVectorClient(endpoint_name)
+                elif db_type == "shopify_mcp":
+                    from retrieval_providers.shopify_mcp import ShopifyMCPClient
+                    client = ShopifyMCPClient(endpoint_name)
                 else:
                     error_msg = f"Unsupported database type: {db_type}"
                     logger.error(error_msg)
@@ -748,7 +766,17 @@ class VectorDBClient:
                     if site == "all":
                         task = asyncio.create_task(client.search_all_sites(query, num_results, **kwargs))
                     else:
-                        task = asyncio.create_task(client.search(query, site, num_results, **kwargs))
+                        # For Shopify MCP, always go through the rewrite wrapper
+                        if type(client).__name__ == 'ShopifyMCPClient':
+                            # Extract handler from kwargs for rewriting
+                            handler_for_rewrite = kwargs.pop('handler', None)  # Remove handler from kwargs
+                            # Use the rewrite wrapper for Shopify MCP
+                            task = asyncio.create_task(
+                                search_with_rewrite(client, query, site, num_results, handler_for_rewrite, **kwargs)
+                            )
+                        else:
+                            # Regular search for other backends
+                            task = asyncio.create_task(client.search(query, site, num_results, **kwargs))
                     tasks.append(task)
                     endpoint_names.append(endpoint_name)
                 except Exception as e:
@@ -967,11 +995,95 @@ def get_vector_db_client(endpoint_name: Optional[str] = None,
     return VectorDBClient(endpoint_name=endpoint_name, query_params=query_params)
 
 
+async def search_with_rewrite(client: VectorDBClientInterface, query: str, site: Union[str, List[str]], 
+                             num_results: int = 50, handler: Optional[Any] = None, **kwargs) -> List[List[str]]:
+    """
+    Wrapper that handles query rewriting for keyword-based search engines.
+    If the query has more than 4 words, it rewrites it into simpler queries.
+    
+    Args:
+        client: The database client to use
+        query: The search query
+        site: Site identifier or list of sites
+        num_results: Maximum number of results to return
+        handler: Optional handler for query rewriting
+        **kwargs: Additional parameters
+        
+    Returns:
+        List of search results
+    """
+    # Check if this is a keyword-based backend (like Shopify MCP)
+    is_keyword_backend = isinstance(client, _preloaded_modules.get('shopify_mcp', type(None))) or \
+                        type(client).__name__ == 'ShopifyMCPClient'
+    
+    # Only rewrite for keyword backends with long queries
+    word_count = len(query.split())
+    needs_rewrite = is_keyword_backend and word_count > 4 and handler is not None
+    
+    if needs_rewrite:
+        logger.info(f"Query has {word_count} words, triggering rewrite for keyword backend")
+        
+        # Import and run query rewrite
+        try:
+            from core.query_analysis.query_rewrite import QueryRewrite
+            
+            # Store original decontextualized query if not set
+            if not hasattr(handler, 'decontextualized_query'):
+                handler.decontextualized_query = query
+            
+            # Run the query rewrite
+            rewriter = QueryRewrite(handler)
+            await rewriter.do()
+            
+            # Get rewritten queries
+            rewritten_queries = getattr(handler, 'rewritten_queries', [query])
+            
+            if len(rewritten_queries) > 1:
+                logger.info(f"Using {len(rewritten_queries)} rewritten queries: {rewritten_queries}")
+                
+                # Calculate results per query to maintain total count
+                results_per_query = max(1, num_results // len(rewritten_queries))
+                remainder = num_results % len(rewritten_queries)
+                
+                # Create parallel search tasks for each rewritten query
+                tasks = []
+                for i, rewritten_query in enumerate(rewritten_queries):
+                    # Add remainder to first queries
+                    query_results = results_per_query + (1 if i < remainder else 0)
+                    # Call the client's search method directly - no recursion
+                    task = asyncio.create_task(
+                        client.search(rewritten_query, site, query_results, **kwargs)
+                    )
+                    tasks.append(task)
+                
+                # Execute all searches in parallel
+                all_results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Combine results, filtering out errors
+                combined_results = []
+                for i, result in enumerate(all_results):
+                    if isinstance(result, Exception):
+                        logger.warning(f"Search failed for rewritten query '{rewritten_queries[i]}': {result}")
+                    elif result:
+                        combined_results.extend(result)
+                
+                # Limit to requested number of results
+                return combined_results[:num_results]
+                
+        except Exception as e:
+            logger.error(f"Error during query rewrite: {e}")
+            # Fall back to original query
+    
+    # No rewrite needed or rewrite failed - use original query
+    return await client.search(query, site, num_results, **kwargs)
+
+
 async def search(query: str, 
                 site: str = "all",
                 num_results: int = 50,
                 endpoint_name: Optional[str] = None,
                 query_params: Optional[Dict[str, Any]] = None,
+                handler: Optional[Any] = None,
                 **kwargs) -> List[Dict[str, Any]]:
     """
     Simplified search interface that combines client creation and search in one call.
@@ -982,6 +1094,7 @@ async def search(query: str,
         num_results: Number of results to return (default: 10)
         endpoint_name: Optional name of the endpoint to use
         query_params: Optional query parameters for overriding endpoint
+        handler: Optional handler with http_handler for sending messages
         **kwargs: Additional parameters passed to the search method
         
     Returns:
@@ -991,7 +1104,28 @@ async def search(query: str,
         results = await search("climate change", site="example.com", num_results=5)
     """
     client = get_vector_db_client(endpoint_name=endpoint_name, query_params=query_params)
-    return await client.search(query, site, num_results, **kwargs)
+    # Pass handler through kwargs if provided
+    if handler:
+        kwargs['handler'] = handler
+    results = await client.search(query, site, num_results, **kwargs)
+    
+    # Send retrieval count message if handler is provided
+    if handler and hasattr(handler, 'http_handler') and hasattr(handler.http_handler, 'write_stream'):
+        retrieval_message = {
+            "message_type": "retrieval_count",
+            "query": query,
+            "site": site,
+            "count": len(results),
+            "requested_count": num_results,
+            "query_id": getattr(handler, 'query_id', None)
+        }
+        try:
+            await handler.http_handler.write_stream(retrieval_message)
+            logger.info(f"Sent retrieval count message: {len(results)} results for query '{query}' on site '{site}'")
+        except Exception as e:
+            logger.warning(f"Failed to send retrieval count message: {e}")
+    
+    return results
 
 
 async def search_all_sites(query: str,
