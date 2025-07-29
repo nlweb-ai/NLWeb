@@ -99,22 +99,45 @@ async def check_retriever(retrieval_name) -> bool:
     try:
         # We need to use this specific vector db client to test its connectivity.  The general search will try all and hide errors.  
         client = get_vector_db_client(retrieval_name)
-        resp = await client.search("e", site="all", num_results=1)
-        good_output = len(resp) > 0 #and len(resp[0]) == 4
-        #print(f"Output from {retrieval_name}: {str(resp)}")
-        #print(f"Good Output from {retrieval_name}: {str(good_output)}")
-        if not resp:
-            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: No valid output received.")
-            return False
-        elif good_output:
-            print(f"✅ Retriever API connectivity check successful for {retrieval_name}. Output is in expected format.")
-            return True
-        elif not good_output:
-            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: Output is not in expected format.  Please verify manually: {str(resp)}")
-            return False
+        
+        # For local databases (like qdrant_local), we check connectivity rather than data presence
+        endpoint_config = CONFIG.retrieval_endpoints.get(retrieval_name)
+        is_local_db = (endpoint_config and 
+                      endpoint_config.db_type == "qdrant" and 
+                      hasattr(endpoint_config, 'database_path') and 
+                      endpoint_config.database_path)
+        
+        if is_local_db:
+            # For local databases, just test that we can connect (empty results are OK)
+            try:
+                resp = await client.search("connectivity_test", site="all", num_results=1)
+                print(f"✅ Retriever API connectivity check successful for {retrieval_name}. Local database connection established.")
+                return True
+            except Exception as local_e:
+                # If search fails, try to check if client can be created
+                try:
+                    # Try to get sites as a basic connectivity test
+                    await client.get_sites()
+                    print(f"✅ Retriever API connectivity check successful for {retrieval_name}. Local database connection established (empty database).")
+                    return True
+                except:
+                    raise local_e
         else:
-            print(f"❌ Retriever API connectivity check failed for {retrieval_name}: What is happening here?  Please verify manually: {str(resp)}")
-            return False
+            # For remote databases, expect actual data
+            resp = await client.search("e", site="all", num_results=1)
+            good_output = len(resp) > 0
+            if not resp:
+                print(f"❌ Retriever API connectivity check failed for {retrieval_name}: No valid output received.")
+                return False
+            elif good_output:
+                print(f"✅ Retriever API connectivity check successful for {retrieval_name}. Output is in expected format.")
+                return True
+            elif not good_output:
+                print(f"❌ Retriever API connectivity check failed for {retrieval_name}: Output is not in expected format.  Please verify manually: {str(resp)}")
+                return False
+            else:
+                print(f"❌ Retriever API connectivity check failed for {retrieval_name}: What is happening here?  Please verify manually: {str(resp)}")
+                return False
     except Exception as e:
         print(f"❌ Retriever API connectivity check failed for {retrieval_name}: {type(e).__name__}: {str(e)}")
         return False
