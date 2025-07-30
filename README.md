@@ -64,6 +64,7 @@ Most production deployments will:
 ### NLWeb Details
 
 * [Life of a Chat Query](docs/life-of-a-chat-query.md)
+* [Architecture Diagrams](drawings/README.md)
 * [Modifying Prompts](docs/nlweb-prompts.md)
 * [Changing Control Flow](docs/nlweb-control-flow.md)
 * [Modifying the User Interface](docs/nlweb-user-interface.md)
