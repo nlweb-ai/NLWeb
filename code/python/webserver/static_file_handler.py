@@ -86,8 +86,9 @@ async def send_static_file(path, send_response, send_chunk):
                 break
         
         if not file_found:
-            # Special case: check if removing 'html/' prefix works
-            prefixes = ['html/', 'static/']
+            # Special case: check if removing 'html/' or 'static/' prefix works
+            # Handle both forward slashes and backslashes (Windows vs Unix)
+            prefixes = ['html/', 'static/', 'html\\', 'static\\']
             for prefix in prefixes:
                 if safe_path.startswith(prefix):
                     stripped_path = safe_path[len(prefix):]  # Remove prefix
@@ -97,6 +98,8 @@ async def send_static_file(path, send_response, send_chunk):
                             full_path = try_path
                             file_found = True
                             break
+                    if file_found:
+                        break
         
         if not file_found:
             # Special case: check if there's no html/static directory
