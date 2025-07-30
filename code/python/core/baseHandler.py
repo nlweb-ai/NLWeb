@@ -116,6 +116,9 @@ class NLWebHandler:
         # the type of item that is being sought. e.g., recipe, movie, etc.
         self.item_type = siteToItemType(self.site)
 
+        # required item type from request parameter
+        self.required_item_type = get_param(query_params, "required_item_type", str, None)
+
         # tool routing results
 
         self.tool_routing_results = []
