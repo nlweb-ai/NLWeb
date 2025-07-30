@@ -47,15 +47,12 @@ class DeepSeekAzureProvider(LLMProvider):
     @classmethod
     def get_api_key(cls) -> str:
         """Get DeepSeek Azure API key from config"""
-        logger.debug("Retrieving DeepSeek Azure API key from config")
         provider_config = CONFIG.llm_endpoints.get("deepseek_azure")
         if provider_config and provider_config.api_key:
             api_key = provider_config.api_key
             if api_key:
                 api_key = api_key.strip('"')
-                logger.debug("DeepSeek Azure API key found")
                 return api_key
-        logger.warning("DeepSeek Azure API key not found in config")
         return None
 
     @classmethod

@@ -13,9 +13,6 @@ export class MapDisplay {
     console.log('=== initializeResultsMap Called ===');
     console.log('mapDiv:', mapDiv);
     console.log('locations:', locations);
-    console.log('window.GOOGLE_MAPS_API_KEY at map init time:', window.GOOGLE_MAPS_API_KEY);
-    console.log('typeof window.GOOGLE_MAPS_API_KEY:', typeof window.GOOGLE_MAPS_API_KEY);
-    console.log('window.GOOGLE_MAPS_API_KEY === undefined?', window.GOOGLE_MAPS_API_KEY === undefined);
     
     // Check if API key is configured
     const rawApiKey = window.GOOGLE_MAPS_API_KEY || 
@@ -23,13 +20,8 @@ export class MapDisplay {
                       'YOUR_API_KEY';
     const apiKey = MapDisplay.validateApiKey(rawApiKey) ? rawApiKey : null;
     
-    console.log('API Key resolution:');
-    console.log('  - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY);
-    console.log('  - data-google-maps-api-key:', document.body.getAttribute('data-google-maps-api-key'));
-    console.log('  - Final apiKey:', apiKey);
     
     if (apiKey === 'YOUR_API_KEY' || !apiKey || apiKey === 'GOOGLE_MAPS_API_KEY') {
-      console.warn('Google Maps API key not configured, showing location list instead');
       // Show location list instead of map
       this.showLocationList(mapDiv, locations);
       return;
@@ -37,11 +29,9 @@ export class MapDisplay {
     
     // Check if Google Maps API is loaded
     if (typeof google === 'undefined' || !google.maps) {
-      console.log('Google Maps API not loaded, loading now...');
       this.loadGoogleMapsAPI(apiKey).then(() => {
         this.createMap(mapDiv, locations);
       }).catch(error => {
-        console.error('Failed to load Google Maps API:', error);
         // Fallback to showing location list
         this.showLocationList(mapDiv, locations);
       });
@@ -77,7 +67,6 @@ export class MapDisplay {
       // Create script element
       const script = document.createElement('script');
       if (!apiKey) {
-        console.error('Invalid Google Maps API key. Falling back to location list.');
         window.googleMapsAPILoading = false;
         reject(new Error('Invalid Google Maps API key'));
         return;

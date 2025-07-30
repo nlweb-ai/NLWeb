@@ -47,15 +47,12 @@ class LlamaAzureProvider(LLMProvider):
     @classmethod
     def get_api_key(cls) -> str:
         """Get Llama Azure API key from config"""
-        logger.debug("Retrieving Llama Azure API key from config")
         provider_config = CONFIG.llm_endpoints.get("llama_azure")
         if provider_config and provider_config.api_key:
             api_key = provider_config.api_key
             if api_key:
                 api_key = api_key.strip('"')
-                logger.debug("Llama Azure API key found")
                 return api_key
-        logger.warning("Llama Azure API key not found in config")
         return None
 
     @classmethod
