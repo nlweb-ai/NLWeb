@@ -307,7 +307,7 @@ class MilvusVectorClient:
     
     async def search(self, query: str, site: Union[str, List[str]], 
                    num_results: int = 50, collection_name: Optional[str] = None,
-                   query_params: Optional[Dict[str, Any]] = None) -> List[List[str]]:
+                   query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
         """
         Search the Milvus collection for records filtered by site and ranked by vector similarity.
         
@@ -473,7 +473,7 @@ class MilvusVectorClient:
     
     async def search_all_sites(self, query: str, num_results: int = 50, 
                              collection_name: Optional[str] = None,
-                             query_params: Optional[Dict[str, Any]] = None) -> List[List[str]]:
+                             query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
         """
         Search across all sites using vector similarity.
         
