@@ -84,6 +84,10 @@ The user's question is: {request.query}. The item's description is {item.descrip
             # Handle both string and dictionary inputs for json_str
             schema_object = json_str if isinstance(json_str, dict) else json.loads(json_str)
             
+            # If schema_object is an array, set it to the first item
+            if isinstance(schema_object, list) and len(schema_object) > 0:
+                schema_object = schema_object[0]
+            
             ansr = {
                 'url': url,
                 'site': site,
@@ -92,6 +96,13 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 'schema_object': schema_object,
                 'sent': False,
             }
+            
+            # Check if required_item_type is specified and filter based on @type
+            if self.handler.required_item_type is not None:
+                item_type = schema_object.get('@type', None)
+                if item_type != self.handler.required_item_type:
+                    logger.debug(f"Item type mismatch: expected {self.handler.required_item_type}, got {item_type} - setting score to 0")
+                    ranking["score"] = 0
             
             if (ranking["score"] > self.EARLY_SEND_THRESHOLD):
                 logger.info(f"High score item: {name} (score: {ranking['score']}) - sending early {self.ranking_type_str}")

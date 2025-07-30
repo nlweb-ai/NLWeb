@@ -402,6 +402,25 @@
       </returnStruc>
     </Prompt>
 
+        <Prompt ref="RankingPrompt">
+      <promptString>
+        Assign a score between 0 and 100 to the following item
+        based on how relevant it is to the user's question. Use your knowledge from other sources, about the item, to make a judgement. 
+        If the score is above 50, provide a short description of the item highlighting the relevance to the user's question, without mentioning the user's question.
+        Provide an explanation of the relevance of the item to the user's question, without mentioning the user's question or the score or explicitly mentioning the term relevance.
+        If the score is below 75, in the description, include the reason why it is still relevant.
+
+        If the item is not a Recipe, it should get a substantially lower score.
+
+        The user's question is: \"{request.query}\". The item's description in schema.org format is \"{item.description}\".
+      </promptString>
+      <returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "description": "short description of the item"
+        }
+      </returnStruc>
+    </Prompt>
 
   </Recipe>
 

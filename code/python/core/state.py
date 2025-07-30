@@ -22,7 +22,7 @@ class NLWebHandlerState:
             self.precheck_step_state[step_name] = self.__class__.DONE
             if step_name == "Decon":
                 self._decon_event.set()
-            elif step_name == "ToolRouter":
+            elif step_name == "ToolSelector":
                 self._tool_router_event.set()
             # Check if all steps are done
             if all(state == self.__class__.DONE for state in self.precheck_step_state.values()):
@@ -58,8 +58,8 @@ class NLWebHandlerState:
         return self.is_tool_routing_done()
     
     def is_tool_routing_done(self):
-        if "ToolRouter" in self.precheck_step_state:
-            return self.precheck_step_state["ToolRouter"] == self.__class__.DONE
+        if "ToolSelector" in self.precheck_step_state:
+            return self.precheck_step_state["ToolSelector"] == self.__class__.DONE
         else:
             return False
     
