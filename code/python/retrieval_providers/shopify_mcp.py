@@ -34,7 +34,7 @@ class ShopifyMCPClient:
         self.endpoint_name = endpoint_name
     
     async def search(self, query: str, site: Union[str, List[str]], 
-                    num_results: int = 50, **kwargs) -> List[List[str]]:
+                    num_results: int = 50, query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
         """
         Search using the MCP search_shop_catalog method.
         
@@ -255,6 +255,22 @@ class ShopifyMCPClient:
         except:
             pass
         return ''
+    
+    async def search_all_sites(self, query: str, num_results: int = 50, 
+                             query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
+        """
+        Search across all sites - not implemented for Shopify MCP.
+        
+        Args:
+            query: Search query
+            num_results: Maximum number of results
+            query_params: Optional query parameters
+            **kwargs: Additional parameters
+            
+        Returns:
+            Empty list - Shopify MCP doesn't support cross-site search
+        """
+        return []
     
     async def get_sites(self) -> List[str]:
         """

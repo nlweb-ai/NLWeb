@@ -32,13 +32,10 @@ _preloaded_modules = {}
 
 def init():
     """Initialize retrieval clients based on configuration."""
-    print("=== Retrieval initialization starting ===")
-    
     # Preload modules for enabled endpoints
     for endpoint_name, endpoint_config in CONFIG.retrieval_endpoints.items():
         if endpoint_config.enabled and endpoint_config.db_type:
             db_type = endpoint_config.db_type
-            print(f"Preloading retrieval client module for: {endpoint_name} (type: {db_type})")
             try:
                 # Ensure packages are installed
                 _ensure_package_installed(db_type)
@@ -69,11 +66,8 @@ def init():
                     from retrieval_providers.shopify_mcp import ShopifyMCPClient
                     _preloaded_modules[db_type] = ShopifyMCPClient
                 
-                print(f"Successfully preloaded {db_type} client module")
             except Exception as e:
-                print(f"Failed to preload {db_type} client module: {e}")
-    
-    print("=== Retrieval initialization complete ===")
+                logger.warning(f"Failed to preload {db_type} client module: {e}")
 
 # Mapping of database types to their required pip packages
 _db_type_packages = {
@@ -306,6 +300,10 @@ class VectorDBClient:
             if not self.enabled_endpoints:
                 error_msg = "No enabled retrieval endpoints with valid credentials found"
                 logger.error(error_msg)
+                # Debug: show which endpoints were checked and why they were skipped
+                for name, config in CONFIG.retrieval_endpoints.items():
+                    if config.enabled:
+                        logger.error(f"Endpoint {name} was enabled but skipped - missing credentials?")
                 raise ValueError(error_msg)
             
             # Set db_type to the first enabled endpoint's type (for logging)
@@ -398,13 +396,11 @@ class VectorDBClient:
             sites_to_check = site
         
         # Check if any requested site is available in the endpoint
-        found = False
         for site_name in sites_to_check:
             if site_name in endpoint_sites:
-                found = True
-                break
+                return True
         
-        return found
+        return False
     
     def _has_valid_credentials(self, name: str, config) -> bool:
         """
@@ -632,7 +628,9 @@ class VectorDBClient:
             for endpoint in endpoints_to_remove:
                 del iterators[endpoint]
         
-        logger.info(f"Aggregated {sum(len(r) for r in endpoint_results.values())} total results into {len(final_results)} unique URLs")
+        # Calculate total results safely
+        total_results = sum(len(r) for r in endpoint_results.values() if r is not None)
+        logger.info(f"Aggregated {total_results} total results into {len(final_results)} unique URLs")
         
         return final_results
     
@@ -762,6 +760,7 @@ class VectorDBClient:
                         continue
                     
                     client = await self.get_client(endpoint_name)
+                    
                     # Use search_all_sites if site is "all"
                     if site == "all":
                         task = asyncio.create_task(client.search_all_sites(query, num_results, **kwargs))
@@ -776,7 +775,10 @@ class VectorDBClient:
                             )
                         else:
                             # Regular search for other backends
-                            task = asyncio.create_task(client.search(query, site, num_results, **kwargs))
+                            # Remove handler from kwargs if present (some backends don't accept it)
+                            search_kwargs = kwargs.copy()
+                            search_kwargs.pop('handler', None)
+                            task = asyncio.create_task(client.search(query, site, num_results, **search_kwargs))
                     tasks.append(task)
                     endpoint_names.append(endpoint_name)
                 except Exception as e:
@@ -798,6 +800,9 @@ class VectorDBClient:
             for endpoint_name, result in zip(endpoint_names, results):
                 if isinstance(result, Exception):
                     logger.warning(f"Search failed for endpoint {endpoint_name}: {result}")
+                elif result is None:
+                    logger.warning(f"Endpoint {endpoint_name} returned None, treating as empty results")
+                    endpoint_results[endpoint_name] = []
                 else:
                     endpoint_results[endpoint_name] = result
                     successful_endpoints += 1
