@@ -163,6 +163,12 @@ body {
   flex-shrink: 0;
 }
 
+/* When no remembered section exists, conversations should use all space */
+.sidebar:not(.has-remembered) .conversations-list {
+  max-height: calc(100% - 60px); /* Account for header */
+  flex: 1;
+}
+
 /* Conversation Items */
 .conversation-item {
   padding: 12px 16px;

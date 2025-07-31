@@ -45,6 +45,13 @@ endpoints:
     index_name: embeddings1536
     db_type: azure_ai_search
 
+  # Shopify MCP endpoint for product search across Shopify stores
+  shopify:
+    enabled: true
+    db_type: shopify_mcp
+    # Note: mcp_endpoint will be dynamically set based on the site being queried
+    name: Shopify MCP Search
+
   # Milvus is still under development and not yet supported. 
   milvus:
     enabled: false

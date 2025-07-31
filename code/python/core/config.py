@@ -47,7 +47,9 @@ class EmbeddingProviderConfig:
 @dataclass
 class RetrievalProviderConfig:
     api_key: Optional[str] = None
+    api_key_env: Optional[str] = None  # Environment variable name for API key
     api_endpoint: Optional[str] = None
+    api_endpoint_env: Optional[str] = None  # Environment variable name for endpoint
     database_path: Optional[str] = None
     index_name: Optional[str] = None
     db_type: Optional[str] = None
@@ -363,7 +365,9 @@ class AppConfig:
             # Use the new method for all configuration values
             self.retrieval_endpoints[name] = RetrievalProviderConfig(
                 api_key=self._get_config_value(cfg.get("api_key_env")),
+                api_key_env=cfg.get("api_key_env"),  # Store the env var name
                 api_endpoint=self._get_config_value(cfg.get("api_endpoint_env")),
+                api_endpoint_env=cfg.get("api_endpoint_env"),  # Store the env var name
                 database_path=self._get_config_value(cfg.get("database_path")),
                 index_name=self._get_config_value(cfg.get("index_name")),
                 db_type=self._get_config_value(cfg.get("db_type")),  # Add db_type
