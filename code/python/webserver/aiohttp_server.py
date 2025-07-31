@@ -3,12 +3,10 @@ import logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    #force=True  # Force reconfiguration of root logger
 )
 
 #!/usr/bin/env python3
 import asyncio
-import logging
 import ssl
 import sys
 import os
