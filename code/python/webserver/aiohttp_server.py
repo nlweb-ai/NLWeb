@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import logging    
 # We need to set up logging at the very beginning
 logging.basicConfig(
@@ -5,7 +6,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
 
-#!/usr/bin/env python3
 import asyncio
 import ssl
 import sys
