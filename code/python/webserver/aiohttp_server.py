@@ -1,3 +1,11 @@
+import logging    
+# We need to set up logging at the very beginning
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    #force=True  # Force reconfiguration of root logger
+)
+
 #!/usr/bin/env python3
 import asyncio
 import logging
@@ -191,11 +199,6 @@ class AioHTTPServer:
 
 async def main():
     """Main entry point"""
-    # Setup logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
     
     # Suppress verbose HTTP client logging from OpenAI SDK
     logging.getLogger("httpx").setLevel(logging.WARNING)
