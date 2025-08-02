@@ -1,0 +1,427 @@
+"""
+WebSocket infrastructure for multi-participant chat.
+"""
+
+import asyncio
+import json
+import time
+from datetime import datetime, timedelta
+from typing import Dict, List, Set, Optional, Any
+from dataclasses import dataclass
+from enum import Enum
+from collections import defaultdict
+import weakref
+from aiohttp import web
+import logging
+
+from chat.schemas import QueueFullError
+from chat.metrics import ChatMetrics
+
+logger = logging.getLogger(__name__)
+
+
+class ConnectionState(Enum):
+    """WebSocket connection states"""
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    DISCONNECTING = "disconnecting"
+    DISCONNECTED = "disconnected"
+    RECONNECTING = "reconnecting"
+    FAILED = "failed"
+
+
+class WebSocketError(Exception):
+    """Base WebSocket error"""
+    pass
+
+
+class ParticipantLimitError(WebSocketError):
+    """Raised when participant limit is reached"""
+    def __init__(self, conversation_id: str, current_count: int, limit: int):
+        self.conversation_id = conversation_id
+        self.current_count = current_count
+        self.limit = limit
+        super().__init__(
+            f"Participant limit reached for conversation {conversation_id}: "
+            f"{current_count}/{limit} participants"
+        )
+
+
+@dataclass
+class ConnectionConfig:
+    """Configuration for WebSocket connections"""
+    ping_interval: int = 30  # seconds
+    pong_timeout: int = 600  # 10 minutes
+    max_retries: int = 10
+
+
+class WebSocketConnection:
+    """Represents a single WebSocket connection from a human participant"""
+    
+    def __init__(
+        self,
+        ws: web.WebSocketResponse,
+        user_id: str,
+        user_name: str,
+        conversation_id: str,
+        config: ConnectionConfig
+    ):
+        self.ws = ws
+        self.user_id = user_id
+        self.user_name = user_name
+        self.conversation_id = conversation_id
+        self.config = config
+        self.state = ConnectionState.CONNECTED
+        self.last_pong_time = datetime.utcnow()
+        self.heartbeat_task = None
+        
+    async def send_message(self, message: Dict[str, Any]) -> None:
+        """Send a message to this connection"""
+        if self.state == ConnectionState.CONNECTED and not self.ws.closed:
+            try:
+                await self.ws.send_json(message)
+            except Exception as e:
+                logger.error(f"Error sending message to {self.user_id}: {e}")
+                self.state = ConnectionState.FAILED
+    
+    async def heartbeat(self) -> None:
+        """Send periodic pings to keep connection alive"""
+        while self.state == ConnectionState.CONNECTED:
+            try:
+                await self.ws.ping()
+                await asyncio.sleep(self.config.ping_interval)
+                
+                # Check for timeout
+                if self.is_timed_out():
+                    logger.warning(f"Connection timeout for user {self.user_id}")
+                    await self.close()
+                    break
+                    
+            except Exception as e:
+                logger.error(f"Heartbeat error for {self.user_id}: {e}")
+                break
+    
+    def handle_pong(self) -> None:
+        """Handle pong response"""
+        self.last_pong_time = datetime.utcnow()
+    
+    def is_timed_out(self) -> bool:
+        """Check if connection has timed out"""
+        timeout_threshold = datetime.utcnow() - timedelta(seconds=self.config.pong_timeout)
+        return self.last_pong_time < timeout_threshold
+    
+    async def close(self) -> None:
+        """Close the connection"""
+        self.state = ConnectionState.DISCONNECTED
+        if self.heartbeat_task:
+            self.heartbeat_task.cancel()
+        if not self.ws.closed:
+            await self.ws.close()
+
+
+class WebSocketManager:
+    """
+    Manages all WebSocket connections for the chat system.
+    Tracks connections per conversation and handles broadcasting.
+    """
+    
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        self.max_participants = config.get("max_participants", 100)
+        self.queue_size_limit = config.get("queue_size_limit", 1000)
+        
+        # Connection configuration
+        self.connection_config = ConnectionConfig(
+            ping_interval=config.get("ping_interval", 30),
+            pong_timeout=config.get("pong_timeout", 600),
+            max_retries=config.get("max_retries", 10)
+        )
+        
+        # Storage: conversation_id -> user_id -> connection
+        self._connections: Dict[str, Dict[str, WebSocketConnection]] = defaultdict(dict)
+        
+        # Queue sizes per conversation
+        self._queue_sizes: Dict[str, int] = defaultdict(int)
+        
+        # Metrics
+        self.metrics = ChatMetrics()
+        
+        # Cleanup task
+        self._cleanup_task = None
+        self._running = True
+        
+        # Start periodic cleanup
+        self._start_cleanup_task()
+    
+    async def join_conversation(
+        self,
+        ws: web.WebSocketResponse,
+        user_id: str,
+        user_name: str,
+        conversation_id: str
+    ) -> WebSocketConnection:
+        """
+        Join a conversation with participant limit enforcement.
+        
+        Args:
+            ws: The WebSocket connection
+            user_id: Unique user identifier
+            user_name: Display name
+            conversation_id: Conversation to join
+            
+        Returns:
+            WebSocketConnection instance
+            
+        Raises:
+            ParticipantLimitError: If participant limit reached
+        """
+        # Check participant limit
+        current_count = self.get_connection_count(conversation_id)
+        if current_count >= self.max_participants:
+            raise ParticipantLimitError(
+                conversation_id=conversation_id,
+                current_count=current_count,
+                limit=self.max_participants
+            )
+        
+        # Create connection
+        connection = WebSocketConnection(
+            ws=ws,
+            user_id=user_id,
+            user_name=user_name,
+            conversation_id=conversation_id,
+            config=self.connection_config
+        )
+        
+        # Store connection
+        self._connections[conversation_id][user_id] = connection
+        
+        # Start heartbeat
+        connection.heartbeat_task = asyncio.create_task(connection.heartbeat())
+        
+        # Track metrics
+        self.metrics.track_connection(user_id, "connect")
+        
+        # Log
+        logger.info(f"User {user_id} joined conversation {conversation_id}")
+        
+        return connection
+    
+    async def leave_conversation(self, user_id: str, conversation_id: str) -> None:
+        """Remove a user from a conversation"""
+        if conversation_id in self._connections:
+            if user_id in self._connections[conversation_id]:
+                connection = self._connections[conversation_id][user_id]
+                await connection.close()
+                del self._connections[conversation_id][user_id]
+                
+                # Clean up empty conversations
+                if not self._connections[conversation_id]:
+                    del self._connections[conversation_id]
+                
+                # Track metrics
+                self.metrics.track_connection(user_id, "disconnect")
+                
+                logger.info(f"User {user_id} left conversation {conversation_id}")
+    
+    async def broadcast_message(
+        self,
+        conversation_id: str,
+        message: Dict[str, Any],
+        exclude_user_id: Optional[str] = None
+    ) -> None:
+        """
+        Broadcast a message to all participants in a conversation.
+        O(N) complexity where N is number of participants.
+        
+        Args:
+            conversation_id: The conversation ID
+            message: Message to broadcast
+            exclude_user_id: Optional user to exclude (usually the sender)
+        """
+        if conversation_id not in self._connections:
+            return
+        
+        # Get all connections for conversation
+        connections = self._connections[conversation_id]
+        
+        # Send to all participants except excluded
+        tasks = []
+        for user_id, connection in connections.items():
+            if user_id != exclude_user_id:
+                tasks.append(connection.send_message(message))
+        
+        # Send all messages concurrently
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+    
+    def get_connection_count(self, conversation_id: str) -> int:
+        """Get number of active connections for a conversation"""
+        return len(self._connections.get(conversation_id, {}))
+    
+    def get_active_participants(self, conversation_id: str) -> List[str]:
+        """Get list of active participant IDs"""
+        return list(self._connections.get(conversation_id, {}).keys())
+    
+    def can_accept_message(self, conversation_id: str) -> bool:
+        """Check if conversation can accept new messages"""
+        return self._queue_sizes[conversation_id] < self.queue_size_limit
+    
+    def update_queue_size(self, conversation_id: str, size: int) -> None:
+        """Update queue size for a conversation"""
+        self._queue_sizes[conversation_id] = size
+        self.metrics.update_queue_depth(conversation_id, size)
+    
+    async def cleanup_dead_connections(self) -> None:
+        """Remove dead connections"""
+        for conv_id in list(self._connections.keys()):
+            for user_id in list(self._connections[conv_id].keys()):
+                connection = self._connections[conv_id][user_id]
+                
+                # Check if connection is dead
+                if (connection.ws.closed or 
+                    connection.state == ConnectionState.FAILED or
+                    connection.is_timed_out()):
+                    
+                    await self.leave_conversation(user_id, conv_id)
+    
+    def _start_cleanup_task(self) -> None:
+        """Start periodic cleanup task"""
+        async def cleanup_loop():
+            while self._running:
+                try:
+                    await asyncio.sleep(60)  # Run every minute
+                    await self.cleanup_dead_connections()
+                except Exception as e:
+                    logger.error(f"Cleanup error: {e}")
+        
+        self._cleanup_task = asyncio.create_task(cleanup_loop())
+    
+    async def shutdown(self) -> None:
+        """Shutdown the manager"""
+        self._running = False
+        
+        # Cancel cleanup task
+        if self._cleanup_task:
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+        
+        # Close all connections
+        for conv_id in list(self._connections.keys()):
+            for user_id in list(self._connections[conv_id].keys()):
+                await self.leave_conversation(user_id, conv_id)
+    
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get current metrics"""
+        total_connections = sum(
+            len(connections) for connections in self._connections.values()
+        )
+        
+        connections_per_conv = {
+            conv_id: len(connections)
+            for conv_id, connections in self._connections.items()
+        }
+        
+        avg_queue_depth = (
+            sum(self._queue_sizes.values()) / len(self._queue_sizes)
+            if self._queue_sizes else 0
+        )
+        
+        return {
+            "active_connections": total_connections,
+            "active_conversations": len(self._connections),
+            "connections_per_conversation": connections_per_conv,
+            "messages_per_second": 0,  # TODO: Implement message rate tracking
+            "average_queue_depth": avg_queue_depth,
+            "max_queue_depth": max(self._queue_sizes.values()) if self._queue_sizes else 0
+        }
+    
+    async def broadcast_to_conversation(
+        self,
+        conversation_id: str,
+        message: Dict[str, Any]
+    ) -> None:
+        """
+        Broadcast message to all participants in a conversation.
+        Alias for broadcast_message for consistency with conversation manager.
+        
+        Args:
+            conversation_id: The conversation ID
+            message: The message to broadcast
+        """
+        await self.broadcast_message(conversation_id, message)
+
+
+async def authenticate_websocket(request: web.Request) -> Dict[str, Any]:
+    """
+    Authenticate WebSocket connection.
+    
+    Args:
+        request: The WebSocket upgrade request
+        
+    Returns:
+        User information dict
+        
+    Raises:
+        HTTPUnauthorized: If authentication fails
+    """
+    # Try to get token from header or query param
+    token = request.headers.get('Authorization')
+    if not token and 'token' in request.query:
+        token = f"Bearer {request.query['token']}"
+    
+    # For now, return a mock user for testing
+    # In production, this would validate the token and return user info
+    if token:
+        # Extract user ID from token (simplified for testing)
+        return {
+            "id": "user_123",
+            "name": "Test User"
+        }
+    
+    raise web.HTTPUnauthorized(text="Invalid authentication token")
+
+
+# Reconnection helpers for client-side logic
+def calculate_backoff(attempt: int) -> int:
+    """
+    Calculate exponential backoff delay.
+    
+    Args:
+        attempt: Current retry attempt (0-based)
+        
+    Returns:
+        Delay in seconds (max 30)
+    """
+    delay = min(2 ** attempt, 30)
+    return delay
+
+
+class ReconnectionState:
+    """Client-side reconnection state tracker"""
+    
+    def __init__(self, max_retries: int = 10):
+        self.max_retries = max_retries
+        self.attempt = 0
+        self.last_attempt_time = None
+    
+    def should_retry(self) -> bool:
+        """Check if should retry connection"""
+        return self.attempt < self.max_retries
+    
+    def record_failure(self) -> None:
+        """Record a connection failure"""
+        self.attempt += 1
+        self.last_attempt_time = datetime.utcnow()
+    
+    def get_backoff(self) -> int:
+        """Get current backoff delay"""
+        return calculate_backoff(self.attempt)
+    
+    def reset(self) -> None:
+        """Reset state on successful connection"""
+        self.attempt = 0
+        self.last_attempt_time = None

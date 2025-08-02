@@ -5,6 +5,7 @@ from .api import setup_api_routes
 from .health import setup_health_routes
 from .mcp import setup_mcp_routes
 from .conversation import setup_conversation_routes
+from .chat import setup_chat_routes
 
 
 def setup_routes(app):
@@ -14,6 +15,7 @@ def setup_routes(app):
     setup_health_routes(app)
     setup_mcp_routes(app)
     setup_conversation_routes(app)
+    setup_chat_routes(app)
     
     # TODO: Add these as we implement them
     # setup_oauth_routes(app)

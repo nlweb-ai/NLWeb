@@ -62,4 +62,16 @@ headers:
 # API Keys
 api_keys:
   google_maps: GOOGLE_MAPS_API_KEY  # Set via environment variable
+
+# Chat configuration
+chat:
+  storage:
+    backend: "memory"  # Start with memory for development
+  context:
+    human_messages: 5
+    nlweb_timeout: 20
+    ws_max_retries: 10
+  limits:
+    max_participants: 100
+    queue_size: 1000  # Messages per conversation
   

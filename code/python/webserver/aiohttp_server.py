@@ -124,6 +124,9 @@ class AioHTTPServer:
         timeout = aiohttp.ClientTimeout(total=30)
         app['client_session'] = aiohttp.ClientSession(timeout=timeout)
         
+        # Initialize chat system components
+        await self._initialize_chat_system(app)
+        
         logger.info(f"Server starting on {self.config['server']['host']}:{self.config['port']}")
         logger.info(f"Mode: {self.config['mode']}")
         logger.info(f"CORS enabled: {self.config['server']['enable_cors']}")
@@ -136,6 +139,79 @@ class AioHTTPServer:
     async def _on_shutdown(self, app: web.Application):
         """Graceful shutdown"""
         logger.info("Server shutting down gracefully...")
+        
+        # Shutdown chat system
+        if 'conversation_manager' in app:
+            await app['conversation_manager'].shutdown()
+    
+    async def _initialize_chat_system(self, app: web.Application):
+        """Initialize chat system components"""
+        try:
+            from chat.websocket import WebSocketManager
+            from chat.conversation import ConversationManager
+            from chat.storage import ChatStorageClient
+            
+            # Initialize WebSocket manager
+            app['websocket_manager'] = WebSocketManager(max_connections_per_participant=1)
+            
+            # Initialize conversation manager
+            chat_config = self.config.get('chat', {})
+            conv_manager_config = {
+                'single_mode_timeout': chat_config.get('single_mode_timeout', 100),
+                'multi_mode_timeout': chat_config.get('multi_mode_timeout', 2000),
+                'queue_size_limit': chat_config.get('queue_size_limit', 1000),
+                'max_participants': chat_config.get('max_participants', 100)
+            }
+            app['conversation_manager'] = ConversationManager(conv_manager_config)
+            
+            # Initialize storage client
+            storage_config = chat_config.get('storage', {})
+            storage_type = storage_config.get('type', 'memory')
+            storage_providers = {}
+            
+            if storage_type == 'memory':
+                from chat_storage_providers.memory_storage import MemoryStorageProvider
+                storage_providers['memory'] = MemoryStorageProvider()
+            
+            # Add more storage providers as needed
+            # elif storage_type == 'postgres':
+            #     from chat_storage_providers.postgres_storage import PostgresStorageProvider
+            #     storage_providers['postgres'] = PostgresStorageProvider(storage_config)
+            
+            storage_client_config = {
+                'default_provider': storage_type,
+                'cache_enabled': storage_config.get('cache_enabled', True),
+                'cache_ttl': storage_config.get('cache_ttl', 300),
+                'cache_max_size': storage_config.get('cache_max_size', 1000)
+            }
+            
+            app['chat_storage'] = ChatStorageClient(
+                providers=storage_providers,
+                config=storage_client_config
+            )
+            
+            # Store storage in conversation manager
+            app['conversation_manager'].storage = app['chat_storage']
+            
+            # Set up WebSocket broadcast callback
+            def broadcast_to_conversation(conversation_id: str, message: dict):
+                """Broadcast message to all participants in a conversation"""
+                ws_manager = app['websocket_manager']
+                asyncio.create_task(
+                    ws_manager.broadcast_to_conversation(conversation_id, message)
+                )
+            
+            app['conversation_manager'].broadcast_callback = broadcast_to_conversation
+            
+            # Get NLWeb handler if available
+            # This will be set up by the existing system
+            app['nlweb_handler'] = None  # Will be populated by existing init
+            
+            logger.info("Chat system initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize chat system: {e}", exc_info=True)
+            # Chat is optional, so we don't fail the server startup
     
     async def start(self):
         """Start the server"""

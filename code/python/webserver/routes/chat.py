@@ -1,0 +1,479 @@
+"""Chat API routes for multi-participant conversations"""
+
+from aiohttp import web
+import logging
+import json
+import uuid
+from datetime import datetime
+from typing import Dict, Any, List, Optional
+
+from chat.websocket import WebSocketManager, WebSocketConnection
+from chat.conversation import ConversationManager
+from chat.participants import HumanParticipant, NLWebParticipant, ParticipantConfig
+from chat.storage import ChatStorageClient
+from chat.schemas import (
+    ChatMessage,
+    Conversation,
+    ParticipantInfo,
+    ParticipantType,
+    MessageType,
+    QueueFullError
+)
+
+logger = logging.getLogger(__name__)
+
+
+def setup_chat_routes(app: web.Application):
+    """Setup chat API routes"""
+    # Conversation management
+    app.router.add_post('/chat/create', create_conversation_handler)
+    app.router.add_get('/chat/my-conversations', list_conversations_handler)
+    
+    # WebSocket endpoint
+    app.router.add_get('/chat/ws/{conv_id}', websocket_handler)
+    
+    # Health check
+    app.router.add_get('/health/chat', chat_health_handler)
+
+
+async def create_conversation_handler(request: web.Request) -> web.Response:
+    """
+    Create a new multi-participant conversation.
+    
+    POST /chat/create
+    {
+        "title": "Optional conversation title",
+        "participants": [
+            {"user_id": "alice_123", "name": "Alice"},
+            {"user_id": "bob_456", "name": "Bob"}
+        ],
+        "enable_ai": true  // Whether to add NLWeb participant
+    }
+    
+    Returns:
+        201: {
+            "conversation_id": "conv_uuid",
+            "created_at": "2024-01-15T10:30:00Z",
+            "participants": [...],
+            "websocket_url": "/chat/ws/conv_uuid"
+        }
+        400: Bad request (invalid participants)
+        401: Unauthorized
+        429: Too many conversations
+    """
+    try:
+        # Get authenticated user
+        user = request.get('user')
+        if not user or not user.get('authenticated'):
+            return web.json_response(
+                {'error': 'Authentication required'},
+                status=401
+            )
+        
+        # Parse request body
+        try:
+            data = await request.json()
+        except json.JSONDecodeError:
+            return web.json_response(
+                {'error': 'Invalid JSON in request body'},
+                status=400
+            )
+        
+        # Validate participants
+        participants = data.get('participants', [])
+        if not participants:
+            return web.json_response(
+                {'error': 'At least one participant is required'},
+                status=400
+            )
+        
+        # Ensure requesting user is included
+        requesting_user_id = user.get('id')
+        requesting_user_included = any(
+            p.get('user_id') == requesting_user_id for p in participants
+        )
+        
+        if not requesting_user_included:
+            # Add requesting user if not included
+            participants.append({
+                'user_id': requesting_user_id,
+                'name': user.get('name', 'User')
+            })
+        
+        # Validate participant count
+        if len(participants) > 10:  # Reasonable limit
+            return web.json_response(
+                {'error': 'Maximum 10 participants allowed'},
+                status=400
+            )
+        
+        # Create conversation
+        conversation_id = f"conv_{uuid.uuid4().hex[:12]}"
+        title = data.get('title', f"Chat with {len(participants)} participants")
+        
+        # Get managers from app
+        conv_manager: ConversationManager = request.app['conversation_manager']
+        storage_client: ChatStorageClient = request.app['chat_storage']
+        
+        # Create conversation in storage
+        conversation = Conversation(
+            conversation_id=conversation_id,
+            created_at=datetime.utcnow(),
+            active_participants=set(),
+            queue_size_limit=1000,
+            message_count=0
+        )
+        
+        # Add human participants
+        for p in participants:
+            participant_info = ParticipantInfo(
+                participant_id=p['user_id'],
+                name=p['name'],
+                participant_type=ParticipantType.HUMAN,
+                joined_at=datetime.utcnow()
+            )
+            conversation.add_participant(participant_info)
+            
+            # Create participant instance
+            human = HumanParticipant(
+                user_id=p['user_id'],
+                user_name=p['name']
+            )
+            conv_manager.add_participant(conversation_id, human)
+        
+        # Add AI participant if enabled
+        if data.get('enable_ai', True):
+            # Get NLWeb handler from app
+            nlweb_handler = request.app.get('nlweb_handler')
+            if nlweb_handler:
+                config = ParticipantConfig(
+                    timeout=20,
+                    human_messages_context=5,
+                    nlweb_messages_context=1
+                )
+                nlweb = NLWebParticipant(nlweb_handler, config)
+                conv_manager.add_participant(conversation_id, nlweb)
+                
+                # Add to conversation
+                ai_info = nlweb.get_participant_info()
+                conversation.add_participant(ai_info)
+        
+        # Store conversation
+        await storage_client.create_conversation(conversation)
+        
+        # Return response
+        return web.json_response({
+            'conversation_id': conversation_id,
+            'title': title,
+            'created_at': conversation.created_at.isoformat(),
+            'participants': [
+                {
+                    'id': p.participant_id,
+                    'name': p.name,
+                    'type': p.participant_type.value
+                }
+                for p in conversation.active_participants
+            ],
+            'websocket_url': f"/chat/ws/{conversation_id}"
+        }, status=201)
+        
+    except Exception as e:
+        logger.error(f"Error creating conversation: {e}", exc_info=True)
+        return web.json_response(
+            {'error': 'Internal server error'},
+            status=500
+        )
+
+
+async def list_conversations_handler(request: web.Request) -> web.Response:
+    """
+    List conversations for the authenticated user.
+    
+    GET /chat/my-conversations?limit=20&offset=0
+    
+    Returns:
+        200: {
+            "conversations": [
+                {
+                    "conversation_id": "conv_abc123",
+                    "title": "Team Discussion",
+                    "created_at": "2024-01-15T10:30:00Z",
+                    "last_message_at": "2024-01-15T11:45:00Z",
+                    "participant_count": 3,
+                    "unread_count": 5
+                }
+            ],
+            "total": 42,
+            "limit": 20,
+            "offset": 0
+        }
+        401: Unauthorized
+    """
+    try:
+        # Get authenticated user
+        user = request.get('user')
+        if not user or not user.get('authenticated'):
+            return web.json_response(
+                {'error': 'Authentication required'},
+                status=401
+            )
+        
+        # Get pagination parameters
+        limit = min(int(request.query.get('limit', '20')), 100)
+        offset = max(int(request.query.get('offset', '0')), 0)
+        
+        # Get storage client
+        storage_client: ChatStorageClient = request.app['chat_storage']
+        
+        # Get user's conversations
+        user_id = user.get('id')
+        conversations = await storage_client.get_user_conversations(
+            user_id=user_id,
+            limit=limit,
+            offset=offset
+        )
+        
+        # Format response
+        formatted_conversations = []
+        for conv in conversations:
+            formatted_conversations.append({
+                'conversation_id': conv.conversation_id,
+                'title': conv.metadata.get('title', 'Untitled Chat'),
+                'created_at': conv.created_at.isoformat(),
+                'last_message_at': conv.updated_at.isoformat() if conv.updated_at else None,
+                'participant_count': len(conv.active_participants),
+                'unread_count': 0  # TODO: Implement unread tracking
+            })
+        
+        return web.json_response({
+            'conversations': formatted_conversations,
+            'total': len(formatted_conversations),  # TODO: Get actual total from storage
+            'limit': limit,
+            'offset': offset
+        })
+        
+    except ValueError as e:
+        return web.json_response(
+            {'error': f'Invalid parameter: {str(e)}'},
+            status=400
+        )
+    except Exception as e:
+        logger.error(f"Error listing conversations: {e}", exc_info=True)
+        return web.json_response(
+            {'error': 'Internal server error'},
+            status=500
+        )
+
+
+async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
+    """
+    WebSocket endpoint for real-time chat.
+    
+    GET /chat/ws/{conv_id}
+    
+    Each human participant gets their own WebSocket connection.
+    Messages are routed to all participants in the conversation.
+    """
+    conversation_id = request.match_info['conv_id']
+    
+    # Get authenticated user
+    user = request.get('user')
+    if not user or not user.get('authenticated'):
+        return web.Response(text='Unauthorized', status=401)
+    
+    # Create WebSocket response
+    ws = web.WebSocketResponse(heartbeat=30)
+    await ws.prepare(request)
+    
+    # Get managers
+    ws_manager: WebSocketManager = request.app['websocket_manager']
+    conv_manager: ConversationManager = request.app['conversation_manager']
+    storage_client: ChatStorageClient = request.app['chat_storage']
+    
+    # Create connection
+    user_id = user.get('id')
+    connection = WebSocketConnection(
+        websocket=ws,
+        participant_id=user_id,
+        conversation_id=conversation_id
+    )
+    
+    try:
+        # Add connection to manager
+        await ws_manager.add_connection(conversation_id, connection)
+        
+        # Send connection confirmation
+        await ws.send_json({
+            'type': 'connected',
+            'conversation_id': conversation_id,
+            'participant_id': user_id,
+            'mode': conv_manager.get_conversation_mode(conversation_id).value,
+            'input_timeout': conv_manager.get_input_timeout(conversation_id)
+        })
+        
+        # Send recent message history
+        recent_messages = await storage_client.get_conversation_messages(
+            conversation_id=conversation_id,
+            limit=50
+        )
+        
+        for msg in reversed(recent_messages):  # Send in chronological order
+            await ws.send_json({
+                'type': 'message',
+                'message': msg.to_dict()
+            })
+        
+        # Handle incoming messages
+        async for msg in ws:
+            if msg.type == web.WSMsgType.TEXT:
+                try:
+                    data = json.loads(msg.data)
+                    
+                    if data.get('type') == 'message':
+                        # Create chat message
+                        message = ChatMessage(
+                            message_id=f"msg_{uuid.uuid4().hex[:12]}",
+                            conversation_id=conversation_id,
+                            sequence_id=0,  # Will be assigned
+                            sender_id=user_id,
+                            sender_name=user.get('name', 'User'),
+                            content=data.get('content', ''),
+                            message_type=MessageType.TEXT,
+                            timestamp=datetime.utcnow()
+                        )
+                        
+                        # Process through conversation manager
+                        try:
+                            processed_msg = await conv_manager.process_message(message)
+                            
+                            # Send acknowledgment
+                            await ws.send_json({
+                                'type': 'message_ack',
+                                'message_id': processed_msg.message_id,
+                                'sequence_id': processed_msg.sequence_id
+                            })
+                            
+                        except QueueFullError as e:
+                            await ws.send_json({
+                                'type': 'error',
+                                'error': 'queue_full',
+                                'message': 'Conversation queue is full. Please wait.',
+                                'code': 429
+                            })
+                    
+                    elif data.get('type') == 'ping':
+                        await ws.send_json({'type': 'pong'})
+                        
+                except json.JSONDecodeError:
+                    await ws.send_json({
+                        'type': 'error',
+                        'error': 'invalid_json',
+                        'message': 'Invalid JSON format'
+                    })
+                except Exception as e:
+                    logger.error(f"Error processing message: {e}")
+                    await ws.send_json({
+                        'type': 'error',
+                        'error': 'processing_error',
+                        'message': str(e)
+                    })
+                    
+            elif msg.type == web.WSMsgType.ERROR:
+                logger.error(f'WebSocket error: {ws.exception()}')
+                
+    except Exception as e:
+        logger.error(f"WebSocket handler error: {e}", exc_info=True)
+    finally:
+        # Remove connection
+        await ws_manager.remove_connection(conversation_id, user_id)
+        await ws.close()
+    
+    return ws
+
+
+async def chat_health_handler(request: web.Request) -> web.Response:
+    """
+    Health check for chat system.
+    
+    GET /health/chat
+    
+    Returns comprehensive health status of the chat system.
+    """
+    try:
+        # Get managers
+        ws_manager: WebSocketManager = request.app.get('websocket_manager')
+        conv_manager: ConversationManager = request.app.get('conversation_manager')
+        storage_client: ChatStorageClient = request.app.get('chat_storage')
+        
+        # Collect health data
+        health_data = {
+            'status': 'healthy',
+            'timestamp': datetime.utcnow().isoformat(),
+            'connections': 0,
+            'conversations': 0,
+            'participants_by_conversation': {},
+            'queue_depths': {},
+            'storage': 'disconnected'
+        }
+        
+        # Check WebSocket connections
+        if ws_manager:
+            total_connections = 0
+            for conv_id, connections in ws_manager._connections.items():
+                total_connections += len(connections)
+                health_data['participants_by_conversation'][conv_id] = {
+                    'humans': len(connections),
+                    'ai_agents': 0  # Will be updated from conv_manager
+                }
+            health_data['connections'] = total_connections
+        
+        # Check conversation manager
+        if conv_manager:
+            health_data['conversations'] = len(conv_manager._conversations)
+            
+            for conv_id, conv_state in conv_manager._conversations.items():
+                # Count participant types
+                human_count = 0
+                ai_count = 0
+                
+                for participant in conv_state.participants.values():
+                    info = participant.get_participant_info()
+                    if info.participant_type == ParticipantType.HUMAN:
+                        human_count += 1
+                    else:
+                        ai_count += 1
+                
+                # Update or create entry
+                if conv_id in health_data['participants_by_conversation']:
+                    health_data['participants_by_conversation'][conv_id]['ai_agents'] = ai_count
+                else:
+                    health_data['participants_by_conversation'][conv_id] = {
+                        'humans': human_count,
+                        'ai_agents': ai_count
+                    }
+                
+                # Queue depth
+                health_data['queue_depths'][conv_id] = conv_state.message_count
+        
+        # Check storage
+        if storage_client:
+            try:
+                # Simple connectivity check
+                await storage_client.get_conversation_messages('test_conv', limit=1)
+                health_data['storage'] = 'connected'
+            except Exception:
+                health_data['storage'] = 'error'
+        
+        # Determine overall health
+        if health_data['storage'] != 'connected':
+            health_data['status'] = 'degraded'
+        
+        return web.json_response(health_data)
+        
+    except Exception as e:
+        logger.error(f"Health check error: {e}", exc_info=True)
+        return web.json_response({
+            'status': 'error',
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }, status=500)
