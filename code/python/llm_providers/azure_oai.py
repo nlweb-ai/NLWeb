@@ -9,12 +9,12 @@ Code for calling Azure Open AI endpoints for LLM functionality.
 """
 
 import json
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AsyncAzureOpenAI
 from core.config import CONFIG
 import asyncio
 import threading
 from typing import Dict, Any, Optional
-
 from llm_providers.llm_provider import LLMProvider
 from misc.logger.logging_config_helper import get_configured_logger, LogLevel
 logger = get_configured_logger("azure_oai")
@@ -51,6 +51,15 @@ class AzureOpenAIProvider(LLMProvider):
         return None
 
     @classmethod
+    def get_auth_method(cls) -> str:
+        """Get the authentication method from configuration."""
+        provider_config = CONFIG.llm_endpoints.get("azure_openai")
+        if provider_config and provider_config.auth_method:
+            return provider_config.auth_method
+        # Default to api_key
+        return "api_key"
+
+    @classmethod
     def get_api_version(cls) -> str:
         """Get the Azure OpenAI API version from configuration."""
         provider_config = CONFIG.llm_endpoints.get("azure_openai")
@@ -79,25 +88,53 @@ class AzureOpenAIProvider(LLMProvider):
         with cls._client_lock:  # Thread-safe client initialization
             if cls._client is None:
                 endpoint = cls.get_azure_endpoint()
-                api_key = cls.get_api_key()
                 api_version = cls.get_api_version()
-                if not all([endpoint, api_key, api_version]):
-                    error_msg = "Missing required Azure OpenAI configuration"
+                auth_method = cls.get_auth_method()
+
+                if not endpoint or not api_version:
+                    error_msg = "Missing required Azure OpenAI configuration (endpoint or api_version)"
                     logger.error(error_msg)
                     raise ValueError(error_msg)
-                    
+
                 try:
-                    cls._client = AsyncAzureOpenAI(
-                        azure_endpoint=endpoint,
-                        api_key=api_key,
-                        api_version=api_version,
-                        timeout=30.0  # Set timeout explicitly
-                    )
-                    logger.debug("Azure OpenAI client initialized successfully")
+                    if auth_method == "azure_ad":
+                        logger.debug("Initializing Azure OpenAI client with Azure AD authentication")
+                        token_provider = get_bearer_token_provider(
+                            DefaultAzureCredential(),
+                            "https://cognitiveservices.azure.com/.default"
+                        )
+
+                        cls._client = AsyncAzureOpenAI(
+                            azure_endpoint=endpoint,
+                            azure_ad_token_provider=token_provider,
+                            api_version=api_version,
+                            timeout=30.0
+                        )
+                    elif auth_method == "api_key":
+                        logger.debug("Initializing Azure OpenAI client with API key authentication")
+                        api_key = cls.get_api_key()
+                        if not api_key:
+                            error_msg = "Missing required Azure OpenAI API key for api_key authentication"
+                            logger.error(error_msg)
+                            raise ValueError(error_msg)
+
+                        cls._client = AsyncAzureOpenAI(
+                            azure_endpoint=endpoint,
+                            api_key=api_key,
+                            api_version=api_version,
+                            timeout=30.0  # Set timeout explicitly
+                        )
+                    else:
+                        error_msg = f"Unsupported authentication method: {auth_method}"
+                        logger.error(error_msg)
+                        raise ValueError(error_msg)
+
                 except Exception as e:
-                    logger.error("Failed to initialize Azure OpenAI client")
+                    logger.error(f"Failed to initialize Azure OpenAI client: {e}")
                     return None
-               
+
+                logger.debug("Azure OpenAI client initialized successfully")
+
         return cls._client
 
     @classmethod
