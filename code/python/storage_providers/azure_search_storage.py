@@ -31,7 +31,7 @@ from azure.search.documents.indexes.models import (
 )
 from azure.search.documents.models import VectorizedQuery
 
-from core.storage import StorageProvider, ConversationEntry
+from core.conversation import StorageProvider, ConversationEvent
 from core.embedding import get_embedding
 from misc.logger.logging_config_helper import get_configured_logger
 
@@ -111,6 +111,7 @@ class AzureSearchStorageProvider(StorageProvider):
             SearchableField(name="response", type=SearchFieldDataType.String),
             SimpleField(name="time_of_creation", type=SearchFieldDataType.DateTimeOffset, 
                        filterable=True, sortable=True),
+            SimpleField(name="event_type", type=SearchFieldDataType.String, filterable=True),
             SearchField(
                 name="embedding",
                 type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
@@ -155,7 +156,7 @@ class AzureSearchStorageProvider(StorageProvider):
         logger.info(f"Created index '{self.index_name}'")
     
     async def add_conversation(self, user_id: str, site: str, thread_id: Optional[str], 
-                             user_prompt: str, response: str) -> ConversationEntry:
+                             user_prompt: str, response: str) -> ConversationEvent:
         """
         Add a conversation to storage.
         
@@ -177,7 +178,7 @@ class AzureSearchStorageProvider(StorageProvider):
             embedding = await get_embedding(conversation_text)
             
             # Create conversation entry
-            entry = ConversationEntry(
+            entry = ConversationEvent(
                 user_id=user_id,
                 site=site,
                 thread_id=thread_id,
@@ -185,6 +186,7 @@ class AzureSearchStorageProvider(StorageProvider):
                 response=response,
                 time_of_creation=datetime.utcnow(),
                 conversation_id=conversation_id,
+                event_type="message",
                 embedding=embedding
             )
             
@@ -198,6 +200,7 @@ class AzureSearchStorageProvider(StorageProvider):
                 "user_prompt": entry.user_prompt,
                 "response": entry.response,
                 "time_of_creation": entry.time_of_creation,
+                "event_type": entry.event_type,
                 "embedding": entry.embedding
             }
             
@@ -309,8 +312,80 @@ class AzureSearchStorageProvider(StorageProvider):
             logger.error(f"Failed to delete conversation: {e}")
             return False
     
+    async def get_conversation_by_id(self, conversation_id: str) -> Dict[str, Any]:
+        """
+        Retrieve all events and participants for a specific conversation.
+        
+        Args:
+            conversation_id: The conversation ID to retrieve
+            
+        Returns:
+            Dictionary containing conversation events and participants
+        """
+        try:
+            # Search for all events with this conversation_id
+            filter_str = f"conversation_id eq '{conversation_id}'"
+            
+            def search_sync():
+                return list(self.search_client.search(
+                    search_text="*",
+                    filter=filter_str,
+                    select=["conversation_id", "user_id", "site", "thread_id", 
+                           "user_prompt", "response", "time_of_creation", "event_type"],
+                    order_by=["time_of_creation asc"]
+                ))
+            
+            results = await asyncio.get_event_loop().run_in_executor(None, search_sync)
+            
+            if not results:
+                return {
+                    "conversation_id": conversation_id,
+                    "participants": [],
+                    "events": []
+                }
+            
+            # Extract unique participants from the events
+            participants_dict = {}
+            events = []
+            
+            for result in results:
+                # Add event to list
+                events.append({
+                    "id": result.get("conversation_id"),
+                    "user_prompt": result.get("user_prompt"),
+                    "response": result.get("response"),
+                    "time": result.get("time_of_creation").isoformat() if result.get("time_of_creation") else None,
+                    "event_type": result.get("event_type", "message")
+                })
+                
+                # Extract user participant
+                user_id = result.get("user_id")
+                if user_id and user_id not in participants_dict:
+                    participants_dict[user_id] = {
+                        "participant_type": "USER",
+                        "id": user_id,
+                        "name": user_id  # In a real implementation, might lookup actual name
+                    }
+            
+            # Add assistant participant (always present)
+            participants_dict["assistant"] = {
+                "participant_type": "AGENT",
+                "id": "assistant",
+                "name": "Assistant"
+            }
+            
+            return {
+                "conversation_id": conversation_id,
+                "participants": list(participants_dict.values()),
+                "events": events
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get conversation by ID: {e}")
+            raise
+    
     async def search_conversations(self, query: str, user_id: Optional[str] = None, 
-                                 site: Optional[str] = None, limit: int = 10) -> List[ConversationEntry]:
+                                 site: Optional[str] = None, limit: int = 10) -> List[ConversationEvent]:
         """Search conversations using vector similarity and/or text search."""
         try:
             # Get embedding for the query
@@ -347,7 +422,7 @@ class AzureSearchStorageProvider(StorageProvider):
             # Convert to ConversationEntry objects
             conversations = []
             for result in results:
-                conversations.append(ConversationEntry(
+                conversations.append(ConversationEvent(
                     conversation_id=result["conversation_id"],
                     user_id=result["user_id"],
                     site=result["site"],
@@ -357,6 +432,7 @@ class AzureSearchStorageProvider(StorageProvider):
                     time_of_creation=datetime.fromisoformat(result["time_of_creation"]) 
                         if isinstance(result["time_of_creation"], str) 
                         else result["time_of_creation"],
+                    event_type=result.get("event_type", "message"),
                     embedding=None  # We don't return embeddings in search results
                 ))
             

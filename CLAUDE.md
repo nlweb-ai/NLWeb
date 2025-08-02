@@ -10,7 +10,7 @@ NLWeb is a natural language search system that provides intelligent query proces
 
 ## Quick Start
 
-**Backend**: Python-based server in `code/python/` with main entry at `webserver/WebServer.py`
+**Backend**: Python-based aiohttp server in `code/python/` with main entry at `webserver/aiohttp_server.py`
 **Frontend**: Modern JavaScript UI in `static/` with main interface at `fp-chat-interface.js`
 
 ## Core Features
