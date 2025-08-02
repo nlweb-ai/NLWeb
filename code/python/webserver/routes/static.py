@@ -37,7 +37,7 @@ def setup_static_routes(app: web.Application):
         path=static_path,
         name='static',
         show_index=False,
-        follow_symlinks=True
+        follow_symlinks=False
     )
     
     # Serve HTML files
@@ -48,7 +48,7 @@ def setup_static_routes(app: web.Application):
             path=html_path,
             name='html',
             show_index=False,
-            follow_symlinks=True
+            follow_symlinks=False
         )
     
     # Store static path in app for use in handlers

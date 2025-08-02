@@ -659,46 +659,19 @@ class ModernChatInterface {
           console.log('Received chart data:', data);
           
           if (data.html) {
-            // Create container for the chart
-            const chartContainer = document.createElement('div');
-            chartContainer.className = 'chart-result-container';
-            chartContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px; min-height: 400px;';
-            
-            // Parse the HTML to extract just the web component (remove script tags)
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(data.html, 'text/html');
-            
-            // Find all datacommons elements
-            const datacommonsElements = doc.querySelectorAll('[datacommons-scatter], [datacommons-bar], [datacommons-line], [datacommons-pie], [datacommons-map], datacommons-scatter, datacommons-bar, datacommons-line, datacommons-pie, datacommons-map');
-            
-            // Append each web component directly
-            datacommonsElements.forEach(element => {
-              // Clone the element to ensure we get all attributes
-              const clonedElement = element.cloneNode(true);
-              chartContainer.appendChild(clonedElement);
-              console.log('Added web component:', clonedElement.tagName, clonedElement.outerHTML);
-            });
-            
-            // If no datacommons elements found, try to add the raw HTML (excluding scripts)
-            if (datacommonsElements.length === 0) {
-              const allElements = doc.body.querySelectorAll('*:not(script)');
-              allElements.forEach(element => {
-                chartContainer.appendChild(element.cloneNode(true));
-              });
-            }
-            
-            // Append the chart to the message content
-            textDiv.innerHTML = messageContent + this.renderItems(allResults);
-            textDiv.appendChild(chartContainer);
-            
-            console.log('Chart container appended to message with', datacommonsElements.length, 'web components');
-            
-            // Force re-initialization of Data Commons components if available
-            if (window.datacommons && window.datacommons.init) {
-              setTimeout(() => {
-                window.datacommons.init();
-                console.log('Data Commons re-initialized');
-              }, 100);
+            // Load Data Commons script if not already loaded
+            if (!window.datacommons && !document.querySelector('script[src*="datacommons.org/datacommons.js"]')) {
+              const script = document.createElement('script');
+              script.src = 'https://datacommons.org/datacommons.js';
+              script.onload = () => {
+                console.log('Data Commons script loaded');
+                // Process the chart after script loads
+                this.processChartResult(data, textDiv, messageContent, allResults);
+              };
+              document.head.appendChild(script);
+            } else {
+              // Script already loaded, process immediately
+              this.processChartResult(data, textDiv, messageContent, allResults);
             }
           }
 
@@ -820,6 +793,53 @@ class ModernChatInterface {
     
     // Return the outer HTML of the container
     return resultsContainer.outerHTML;
+  }
+
+  processChartResult(data, textDiv, messageContent, allResults) {
+    // Create container for the chart
+    const chartContainer = document.createElement('div');
+    chartContainer.className = 'chart-result-container';
+    chartContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px; min-height: 400px;';
+    
+    // Parse the HTML to extract just the web component (remove script tags)
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(data.html, 'text/html');
+    
+    // Find all datacommons elements - also check for datacommons-highlight and datacommons-ranking
+    const datacommonsElements = doc.querySelectorAll('datacommons-scatter, datacommons-bar, datacommons-line, datacommons-pie, datacommons-map, datacommons-highlight, datacommons-ranking');
+    
+    console.log('Found', datacommonsElements.length, 'Data Commons elements');
+    
+    // Append each web component directly
+    datacommonsElements.forEach(element => {
+      // Clone the element to ensure we get all attributes
+      const clonedElement = element.cloneNode(true);
+      chartContainer.appendChild(clonedElement);
+      console.log('Added web component:', clonedElement.tagName, clonedElement.outerHTML);
+    });
+    
+    // If no datacommons elements found, try to add the raw HTML (excluding scripts)
+    if (datacommonsElements.length === 0) {
+      console.log('No Data Commons elements found, adding all non-script elements');
+      const allElements = doc.body.querySelectorAll('*:not(script)');
+      allElements.forEach(element => {
+        chartContainer.appendChild(element.cloneNode(true));
+      });
+    }
+    
+    // Append the chart to the message content
+    textDiv.innerHTML = messageContent + this.renderItems(allResults);
+    textDiv.appendChild(chartContainer);
+    
+    console.log('Chart container appended to message with', datacommonsElements.length, 'web components');
+    
+    // Force re-initialization of Data Commons components if available
+    if (window.datacommons && window.datacommons.init) {
+      setTimeout(() => {
+        window.datacommons.init();
+        console.log('Data Commons re-initialized');
+      }, 100);
+    }
   }
   
   renderEnsembleResult(result) {
