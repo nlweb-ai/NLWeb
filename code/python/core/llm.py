@@ -48,6 +48,7 @@ _llm_type_packages = {
     "snowflake": ["httpx>=0.28.1"],
     "huggingface": ["huggingface_hub>=0.31.0"],
     "ollama": ["ollama>=0.5.1"],
+    "aws_bedrock": ["boto3>=1.38.15"],
 }
 
 # Cache for installed packages
@@ -146,6 +147,9 @@ def _get_provider(llm_type: str):
         elif llm_type == "ollama":
             from llm_providers.ollama import provider as ollama_provider
             _loaded_providers[llm_type] = ollama_provider
+        elif llm_type == "aws_bedrock":
+            from llm_providers.aws_bedrock import provider as aws_bedrock_provider
+            _loaded_providers[llm_type] = aws_bedrock_provider
         else:
             raise ValueError(f"Unknown LLM type: {llm_type}")
             

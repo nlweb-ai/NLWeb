@@ -80,3 +80,11 @@ endpoints:
     models:
       high: qwen3:0.6b
       low: qwen3:0.6b
+
+  aws_bedrock:
+    api_key_env: AWS_BEDROCK_API_KEY
+    api_version_env: AWS_BEDROCK_REGION
+    llm_type: aws_bedrock
+    models:
+      high: amazon.nova-pro-v1:0
+      low: amazon.nova-micro-v1:0
