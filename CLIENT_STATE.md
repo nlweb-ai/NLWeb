@@ -70,6 +70,9 @@ All frontend components complete and integrated. Main app fully wired with State
 - Fully integrated State Manager and API Service into main app
 - Wired up all state manager events to UI components
 - Connected API service for conversations, messages, and sites
+- Created ParticipantTracker utility class (Command 5a)
+- Integrated ParticipantTracker into StateManager for typing states
+- Updated API Service to exact Command 5b specifications
 
 ## Notes:
 - Need to download DOMPurify before testing
