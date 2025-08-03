@@ -194,37 +194,7 @@ Export as singleton
 
 ---
 
-## Phase 3: State Management
 
-### Command 5: State Manager
-
-```
-Create /static/chat/state-manager.js:
-
-Core responsibilities:
-- Store conversations Map (id -> conversation object)
-- Store current conversation ID
-- Store site metadata Map (site -> {lastUsed, conversationCount})
-- User preferences (sidebarSortMode, defaultMode, defaultSite)
-
-Key methods:
-- Conversation CRUD operations
-- addMessage() with sequence ID ordering
-- updateParticipants() for multi-participant support
-- getSitesSorted() returns sites by recency or alphabetical
-- getConversationsForSite() filtered and sorted
-- saveToStorage() and loadFromStorage() for persistence
-
-Events to emit:
-- conversation:changed
-- message:added
-- participants:updated
-
-Only persist last 50 messages per conversation to localStorage.
-Export as singleton.
-```
-
----
 
 ## Phase 4: WebSocket Communication
 
@@ -349,6 +319,8 @@ Show success feedback after copy.
 ```
 
 ---
+
+NEXT
 
 ## Phase 6: Site Management
 

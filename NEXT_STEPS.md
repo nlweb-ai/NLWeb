@@ -1,9 +1,9 @@
 # Next Steps for Frontend Chat Client Implementation
 
 ## Current Status
-Phase 2 (Core Services) in progress. Event Bus, Config Service, and Identity Service complete.
+Implemented WebSocket Service (Phase 4) and all UI Components (Phase 5). Need to complete remaining Phase 2 services.
 
-## Immediate Next Task: API Service
+## Immediate Next Tasks (In Order):
 
 ### Create `/static/chat/api-service.js`
 
@@ -21,10 +21,21 @@ API endpoints to support:
 - `POST /chat/{conv_id}/messages` - Send message to conversation
 - `GET /health/chat` - Health check
 
-### After API Service, continue with:
-1. State Manager (state-manager.js) - Central state management
-2. WebSocket Service (websocket-service.js) - Real-time communication
-3. UI Components (sidebar-ui.js, chat-ui.js, share-ui.js)
+### 2. Create `/static/chat/state-manager.js` (Phase 2)
+- Central state management for conversations and messages
+- Track current conversation, all conversations, sites
+- Handle message ordering and deduplication
+- Emit state change events via EventBus
+
+### 3. Complete Main App Integration (Phase 3)
+- Wire up all components in multi-chat-app.js
+- Initialize services in correct order
+- Connect UI components to state manager
+- Set up event flow between components
+
+### 4. Download Dependencies
+- Download DOMPurify.js to /static/
+- Copy existing renderer files from current chat implementation
 
 ## Backend Tasks (Separate)
 - [ ] Complete reliability tests
