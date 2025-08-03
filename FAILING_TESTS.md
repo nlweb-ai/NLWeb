@@ -40,6 +40,25 @@ Test framework initialized. Schema unit tests created but not yet executed.
 |------------|-----------|------------------|---------|----------|
 | test_multi_participant.py | All E2E tests | Not executed yet - awaiting test run | High | - |
 
+## Missing API Endpoints (Critical)
+
+### Required for Multi-Participant Support
+| Endpoint | Purpose | Status | Priority |
+|----------|---------|--------|----------|
+| POST /chat/{id}/join | Join existing conversation | **IMPLEMENTED** | Critical |
+| DELETE /chat/{id}/leave | Leave conversation | **MISSING** | Critical |
+| GET /chat/conversations/{id} | Get specific conversation | **MISSING** | Critical |
+
+### Implementation Progress
+- ✅ `/chat/{id}/join` - Implemented with full functionality including:
+  - Duplicate participant checking (409 response)
+  - Capacity limit enforcement (429 response)
+  - WebSocket broadcast of join events
+  - Full conversation object in response
+  
+- ❌ `/chat/{id}/leave` - Still needs implementation
+- ❌ `/chat/conversations/{id}` - Still needs implementation
+
 ## Known Issues to Address
 
 ### High Priority

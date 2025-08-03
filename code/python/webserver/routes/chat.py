@@ -28,6 +28,7 @@ def setup_chat_routes(app: web.Application):
     # Conversation management
     app.router.add_post('/chat/create', create_conversation_handler)
     app.router.add_get('/chat/my-conversations', list_conversations_handler)
+    app.router.add_post('/chat/{id}/join', join_conversation_handler)
     
     # WebSocket endpoint
     app.router.add_get('/chat/ws/{conv_id}', websocket_handler)
@@ -259,6 +260,192 @@ async def list_conversations_handler(request: web.Request) -> web.Response:
         )
     except Exception as e:
         logger.error(f"Error listing conversations: {e}", exc_info=True)
+        return web.json_response(
+            {'error': 'Internal server error'},
+            status=500
+        )
+
+
+async def join_conversation_handler(request: web.Request) -> web.Response:
+    """
+    Join an existing conversation.
+    
+    POST /chat/{id}/join
+    {
+        "participant": {
+            "participantId": "user456",
+            "displayName": "New User",
+            "email": "user@example.com"
+        }
+    }
+    
+    Returns:
+        200: {
+            "success": true,
+            "conversation": { /* full conversation object */ }
+        }
+        401: Unauthorized
+        404: Conversation not found
+        409: Already a participant
+        429: Participant limit reached
+    """
+    try:
+        # Extract conversation_id from URL path
+        conversation_id = request.match_info['id']
+        
+        # Get authenticated user
+        user = request.get('user')
+        if not user or not user.get('authenticated'):
+            return web.json_response(
+                {'error': 'Authentication required'},
+                status=401
+            )
+        
+        # Parse request body
+        try:
+            data = await request.json()
+        except json.JSONDecodeError:
+            return web.json_response(
+                {'error': 'Invalid JSON in request body'},
+                status=400
+            )
+        
+        # Get participant info from request
+        participant_data = data.get('participant', {})
+        if not participant_data:
+            return web.json_response(
+                {'error': 'Participant information required'},
+                status=400
+            )
+        
+        # Get managers from app
+        conv_manager: ConversationManager = request.app['conversation_manager']
+        storage_client: ChatStorageClient = request.app['chat_storage']
+        ws_manager: WebSocketManager = request.app['websocket_manager']
+        
+        # Verify conversation exists
+        conversation = await storage_client.get_conversation(conversation_id)
+        if not conversation:
+            return web.json_response(
+                {'error': 'Conversation not found'},
+                status=404
+            )
+        
+        # Check if user is already a participant
+        participant_id = participant_data.get('participantId', user.get('id'))
+        existing_participant_ids = {p.participant_id for p in conversation.active_participants}
+        
+        if participant_id in existing_participant_ids:
+            return web.json_response(
+                {
+                    'error': 'Already a participant in this conversation',
+                    'code': 'ALREADY_MEMBER'
+                },
+                status=409
+            )
+        
+        # Check participant limit
+        if len(conversation.active_participants) >= conv_manager.max_participants:
+            return web.json_response(
+                {
+                    'error': f'Conversation is at maximum capacity ({conv_manager.max_participants} participants)',
+                    'code': 'CAPACITY_REACHED'
+                },
+                status=429
+            )
+        
+        # Create participant info
+        participant_info = ParticipantInfo(
+            participant_id=participant_id,
+            name=participant_data.get('displayName', user.get('name', 'User')),
+            participant_type=ParticipantType.HUMAN,
+            joined_at=datetime.utcnow()
+        )
+        
+        # Add to conversation object
+        conversation.add_participant(participant_info)
+        
+        # Create HumanParticipant instance
+        human = HumanParticipant(
+            user_id=participant_id,
+            user_name=participant_info.name
+        )
+        
+        # Add participant through conversation manager
+        conv_manager.add_participant(conversation_id, human)
+        
+        # Update conversation in storage
+        await storage_client.update_conversation(conversation)
+        
+        # Broadcast participant update to all WebSocket connections
+        participant_update = {
+            'type': 'participant_joined',
+            'conversation_id': conversation_id,
+            'participant': {
+                'id': participant_info.participant_id,
+                'name': participant_info.name,
+                'type': participant_info.participant_type.value,
+                'joined_at': participant_info.joined_at.isoformat()
+            },
+            'participant_count': len(conversation.active_participants),
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        
+        # Broadcast to all connections in the conversation
+        await ws_manager.broadcast_to_conversation(conversation_id, participant_update)
+        
+        # Get updated conversation with messages for response
+        messages = await storage_client.get_conversation_messages(
+            conversation_id=conversation_id,
+            limit=50
+        )
+        
+        # Return success with full conversation object
+        return web.json_response({
+            'success': True,
+            'conversation': {
+                'id': conversation.conversation_id,
+                'title': conversation.metadata.get('title', 'Untitled Chat'),
+                'sites': conversation.metadata.get('sites', []),
+                'mode': conversation.metadata.get('mode', 'list'),
+                'participants': [
+                    {
+                        'participantId': p.participant_id,
+                        'displayName': p.name,
+                        'type': p.participant_type.value,
+                        'joinedAt': p.joined_at.isoformat(),
+                        'isOnline': p.participant_id in [c.participant_id 
+                                                        for c in ws_manager._connections.get(conversation_id, [])]
+                    }
+                    for p in conversation.active_participants
+                ],
+                'messages': [
+                    {
+                        'id': msg.message_id,
+                        'sequence_id': msg.sequence_id,
+                        'sender_id': msg.sender_id,
+                        'content': msg.content,
+                        'timestamp': msg.timestamp.isoformat(),
+                        'type': msg.message_type.value,
+                        'status': msg.status.value
+                    }
+                    for msg in messages
+                ],
+                'created_at': conversation.created_at.isoformat(),
+                'updated_at': conversation.updated_at.isoformat() if hasattr(conversation, 'updated_at') else None,
+                'participant_count': len(conversation.active_participants),
+                'message_count': conversation.message_count
+            }
+        })
+        
+    except ValueError as e:
+        logger.error(f"Participant limit error: {e}")
+        return web.json_response(
+            {'error': str(e)},
+            status=429
+        )
+    except Exception as e:
+        logger.error(f"Error joining conversation: {e}", exc_info=True)
         return web.json_response(
             {'error': 'Internal server error'},
             status=500
