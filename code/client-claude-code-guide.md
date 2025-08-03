@@ -234,7 +234,7 @@ Export as singleton.
 ```
 
 ### Command 5a: Participant Tracker
-NEXT
+
 ```
 Create /static/chat/participant-tracker.js:
 
@@ -260,7 +260,7 @@ This is instantiated per conversation, not a singleton.
 ```
 
 ### Command 5b: API Service
-
+NEXT
 ```
 Create /static/chat/api-service.js:
 

@@ -156,6 +156,11 @@ class MultiChatApp {
             }
         });
         
+        this.eventBus.on('typing:updated', ({ conversationId, participantId, isTyping, typingParticipants }) => {
+            // Typing state is already updated in state manager, UI will reflect changes
+            // This event is for any additional handling needed
+        });
+        
         // WebSocket events → State Manager → UI updates
         this.eventBus.on('websocket:connected', () => {
             console.log('WebSocket connected');
@@ -197,6 +202,16 @@ class MultiChatApp {
         });
         
         this.eventBus.on('websocket:typing', (data) => {
+            // Update state manager with typing state
+            if (data.conversationId || this.currentConversationId) {
+                const conversationId = data.conversationId || this.currentConversationId;
+                this.stateManager.updateTypingState(
+                    conversationId,
+                    data.participant.participantId,
+                    data.isTyping
+                );
+            }
+            
             // Pass through to UI without storing
             if (data.participant.participantId !== this.currentIdentity?.participantId) {
                 this.chatUI?.updateTypingIndicator(data);

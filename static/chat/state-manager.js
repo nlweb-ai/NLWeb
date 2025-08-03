@@ -1,4 +1,5 @@
 import eventBus from './event-bus.js';
+import ParticipantTracker from './participant-tracker.js';
 
 class StateManager {
     constructor() {
@@ -6,6 +7,7 @@ class StateManager {
         this.conversations = new Map(); // id -> conversation object
         this.currentConversationId = null;
         this.siteMetadata = new Map(); // site -> {lastUsed, conversationCount}
+        this.participantTrackers = new Map(); // conversationId -> ParticipantTracker
         
         // User preferences
         this.preferences = {
@@ -62,6 +64,10 @@ class StateManager {
         
         this.conversations.set(conversation.id, conversationData);
         
+        // Create participant tracker for this conversation
+        const tracker = new ParticipantTracker(conversationData);
+        this.participantTrackers.set(conversation.id, tracker);
+        
         // Update site metadata
         if (conversation.sites && conversation.sites.length > 0) {
             conversation.sites.forEach(site => {
@@ -105,6 +111,12 @@ class StateManager {
         // Initialize messages array if needed
         if (!conversation.messages) {
             conversation.messages = [];
+        }
+        
+        // Clear typing state for the message sender
+        const tracker = this.participantTrackers.get(conversationId);
+        if (tracker && message.participant && message.participant.participantId) {
+            tracker.handleMessageSent(message.participant.participantId);
         }
         
         // Add sequence_id if not present
@@ -177,7 +189,17 @@ class StateManager {
             return;
         }
         
-        conversation.participants = participants;
+        // Update via participant tracker
+        const tracker = this.participantTrackers.get(conversationId);
+        if (tracker) {
+            tracker.updateParticipants(participants);
+        } else {
+            // Create tracker if it doesn't exist
+            const newTracker = new ParticipantTracker(conversation);
+            newTracker.updateParticipants(participants);
+            this.participantTrackers.set(conversationId, newTracker);
+        }
+        
         conversation.updated_at = new Date().toISOString();
         
         eventBus.emit('participants:updated', {
@@ -187,6 +209,37 @@ class StateManager {
         });
         
         this.saveToStorage();
+    }
+    
+    // Typing state management
+    updateTypingState(conversationId, participantId, isTyping) {
+        const tracker = this.participantTrackers.get(conversationId);
+        if (tracker) {
+            tracker.setTyping(participantId, isTyping);
+            
+            // Emit typing update event
+            eventBus.emit('typing:updated', {
+                conversationId,
+                participantId,
+                isTyping,
+                typingParticipants: tracker.getTypingParticipants()
+            });
+        }
+    }
+    
+    getTypingParticipants(conversationId) {
+        const tracker = this.participantTrackers.get(conversationId);
+        return tracker ? tracker.getTypingParticipants() : [];
+    }
+    
+    getActiveParticipants(conversationId) {
+        const tracker = this.participantTrackers.get(conversationId);
+        return tracker ? tracker.getActiveParticipants() : [];
+    }
+    
+    isMultiParticipantConversation(conversationId) {
+        const tracker = this.participantTrackers.get(conversationId);
+        return tracker ? tracker.isMultiParticipant() : false;
     }
     
     // Site management
@@ -295,6 +348,12 @@ class StateManager {
             if (state.conversations) {
                 this.conversations = new Map(state.conversations);
                 
+                // Recreate participant trackers for each conversation
+                for (const [conversationId, conversation] of this.conversations.entries()) {
+                    const tracker = new ParticipantTracker(conversation);
+                    this.participantTrackers.set(conversationId, tracker);
+                }
+                
                 // Clean up old conversations
                 this.cleanupOldConversations();
             }
@@ -332,6 +391,13 @@ class StateManager {
             const lastUpdate = new Date(conversation.updated_at || conversation.created_at || 0);
             
             if (lastUpdate < cutoffDate) {
+                // Clean up tracker
+                const tracker = this.participantTrackers.get(id);
+                if (tracker) {
+                    tracker.destroy();
+                    this.participantTrackers.delete(id);
+                }
+                
                 this.conversations.delete(id);
                 removedCount++;
             }
@@ -361,6 +427,12 @@ class StateManager {
     
     // Clear all data
     clearAll() {
+        // Clean up all participant trackers
+        for (const [id, tracker] of this.participantTrackers.entries()) {
+            tracker.destroy();
+        }
+        this.participantTrackers.clear();
+        
         this.conversations.clear();
         this.siteMetadata.clear();
         this.currentConversationId = null;
