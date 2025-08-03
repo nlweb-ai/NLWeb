@@ -169,7 +169,7 @@ Create helper fixtures:
 - create_test_messages(count, participants)
 - simulate_concurrent_writes()
 ```
-NEXT
+
 ### Command 4: Participant and NLWeb Integration Tests
 
 ```
@@ -210,7 +210,7 @@ Multi-participant scenarios:
 ```
 
 ---
-
+NEXT
 ## Phase 2: Integration Tests - API and WebSocket
 
 ### Command 5: REST API Integration Tests

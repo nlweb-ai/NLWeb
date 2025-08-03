@@ -10,6 +10,7 @@ Test framework initialized. Schema unit tests created but not yet executed.
 |------------|-----------|----------------|----------|----------|
 | test_schemas.py | All tests | Not executed yet - awaiting user confirmation | High | - |
 | test_storage.py | All tests | Not executed yet - includes concurrent access tests | High | - |
+| test_participants.py | All tests | Not executed yet - includes NLWeb integration mocks | High | - |
 
 ### Integration Test Failures  
 | Test Suite | Test Name | Failure Reason | Priority | Issue # |
