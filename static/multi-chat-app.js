@@ -3,63 +3,78 @@
  * Main entry point and orchestrator
  */
 
-// Import all modules (will be created in subsequent phases)
-import { EventBus } from './chat/event-bus.js';
-import { ApiService } from './chat/api-service.js';
-import { IdentityService } from './chat/identity-service.js';
-import { StateManager } from './chat/state-manager.js';
-import { WebSocketService } from './chat/websocket-service.js';
+// Import all services and UI components
+import eventBus from './chat/event-bus.js';
+import configService from './chat/config-service.js';
+import identityService from './chat/identity-service.js';
+// import apiService from './chat/api-service.js'; // TODO: Create this
+// import stateManager from './chat/state-manager.js'; // TODO: Create this
+import webSocketService from './chat/websocket-service.js';
 import { SidebarUI } from './chat/sidebar-ui.js';
 import { ChatUI } from './chat/chat-ui.js';
 import { ShareUI } from './chat/share-ui.js';
+import { SiteSelectorUI } from './chat/site-selector-ui.js';
 
 class MultiChatApp {
     constructor() {
-        this.eventBus = EventBus;
-        this.apiService = ApiService;
-        this.identityService = IdentityService;
-        this.stateManager = StateManager;
-        this.wsService = WebSocketService;
+        // Services (singletons)
+        this.eventBus = eventBus;
+        this.configService = configService;
+        this.identityService = identityService;
+        // this.apiService = apiService; // TODO
+        // this.stateManager = stateManager; // TODO
+        this.webSocketService = webSocketService;
         
-        // UI Components
+        // UI Components (instances)
         this.sidebarUI = null;
         this.chatUI = null;
         this.shareUI = null;
+        this.siteSelectorUI = null;
         
         // Current state
         this.currentConversationId = null;
+        this.currentIdentity = null;
         this.isInitialized = false;
+        
+        // Message tracking
+        this.pendingMessages = new Map(); // Track optimistic messages
+        this.lastSequenceId = 0;
+        
+        // Typing indicator state
+        this.lastTypingTime = 0;
+        this.typingThrottle = 3000; // 3 seconds
     }
     
     async initialize() {
         try {
             console.log('Initializing Multi-Chat Application...');
             
-            // Initialize UI components
-            this.sidebarUI = new SidebarUI();
-            this.chatUI = new ChatUI();
-            this.shareUI = new ShareUI();
+            // 1. Load configuration
+            await this.configService.initialize();
             
-            // Set up event listeners
-            this.setupEventListeners();
-            
-            // Check for conversation ID in URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const conversationId = urlParams.get('conversation');
-            
-            // Initialize identity (will prompt if needed)
-            const identity = await this.identityService.ensureIdentity();
-            if (!identity) {
+            // 2. Initialize identity (will prompt if needed)
+            this.currentIdentity = await this.identityService.ensureIdentity();
+            if (!this.currentIdentity) {
                 console.error('Failed to establish identity');
+                this.showError('Please provide an identity to use the chat');
                 return;
             }
             
-            // Load initial data
-            await this.loadInitialData();
+            // 3. Initialize state manager (TODO)
+            // await this.stateManager.initialize();
             
-            // If conversation ID in URL, join it
-            if (conversationId) {
-                await this.joinConversation(conversationId);
+            // 4. Create UI components
+            this.initializeUI();
+            
+            // 5. Check for shared conversation link
+            const shareHandled = await this.checkForSharedLink();
+            
+            // 6. Set up event wiring
+            this.wireUpEvents();
+            
+            // 7. Handle initial conversation
+            if (!shareHandled) {
+                await this.handleInitialConversation();
             }
             
             this.isInitialized = true;
@@ -71,74 +86,199 @@ class MultiChatApp {
         }
     }
     
-    setupEventListeners() {
-        // Navigation events
-        this.eventBus.on('navigate:conversation', ({ conversationId }) => {
-            this.loadConversation(conversationId);
+    initializeUI() {
+        // Get DOM containers
+        const sidebarContainer = document.querySelector('.sidebar');
+        const chatContainer = document.querySelector('.chat-container');
+        
+        // Initialize UI components
+        this.sidebarUI = new SidebarUI();
+        this.chatUI = new ChatUI();
+        this.shareUI = new ShareUI();
+        this.siteSelectorUI = new SiteSelectorUI();
+        
+        // Initialize with containers where needed
+        if (sidebarContainer) {
+            this.sidebarUI.initialize(sidebarContainer);
+        }
+        if (chatContainer) {
+            this.chatUI.initialize(chatContainer);
+        }
+        
+        this.shareUI.initialize();
+        this.siteSelectorUI.initialize();
+    }
+    
+    wireUpEvents() {
+        // WebSocket events → State Manager → UI updates
+        this.eventBus.on('websocket:connected', () => {
+            console.log('WebSocket connected');
+            // TODO: Update state manager
         });
         
-        this.eventBus.on('create:conversation', ({ title, site }) => {
-            this.createConversation(title, site);
+        this.eventBus.on('websocket:disconnected', () => {
+            console.log('WebSocket disconnected');
+            // TODO: Update state manager
         });
         
-        // Message events
-        this.eventBus.on('send:message', ({ content }) => {
-            this.sendMessage(content);
-        });
-        
-        this.eventBus.on('user:typing', () => {
-            this.sendTypingIndicator();
-        });
-        
-        // WebSocket events
-        this.eventBus.on('ws:message', ({ message }) => {
+        // Message receiving flow
+        this.eventBus.on('websocket:message', (message) => {
             this.handleIncomingMessage(message);
         });
         
-        this.eventBus.on('ws:connected', () => {
-            this.handleWebSocketConnected();
+        // AI response handling with routing
+        this.eventBus.on('websocket:ai_response', (response) => {
+            this.handleAIResponse(response);
         });
         
-        this.eventBus.on('ws:disconnected', () => {
-            this.handleWebSocketDisconnected();
+        // Handle different AI response types
+        this.eventBus.on('websocket:ai_response:result_batch', (response) => {
+            this.handleAIResponse(response, 'result_batch');
         });
         
-        // Share events
-        this.eventBus.on('share:conversation', () => {
-            this.shareCurrentConversation();
+        this.eventBus.on('websocket:ai_response:chart_result', (response) => {
+            this.handleAIResponse(response, 'chart_result');
+        });
+        
+        this.eventBus.on('websocket:ai_response:ai_chunk', (response) => {
+            this.handleAIStreamingResponse(response);
+        });
+        
+        this.eventBus.on('websocket:participant_update', (update) => {
+            // TODO: Update state manager
+            this.eventBus.emit('state:participants', update.participants);
+        });
+        
+        this.eventBus.on('websocket:typing', (data) => {
+            // Pass through to UI without storing
+            if (data.participant.participantId !== this.currentIdentity?.participantId) {
+                this.chatUI?.updateTypingIndicator(data);
+            }
+        });
+        
+        // UI actions → WebSocket sends
+        this.eventBus.on('ui:sendMessage', async (data) => {
+            if (!this.currentConversationId) {
+                console.error('No active conversation');
+                return;
+            }
+            
+            // Message sending flow
+            this.sendMessage(data.content, data.sites, data.mode);
+        });
+        
+        this.eventBus.on('ui:typing', (data) => {
+            if (this.currentConversationId) {
+                // Throttle typing indicators
+                const now = Date.now();
+                if (data.isTyping && (now - this.lastTypingTime) < this.typingThrottle) {
+                    return; // Skip if within throttle period
+                }
+                
+                if (data.isTyping) {
+                    this.lastTypingTime = now;
+                }
+                
+                this.webSocketService.sendTyping(data.isTyping);
+            }
+        });
+        
+        // Conversation management
+        this.eventBus.on('ui:newConversation', async (data) => {
+            await this.createConversation(data.site);
+        });
+        
+        this.eventBus.on('ui:selectConversation', async (data) => {
+            await this.loadConversation(data.conversationId);
+        });
+        
+        this.eventBus.on('ui:joinConversation', async (data) => {
+            await this.joinConversation(data.conversationId);
+        });
+        
+        // Site and mode selection
+        this.eventBus.on('ui:siteSelected', async (data) => {
+            await this.createConversation(data.site, data.mode);
+        });
+        
+        this.eventBus.on('ui:modeChanged', async (data) => {
+            if (this.currentConversationId) {
+                // TODO: Update conversation mode via API
+                console.log('Mode changed to:', data.mode);
+            }
+        });
+        
+        // Identity changes → WebSocket reconnect
+        this.eventBus.on('identity:changed', async (newIdentity) => {
+            this.currentIdentity = newIdentity;
+            if (this.currentConversationId) {
+                // Reconnect with new identity
+                await this.webSocketService.disconnect();
+                await this.webSocketService.connect(
+                    this.currentConversationId,
+                    this.identityService.getParticipantInfo()
+                );
+            }
+        });
+        
+        // Identity request from UI
+        this.eventBus.on('ui:requestIdentity', () => {
+            const identity = this.identityService.getCurrentIdentity();
+            this.eventBus.emit('identity:current', identity);
         });
     }
     
-    async loadInitialData() {
-        try {
-            // Load sites
-            const sites = await this.apiService.getSites();
-            this.stateManager.setSites(sites);
-            
-            // Load user's conversations
-            const conversations = await this.apiService.getConversations();
-            conversations.forEach(conv => {
-                this.stateManager.addConversation(conv);
-            });
-            
-            // Update UI
-            this.sidebarUI.render();
-            
-        } catch (error) {
-            console.error('Failed to load initial data:', error);
+    async checkForSharedLink() {
+        const path = window.location.pathname;
+        const joinMatch = path.match(/\/chat\/join\/([a-zA-Z0-9_-]+)/);
+        
+        if (joinMatch) {
+            // Share UI will handle the join dialog
+            return true;
+        }
+        
+        return false;
+    }
+    
+    async handleInitialConversation() {
+        // Check URL for conversation ID
+        const urlParams = new URLSearchParams(window.location.search);
+        const conversationId = urlParams.get('conversation');
+        
+        if (conversationId) {
+            // Load specific conversation
+            await this.loadConversation(conversationId);
+        } else {
+            // TODO: Load conversation list from API
+            // For now, just show empty state
+            console.log('No initial conversation');
         }
     }
     
-    async createConversation(title, site) {
+    async createConversation(site, mode = 'summarize') {
         try {
-            const identity = this.identityService.getIdentity();
-            const conversation = await this.apiService.createConversation({
-                title: title || `Chat - ${new Date().toLocaleDateString()}`,
-                site: site || 'all',
-                participants: [identity]
-            });
+            // TODO: Use API service when available
+            // const conversation = await this.apiService.createConversation({
+            //     title: `Chat with ${site.display_name || site.name}`,
+            //     sites: [site.id],
+            //     mode: mode
+            // });
             
-            this.stateManager.addConversation(conversation);
+            // For now, create a mock conversation
+            const conversation = {
+                id: `conv_${Date.now()}`,
+                title: `Chat with ${site.display_name || site.name}`,
+                sites: [site.id],
+                mode: mode,
+                participants: [this.identityService.getParticipantInfo()],
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+            
+            // TODO: Add to state manager
+            // this.stateManager.addConversation(conversation);
+            
+            // Load the new conversation
             await this.loadConversation(conversation.id);
             
         } catch (error) {
@@ -151,12 +291,22 @@ class MultiChatApp {
         try {
             // Disconnect from previous conversation
             if (this.currentConversationId) {
-                this.wsService.disconnect();
+                await this.webSocketService.disconnect();
             }
             
-            // Load conversation details
-            const conversation = await this.apiService.getConversation(conversationId);
-            this.stateManager.setActiveConversation(conversation);
+            // TODO: Load conversation from API/state
+            // const conversation = await this.apiService.getConversation(conversationId);
+            // this.stateManager.setActiveConversation(conversation);
+            
+            // For now, create a mock conversation
+            const conversation = {
+                id: conversationId,
+                title: 'Test Conversation',
+                sites: [],
+                mode: 'summarize',
+                participants: [this.identityService.getParticipantInfo()],
+                messages: []
+            };
             
             // Update URL
             const url = new URL(window.location);
@@ -164,14 +314,15 @@ class MultiChatApp {
             window.history.pushState({}, '', url);
             
             // Connect WebSocket
-            const identity = this.identityService.getParticipantInfo();
-            await this.wsService.connect(conversationId, identity);
+            await this.webSocketService.connect(
+                conversationId,
+                this.identityService.getParticipantInfo()
+            );
             
             this.currentConversationId = conversationId;
             
-            // Update UI
-            this.chatUI.loadConversation(conversation);
-            this.sidebarUI.setActiveConversation(conversationId);
+            // Update UI via state events
+            this.eventBus.emit('state:currentConversation', conversation);
             
         } catch (error) {
             console.error('Failed to load conversation:', error);
@@ -181,8 +332,10 @@ class MultiChatApp {
     
     async joinConversation(conversationId) {
         try {
-            const identity = this.identityService.getIdentity();
-            await this.apiService.joinConversation(conversationId);
+            // TODO: Join via API
+            // await this.apiService.joinConversation(conversationId);
+            
+            // Load the conversation
             await this.loadConversation(conversationId);
             
         } catch (error) {
@@ -191,135 +344,167 @@ class MultiChatApp {
         }
     }
     
-    async sendMessage(content) {
-        if (!content.trim() || !this.currentConversationId) return;
+    // Message sending with optimistic updates
+    sendMessage(content, sites = [], mode = 'summarize') {
+        if (!content.trim()) return;
         
-        // Create message with client-side ID
-        const message = {
-            id: `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            conversationId: this.currentConversationId,
+        // Create message with client ID
+        const clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const optimisticMessage = {
+            id: clientId,
+            conversation_id: this.currentConversationId,
             content: content,
-            senderId: this.identityService.getIdentity().id,
-            senderName: this.identityService.getIdentity().displayName,
+            participant: this.identityService.getParticipantInfo(),
             timestamp: new Date().toISOString(),
             type: 'message',
             status: 'sending'
         };
         
-        // Optimistic update
-        this.stateManager.addMessage(message);
-        this.chatUI.renderMessage(message);
+        // Store pending message
+        this.pendingMessages.set(clientId, optimisticMessage);
+        
+        // Optimistic UI update - message will be sanitized by ChatUI
+        this.chatUI?.queueMessage(optimisticMessage);
+        
+        // Clear typing indicator
+        this.lastTypingTime = 0;
         
         // Send via WebSocket
-        this.wsService.sendMessage({
-            type: 'message',
-            content: content
-        });
+        this.webSocketService.sendMessage(content, sites, mode);
     }
     
-    sendTypingIndicator() {
-        if (!this.currentConversationId) return;
-        this.wsService.sendTyping();
-    }
-    
-    handleIncomingMessage(wsMessage) {
-        switch (wsMessage.type) {
-            case 'message':
-                this.handleChatMessage(wsMessage.data);
-                break;
-            case 'ai_response':
-                this.handleAIResponse(wsMessage.data);
-                break;
-            case 'participant_update':
-                this.handleParticipantUpdate(wsMessage.data);
-                break;
-            case 'typing':
-                this.handleTypingIndicator(wsMessage.data);
-                break;
-            case 'error':
-                this.handleError(wsMessage.data);
-                break;
-        }
-    }
-    
-    handleChatMessage(message) {
-        // Update or add message
-        const existing = this.stateManager.getMessage(message.id);
-        if (existing && existing.status === 'sending') {
-            // Update our optimistic message with server data
-            message.status = 'delivered';
+    // Handle incoming user messages
+    handleIncomingMessage(message) {
+        // Update sequence ID for sync
+        if (message.sequence_id) {
+            this.lastSequenceId = message.sequence_id;
         }
         
-        this.stateManager.addMessage(message);
-        this.chatUI.renderMessage(message);
-    }
-    
-    handleAIResponse(response) {
-        // AI responses might come in chunks or complete
-        const message = {
-            id: response.id,
-            conversationId: this.currentConversationId,
-            content: response.content,
-            senderId: 'ai_assistant',
-            senderName: 'AI Assistant',
-            timestamp: response.timestamp,
-            type: response.responseType || 'ai_response',
-            metadata: response.metadata
+        // Check if this is our optimistic message confirmed
+        let isOwnMessage = false;
+        for (const [clientId, pending] of this.pendingMessages) {
+            if (pending.content === message.content && 
+                pending.participant.participantId === message.participant?.participantId) {
+                // Remove from pending
+                this.pendingMessages.delete(clientId);
+                isOwnMessage = true;
+                break;
+            }
+        }
+        
+        // Add sender attribution
+        const messageWithAttribution = {
+            ...message,
+            isOwnMessage,
+            status: 'delivered'
         };
         
-        this.stateManager.addMessage(message);
-        this.chatUI.renderMessage(message);
+        // TODO: Store in state manager by sequence ID
+        // this.stateManager.addMessage(messageWithAttribution);
+        
+        // Update UI (will be sanitized by ChatUI)
+        if (!isOwnMessage) {
+            this.chatUI?.queueMessage(messageWithAttribution);
+        }
     }
     
-    handleParticipantUpdate(data) {
-        if (data.action === 'joined') {
-            this.stateManager.addParticipant(data.participant);
-        } else if (data.action === 'left') {
-            this.stateManager.removeParticipant(data.participantId);
+    // Handle AI responses with proper routing
+    handleAIResponse(response, specificType = null) {
+        const messageType = specificType || response.message_type || 'text';
+        
+        // Update sequence ID
+        if (response.sequence_id) {
+            this.lastSequenceId = response.sequence_id;
         }
         
-        this.chatUI.updateParticipants();
+        // Create AI message with attribution
+        const aiMessage = {
+            id: response.id || `ai_${Date.now()}`,
+            conversation_id: this.currentConversationId,
+            content: response.content || '',
+            data: response.data || response.results,
+            participant: {
+                participantId: 'ai_assistant',
+                displayName: 'AI Assistant',
+                type: 'ai'
+            },
+            timestamp: response.timestamp || new Date().toISOString(),
+            type: 'ai_response',
+            message_type: messageType,
+            status: 'delivered'
+        };
+        
+        // TODO: Store in state manager
+        // this.stateManager.addMessage(aiMessage);
+        
+        // Update UI (will be sanitized by ChatUI)
+        this.chatUI?.queueMessage(aiMessage);
     }
     
-    handleTypingIndicator(data) {
-        if (data.isTyping) {
-            this.stateManager.addTypingUser(data.participantId, data.participantName);
+    // Handle streaming AI responses
+    handleAIStreamingResponse(chunk) {
+        // For streaming, we need to accumulate chunks
+        const chunkId = chunk.stream_id || chunk.id;
+        
+        if (chunk.is_final) {
+            // Final chunk - show complete message
+            this.handleAIResponse(chunk, 'ai_response');
         } else {
-            this.stateManager.removeTypingUser(data.participantId);
+            // Streaming update - emit to UI for real-time display
+            const streamingMessage = {
+                id: chunkId,
+                content: chunk.content || '',
+                type: 'ai_chunk',
+                is_streaming: true
+            };
+            
+            // ChatUI should handle streaming updates
+            this.eventBus.emit('ui:streamingUpdate', streamingMessage);
         }
-        
-        this.chatUI.updateTypingIndicators();
-    }
-    
-    handleError(error) {
-        console.error('WebSocket error:', error);
-        this.showError(error.message || 'Connection error');
-    }
-    
-    handleWebSocketConnected() {
-        this.chatUI.setConnectionStatus('connected');
-    }
-    
-    handleWebSocketDisconnected() {
-        this.chatUI.setConnectionStatus('disconnected');
-    }
-    
-    async shareCurrentConversation() {
-        if (!this.currentConversationId) return;
-        
-        const shareUrl = `${window.location.origin}${window.location.pathname}?conversation=${this.currentConversationId}`;
-        await this.shareUI.show(shareUrl, this.stateManager.getActiveConversation());
     }
     
     showError(message) {
         // TODO: Implement proper error UI
         console.error(message);
-        alert(message);
+        
+        // Create a simple error notification
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-notification';
+        errorDiv.textContent = message;
+        errorDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #e74c3c;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.25rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1002;
+            animation: slideIn 0.3s ease;
+        `;
+        
+        document.body.appendChild(errorDiv);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            errorDiv.remove();
+        }, 5000);
     }
 }
 
+// Export for testing
+export function initializeChat() {
+    const app = new MultiChatApp();
+    return app.initialize();
+}
+
 // Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    window.multiChatApp = new MultiChatApp();
-    window.multiChatApp.initialize();
-});
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeChat);
+} else {
+    initializeChat();
+}
+
+// Make app available globally for debugging
+window.MultiChatApp = MultiChatApp;

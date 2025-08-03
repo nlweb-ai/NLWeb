@@ -320,7 +320,7 @@ Show success feedback after copy.
 
 ---
 
-NEXT
+
 
 ## Phase 6: Site Management
 
@@ -407,7 +407,7 @@ Security notes:
 
 Test with single user first, then multiple users.
 ```
-
+NEXT
 ### Command 13: Security Wrapper
 
 ```
