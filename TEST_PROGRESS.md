@@ -8,7 +8,7 @@
 
 ## Test Suites Progress
 
-### Unit Tests (3/28)
+### Unit Tests (7/28)
 #### Frontend Components
 - [ ] EventBus - pub/sub functionality
 - [ ] ConfigService - configuration loading
@@ -23,15 +23,16 @@
 - [x] ChatMessage schema validation (31 tests)
 - [x] Conversation model tests (8 tests)
 - [x] ParticipantInfo tests (5 tests)
+- [x] Storage interface - sequence ID generation (10 tests)
+- [x] Storage interface - message persistence (8 tests)
+- [x] Storage interface - retrieval with pagination (4 tests)
+- [x] Cache layer - LRU eviction and thread safety (6 tests)
 - [ ] ConversationManager - participant management
 - [ ] ConversationManager - message routing
 - [ ] ConversationManager - queue management
 - [ ] NLWebParticipant - context building
 - [ ] NLWebParticipant - timeout handling
 - [ ] NLWebContextBuilder - message filtering
-- [ ] Storage interface - sequence ID generation
-- [ ] Storage interface - message persistence
-- [ ] Storage interface - retrieval with pagination
 
 ### Integration Tests (0/15)
 - [ ] POST /chat/create endpoint
@@ -102,3 +103,4 @@
 |------|-----------|--------|--------|----------|-------|
 | 2025-08-03 | 0 | 0 | 0 | 0% | Framework initialized, ready for test implementation |
 | 2025-08-03 | 31 | TBD | TBD | TBD | Created schema unit tests (ChatMessage, Conversation, ParticipantInfo) |
+| 2025-08-03 | 28 | TBD | TBD | TBD | Created storage tests (MemoryStorage, ConversationCache, concurrent access) |

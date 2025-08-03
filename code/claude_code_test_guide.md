@@ -129,7 +129,7 @@ Write property-based tests for:
 - Queue overflow behavior
 ```
 
-NEXT
+
 ### Command 3: Storage Interface Tests
 
 ```
@@ -169,7 +169,7 @@ Create helper fixtures:
 - create_test_messages(count, participants)
 - simulate_concurrent_writes()
 ```
-
+NEXT
 ### Command 4: Participant and NLWeb Integration Tests
 
 ```

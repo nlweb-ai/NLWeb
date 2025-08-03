@@ -9,6 +9,7 @@ Test framework initialized. Schema unit tests created but not yet executed.
 | Test Suite | Test Name | Failure Reason | Priority | Issue # |
 |------------|-----------|----------------|----------|----------|
 | test_schemas.py | All tests | Not executed yet - awaiting user confirmation | High | - |
+| test_storage.py | All tests | Not executed yet - includes concurrent access tests | High | - |
 
 ### Integration Test Failures  
 | Test Suite | Test Name | Failure Reason | Priority | Issue # |
