@@ -10,22 +10,31 @@ This document consolidates all APIs from the multi-participant chat system that 
 
 #### 1.1 Create Conversation
 ```
-POST /api/chat/conversations
+POST /chat/create
 ```
 
 **Request Body:**
 ```json
 {
-  "site": "string",           // Required: site identifier
+  "title": "string",          // Optional: conversation title
+  "sites": ["string"],        // Required: array of site IDs
   "mode": "string",           // Required: "list", "summarize", or "generate"
-  "participantIds": ["string"] // Optional: array of participant IDs to invite
+  "participant": {            // Required: creator participant info
+    "participantId": "string",
+    "displayName": "string",
+    "email": "string"
+  }
 }
 ```
 
 **Response:**
 ```json
 {
-  "conversation_id": "conv_abc123",
+  "id": "conv_abc123",
+  "title": "Conversation Title",
+  "sites": ["site1"],
+  "mode": "summarize",
+  "participants": [...],
   "created_at": "2024-01-01T12:00:00Z"
 }
 ```
@@ -37,7 +46,7 @@ POST /api/chat/conversations
 
 #### 1.2 Get All Conversations
 ```
-GET /api/chat/conversations
+GET /chat/my-conversations
 ```
 
 **Response:**
@@ -64,7 +73,7 @@ GET /api/chat/conversations
 
 #### 1.3 Get Specific Conversation
 ```
-GET /api/chat/conversations/:id
+GET /chat/conversations/:id
 ```
 
 **Response:**
@@ -105,13 +114,13 @@ GET /api/chat/conversations/:id
 
 #### 1.4 Join Conversation
 ```
-POST /api/chat/conversations/:id/join
+POST /chat/:id/join
 ```
 
 **Request Body:**
 ```json
 {
-  "participantInfo": {
+  "participant": {
     "participantId": "user456",
     "displayName": "New User",
     "email": "user@example.com"
@@ -135,7 +144,7 @@ POST /api/chat/conversations/:id/join
 
 #### 1.5 Leave Conversation
 ```
-DELETE /api/chat/conversations/:id/leave
+DELETE /chat/:id/leave
 ```
 
 **Response:**
@@ -195,17 +204,10 @@ Authorization: Bearer {token}
 ```json
 {
   "type": "message",
-  "data": {
-    "content": "message text",
-    "client_id": "uuid-v4",
-    "conversation_id": "conv_123",
-    "context": {
-      "generate_mode": "list|summarize|generate",
-      "site": "site_name",
-      "prev_queries": ["previous", "queries"],
-      "last_answers": [{"title": "...", "url": "..."}]
-    }
-  }
+  "content": "message text",
+  "message_id": "client_generated_uuid",
+  "sites": ["site1"],
+  "mode": "list|summarize|generate"
 }
 ```
 
@@ -213,9 +215,7 @@ Authorization: Bearer {token}
 ```json
 {
   "type": "sync",
-  "data": {
-    "last_sequence_id": 123
-  }
+  "last_sequence_id": 123
 }
 ```
 
@@ -223,10 +223,7 @@ Authorization: Bearer {token}
 ```json
 {
   "type": "typing",
-  "data": {
-    "is_typing": true,
-    "conversation_id": "conv_123"
-  }
+  "isTyping": true
 }
 ```
 
@@ -236,18 +233,16 @@ Authorization: Bearer {token}
 ```json
 {
   "type": "message",
-  "data": {
-    "id": "msg_456",
-    "sequence_id": 789,
-    "sender": {
-      "id": "participant_123",
-      "name": "User Name",
-      "type": "human|ai"
-    },
-    "content": "message content",
-    "timestamp": "2024-01-01T12:00:00Z",
-    "conversation_id": "conv_123"
-  }
+  "id": "msg_456",
+  "sequence_id": 789,
+  "participant": {
+    "participantId": "participant_123",
+    "displayName": "User Name",
+    "type": "human|ai"
+  },
+  "content": "message content",
+  "timestamp": "2024-01-01T12:00:00Z",
+  "conversation_id": "conv_123"
 }
 ```
 
@@ -255,13 +250,29 @@ Authorization: Bearer {token}
 ```json
 {
   "type": "ai_response",
-  "data": {
-    "message_type": "result_batch|summary|chart_result|nlws",
-    "sequence_id": 790,
-    "conversation_id": "conv_123",
-    "content": "AI generated content",
-    "data": { /* type-specific data */ }
+  "message_type": "result_batch|summary|chart_result|nlws|ai_chunk",
+  "sequence_id": 790,
+  "conversation_id": "conv_123",
+  "content": "AI generated content",
+  "data": { /* type-specific data */ },
+  "participant": {
+    "participantId": "ai_assistant",
+    "displayName": "AI Assistant",
+    "type": "ai"
   }
+}
+```
+
+##### Typing Indicator (Server to Client)
+```json
+{
+  "type": "typing",
+  "participant": {
+    "participantId": "participant_123",
+    "displayName": "User Name"
+  },
+  "isTyping": true,
+  "conversation_id": "conv_123"
 }
 ```
 
@@ -269,18 +280,16 @@ Authorization: Bearer {token}
 ```json
 {
   "type": "participant_update",
-  "data": {
-    "participants": [
-      {
-        "id": "participant_123",
-        "name": "User Name",
-        "type": "human",
-        "status": "online|typing|offline"
-      }
-    ],
-    "participant_count": 3,
-    "input_mode": "single|multi"
-  }
+  "participants": [
+    {
+      "participantId": "participant_123",
+      "displayName": "User Name",
+      "type": "human",
+      "isOnline": true,
+      "joinedAt": "2024-01-01T12:00:00Z"
+    }
+  ],
+  "conversation_id": "conv_123"
 }
 ```
 
@@ -288,11 +297,9 @@ Authorization: Bearer {token}
 ```json
 {
   "type": "error",
-  "data": {
-    "code": "QUEUE_FULL|AUTH_FAILED|RATE_LIMITED",
-    "message": "Human readable error",
-    "retry_after": 5
-  }
+  "code": "QUEUE_FULL|AUTH_FAILED|RATE_LIMITED",
+  "message": "Human readable error",
+  "retry_after": 5
 }
 ```
 
@@ -300,11 +307,9 @@ Authorization: Bearer {token}
 ```json
 {
   "type": "sync",
-  "data": {
-    "messages": [ /* array of missed messages */ ],
-    "current_sequence_id": 150,
-    "participants": [ /* current participant list */ ]
-  }
+  "messages": [ /* array of missed messages */ ],
+  "current_sequence_id": 150,
+  "participants": [ /* current participant list */ ]
 }
 ```
 
