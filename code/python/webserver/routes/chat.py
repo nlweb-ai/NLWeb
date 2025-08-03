@@ -363,6 +363,10 @@ async def get_conversation_handler(request: web.Request) -> web.Response:
         # Build participant list with online status
         participants = []
         for p in conversation.active_participants:
+            # Debug: Check what type p is
+            if isinstance(p, str):
+                logger.error(f"Participant is string instead of ParticipantInfo: {p}")
+                continue
             participants.append({
                 'participantId': p.participant_id,
                 'displayName': p.name,

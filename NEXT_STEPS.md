@@ -5,73 +5,79 @@
 - **WebSocket Tests**: 16/16 passing ✅
 - All validation fixed, proper error codes, WebSocket protocol correct
 
-## Immediate Priority: Fix E2E Test Authentication
+## Immediate Priority: Fix Participant Storage Issue
 
-The E2E tests (3/7 passing) are failing because of authentication mismatch:
-- Server auth middleware sets: `request['user'] = {'id': 'authenticated_user', 'authenticated': True}`
-- But chat handlers expect: `user_id` to be extracted from participant data
-- Error: `'str' object has no attribute 'participant_id'`
+The E2E tests (4/7 passing) are failing because `conversation.active_participants` contains strings instead of ParticipantInfo objects in some cases.
 
-### Current E2E Test Status
-- **Passing**: 3 tests (basic flows without auth dependencies)
-- **Failing**: 4 tests due to authentication issues
-- Tests use real server, WebSocket for messaging, correct payload formats
+### Current Investigation Status
+- Storage layer works correctly ✅
+- Conversation creation works correctly ✅
+- Issue is somewhere between creation and retrieval
+
+### Next Debugging Steps
+
+1. **Check if ConversationManager is modifying participants**:
+```bash
+grep -n "active_participants.*=" code/python/chat/conversation.py
+grep -n "participants.*str" code/python/chat/conversation.py
+```
+
+2. **Check if there's a serialization issue**:
+```bash
+# Look for JSON serialization that might convert objects to strings
+grep -n "json.dumps.*participant" code/python/
+grep -n "str(.*participant" code/python/
+```
+
+3. **Add more debug logging**:
+- In create_conversation handler after storage
+- In get_conversation handler before accessing participants
+- In join/leave handlers
+
+4. **Check conversation manager's participant tracking**:
+The ConversationManager might be maintaining its own participant list that conflicts with the Conversation object's list.
 
 ## How to Resume Next Session
 
-### 1. First, understand the auth flow:
+### 1. Start with focused debugging:
 ```bash
-# Check how auth is handled in routes
-grep -n "request\['user'\]" code/python/webserver/routes/chat.py
-grep -n "user_id" code/python/webserver/routes/chat.py
-
-# Check auth middleware behavior
-cat code/python/webserver/middleware/auth.py | head -100
+# Run single failing test with debug output
+python scripts/run_tests_with_server.py --keep-server &
+sleep 5
+python -m pytest tests/e2e/test_multi_participant_real.py::TestSingleUserConversationFlow::test_create_send_receive_conversation_cycle -xvs
 ```
 
-### 2. Fix the authentication issue:
-The problem is that the auth middleware is setting a generic user object, but the chat endpoints need to extract the actual participant ID from somewhere (likely the auth token or a user database).
+### 2. Check server logs for the exact error location:
+Look for the traceback after "Error getting conversation" to find the exact line where strings are being stored.
 
-Options:
-1. Update auth middleware to decode participant_id from token
-2. Add a user lookup service that maps auth tokens to participant IDs
-3. Pass participant_id in request headers/body (less secure)
+### 3. Likely fixes:
+1. ConversationManager might be overwriting participants with strings
+2. There might be a race condition between storage and manager updates
+3. WebSocket handler might be modifying conversation state incorrectly
 
-### 3. Run E2E tests after fix:
+### 4. After fixing participant issue:
 ```bash
-# Run only E2E tests with server
-python scripts/run_tests_with_server.py tests/e2e/test_multi_participant_real.py
+# Run all E2E tests
+python scripts/run_tests_with_server.py e2e
 
-# Or run specific failing test
-python scripts/run_tests_with_server.py tests/e2e/test_multi_participant_real.py::TestSingleUserConversationFlow::test_create_send_receive_conversation_cycle -xvs
+# Then run full suite
+python scripts/run_tests_with_server.py
 ```
-
-### 4. After E2E tests pass:
-1. Run full test suite (249 tests)
-2. Update old E2E test file to match new patterns
-3. Remove `aioresponses` dependency if no longer needed
-4. Create PR with all changes
 
 ## Success Criteria
 - All 7 E2E tests passing
 - Full test suite (249 tests) passing
-- No mock-based tests for integration/E2E
-- All tests use real server connections
+- No string objects in active_participants sets
 
-## Key Files to Focus On
-1. `/code/python/webserver/middleware/auth.py` - Fix user identification
-2. `/code/python/webserver/routes/chat.py` - Update user extraction logic
-3. `/tests/e2e/test_multi_participant_real.py` - Our new E2E tests
-4. `/tests/e2e/test_multi_participant.py` - Old E2E tests to update/remove
+## Key Files to Debug
+1. `/code/python/chat/conversation.py` - Check ConversationManager participant handling
+2. `/code/python/webserver/routes/chat.py` - Add debug logging
+3. `/code/python/chat/websocket.py` - Check if modifying participants
+4. `/code/python/chat_storage_providers/memory_storage.py` - Already verified working
 
-## Testing Commands
-```bash
-# Run E2E tests with debugging
-python scripts/run_tests_with_server.py e2e
+## Current Test Status
+- Integration: 31/31 ✅ (100%)
+- E2E: 4/7 (57%)
+- Total: 35/38 (92%)
 
-# Keep server running to see logs
-python scripts/run_tests_with_server.py --keep-server e2e
-
-# Run all tests
-python scripts/run_tests_with_server.py
-```
+Almost there! Just need to fix the participant storage issue.

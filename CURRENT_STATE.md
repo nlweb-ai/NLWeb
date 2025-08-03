@@ -8,7 +8,7 @@
 ### Integration Tests Status
 - **REST API Tests**: 15/15 ✅ (100% passing)
 - **WebSocket Tests**: 16/16 ✅ (100% passing) + 6 legitimately skipped
-- **End-to-End Tests**: 3/7 passing, 4 failing due to auth issues
+- **End-to-End Tests**: 4/7 passing, 3 failing due to participant storage issue
 
 ### All Integration Tests Passing! ✅
 1. All conversation creation tests
@@ -51,23 +51,44 @@
 - Fixed authentication handling
 - Created proper test fixtures and utilities
 
-### 5. 🚧 E2E Tests Progress (NEW)
+### 5. 🚧 E2E Tests Progress
 - Created completely new E2E test file: `/tests/e2e/test_multi_participant_real.py`
 - Removed all `aioresponses` mocks - using real server
 - Replaced REST message endpoints with WebSocket connections
 - Fixed payload formats to match server expectations
-- 3/7 tests passing, 4 failing due to authentication mismatch
+- ✅ Fixed authentication by updating auth middleware to parse user IDs from tokens
+- 4/7 tests now passing (up from 3/7)
+- 3 tests failing with: `'str' object has no attribute 'participant_id'`
+
+## Current Issue Being Debugged
+
+### Participant Storage Problem
+The error `'str' object has no attribute 'participant_id'` occurs in the get_conversation handler when iterating over `conversation.active_participants`. 
+
+**Investigation Results:**
+1. Storage layer (MemoryStorage) correctly preserves ParticipantInfo objects ✅
+2. Conversation creation correctly adds ParticipantInfo objects ✅
+3. Issue appears to be somewhere in the flow between creation and retrieval
+
+**Server Errors:**
+```
+[ERROR] Error getting conversation: 'str' object has no attribute 'participant_id'
+[ERROR] Error joining conversation: 'str' object has no attribute 'participant_id'
+[ERROR] Error leaving conversation: 'str' object has no attribute 'participant_id'
+```
 
 ## Technical Details
 
 ### Files Modified/Created Today
-1. `/code/python/webserver/routes/chat.py` - Added endpoints, validation, proper error handling
+1. `/code/python/webserver/routes/chat.py` - Added endpoints, validation, proper error handling, debug logging
 2. `/code/python/chat/websocket.py` - Fixed message ordering, removed premature broadcasts
 3. `/code/python/chat/storage.py` - Added missing imports (Set, ParticipantInfo)
-4. `/tests/integration/test_rest_api.py` - Complete rewrite for real server testing
-5. `/tests/integration/test_websocket.py` - Converted from mock to real WebSocket connections
-6. `/scripts/run_tests_with_server.py` - New persistent test runner with server management
-7. `/tests/e2e/test_multi_participant_real.py` - **NEW** - Complete E2E tests without mocks
+4. `/code/python/webserver/middleware/auth.py` - Added user ID extraction from test tokens
+5. `/tests/integration/test_rest_api.py` - Complete rewrite for real server testing
+6. `/tests/integration/test_websocket.py` - Converted from mock to real WebSocket connections
+7. `/scripts/run_tests_with_server.py` - New persistent test runner with server management
+8. `/tests/e2e/test_multi_participant_real.py` - NEW - Complete E2E tests without mocks
+9. `/test_debug.py` - Debug script to test participant storage
 
 ### Current Server Behavior
 - Validates all required fields before processing
@@ -75,12 +96,7 @@
 - Stores conversation metadata correctly
 - Follows standard WebSocket protocol patterns
 - Broadcasts participant updates to all connected clients
-
-### E2E Test Authentication Issue
-The E2E tests are failing because:
-- Server expects user object from auth middleware: `{'id': 'authenticated_user', 'authenticated': True}`
-- Tests are trying to extract participant_id from this user object
-- Need to update server to properly handle participant identification in WebSocket and API calls
+- Auth middleware properly extracts user IDs from E2E test tokens
 
 ## Test Infrastructure
 ```bash

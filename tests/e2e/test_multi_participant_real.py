@@ -139,7 +139,7 @@ class TestSingleUserConversationFlow:
     async def test_create_send_receive_conversation_cycle(self, e2e_client):
         """Test complete conversation cycle: create → send → receive."""
         # Create conversation
-        user_token = "Bearer e2e_test_single_user"
+        user_token = "Bearer e2e_single_user"
         
         response = await e2e_client.post(
             "/chat/create",
@@ -192,7 +192,7 @@ class TestSingleUserConversationFlow:
     
     async def test_single_user_multiple_messages(self, e2e_client):
         """Test single user sending multiple messages in sequence."""
-        user_token = "Bearer e2e_test_multi_msg"
+        user_token = "Bearer e2e_multi_msg_user"
         
         # Create conversation
         response = await e2e_client.post(
@@ -249,7 +249,7 @@ class TestMultiUserConversation:
     async def test_three_humans_scenario(self, e2e_client):
         """Test scenario with 3 humans."""
         # Create conversation with first user
-        creator_token = "Bearer e2e_creator_token"
+        creator_token = "Bearer e2e_alice_001"
         
         response = await e2e_client.post(
             "/chat/create",
@@ -271,8 +271,8 @@ class TestMultiUserConversation:
         
         # Other participants join
         participants = [
-            {"user_id": "bob_002", "name": "Bob Jones", "token": "Bearer e2e_bob_token"},
-            {"user_id": "charlie_003", "name": "Charlie Brown", "token": "Bearer e2e_charlie_token"}
+            {"user_id": "bob_002", "name": "Bob Jones", "token": "Bearer e2e_bob_002"},
+            {"user_id": "charlie_003", "name": "Charlie Brown", "token": "Bearer e2e_charlie_003"}
         ]
         
         for participant in participants:
@@ -332,7 +332,7 @@ class TestMultiUserConversation:
     async def test_participant_join_during_active_conversation(self, e2e_client):
         """Test participant joining during active conversation."""
         # Create conversation
-        creator_token = "Bearer e2e_active_creator"
+        creator_token = "Bearer e2e_early_alice"
         
         response = await e2e_client.post(
             "/chat/create",
