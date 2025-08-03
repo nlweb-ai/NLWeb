@@ -1,0 +1,106 @@
+# Test-specific configuration for multi-participant chat system
+
+# Test environment settings
+environment: test
+debug: true
+
+# Mock server configuration
+test_server:
+  host: localhost
+  port: 8888
+  ssl: false
+
+# WebSocket test configuration
+websocket:
+  url: ws://localhost:8888/chat/ws
+  reconnect_attempts: 3
+  reconnect_delay: 1
+  timeout: 5
+
+# Storage configuration for tests
+storage:
+  backend: memory  # Use in-memory storage for tests
+  clear_on_start: true
+  
+# Test user configuration
+test_users:
+  oauth_provider: mock
+  default_token_expiry: 3600  # 1 hour
+  
+# Performance test thresholds
+performance:
+  baseline_endpoint: /ask
+  single_participant_threshold: 1.05  # 105% of baseline
+  multi_participant_threshold: 0.2    # 200ms
+  websocket_handshake_threshold: 0.05 # 50ms
+  message_routing_thresholds:
+    2_participants: 0.001  # 1ms
+    10_participants: 0.005 # 5ms
+  storage_operation_threshold: 0.05   # 50ms
+
+# Rate limiting for tests
+rate_limits:
+  enabled: true
+  queue_size_limit: 1000
+  typing_throttle: 3  # seconds
+  requests_per_minute: 60
+
+# Security test configuration
+security:
+  xss_prevention: true
+  auth_required: true
+  cors_enabled: true
+  allowed_origins:
+    - http://localhost:*
+    - http://127.0.0.1:*
+
+# Logging configuration for tests
+logging:
+  level: DEBUG
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  handlers:
+    - console
+    - file
+  file_path: tests/logs/test.log
+
+# Test timeouts
+timeouts:
+  unit_test: 5      # seconds
+  integration_test: 30
+  performance_test: 60
+  e2e_test: 120
+
+# Mock data configuration
+mock_data:
+  conversation_count: 10
+  message_count_per_conversation: 50
+  user_count: 20
+  max_participants_per_conversation: 5
+
+# Test database configuration
+test_database:
+  type: sqlite
+  path: ":memory:"
+  
+# Cache configuration for tests
+cache:
+  type: memory
+  ttl: 300  # 5 minutes
+  max_entries: 1000
+
+# Feature flags for tests
+features:
+  multi_participant: true
+  oauth_authentication: true
+  email_fallback: true
+  typing_indicators: true
+  message_persistence: true
+  
+# Test coverage settings
+coverage:
+  minimum_overall: 80
+  minimum_critical_path: 90
+  exclude_patterns:
+    - "*/tests/*"
+    - "*/migrations/*"
+    - "*/__pycache__/*"

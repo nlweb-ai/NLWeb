@@ -1,0 +1,14 @@
+# Testing dependencies for multi-participant chat system
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-benchmark==4.0.0
+aioresponses==0.7.6
+pytest-timeout==2.2.0
+pytest-cov==4.1.0
+
+# Additional testing utilities
+pytest-mock==3.12.0
+pytest-xdist==3.5.0  # For parallel test execution
+httpx==0.25.2  # For async HTTP testing
+fakeredis==2.20.0  # For Redis mocking if needed
+freezegun==1.2.2  # For time mocking

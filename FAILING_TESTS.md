@@ -1,27 +1,84 @@
 # Failing Tests
 
 ## Current Status
-No tests have been written yet. This file will track failing tests once test implementation begins.
+Test framework not yet initialized. No tests have been executed.
 
-## Test Implementation Priority
+## Critical Failures (Will Track Here)
 
-### Critical Tests Needed
+### Unit Test Failures
+| Test Suite | Test Name | Failure Reason | Priority | Issue # |
+|------------|-----------|----------------|----------|----------|
+| - | - | No tests written yet | - | - |
+
+### Integration Test Failures  
+| Test Suite | Test Name | Failure Reason | Priority | Issue # |
+|------------|-----------|----------------|----------|----------|
+| - | - | No tests written yet | - | - |
+
+### Performance Test Failures
+| Test Suite | Test Name | Expected | Actual | Priority | Issue # |
+|------------|-----------|----------|--------|----------|----------|
+| - | - | - | - | - | - |
+
+### Security Test Failures
+| Test Suite | Test Name | Vulnerability | Severity | Issue # |
+|------------|-----------|---------------|----------|----------|
+| - | - | No tests written yet | - | - |
+
+### Reliability Test Failures
+| Test Suite | Test Name | Failure Scenario | Impact | Issue # |
+|------------|-----------|------------------|---------|----------|
+| - | - | No tests written yet | - | - |
+
+## Known Issues to Address
+
+### High Priority
 1. **WebSocket Reconnection** - Must handle disconnects gracefully
+   - Status: Not tested
+   - Expected: Automatic reconnection with exponential backoff
+   - Risk: Message loss during disconnection
+
 2. **Message Ordering** - Sequence IDs must be sequential
-3. **State Persistence** - localStorage save/load must work
+   - Status: Not tested  
+   - Expected: Strict ordering even under concurrent sends
+   - Risk: Out-of-order message display
+
+3. **Queue Overflow** - 429 responses when queue full
+   - Status: Not tested
+   - Expected: Graceful handling with retry guidance
+   - Risk: Message loss or system crash
+
+### Medium Priority
 4. **XSS Prevention** - DOMPurify must sanitize all user content
-5. **Queue Limits** - 429 responses when queue full
+   - Status: Not tested
+   - Expected: All malicious content neutralized
+   - Risk: Security vulnerability
 
-### Known Issues to Test
-1. **Concurrent Messages** - Multiple users sending simultaneously
-2. **Large Message Volumes** - Performance with 1000+ messages
-3. **Network Failures** - Reconnection with message sync
-4. **Identity Loss** - Handle cleared localStorage
-5. **API Failures** - Graceful degradation
+5. **State Persistence** - localStorage save/load must work
+   - Status: Not tested
+   - Expected: Conversations persist across sessions
+   - Risk: Data loss on refresh
 
-## Test Infrastructure Needed
-- Mock WebSocket server
-- Mock API responses
-- localStorage mock
-- DOMPurify test setup
-- Performance measurement tools
+6. **Concurrent Messages** - Multiple users sending simultaneously
+   - Status: Not tested
+   - Expected: All messages delivered in order
+   - Risk: Race conditions
+
+### Low Priority  
+7. **Large Message Volumes** - Performance with 1000+ messages
+   - Status: Not tested
+   - Expected: <200ms delivery time maintained
+   - Risk: Performance degradation
+
+8. **Identity Loss** - Handle cleared localStorage
+   - Status: Not tested
+   - Expected: Graceful re-authentication
+   - Risk: User locked out
+
+## Flaky Tests (Will Track Here)
+| Test Name | Flakiness Rate | Root Cause | Mitigation |
+|-----------|----------------|------------|-------------|
+| - | - | - | - |
+
+## Test Environment Issues
+- None identified yet (framework not initialized)
