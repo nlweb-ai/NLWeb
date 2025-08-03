@@ -407,7 +407,7 @@ Security notes:
 
 Test with single user first, then multiple users.
 ```
-NEXT
+
 ### Command 13: Security Wrapper
 
 ```
@@ -534,7 +534,7 @@ Document expected behavior for each scenario.
 ```
 
 ---
-
+NEXT
 ## 🚨 Emergency Recovery Command
 
 ```

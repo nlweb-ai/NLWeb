@@ -1,4 +1,5 @@
 import eventBus from './event-bus.js';
+import secureRenderer from './secure-renderer.js';
 
 export class ChatUI {
     constructor() {
@@ -105,6 +106,11 @@ export class ChatUI {
 
         eventBus.on('websocket:participant_update', (data) => {
             this.updateParticipants(data);
+        });
+
+        // Streaming updates for AI responses
+        eventBus.on('ui:streamingUpdate', (update) => {
+            this.handleStreamingUpdate(update);
         });
 
         // Share button
@@ -243,9 +249,9 @@ export class ChatUI {
 
     renderSenderInfo(message) {
         const sender = message.participant || message.sender || {};
-        const displayName = this.sanitizeContent(sender.displayName || sender.display_name || 'Unknown');
+        const displayName = secureRenderer.renderText(sender.displayName || sender.display_name || 'Unknown');
         
-        if (message.type === 'ai_response' || message.sender === 'ai') {
+        if (message.type === 'ai_response' || message.sender === 'ai' || sender.type === 'ai') {
             return '<span class="sender-name">AI Assistant</span>';
         } else if (message.type === 'system') {
             return '<span class="sender-name">System</span>';
@@ -255,37 +261,19 @@ export class ChatUI {
     }
 
     renderMessageContent(message) {
-        // Always sanitize content first
-        const sanitized = this.sanitizeContent(message.content || '');
-        
-        // For AI responses with special types, use existing renderers
-        if (message.type === 'ai_response' && message.message_type) {
-            return this.renderAIResponse(message, sanitized);
+        // Use secure renderer for all content
+        if (message.type === 'ai_response' || message.participant?.type === 'ai') {
+            // AI responses - let secure renderer handle based on message_type
+            const rendered = secureRenderer.renderAIResponse(message);
+            return `<div class="message-text">${rendered}</div>`;
         }
         
-        // Regular text message
-        return `<div class="message-text">${sanitized}</div>`;
+        // Regular user message - render as text
+        const rendered = secureRenderer.renderText(message.content || '');
+        return `<div class="message-text">${rendered}</div>`;
     }
 
-    renderAIResponse(message, sanitizedContent) {
-        // Check if we have JSON content to render
-        if (message.data || message.results) {
-            try {
-                // Use existing json-renderer if available
-                if (window.JsonRenderer) {
-                    const renderer = new window.JsonRenderer();
-                    const rendered = renderer.render(message.data || message.results);
-                    // Sanitize the rendered HTML as well
-                    return this.sanitizeContent(rendered);
-                }
-            } catch (error) {
-                console.error('Failed to render AI response:', error);
-            }
-        }
-        
-        // Fallback to text content
-        return `<div class="message-text">${sanitizedContent}</div>`;
-    }
+    // Removed - now handled by secure renderer
 
     renderTimestamp(timestamp) {
         if (!timestamp) return '';
@@ -296,24 +284,7 @@ export class ChatUI {
         return `<span class="message-timestamp">${time}</span>`;
     }
 
-    sanitizeContent(content) {
-        if (typeof content !== 'string') {
-            content = String(content);
-        }
-        
-        // Use DOMPurify if available, otherwise basic escaping
-        if (window.DOMPurify) {
-            return window.DOMPurify.sanitize(content, {
-                ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'code', 'pre'],
-                ALLOWED_ATTR: ['href', 'target', 'rel']
-            });
-        }
-        
-        // Fallback to basic HTML escaping
-        const div = document.createElement('div');
-        div.textContent = content;
-        return div.innerHTML;
-    }
+    // Removed - now using secure renderer for all sanitization
 
     handleInputKeydown(event) {
         const now = Date.now();
@@ -394,7 +365,7 @@ export class ChatUI {
         }
         
         const typingNames = Array.from(this.typingUsers.values())
-            .map(user => this.sanitizeContent(user.displayName));
+            .map(user => secureRenderer.renderText(user.displayName));
         
         let text = '';
         if (typingNames.length === 1) {
@@ -472,6 +443,56 @@ export class ChatUI {
             });
         });
         this.updateTypingDisplay();
+    }
+
+    handleStreamingUpdate(update) {
+        // Find existing message or create new one
+        const messageId = update.id;
+        let messageElement = this.messagesContainer.querySelector(`[data-message-id="${messageId}"]`);
+        
+        if (!messageElement) {
+            // Create new streaming message
+            const streamingMessage = {
+                id: messageId,
+                content: update.content,
+                type: 'ai_response',
+                participant: {
+                    participantId: 'ai_assistant',
+                    displayName: 'AI Assistant',
+                    type: 'ai'
+                },
+                timestamp: new Date().toISOString(),
+                is_streaming: true
+            };
+            
+            messageElement = this.renderMessage(streamingMessage);
+            this.messagesContainer.appendChild(messageElement);
+        } else {
+            // Update existing message content
+            const contentElement = messageElement.querySelector('.message-content');
+            if (contentElement) {
+                const rendered = secureRenderer.renderText(update.content);
+                contentElement.innerHTML = `<div class="message-text">${rendered}</div>`;
+            }
+        }
+        
+        // Add streaming indicator if still streaming
+        if (update.is_streaming) {
+            if (!messageElement.querySelector('.streaming-indicator')) {
+                const indicator = document.createElement('span');
+                indicator.className = 'streaming-indicator';
+                indicator.textContent = '●●●';
+                messageElement.querySelector('.message-content').appendChild(indicator);
+            }
+        } else {
+            // Remove streaming indicator
+            const indicator = messageElement.querySelector('.streaming-indicator');
+            if (indicator) {
+                indicator.remove();
+            }
+        }
+        
+        this.scrollToBottom();
     }
 
     destroy() {

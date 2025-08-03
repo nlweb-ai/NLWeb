@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Chat Test Harness</title>
+    <link rel="stylesheet" href="multi-chat-styles.css">
+    <style>
+        /* Test Harness Specific Styles */
+        .test-harness {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40vh;
+            background: #f8f9fa;
+            border-top: 2px solid #dee2e6;
+            display: flex;
+            overflow: hidden;
+            z-index: 2000;
+            transition: height 0.3s ease;
+        }
+        
+        .test-harness.collapsed {
+            height: 40px;
+        }
+        
+        .test-controls {
+            width: 300px;
+            padding: 1rem;
+            background: white;
+            border-right: 1px solid #dee2e6;
+            overflow-y: auto;
+        }
+        
+        .test-outputs {
+            flex: 1;
+            display: flex;
+        }
+        
+        .test-output {
+            flex: 1;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .test-output h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            color: #6c757d;
+        }
+        
+        .test-output textarea {
+            flex: 1;
+            width: 100%;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            resize: none;
+        }
+        
+        .test-button-group {
+            margin-bottom: 1rem;
+        }
+        
+        .test-button-group h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.875rem;
+            color: #495057;
+        }
+        
+        .test-button-group button {
+            display: block;
+            width: 100%;
+            margin-bottom: 0.25rem;
+            padding: 0.5rem;
+            font-size: 0.8125rem;
+            text-align: left;
+        }
+        
+        .test-toggle {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 0.25rem;
+            cursor: pointer;
+        }
+        
+        #app-container {
+            height: 60vh;
+        }
+        
+        .test-harness.collapsed + #app-container {
+            height: calc(100vh - 40px);
+        }
+    </style>
+</head>
+<body>
+    <!-- Main App Container -->
+    <div id="app-container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">
+                    <h2>Conversations</h2>
+                    <button id="sort-toggle" class="btn btn-icon" title="Sort conversations">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M7 12h10m-4 6h4"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="sidebar-content">
+                <!-- Sidebar content will be populated by JS -->
+            </div>
+        </div>
+        
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="chat-info">
+                    <h2 class="chat-title">Test Chat</h2>
+                    <div class="chat-meta">
+                        <span class="chat-site">Test Site</span>
+                        <span class="chat-mode">summarize</span>
+                        <span class="chat-participants">1 participant</span>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <div class="mode-selector-container"></div>
+                    <button id="share-button" class="btn btn-icon" title="Share conversation">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"></path>
+                            <polyline points="16 6 12 2 8 6"></polyline>
+                            <line x1="12" y1="2" x2="12" y2="15"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="chat-messages" id="messages-container">
+                <div class="welcome-message">
+                    <h3>Test Harness Ready</h3>
+                    <p>Use the controls below to test chat functionality.</p>
+                </div>
+            </div>
+            <div id="typing-indicators" class="typing-indicators" style="display: none;">
+                <div class="typing-users"></div>
+            </div>
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <textarea id="chat-input" class="chat-input" placeholder="Type your message..." rows="1"></textarea>
+                    <button id="send-button" class="btn btn-primary">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Test Harness -->
+    <div class="test-harness" id="test-harness">
+        <button class="test-toggle" onclick="toggleTestHarness()">Toggle Test Panel</button>
+        
+        <div class="test-controls">
+            <div class="test-button-group">
+                <h4>WebSocket Controls</h4>
+                <button class="btn btn-sm btn-primary" onclick="testConnect()">Connect WebSocket</button>
+                <button class="btn btn-sm btn-secondary" onclick="testDisconnect()">Disconnect WebSocket</button>
+                <button class="btn btn-sm btn-secondary" onclick="testReconnect()">Test Reconnection</button>
+            </div>
+            
+            <div class="test-button-group">
+                <h4>Message Testing</h4>
+                <button class="btn btn-sm btn-secondary" onclick="testSendMessage()">Send Test Message</button>
+                <button class="btn btn-sm btn-danger" onclick="testXSS()">Send XSS Test</button>
+                <button class="btn btn-sm btn-secondary" onclick="testAIResponse()">Simulate AI Response</button>
+                <button class="btn btn-sm btn-secondary" onclick="testStreamingAI()">Test Streaming AI</button>
+            </div>
+            
+            <div class="test-button-group">
+                <h4>Participants</h4>
+                <button class="btn btn-sm btn-secondary" onclick="testAddParticipant()">Add Participant</button>
+                <button class="btn btn-sm btn-secondary" onclick="testRemoveParticipant()">Remove Participant</button>
+                <button class="btn btn-sm btn-secondary" onclick="testTypingIndicator()">Trigger Typing</button>
+            </div>
+            
+            <div class="test-button-group">
+                <h4>Conversations</h4>
+                <button class="btn btn-sm btn-secondary" onclick="testCreateConversation()">Create Conversation</button>
+                <button class="btn btn-sm btn-secondary" onclick="testLoadConversation()">Load Conversation</button>
+                <button class="btn btn-sm btn-secondary" onclick="testShowSiteSelector()">Show Site Selector</button>
+            </div>
+            
+            <div class="test-button-group">
+                <h4>State & Debug</h4>
+                <button class="btn btn-sm btn-secondary" onclick="testDumpState()">Dump Current State</button>
+                <button class="btn btn-sm btn-secondary" onclick="testClearLogs()">Clear Logs</button>
+                <button class="btn btn-sm btn-secondary" onclick="testSanitization()">Test Sanitization</button>
+            </div>
+        </div>
+        
+        <div class="test-outputs">
+            <div class="test-output">
+                <h3>WebSocket Messages</h3>
+                <textarea id="ws-log" readonly></textarea>
+            </div>
+            <div class="test-output">
+                <h3>Event Log</h3>
+                <textarea id="event-log" readonly></textarea>
+            </div>
+            <div class="test-output">
+                <h3>Current State</h3>
+                <textarea id="state-log" readonly></textarea>
+            </div>
+            <div class="test-output">
+                <h3>Sanitization Results</h3>
+                <textarea id="sanitize-log" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+    
+    <!-- Mock WebSocket for testing -->
+    <script>
+        // Store original WebSocket
+        window.OriginalWebSocket = window.WebSocket;
+        
+        // Mock WebSocket class
+        class MockWebSocket {
+            constructor(url) {
+                this.url = url;
+                this.readyState = WebSocket.CONNECTING;
+                this.CONNECTING = 0;
+                this.OPEN = 1;
+                this.CLOSING = 2;
+                this.CLOSED = 3;
+                
+                logWS('MockWebSocket created:', url);
+                
+                // Simulate connection after delay
+                setTimeout(() => {
+                    this.readyState = WebSocket.OPEN;
+                    if (this.onopen) this.onopen(new Event('open'));
+                    logWS('MockWebSocket connected');
+                }, 100);
+            }
+            
+            send(data) {
+                logWS('MockWebSocket send:', data);
+                
+                // Parse and handle different message types
+                try {
+                    const message = JSON.parse(data);
+                    
+                    // Simulate server responses
+                    setTimeout(() => {
+                        if (message.type === 'join') {
+                            this.simulateMessage({
+                                type: 'participant_update',
+                                participants: [message.participant],
+                                conversation_id: message.conversation_id
+                            });
+                        } else if (message.type === 'message') {
+                            // Echo back with server timestamp
+                            this.simulateMessage({
+                                ...message,
+                                id: `msg_${Date.now()}`,
+                                timestamp: new Date().toISOString(),
+                                sequence_id: Math.floor(Math.random() * 1000)
+                            });
+                            
+                            // Simulate AI response after delay
+                            setTimeout(() => {
+                                this.simulateAIResponse(message.content);
+                            }, 1000);
+                        } else if (message.type === 'typing') {
+                            // Broadcast typing to others
+                            this.simulateMessage({
+                                type: 'typing',
+                                participant: message.participant,
+                                is_typing: message.is_typing
+                            });
+                        }
+                    }, 50);
+                } catch (e) {
+                    logWS('MockWebSocket parse error:', e);
+                }
+            }
+            
+            simulateMessage(message) {
+                if (this.onmessage) {
+                    this.onmessage(new MessageEvent('message', {
+                        data: JSON.stringify(message)
+                    }));
+                }
+            }
+            
+            simulateAIResponse(userMessage) {
+                this.simulateMessage({
+                    type: 'ai_response',
+                    id: `ai_${Date.now()}`,
+                    content: `This is a simulated AI response to: "${userMessage}"`,
+                    message_type: 'text',
+                    timestamp: new Date().toISOString(),
+                    sequence_id: Math.floor(Math.random() * 1000) + 1000
+                });
+            }
+            
+            close(code = 1000, reason = 'Normal closure') {
+                this.readyState = WebSocket.CLOSED;
+                if (this.onclose) {
+                    this.onclose(new CloseEvent('close', { code, reason }));
+                }
+                logWS('MockWebSocket closed:', code, reason);
+            }
+        }
+        
+        // Replace WebSocket with mock
+        window.WebSocket = MockWebSocket;
+        
+        // Test utilities
+        let testParticipantCount = 1;
+        let streamingInterval = null;
+        
+        function logWS(message, ...args) {
+            const log = document.getElementById('ws-log');
+            const timestamp = new Date().toLocaleTimeString();
+            log.value += `[${timestamp}] ${message} ${args.map(a => JSON.stringify(a)).join(' ')}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function logEvent(event, data) {
+            const log = document.getElementById('event-log');
+            const timestamp = new Date().toLocaleTimeString();
+            log.value += `[${timestamp}] ${event}: ${JSON.stringify(data)}\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function logState(state) {
+            const log = document.getElementById('state-log');
+            log.value = JSON.stringify(state, null, 2);
+        }
+        
+        function logSanitize(input, output) {
+            const log = document.getElementById('sanitize-log');
+            const timestamp = new Date().toLocaleTimeString();
+            log.value += `[${timestamp}]\nInput: ${input}\nOutput: ${output}\n---\n`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        // Test functions
+        function toggleTestHarness() {
+            document.getElementById('test-harness').classList.toggle('collapsed');
+        }
+        
+        function testConnect() {
+            if (window.webSocketService) {
+                window.webSocketService.connect('test_conversation_123', {
+                    participantId: 'test_user_1',
+                    displayName: 'Test User',
+                    email: 'test@example.com'
+                });
+            }
+        }
+        
+        function testDisconnect() {
+            if (window.webSocketService) {
+                window.webSocketService.disconnect();
+            }
+        }
+        
+        function testReconnect() {
+            testDisconnect();
+            setTimeout(testConnect, 500);
+        }
+        
+        function testSendMessage() {
+            const message = `Test message ${Date.now()}`;
+            window.eventBus.emit('ui:sendMessage', {
+                content: message,
+                sites: ['test-site'],
+                mode: 'summarize'
+            });
+        }
+        
+        function testXSS() {
+            const xssPayload = `<script>alert('XSS')</script><img src=x onerror="alert('XSS2')">`;
+            window.eventBus.emit('ui:sendMessage', {
+                content: xssPayload,
+                sites: ['test-site'],
+                mode: 'summarize'
+            });
+        }
+        
+        function testAIResponse() {
+            const mockResponse = {
+                type: 'ai_response',
+                id: `ai_${Date.now()}`,
+                content: 'This is a test AI response with <b>HTML</b> content.',
+                message_type: 'result_batch',
+                data: [
+                    { title: 'Result 1', url: 'https://example.com/1', snippet: 'First result snippet' },
+                    { title: 'Result 2', url: 'https://example.com/2', snippet: 'Second result snippet' }
+                ],
+                timestamp: new Date().toISOString()
+            };
+            
+            window.eventBus.emit('websocket:ai_response', mockResponse);
+        }
+        
+        function testStreamingAI() {
+            let content = '';
+            const words = ['This', 'is', 'a', 'streaming', 'AI', 'response', 'being', 'typed', 'out', 'word', 'by', 'word.'];
+            let wordIndex = 0;
+            const streamId = `stream_${Date.now()}`;
+            
+            streamingInterval = setInterval(() => {
+                if (wordIndex < words.length) {
+                    content += (wordIndex > 0 ? ' ' : '') + words[wordIndex];
+                    window.eventBus.emit('ui:streamingUpdate', {
+                        id: streamId,
+                        content: content,
+                        is_streaming: true
+                    });
+                    wordIndex++;
+                } else {
+                    // Final update
+                    window.eventBus.emit('ui:streamingUpdate', {
+                        id: streamId,
+                        content: content,
+                        is_streaming: false
+                    });
+                    clearInterval(streamingInterval);
+                }
+            }, 300);
+        }
+        
+        function testAddParticipant() {
+            testParticipantCount++;
+            const newParticipant = {
+                participantId: `test_user_${testParticipantCount}`,
+                displayName: `Test User ${testParticipantCount}`,
+                email: `test${testParticipantCount}@example.com`
+            };
+            
+            window.eventBus.emit('websocket:participant_update', {
+                action: 'joined',
+                participant: newParticipant,
+                participants: [newParticipant]
+            });
+        }
+        
+        function testRemoveParticipant() {
+            if (testParticipantCount > 1) {
+                window.eventBus.emit('websocket:participant_update', {
+                    action: 'left',
+                    participantId: `test_user_${testParticipantCount}`,
+                    participants: []
+                });
+                testParticipantCount--;
+            }
+        }
+        
+        function testTypingIndicator() {
+            const participant = {
+                participantId: 'test_user_2',
+                displayName: 'Another User'
+            };
+            
+            window.eventBus.emit('websocket:typing', {
+                participant: participant,
+                is_typing: true
+            });
+            
+            // Clear after 3 seconds
+            setTimeout(() => {
+                window.eventBus.emit('websocket:typing', {
+                    participant: participant,
+                    is_typing: false
+                });
+            }, 3000);
+        }
+        
+        function testCreateConversation() {
+            window.eventBus.emit('ui:newConversation', {
+                site: {
+                    id: 'test-site',
+                    display_name: 'Test Site',
+                    description: 'A test site for development'
+                }
+            });
+        }
+        
+        function testLoadConversation() {
+            const mockConversation = {
+                id: 'test_conv_123',
+                title: 'Test Conversation',
+                sites: ['test-site'],
+                mode: 'summarize',
+                participants: [{
+                    participantId: 'test_user_1',
+                    displayName: 'Test User',
+                    email: 'test@example.com'
+                }],
+                messages: [
+                    {
+                        id: 'msg_1',
+                        content: 'Previous message 1',
+                        participant: { participantId: 'test_user_1', displayName: 'Test User' },
+                        timestamp: new Date(Date.now() - 60000).toISOString()
+                    },
+                    {
+                        id: 'msg_2',
+                        content: 'Previous message 2',
+                        type: 'ai_response',
+                        participant: { participantId: 'ai_assistant', displayName: 'AI Assistant', type: 'ai' },
+                        timestamp: new Date(Date.now() - 30000).toISOString()
+                    }
+                ]
+            };
+            
+            window.eventBus.emit('state:currentConversation', mockConversation);
+        }
+        
+        function testShowSiteSelector() {
+            window.eventBus.emit('ui:selectSite');
+        }
+        
+        function testDumpState() {
+            const state = {
+                webSocketState: window.webSocketService ? window.webSocketService.getConnectionState() : 'N/A',
+                currentIdentity: window.identityService ? window.identityService.getCurrentIdentity() : 'N/A',
+                config: window.configService ? {
+                    sites: window.configService.getSites(),
+                    modes: window.configService.getModes()
+                } : 'N/A',
+                timestamp: new Date().toISOString()
+            };
+            
+            logState(state);
+        }
+        
+        function testClearLogs() {
+            document.getElementById('ws-log').value = '';
+            document.getElementById('event-log').value = '';
+            document.getElementById('state-log').value = '';
+            document.getElementById('sanitize-log').value = '';
+        }
+        
+        function testSanitization() {
+            const testCases = [
+                '<script>alert("XSS")</script>',
+                '<img src=x onerror="alert(\'XSS\')">',
+                '<div onclick="alert(\'XSS\')">Click me</div>',
+                '<iframe src="javascript:alert(\'XSS\')"></iframe>',
+                '<b>Safe HTML</b> with <i>formatting</i>',
+                '<a href="javascript:alert(\'XSS\')">Dangerous Link</a>',
+                '<a href="https://example.com">Safe Link</a>'
+            ];
+            
+            testCases.forEach(input => {
+                const output = DOMPurify.sanitize(input, {
+                    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br'],
+                    ALLOWED_ATTR: ['href'],
+                    FORBID_ATTR: ['onclick', 'onerror']
+                });
+                logSanitize(input, output);
+            });
+        }
+        
+        // Hook into event bus for logging
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.eventBus) {
+                // Log all events
+                const originalEmit = window.eventBus.emit.bind(window.eventBus);
+                window.eventBus.emit = function(event, data) {
+                    logEvent(event, data);
+                    return originalEmit(event, data);
+                };
+            }
+        });
+    </script>
+    
+    <!-- Load the app -->
+    <script type="module" src="multi-chat-app.js"></script>
+    
+    <script type="module">
+        // Make services available globally for testing
+        import eventBus from './chat/event-bus.js';
+        import configService from './chat/config-service.js';
+        import identityService from './chat/identity-service.js';
+        import webSocketService from './chat/websocket-service.js';
+        import secureRenderer from './chat/secure-renderer.js';
+        
+        window.eventBus = eventBus;
+        window.configService = configService;
+        window.identityService = identityService;
+        window.webSocketService = webSocketService;
+        window.secureRenderer = secureRenderer;
+        
+        // Enable debug mode
+        eventBus.setDebug(true);
+        
+        // Mock config and sites
+        configService.sites = [
+            { id: 'test-site-1', display_name: 'Test Site 1', description: 'First test site' },
+            { id: 'test-site-2', display_name: 'Test Site 2', description: 'Second test site' },
+            { id: 'test-site-3', display_name: 'Test Site 3', description: 'Third test site' }
+        ];
+        configService.loaded = true;
+    </script>
+</body>
+</html>
