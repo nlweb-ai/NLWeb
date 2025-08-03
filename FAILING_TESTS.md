@@ -27,7 +27,8 @@ Test framework initialized. Schema unit tests created but not yet executed.
 ### Security Test Failures
 | Test Suite | Test Name | Vulnerability | Severity | Issue # |
 |------------|-----------|---------------|----------|----------|
-| - | - | No tests written yet | - | - |
+| test_auth.py | All auth tests | Not executed yet - awaiting test run | High | - |
+| test_validation.py | All validation tests | Not executed yet - awaiting test run | High | - |
 
 ### Reliability Test Failures
 | Test Suite | Test Name | Failure Scenario | Impact | Issue # |
