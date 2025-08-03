@@ -75,19 +75,25 @@
 ## Test Execution Metrics
 
 ### Unit Tests
-- **Total Tests**: 0
-- **Average Execution Time**: -
-- **Slowest Test**: -
-- **Fastest Test**: -
+- **Total Tests**: 83 (schemas: 31, storage: 28, participants: 24)
+- **Average Execution Time**: TBD
+- **Slowest Test**: TBD
+- **Fastest Test**: TBD
 
 ### Integration Tests
-- **Total Tests**: 0
-- **Average Execution Time**: -
-- **Slowest Test**: -
-- **Fastest Test**: -
+- **Total Tests**: 57 (REST API: 27, WebSocket: 30)
+- **Average Execution Time**: TBD
+- **Slowest Test**: TBD
+- **Fastest Test**: TBD
+
+### Performance Tests
+- **Total Tests**: 32 (latency tests across 4 categories)
+- **Average Execution Time**: TBD
+- **Slowest Test**: TBD (likely large group tests)
+- **Fastest Test**: TBD (likely single participant)
 
 ### E2E Tests
-- **Total Tests**: 0
+- **Total Tests**: 0 (not yet implemented)
 - **Average Execution Time**: -
 - **Slowest Test**: -
 - **Fastest Test**: -

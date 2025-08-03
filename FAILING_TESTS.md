@@ -21,7 +21,8 @@ Test framework initialized. Schema unit tests created but not yet executed.
 ### Performance Test Failures
 | Test Suite | Test Name | Expected | Actual | Priority | Issue # |
 |------------|-----------|----------|--------|----------|----------|
-| - | - | - | - | - | - |
+| test_latency.py | All latency tests | Not executed yet - awaiting test run | TBD | High | - |
+| test_load.py | All load/stress tests | Not executed yet - awaiting test run | TBD | High | - |
 
 ### Security Test Failures
 | Test Suite | Test Name | Vulnerability | Severity | Issue # |
