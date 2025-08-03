@@ -394,17 +394,8 @@ class WebSocketManager:
         # Start heartbeat
         connection.heartbeat_task = asyncio.create_task(connection.heartbeat())
         
-        # Send current participant list
-        await self._send_participant_list(conversation_id, connection)
-        
-        # Broadcast participant join
-        await self.broadcast_participant_update(
-            conversation_id=conversation_id,
-            action="join",
-            participant_id=connection.participant_id,
-            participant_name=connection.participant_name,
-            participant_type="human"
-        )
+        # Note: Don't send participant list here - let the main handler control message order
+        # Note: Don't broadcast join yet - let the main handler do it after sending connected message
         
         logger.info(f"User {connection.participant_id} connected to conversation {conversation_id}")
     

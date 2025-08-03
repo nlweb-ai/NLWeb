@@ -82,6 +82,13 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
                 status=400
             )
         
+        # Validate required fields
+        if 'title' not in data:
+            return web.json_response(
+                {'error': 'Title is required'},
+                status=400
+            )
+        
         # Validate participants
         participants = data.get('participants', [])
         if not participants:
@@ -89,6 +96,24 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
                 {'error': 'At least one participant is required'},
                 status=400
             )
+        
+        # Validate each participant has required fields
+        for i, p in enumerate(participants):
+            if not isinstance(p, dict):
+                return web.json_response(
+                    {'error': f'Participant {i} must be an object'},
+                    status=400
+                )
+            if 'user_id' not in p:
+                return web.json_response(
+                    {'error': f'Participant {i} missing required field: user_id'},
+                    status=400
+                )
+            if 'name' not in p:
+                return web.json_response(
+                    {'error': f'Participant {i} missing required field: name'},
+                    status=400
+                )
         
         # Ensure requesting user is included
         requesting_user_id = user.get('id')
@@ -124,7 +149,12 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
             created_at=datetime.utcnow(),
             active_participants=set(),
             queue_size_limit=1000,
-            message_count=0
+            message_count=0,
+            metadata={
+                'title': title,
+                'sites': data.get('sites', []),
+                'mode': data.get('mode', 'list')
+            }
         )
         
         # Add human participants
@@ -241,9 +271,9 @@ async def list_conversations_handler(request: web.Request) -> web.Response:
         for conv in conversations:
             formatted_conversations.append({
                 'conversation_id': conv.conversation_id,
-                'title': conv.metadata.get('title', 'Untitled Chat'),
+                'title': conv.metadata.get('title', 'Untitled Chat') if conv.metadata else 'Untitled Chat',
                 'created_at': conv.created_at.isoformat(),
-                'last_message_at': conv.updated_at.isoformat() if conv.updated_at else None,
+                'last_message_at': conv.updated_at.isoformat() if hasattr(conv, 'updated_at') and conv.updated_at else None,
                 'participant_count': len(conv.active_participants),
                 'unread_count': 0  # TODO: Implement unread tracking
             })
@@ -459,8 +489,17 @@ async def join_conversation_handler(request: web.Request) -> web.Response:
                 status=404
             )
         
+        # Validate participant data - support both old and new format
+        participant_id = participant_data.get('user_id') or participant_data.get('participantId', user.get('id'))
+        participant_name = participant_data.get('name') or participant_data.get('displayName', user.get('name', 'User'))
+        
+        if not participant_id:
+            return web.json_response(
+                {'error': 'Participant user_id is required'},
+                status=400
+            )
+        
         # Check if user is already a participant
-        participant_id = participant_data.get('participantId', user.get('id'))
         existing_participant_ids = {p.participant_id for p in conversation.active_participants}
         
         if participant_id in existing_participant_ids:
@@ -485,7 +524,7 @@ async def join_conversation_handler(request: web.Request) -> web.Response:
         # Create participant info
         participant_info = ParticipantInfo(
             participant_id=participant_id,
-            name=participant_data.get('displayName', user.get('name', 'User')),
+            name=participant_name,
             participant_type=ParticipantType.HUMAN,
             joined_at=datetime.utcnow()
         )
@@ -758,10 +797,10 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     )
     
     try:
-        # Add connection to manager (will broadcast join event)
+        # Add connection to manager (this just stores the connection now)
         await ws_manager.add_connection(conversation_id, connection)
         
-        # Send connection confirmation
+        # Send connection confirmation FIRST (proper WebSocket handshake)
         await ws.send_json({
             'type': 'connected',
             'conversation_id': conversation_id,
@@ -769,6 +808,18 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
             'mode': conv_manager.get_conversation_mode(conversation_id).value,
             'input_timeout': conv_manager.get_input_timeout(conversation_id)
         })
+        
+        # Send current participant list
+        await ws_manager._send_participant_list(conversation_id, connection)
+        
+        # Broadcast participant join to other users
+        await ws_manager.broadcast_participant_update(
+            conversation_id=conversation_id,
+            action="join",
+            participant_id=user_id,
+            participant_name=user_name,
+            participant_type="human"
+        )
         
         # Send recent message history
         recent_messages = await storage_client.get_conversation_messages(

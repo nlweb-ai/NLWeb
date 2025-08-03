@@ -1,64 +1,63 @@
-# Next Steps - Multi-Participant Chat System
+# Next Steps
 
-## Immediate Priority: Fix Failing Tests
+## ✅ COMPLETED: Integration Layer is 100% Functional!
+- **REST API Tests**: 15/15 passing ✅
+- **WebSocket Tests**: 16/16 passing ✅
+- All validation fixed, proper error codes, WebSocket protocol correct
 
-### 1. Fix Validation Errors (2 tests failing)
-**Issue**: Server returns 500 instead of 400 for invalid data
+## Immediate Priority: Fix End-to-End Tests
 
-**Tests to fix**:
-- `test_invalid_participant_data` - Missing user_id causes KeyError
-- `test_missing_required_fields` - Missing title validation
+The integration layer is complete. Next task is fixing the 11 failing E2E tests in `/tests/e2e/test_multi_participant.py`.
 
-**Solution**: Add proper validation in `/code/python/webserver/routes/chat.py`:
-```python
-# Check for required participant fields
-for p in participants:
-    if 'user_id' not in p:
-        return web.json_response({'error': 'user_id required'}, status=400)
-```
+### Current E2E Test Status
+- **Total**: 11 tests
+- **Passing**: 0 ❌
+- **Failing**: 11 (connection errors)
 
-### 2. Fix Endpoint Implementation (3 tests failing)
-**Tests to fix**:
-- `test_join_existing_conversation` - Join endpoint needs work
-- `test_get_conversation_details` - Get endpoint needs work  
-- `test_list_all_conversations_for_user` - List endpoint needs work
-
-**Check**:
-- Are these endpoints returning correct data format?
-- Do they handle the authenticated user properly?
-- Are they using the storage layer correctly?
+### Why E2E Tests Are Failing
+All tests fail with `httpx.ConnectError: All connection attempts failed`, suggesting:
+1. Tests may be using wrong base URL
+2. Server startup timing issues
+3. Authentication configuration problems
+4. Missing test data setup
 
 ## How to Resume Next Session
 
-1. **Start with validation fixes** in `create_conversation_handler`:
-   ```python
-   # Add validation for participant data
-   try:
-       for p in participants:
-           if 'user_id' not in p or 'name' not in p:
-               return web.json_response({'error': 'Missing required fields'}, status=400)
-   except Exception as e:
-       return web.json_response({'error': str(e)}, status=400)
-   ```
+### 1. First, check E2E test configuration:
+```bash
+# See how E2E tests are configured
+head -100 tests/e2e/test_multi_participant.py
 
-2. **Run the failing tests individually** to debug:
-   ```bash
-   python -m pytest tests/integration/test_rest_api.py::TestConversationCreation::test_invalid_participant_data -xvs
-   ```
+# Check if there's a separate E2E config
+find tests/e2e -name "*.py" -o -name "*.yaml" | xargs grep -l "localhost\|8000\|base.*url"
+```
 
-3. **Use the test runner script** to see server output:
-   ```python
-   # Already created at /tmp/run_server_with_tests.py
-   # Shows server errors alongside test failures
-   ```
+### 2. Run a single E2E test with debugging:
+```bash
+# Use the test runner to ensure server is running
+python scripts/run_tests_with_server.py tests/e2e/test_multi_participant.py::TestSingleUserConversationFlow::test_create_send_receive_conversation_cycle -xvs
+```
 
-## Current Status
-- ✅ 10/15 integration tests passing (66.7%)
-- ✅ Server runs properly with test infrastructure
-- ✅ Test format matches server expectations
-- ❌ Need to fix validation and endpoint bugs
+### 3. Check what the E2E tests expect:
+- Base URL configuration
+- Authentication setup
+- WebSocket connection handling
+- Test data initialization
 
-## Success Metrics
-- All 15 integration tests should pass
-- No 500 errors - only proper 400/404 responses
-- Then run full 249 test suite
+### 4. Likely fixes needed:
+- Update E2E test base URLs to match server
+- Ensure proper authentication tokens
+- Fix any timing issues with server startup
+- Add proper test fixtures for E2E scenarios
+
+## Success Criteria
+- All 11 E2E tests passing
+- Full multi-user conversation flows working
+- Share link functionality tested
+- Large conversation scenarios validated
+
+## After E2E Tests
+1. Run full test suite (249 tests)
+2. Create PR with all changes
+3. Update documentation
+4. Plan frontend integration

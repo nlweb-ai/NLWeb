@@ -454,7 +454,8 @@ class TestConversationRetrieval:
             
             assert response.status_code == 200
             data = response.json()
-            assert isinstance(data, list)
+            assert 'conversations' in data
+            assert isinstance(data['conversations'], list)
 
 
 if __name__ == "__main__":
