@@ -57,6 +57,11 @@ Also copy these existing files (we'll reuse them):
 - recipe-renderer.js
 - display_map.js
 
+Add DOMPurify for XSS prevention:
+- Download from: https://github.com/cure53/DOMPurify/releases
+- Add to /static/dompurify.min.js
+- Will be used to sanitize all user content before rendering
+
 Document in API_ENDPOINTS.md:
 GET    /api/chat/config
 GET    /api/chat/conversations
@@ -73,6 +78,8 @@ We're building a WebSocket-based multi-participant chat that:
 - Shows enhanced sidebar with sites and recent messages
 - Enables conversation sharing via links
 - Reuses existing message renderers
+- Sanitizes all user content for security
+- Throttles typing indicators to prevent spam
 ```
 
 ---
@@ -111,7 +118,12 @@ Include these element IDs:
 - chat-input, send-button
 - participant-panel
 
-Add script tags for multi-chat-app.js as module and existing renderers.
+Add script tags for:
+- dompurify.min.js (before other scripts)
+- multi-chat-app.js as module
+- Existing renderers
+
+Store OAuth tokens in sessionStorage, not localStorage.
 ```
 
 ---
@@ -158,7 +170,8 @@ Export as singleton
 Create /static/chat/identity-service.js:
 
 Requirements:
-- Check for OAuth identity first (authToken + userInfo in localStorage)
+- Check for OAuth identity first (authToken in sessionStorage, userInfo in localStorage)
+- OAuth tokens must be in sessionStorage for security (cleared on tab close)
 - Fall back to email identity from localStorage ('nlweb_chat_identity')
 - promptForEmail() method that shows modal dialog
 - ensureIdentity() method that returns identity or prompts
@@ -171,6 +184,9 @@ Modal should have:
 - Display name input (optional)
 - Form validation
 - Returns promise that resolves to identity object or null
+
+Important: Only non-sensitive identity info goes in localStorage.
+OAuth tokens must use sessionStorage.
 
 Export as singleton
 ```
@@ -218,6 +234,7 @@ Create /static/chat/websocket-service.js:
 
 Core features:
 - connect(conversationId, participantInfo) method
+- Get auth token from sessionStorage (not localStorage)
 - Automatic reconnection with exponential backoff
 - Message queue for offline sending
 - Heartbeat/ping mechanism
@@ -234,6 +251,11 @@ Reconnection:
 - Double each attempt up to 30 seconds max
 - Send sync request with lastSequenceId on reconnect
 - Flush queued messages after connection
+
+Typing throttle:
+- Track lastTypingSent timestamp
+- Only send if >3 seconds since last or first typing event
+- Clear typing state on message send
 
 Export as singleton
 ```
@@ -274,21 +296,28 @@ Create /static/chat/chat-ui.js:
 
 Core responsibilities:
 - Message rendering with sender attribution
-- Reuse existing json-renderer for rich content
+- SANITIZE all user content with DOMPurify before rendering
+- Reuse existing json-renderer for rich content (after sanitization)
 - Show typing indicators
 - Handle input and sending
 - Update header info (title, site, mode, participants)
 
 Key methods:
 - initialize(container) - set up DOM structure
-- renderMessage(message) - use existing renderers for content types
+- renderMessage(message) - sanitize content, then use existing renderers
+- sanitizeContent(content) - use DOMPurify.sanitize()
 - showTypingIndicators(typingUsers)
 - updateChatHeader(conversation)
-- handleInputKeydown(event)
+- handleInputKeydown(event) - throttle typing events
 - setInputMode(mode) - adjust for single vs multi participant
 
-For AI responses (result_batch, chart_result, etc), reuse the exact
-rendering logic from managed-event-source.js but adapted for our events.
+Typing throttle logic:
+- Track lastTypingEventTime
+- On keypress: if no lastTypingEventTime OR >3 seconds passed, emit typing event
+- Clear typing on message send
+
+For AI responses (result_batch, chart_result, etc), sanitize before
+passing to existing renderers. AI-generated HTML must also be sanitized.
 
 Include message batching with requestAnimationFrame for performance.
 ```
@@ -378,24 +407,53 @@ Complete the message flow in multi-chat-app.js:
 
 Sending messages:
 1. User types → Chat UI captures
-2. Create message with client ID
-3. Add optimistic UI update
-4. Send via WebSocket
-5. Update with server response
+2. Throttle typing indicator (3 second minimum between events)
+3. Create message with client ID
+4. Add optimistic UI update
+5. Send via WebSocket
+6. Update with server response
 
 Receiving messages:
 1. WebSocket receives → emits event
 2. State manager stores by sequence ID
-3. UI updates with new message
-4. Handle sender attribution
+3. SANITIZE content with DOMPurify
+4. UI updates with sanitized message
+5. Handle sender attribution
 
 AI responses:
 1. Route by message_type to appropriate renderer
-2. Reuse ALL existing rendering logic
-3. Support streaming updates for ai_chunk type
-4. Show in conversation with AI attribution
+2. SANITIZE all content before rendering
+3. For HTML responses (charts, etc), use DOMPurify with safe config
+4. Support streaming updates for ai_chunk type
+5. Show in conversation with AI attribution
+
+Security notes:
+- Never trust any user-generated content
+- Sanitize at the rendering layer, not storage
+- AI responses may contain HTML - sanitize those too
 
 Test with single user first, then multiple users.
+```
+
+### Command 13: Security Wrapper
+
+```
+Create a security wrapper for all renderers:
+
+In chat-ui.js or separate secure-renderer.js:
+- Wrap all existing renderers (json-renderer, type-renderers, etc)
+- Apply DOMPurify.sanitize() to all text content
+- For HTML content, use DOMPurify with configuration:
+  {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 
+                   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'code', 
+                   'blockquote', 'img', 'div', 'span'],
+    ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'id', 'style'],
+    ALLOW_DATA_ATTR: false
+  }
+- Special handling for chart_result and results_map (may need specific tags)
+
+This ensures no XSS can occur through stored messages or AI responses.
 ```
 
 ---
@@ -439,9 +497,15 @@ Mobile-first responsive design.
 ```
 Create test-multi-chat.html for development testing:
 
+Include scripts:
+- DOMPurify
+- All chat components
+- Test utilities
+
 Add buttons to:
 - Connect/disconnect WebSocket
 - Send test message
+- Send XSS test: <script>alert('XSS')</script>
 - Simulate AI response  
 - Add/remove participants
 - Trigger typing indicator
@@ -453,6 +517,7 @@ Add textarea for viewing:
 - WebSocket messages
 - Current state
 - Event log
+- Sanitization results
 
 This helps test without full server integration.
 ```
@@ -475,10 +540,21 @@ Create manual test scenarios in TEST_SCENARIOS.md:
    - Both exchange messages
    - AI responds to both
 
-3. Edge cases:
+3. Security tests:
+   - Send message with <script>alert('XSS')</script>
+   - Send message with onclick handlers
+   - Verify OAuth token not in localStorage
+   - Check all rendered content is sanitized
+   - Test AI responses with HTML are sanitized
+
+4. Throttling tests:
+   - Type rapidly and verify typing events throttled
+   - Verify typing cleared on message send
+   - Check multiple users typing simultaneously
+
+5. Edge cases:
    - Reconnection during conversation
    - Join with no identity
-   - Queue overflow
    - Network failures
 
 Document expected behavior for each scenario.
@@ -572,8 +648,8 @@ Site metadata structure:
 Two authentication modes:
 
 1. OAuth (check first):
-   - authToken in localStorage
-   - userInfo in localStorage with user object
+   - authToken in sessionStorage (for security)
+   - userInfo in localStorage (non-sensitive)
    - Use as-is for identity
 
 2. Email (fallback):
@@ -581,6 +657,11 @@ Two authentication modes:
    - Store in 'nlweb_chat_identity' key
    - Generate participant_id by hashing email
    - Optional display name
+
+Security notes:
+- OAuth tokens MUST be in sessionStorage (cleared on tab close)
+- Only non-sensitive data in localStorage
+- Never put tokens in URLs
 
 Participant info format:
 {
@@ -601,6 +682,16 @@ Performance requirements:
 - Virtual scroll for 1000+ messages
 - Keep max 50 messages per conversation in localStorage
 - Lazy load conversation history
+
+Throttling:
+- Typing indicators: Max once per 3 seconds
+- No throttling on actual message sends
+- Clear typing state on message send
+
+Security performance:
+- DOMPurify sanitization is fast (~1ms per message)
+- Sanitize during render, not storage
+- Cache sanitized content if needed
 
 This is a complete rewrite, so no need to maintain
 compatibility with the EventSource implementation.

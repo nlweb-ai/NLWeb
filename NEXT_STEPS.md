@@ -1,48 +1,42 @@
-# Next Steps for Chat System Implementation
+# Next Steps for Frontend Chat Client Implementation
 
-## Immediate Tasks
+## Current Status
+Phase 1 (Foundation) complete. Ready for Phase 2 (Core Services).
 
-### 1. Complete Verification Test Suite
-- [ ] Create `tests/test_chat_reliability.py`
-  - At-least-once delivery with network interruption
-  - Queue overflow returns 429 properly
-  - Sequence IDs remain ordered after reconnection
-  - Multiple humans reconnecting simultaneously
-  - Metrics accurately track system state
+## Immediate Next Task: Event Bus Service
 
-- [ ] Create `tests/test_chat_multi_human.py`
-  - 3 humans sending messages simultaneously
-  - Participant join/leave during active conversation
-  - Message ordering consistency across all humans
-  - Input mode switching (single → multi) on participant changes
+### Create `/static/chat/event-bus.js`
 
-### 2. Fix Missing Implementations
-- [ ] Add `get_user_conversations` to storage providers
-- [ ] Add `create_conversation` to storage interface
-- [ ] Implement conversation access control in WebSocket handler
-- [ ] Add rate limiting middleware
+Requirements:
+- Singleton event emitter for component communication
+- Subscribe to events with on() method
+- Emit events with emit() method  
+- Unsubscribe with off() method
+- Error handling for broken listeners
+- Debug mode with console logging
 
-### 3. Run and Fix Tests
-- [ ] Run all chat tests: `python -m pytest tests/test_chat_*.py -v`
-- [ ] Fix any import errors or missing dependencies
-- [ ] Address test failures
-- [ ] Ensure performance meets requirements (<105% of baseline)
+Events to support:
+- `navigate:conversation` - Load a conversation
+- `create:conversation` - Create new conversation
+- `send:message` - Send chat message
+- `user:typing` - User is typing
+- `ws:message` - WebSocket message received
+- `ws:connected` - WebSocket connected
+- `ws:disconnected` - WebSocket disconnected
+- `share:conversation` - Share current conversation
 
-### 4. Documentation Updates
-- [ ] Add security section to README
-  - WSS configuration
-  - Authentication flow
-  - Data retention policy
-  - PII handling
-- [ ] Document chat metrics and monitoring
-- [ ] Multi-human setup instructions
-- [ ] Scaling notes (Redis pub/sub for future)
+### After Event Bus, continue with:
+1. API Service (api-service.js)
+2. Identity Service (identity-service.js) 
+3. State Manager (state-manager.js)
+4. WebSocket Service (websocket-service.js)
+5. UI Components (sidebar-ui.js, chat-ui.js, share-ui.js)
 
-### 5. Integration Testing
-- [ ] Test with real NLWebHandler
-- [ ] Test with actual WebSocket connections
-- [ ] Verify frontend can connect and chat
-- [ ] Load test with multiple concurrent users
+## Backend Tasks (Separate)
+- [ ] Complete reliability tests
+- [ ] Fix storage provider implementations
+- [ ] Run full test suite
+- [ ] Integration testing
 
 ## Resume Instructions
 

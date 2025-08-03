@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLWeb Multi-Participant Chat</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="stylesheet" href="multi-chat-styles.css">
+</head>
+<body>
+    <div id="app-container">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h2>Conversations</h2>
+                <div class="header-actions">
+                    <button id="sort-toggle" class="btn btn-icon" title="Sort conversations">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18M7 12h10M11 18h2"/>
+                        </svg>
+                    </button>
+                    <button id="new-conversation-btn" class="btn btn-primary">New Chat</button>
+                </div>
+            </div>
+            <div id="sites-container" class="sites-section">
+                <h3>Sites</h3>
+                <div id="sites-list" class="sites-list"></div>
+            </div>
+            <div id="conversations-container" class="conversations-section">
+                <h3>Recent Chats</h3>
+                <div id="conversations-list" class="conversations-list"></div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main id="chat-container" class="chat-container">
+            <!-- Chat Header -->
+            <header id="chat-header" class="chat-header">
+                <div class="chat-info">
+                    <h1 id="chat-title">Select or Start a Conversation</h1>
+                    <div class="chat-meta">
+                        <span id="current-site" class="meta-item"></span>
+                        <span id="current-mode" class="meta-item"></span>
+                        <span id="participant-count" class="meta-item"></span>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button id="share-button" class="btn btn-secondary" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
+                        </svg>
+                        Share
+                    </button>
+                    <select id="site-selector" class="site-selector" disabled>
+                        <option value="">All Sites</option>
+                    </select>
+                    <select id="mode-selector" class="mode-selector" disabled>
+                        <option value="list">List</option>
+                        <option value="summarize">Summarize</option>
+                        <option value="generate">Generate</option>
+                    </select>
+                </div>
+            </header>
+
+            <!-- Messages Area -->
+            <div id="messages-container" class="messages-container">
+                <div class="welcome-message">
+                    <h2>Welcome to NLWeb Chat</h2>
+                    <p>Start a new conversation or select one from the sidebar.</p>
+                </div>
+            </div>
+
+            <!-- Typing Indicators -->
+            <div id="typing-indicators" class="typing-indicators" style="display: none;"></div>
+
+            <!-- Input Area -->
+            <div id="input-container" class="input-container">
+                <textarea 
+                    id="chat-input" 
+                    class="chat-input" 
+                    placeholder="Type your message..."
+                    disabled
+                    rows="1"
+                ></textarea>
+                <button id="send-button" class="btn btn-primary send-button" disabled>Send</button>
+            </div>
+        </main>
+
+        <!-- Participant Panel (hidden by default) -->
+        <aside id="participant-panel" class="participant-panel hidden">
+            <div class="panel-header">
+                <h3>Participants</h3>
+                <button id="close-participants" class="btn-close">×</button>
+            </div>
+            <div id="participants-list" class="participants-list"></div>
+        </aside>
+    </div>
+
+    <!-- Scripts -->
+    <script src="dompurify.min.js"></script>
+    <script type="module" src="multi-chat-app.js"></script>
+    <script src="json-renderer.js"></script>
+    <script src="type-renderers.js"></script>
+    <script src="recipe-renderer.js"></script>
+    <script src="display_map.js"></script>
+</body>
+</html>
