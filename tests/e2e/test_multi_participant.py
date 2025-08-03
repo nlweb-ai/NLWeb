@@ -28,8 +28,8 @@ from chat.schemas import (
 
 
 # E2E Test Configuration
-E2E_BASE_URL = "http://localhost:8080"
-WEBSOCKET_BASE_URL = "ws://localhost:8080"
+E2E_BASE_URL = "http://localhost:8000"
+WEBSOCKET_BASE_URL = "ws://localhost:8000"
 E2E_TIMEOUT = 30.0
 
 
