@@ -87,6 +87,78 @@ class ChatStorageInterface(ABC):
             The conversation or None if not found
         """
         pass
+    
+    @abstractmethod
+    async def create_conversation(self, conversation: Conversation) -> None:
+        """
+        Create a new conversation.
+        
+        Args:
+            conversation: The conversation to create
+        """
+        pass
+    
+    @abstractmethod
+    async def is_participant(self, conversation_id: str, user_id: str) -> bool:
+        """
+        Check if user is participant in conversation.
+        
+        Args:
+            conversation_id: The conversation ID
+            user_id: The user ID to check
+            
+        Returns:
+            True if user is a participant, False otherwise
+        """
+        pass
+    
+    @abstractmethod
+    async def get_participant_count(self, conversation_id: str) -> int:
+        """
+        Get current participant count for a conversation.
+        
+        Args:
+            conversation_id: The conversation ID
+            
+        Returns:
+            Number of active participants
+        """
+        pass
+    
+    @abstractmethod
+    async def update_participants(
+        self, 
+        conversation_id: str, 
+        participants: Set[ParticipantInfo]
+    ) -> None:
+        """
+        Update participant list atomically.
+        
+        Args:
+            conversation_id: The conversation ID
+            participants: New set of participants
+        """
+        pass
+    
+    @abstractmethod
+    async def get_user_conversations(
+        self,
+        user_id: str,
+        limit: int = 20,
+        offset: int = 0
+    ) -> List[Conversation]:
+        """
+        Get conversations for a specific user.
+        
+        Args:
+            user_id: The user ID
+            limit: Maximum number of conversations to return
+            offset: Number of conversations to skip
+            
+        Returns:
+            List of conversations where user is a participant
+        """
+        pass
 
 
 class ChatStorageClient:
@@ -212,6 +284,67 @@ class ChatStorageClient:
             return conv
         except Exception as e:
             self.metrics.record_storage_operation("get_conversation", time.time() - start_time, success=False)
+            raise
+    
+    async def create_conversation(self, conversation: Conversation) -> None:
+        """Create a conversation with metrics tracking"""
+        start_time = time.time()
+        try:
+            await self.backend.create_conversation(conversation)
+            self.metrics.record_storage_operation("create_conversation", time.time() - start_time)
+        except Exception as e:
+            self.metrics.record_storage_operation("create_conversation", time.time() - start_time, success=False)
+            raise
+    
+    async def is_participant(self, conversation_id: str, user_id: str) -> bool:
+        """Check if user is participant with metrics tracking"""
+        start_time = time.time()
+        try:
+            result = await self.backend.is_participant(conversation_id, user_id)
+            self.metrics.record_storage_operation("is_participant", time.time() - start_time)
+            return result
+        except Exception as e:
+            self.metrics.record_storage_operation("is_participant", time.time() - start_time, success=False)
+            raise
+    
+    async def get_participant_count(self, conversation_id: str) -> int:
+        """Get participant count with metrics tracking"""
+        start_time = time.time()
+        try:
+            count = await self.backend.get_participant_count(conversation_id)
+            self.metrics.record_storage_operation("get_participant_count", time.time() - start_time)
+            return count
+        except Exception as e:
+            self.metrics.record_storage_operation("get_participant_count", time.time() - start_time, success=False)
+            raise
+    
+    async def update_participants(self, conversation_id: str, participants: Set[ParticipantInfo]) -> None:
+        """Update participants with metrics tracking"""
+        start_time = time.time()
+        try:
+            await self.backend.update_participants(conversation_id, participants)
+            self.metrics.record_storage_operation("update_participants", time.time() - start_time)
+            
+            # Track participant count changes
+            self.metrics.track_conversation_pattern(conversation_id, len(participants))
+        except Exception as e:
+            self.metrics.record_storage_operation("update_participants", time.time() - start_time, success=False)
+            raise
+    
+    async def get_user_conversations(
+        self, 
+        user_id: str, 
+        limit: int = 20, 
+        offset: int = 0
+    ) -> List[Conversation]:
+        """Get user conversations with metrics tracking"""
+        start_time = time.time()
+        try:
+            conversations = await self.backend.get_user_conversations(user_id, limit, offset)
+            self.metrics.record_storage_operation("get_user_conversations", time.time() - start_time)
+            return conversations
+        except Exception as e:
+            self.metrics.record_storage_operation("get_user_conversations", time.time() - start_time, success=False)
             raise
 
 

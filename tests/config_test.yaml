@@ -1,106 +1,74 @@
 # Test-specific configuration for multi-participant chat system
+# This configuration is used for running integration and unit tests
 
-# Test environment settings
-environment: test
-debug: true
+server:
+  host: "localhost"
+  port: 8080
+  enable_cors: true
+  max_connections: 50  # Lower for tests
 
-# Mock server configuration
-test_server:
-  host: localhost
-  port: 8888
-  ssl: false
+chat:
+  storage:
+    backend: "memory"  # Always use memory backend for tests
+    queue_size_limit: 100  # Lower limit for tests
+    cache_enabled: false  # Disable caching for predictable tests
+  
+  # Timeouts optimized for fast test execution
+  single_mode_timeout: 2  # 2 seconds for tests
+  multi_mode_timeout: 5   # 5 seconds for tests
+  
+  # Lower limits for testing edge cases
+  limits:
+    max_participants: 10
+    queue_size: 100
+  
+  # Faster timeouts for test responsiveness
+  context:
+    nlweb_timeout: 2  # 2 seconds for tests
 
-# WebSocket test configuration
+# Authentication disabled for tests
+auth:
+  enabled: false
+  mock_user:
+    user_id: "test_user_123"
+    name: "Test User"
+    email: "test@example.com"
+
+# NLWeb integration (mocked in tests)
+nlweb:
+  enabled: false  # Disabled for unit tests
+  mock_responses: true
+  timeout: 2
+
+# WebSocket configuration for tests
 websocket:
-  url: ws://localhost:8888/chat/ws
-  reconnect_attempts: 3
-  reconnect_delay: 1
-  timeout: 5
-
-# Storage configuration for tests
-storage:
-  backend: memory  # Use in-memory storage for tests
-  clear_on_start: true
-  
-# Test user configuration
-test_users:
-  oauth_provider: mock
-  default_token_expiry: 3600  # 1 hour
-  
-# Performance test thresholds
-performance:
-  baseline_endpoint: /ask
-  single_participant_threshold: 1.05  # 105% of baseline
-  multi_participant_threshold: 0.2    # 200ms
-  websocket_handshake_threshold: 0.05 # 50ms
-  message_routing_thresholds:
-    2_participants: 0.001  # 1ms
-    10_participants: 0.005 # 5ms
-  storage_operation_threshold: 0.05   # 50ms
-
-# Rate limiting for tests
-rate_limits:
-  enabled: true
-  queue_size_limit: 1000
-  typing_throttle: 3  # seconds
-  requests_per_minute: 60
-
-# Security test configuration
-security:
-  xss_prevention: true
-  auth_required: true
-  cors_enabled: true
-  allowed_origins:
-    - http://localhost:*
-    - http://127.0.0.1:*
+  ping_interval: 10  # Faster pings for tests
+  ping_timeout: 5
+  max_message_size: 1048576  # 1MB
 
 # Logging configuration for tests
 logging:
-  level: DEBUG
+  level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-  handlers:
-    - console
-    - file
-  file_path: tests/logs/test.log
+  disable_access_logs: true  # Cleaner test output
 
-# Test timeouts
-timeouts:
-  unit_test: 5      # seconds
-  integration_test: 30
-  performance_test: 60
-  e2e_test: 120
-
-# Mock data configuration
-mock_data:
-  conversation_count: 10
-  message_count_per_conversation: 50
-  user_count: 20
-  max_participants_per_conversation: 5
-
-# Test database configuration
-test_database:
-  type: sqlite
-  path: ":memory:"
+# Test-specific settings
+test:
+  # Reset state between tests
+  auto_cleanup: true
   
-# Cache configuration for tests
-cache:
-  type: memory
-  ttl: 300  # 5 minutes
-  max_entries: 1000
-
-# Feature flags for tests
-features:
-  multi_participant: true
-  oauth_authentication: true
-  email_fallback: true
-  typing_indicators: true
-  message_persistence: true
+  # Test data settings
+  fixtures:
+    sample_users: 5
+    sample_conversations: 3
+    sample_messages_per_conversation: 10
   
-# Test coverage settings
-coverage:
-  minimum_overall: 80
-  minimum_critical_path: 90
-  exclude_patterns:
-    - "*/tests/*"
-    - "*/migrations/*"
-    - "*/__pycache__/*"
+  # Performance test thresholds
+  performance:
+    max_latency_ms: 50
+    max_memory_mb: 100
+    
+  # Retry settings for flaky tests
+  retry:
+    max_attempts: 3
+    delay_ms: 100

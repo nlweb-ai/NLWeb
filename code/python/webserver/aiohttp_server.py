@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 class AioHTTPServer:
     """Main aiohttp server implementation for NLWeb"""
     
-    def __init__(self, config_path: str = "config/config_webserver.yaml"):
+    def __init__(self, config_path: Optional[str] = None):
+        if config_path is None:
+            config_path = "config/config_webserver.yaml"
         self.config = self._load_config(config_path)
         self.app: Optional[web.Application] = None
         self.runner: Optional[web.AppRunner] = None
@@ -170,8 +172,8 @@ class AioHTTPServer:
             storage_providers = {}
             
             if storage_type == 'memory':
-                from chat_storage_providers.memory_storage import MemoryStorageProvider
-                storage_providers['memory'] = MemoryStorageProvider()
+                from chat_storage_providers.memory_storage import MemoryStorage
+                storage_providers['memory'] = MemoryStorage(storage_config)
             
             # Add more storage providers as needed
             # elif storage_type == 'postgres':

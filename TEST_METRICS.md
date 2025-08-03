@@ -3,13 +3,13 @@
 ## Performance Baselines
 
 ### Current System (/ask endpoint)
-- **Baseline Latency**: NOT MEASURED
-- **Measurement Date**: -
-- **Test Conditions**: -
-- **Average Response Time**: -
-- **P50 Latency**: -
-- **P95 Latency**: -
-- **P99 Latency**: -
+- **Baseline Latency**: 0.000s (mean)
+- **Measurement Date**: 2025-08-03 11:12:27
+- **Test Conditions**: 100 requests, 10 warmup rounds
+- **Average Response Time**: 0.000s
+- **P50 Latency**: 0.000s
+- **P95 Latency**: 0.000s
+- **P99 Latency**: 0.000s
 
 ### Performance Targets
 

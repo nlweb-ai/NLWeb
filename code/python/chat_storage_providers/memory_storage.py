@@ -8,7 +8,7 @@ import asyncio
 from datetime import datetime
 from collections import defaultdict
 
-from chat.schemas import ChatMessage, Conversation, QueueFullError
+from chat.schemas import ChatMessage, Conversation, QueueFullError, ParticipantInfo
 from chat.storage import ChatStorageInterface
 
 
@@ -151,3 +151,114 @@ class MemoryStorage(ChatStorageInterface):
         """
         async with self._storage_lock:
             return self._conversations.get(conversation_id)
+    
+    async def create_conversation(self, conversation: Conversation) -> None:
+        """
+        Create a new conversation.
+        
+        Args:
+            conversation: The conversation to create
+        """
+        async with self._storage_lock:
+            self._conversations[conversation.conversation_id] = conversation
+    
+    async def is_participant(self, conversation_id: str, user_id: str) -> bool:
+        """
+        Check if user is participant in conversation.
+        
+        Args:
+            conversation_id: The conversation ID
+            user_id: The user ID to check
+            
+        Returns:
+            True if user is a participant, False otherwise
+        """
+        async with self._storage_lock:
+            conversation = self._conversations.get(conversation_id)
+            if not conversation:
+                return False
+            
+            return any(p.participant_id == user_id for p in conversation.active_participants)
+    
+    async def get_participant_count(self, conversation_id: str) -> int:
+        """
+        Get current participant count for a conversation.
+        
+        Args:
+            conversation_id: The conversation ID
+            
+        Returns:
+            Number of active participants
+        """
+        async with self._storage_lock:
+            conversation = self._conversations.get(conversation_id)
+            if not conversation:
+                return 0
+            
+            return len(conversation.active_participants)
+    
+    async def update_participants(
+        self, 
+        conversation_id: str, 
+        participants: Set['ParticipantInfo']
+    ) -> None:
+        """
+        Update participant list atomically.
+        
+        Args:
+            conversation_id: The conversation ID
+            participants: New set of participants
+        """
+        async with self._storage_lock:
+            conversation = self._conversations.get(conversation_id)
+            if conversation:
+                conversation.active_participants = participants
+                conversation.updated_at = datetime.utcnow()
+    
+    async def get_user_conversations(
+        self,
+        user_id: str,
+        limit: int = 20,
+        offset: int = 0
+    ) -> List[Conversation]:
+        """
+        Get conversations for a specific user.
+        
+        Args:
+            user_id: The user ID
+            limit: Maximum number of conversations to return
+            offset: Number of conversations to skip
+            
+        Returns:
+            List of conversations where user is a participant
+        """
+        async with self._storage_lock:
+            user_conversations = []
+            
+            for conversation in self._conversations.values():
+                # Check if user is a participant
+                if any(p.participant_id == user_id for p in conversation.active_participants):
+                    user_conversations.append(conversation)
+            
+            # Sort by updated_at or created_at (most recent first)
+            user_conversations.sort(
+                key=lambda c: getattr(c, 'updated_at', c.created_at),
+                reverse=True
+            )
+            
+            # Apply pagination
+            start = offset
+            end = offset + limit
+            
+            return user_conversations[start:end]
+    
+    async def clear_all(self) -> None:
+        """
+        Clear all data from memory storage.
+        Used for test cleanup.
+        """
+        async with self._storage_lock:
+            self._messages.clear()
+            self._conversations.clear()
+            self._sequence_counters.clear()
+            self._message_ids.clear()

@@ -159,3 +159,5 @@
 | 2025-08-03 | - | - | - | - | Implemented DELETE /chat/{id}/leave endpoint with WebSocket cleanup |
 | 2025-08-03 | - | - | - | - | Implemented GET /chat/conversations/{id} endpoint for conversation details |
 | 2025-08-03 | - | - | - | - | Enhanced WebSocket with participant verification and broadcast updates |
+| 2025-08-03 | - | - | - | - | Updated storage layer with efficient participant tracking methods |
+| 2025-08-03 | - | - | - | - | Created test infrastructure with config_test.yaml and mock fixtures |

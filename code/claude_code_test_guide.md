@@ -17,7 +17,7 @@ What's our current context usage?
 If it's over 60%, please:
 1. Update TEST_PROGRESS.md with completed test suites
 2. Update FAILING_TESTS.md with any tests that need attention
-3. Commit all test files with message "tests: [describe what we just tested]"
+3. Commit all test files with message "tests: [describe what we just tested]" without attribution to anyone
 4. Run compact
 5. Tell me exactly how to resume testing
 ```
@@ -303,7 +303,7 @@ Create WebSocket test client:
 ```
 
 ---
-NEXT
+
 ## Phase 3: Performance Tests
 
 ### Command 7: Latency and Throughput Tests
@@ -482,6 +482,7 @@ Create security payloads:
 ```
 
 ---
+NEXT
 
 ## Phase 5: Reliability and Failure Recovery Tests
 

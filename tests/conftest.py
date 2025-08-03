@@ -12,7 +12,10 @@ from unittest.mock import MagicMock, AsyncMock
 import pytest
 import pytest_asyncio
 from aiohttp import web
+from aiohttp.test_utils import TestServer, TestClient
 from aioresponses import aioresponses
+import httpx
+import re
 
 # Add project root to Python path
 import sys
@@ -316,3 +319,268 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: mark test as slow running"
     )
+
+
+# Integration test fixtures for server and client
+@pytest_asyncio.fixture
+async def test_app():
+    """Create test application without starting server"""
+    from webserver.aiohttp_server import AioHTTPServer
+    import yaml
+    
+    # Load test configuration
+    config_path = os.path.join(os.path.dirname(__file__), 'config_test.yaml')
+    with open(config_path, 'r') as f:
+        test_config = yaml.safe_load(f)
+    
+    # Create server instance with test config
+    server = AioHTTPServer(config_path=config_path)
+    
+    # Create app
+    app = await server.create_app()
+    
+    # Mock authentication middleware
+    async def mock_auth_middleware(app, handler):
+        async def middleware_handler(request):
+            # Add mock user to request from config
+            auth_config = test_config.get('auth', {})
+            mock_user = auth_config.get('mock_user', {})
+            request['user'] = {
+                'authenticated': True,
+                'id': mock_user.get('user_id', 'test_user_123'),
+                'name': mock_user.get('name', 'Test User'),
+                'email': mock_user.get('email', 'test@example.com')
+            }
+            return await handler(request)
+        return middleware_handler
+    
+    # Insert mock auth middleware at the beginning
+    app.middlewares.insert(0, mock_auth_middleware)
+    
+    # Store test config in app for cleanup
+    app['test_config'] = test_config
+    
+    # Mock NLWeb handler if configured
+    if not test_config.get('nlweb', {}).get('enabled', False):
+        app['nlweb_handler'] = AsyncMock()
+        app['nlweb_handler'].process = AsyncMock(return_value=True)
+    
+    # Mock any other external dependencies
+    app['external_api_client'] = AsyncMock()
+    
+    return app
+
+
+@pytest_asyncio.fixture
+async def test_server(event_loop, test_app):
+    """Start test server on configured port"""
+    # Get port from test config
+    test_config = test_app.get('test_config', {})
+    server_config = test_config.get('server', {})
+    port = server_config.get('port', 8080)
+    
+    # Create test server
+    test_srv = TestServer(test_app, port=port)
+    await test_srv.start_server(loop=event_loop)
+    
+    yield test_srv
+    
+    # Cleanup
+    await test_srv.close()
+    
+    # Clean up storage if configured
+    if test_config.get('test', {}).get('auto_cleanup', True):
+        storage = test_app.get('chat_storage')
+        if storage and hasattr(storage.backend, 'clear_all'):
+            await storage.backend.clear_all()
+
+
+@pytest_asyncio.fixture
+async def auth_client(test_server):
+    """HTTP client with auth headers"""
+    import httpx
+    
+    # Create client with base URL
+    client = httpx.AsyncClient(
+        base_url=f"http://{test_server.host}:{test_server.port}",
+        timeout=30.0,
+        headers={
+            "Authorization": "Bearer test_token_123",
+            "Content-Type": "application/json"
+        }
+    )
+    
+    yield client
+    
+    # Cleanup
+    await client.aclose()
+
+
+@pytest_asyncio.fixture
+async def test_conversation(auth_client):
+    """Create a test conversation"""
+    # Create conversation via API
+    response = await auth_client.post(
+        "/chat/create",
+        json={
+            "title": "Test Conversation",
+            "participants": [
+                {
+                    "user_id": "test_user_123",
+                    "name": "Test User"
+                },
+                {
+                    "user_id": "test_user_456", 
+                    "name": "Another User"
+                }
+            ],
+            "enable_ai": True
+        }
+    )
+    
+    assert response.status_code == 201
+    conversation_data = response.json()
+    
+    yield conversation_data
+    
+    # Cleanup - leave conversation
+    try:
+        await auth_client.delete(
+            f"/chat/{conversation_data['conversation_id']}/leave"
+        )
+    except Exception:
+        pass  # Ignore cleanup errors
+
+
+@pytest_asyncio.fixture
+async def websocket_client(test_server, test_conversation):
+    """WebSocket client connected to test conversation"""
+    import aiohttp
+    
+    session = aiohttp.ClientSession()
+    
+    # Connect to WebSocket
+    ws_url = f"ws://{test_server.host}:{test_server.port}/chat/ws/{test_conversation['conversation_id']}"
+    ws = await session.ws_connect(
+        ws_url,
+        headers={"Authorization": "Bearer test_token_123"}
+    )
+    
+    # Wait for connection confirmation
+    msg = await ws.receive_json()
+    assert msg['type'] == 'connected'
+    
+    yield ws
+    
+    # Cleanup
+    await ws.close()
+    await session.close()
+
+
+@pytest.fixture
+def mock_nlweb_handler():
+    """Mock NLWebHandler for testing"""
+    handler = AsyncMock()
+    
+    async def mock_process(query_params, chunk_capture):
+        # Simulate NLWeb response
+        await chunk_capture.write_stream({
+            "type": "nlws",
+            "content": "This is a test AI response"
+        })
+        return True
+    
+    handler.process = mock_process
+    return handler
+
+
+# Mock external services fixture
+@pytest_asyncio.fixture(autouse=True)
+async def mock_external_services(monkeypatch):
+    """Mock all external service calls"""
+    # Mock OpenAI API calls
+    mock_openai = AsyncMock()
+    mock_openai.chat.completions.create = AsyncMock(return_value=AsyncMock(
+        choices=[AsyncMock(message=AsyncMock(content="Mocked AI response"))]
+    ))
+    monkeypatch.setattr("openai.AsyncOpenAI", lambda **kwargs: mock_openai)
+    
+    # Mock Azure services
+    monkeypatch.setattr("azure.storage.blob.BlobServiceClient", MagicMock)
+    monkeypatch.setattr("azure.cosmos.CosmosClient", MagicMock)
+    
+    # Mock HTTP requests to external services
+    with aioresponses() as mocked:
+        # Mock OAuth providers
+        mocked.get(re.compile(r'.*google.*userinfo.*'), payload={'email': 'test@gmail.com', 'name': 'Test User'})
+        mocked.get(re.compile(r'.*facebook.*me.*'), payload={'email': 'test@fb.com', 'name': 'Test User'})
+        mocked.get(re.compile(r'.*microsoft.*me.*'), payload={'mail': 'test@outlook.com', 'displayName': 'Test User'})
+        mocked.get(re.compile(r'.*github.*user.*'), payload={'email': 'test@github.com', 'name': 'Test User'})
+        
+        # Mock NLWeb endpoints
+        mocked.post(re.compile(r'.*/ask'), payload={'response': 'Mocked response'})
+        mocked.post(re.compile(r'.*/search'), payload={'results': []})
+        
+        yield mocked
+
+
+# Storage cleanup fixture
+@pytest_asyncio.fixture(autouse=True)
+async def cleanup_storage(test_app):
+    """Automatically clean up storage between tests"""
+    yield
+    
+    # Clean up after test
+    if test_app:
+        test_config = test_app.get('test_config', {})
+        if test_config.get('test', {}).get('auto_cleanup', True):
+            storage = test_app.get('chat_storage')
+            if storage and hasattr(storage.backend, '_messages'):
+                # Clear memory storage
+                storage.backend._messages.clear()
+                storage.backend._conversations.clear()
+                storage.backend._sequence_counters.clear()
+                storage.backend._message_ids.clear()
+
+
+# Additional test utilities
+@pytest.fixture
+def test_auth_headers():
+    """Standard auth headers for tests"""
+    return {
+        "Authorization": "Bearer test_token_123",
+        "Content-Type": "application/json"
+    }
+
+
+@pytest.fixture
+def test_users():
+    """Test user data"""
+    return [
+        {
+            "user_id": "test_user_123",
+            "name": "Test User",
+            "email": "test@example.com"
+        },
+        {
+            "user_id": "test_user_456",
+            "name": "Another User",
+            "email": "another@example.com"
+        },
+        {
+            "user_id": "test_user_789",
+            "name": "Third User",
+            "email": "third@example.com"
+        }
+    ]
+
+
+# Override the existing api_client fixture to use test server
+@pytest_asyncio.fixture
+async def api_client(test_server):
+    """Override api_client to use test server"""
+    async with httpx.AsyncClient(
+        base_url=f"http://{test_server.host}:{test_server.port}",
+        timeout=30.0
+    ) as client:
+        yield client
