@@ -1,16 +1,13 @@
 # Client Development State
 
-## Current Phase: Foundation - HTML Structure Complete ✅
-- Created basic file structure
-- Created HTML with all required elements and IDs
-- Added sort toggle button in sidebar
-- Created CSS with responsive design
-- Created main app orchestrator (multi-chat-app.js)
-- Added DOMPurify for XSS prevention
-- Updated API documentation to match backend implementation
+## Current Phase: Phase 2 - Core Services In Progress ⚡
+- Foundation (Phase 1) complete
+- Started implementing core services
+- Event Bus and Config Service complete
+- Identity Service complete with OAuth + email fallback
 
 ## Progress Summary:
-Phase 1 (Foundation) is complete. Ready for Phase 2 (Core Services).
+Phase 1 (Foundation) complete. Phase 2 (Core Services) in progress.
 
 ## Completed Components:
 - [x] Basic file structure
@@ -23,11 +20,12 @@ Phase 1 (Foundation) is complete. Ready for Phase 2 (Core Services).
   - [x] Icon button styles
   - [x] Share button with SVG icon
 - [x] multi-chat-app.js skeleton
+- [x] Event Bus (event-bus.js) - Pub/sub system with error handling
+- [x] Config Service (config-service.js) - Loads config + sites, WebSocket URL
+- [x] Identity Service (identity-service.js) - OAuth + email with modal prompt
 
 ## Next Components:
-- [ ] Event Bus (event-bus.js)
 - [ ] API Service (api-service.js)
-- [ ] Identity Service (identity-service.js)
 - [ ] State Manager (state-manager.js)
 - [ ] WebSocket Service (websocket-service.js)
 - [ ] Sidebar UI (sidebar-ui.js)
@@ -35,7 +33,7 @@ Phase 1 (Foundation) is complete. Ready for Phase 2 (Core Services).
 - [ ] Share UI (share-ui.js)
 
 ## Current Focus:
-Waiting for Phase 2 commands to implement core services.
+Implementing remaining core services (API, State, WebSocket).
 
 ## Notes:
 - Need to download DOMPurify before testing

@@ -1,36 +1,30 @@
 # Next Steps for Frontend Chat Client Implementation
 
 ## Current Status
-Phase 1 (Foundation) complete. Ready for Phase 2 (Core Services).
+Phase 2 (Core Services) in progress. Event Bus, Config Service, and Identity Service complete.
 
-## Immediate Next Task: Event Bus Service
+## Immediate Next Task: API Service
 
-### Create `/static/chat/event-bus.js`
+### Create `/static/chat/api-service.js`
 
 Requirements:
-- Singleton event emitter for component communication
-- Subscribe to events with on() method
-- Emit events with emit() method  
-- Unsubscribe with off() method
-- Error handling for broken listeners
-- Debug mode with console logging
+- Handle all HTTP API calls to backend
+- Methods for: createConversation(), getConversations(), sendMessage()
+- Include authentication headers from identity service
+- Handle errors with proper HTTP status codes
+- Retry logic for network failures
+- Export as singleton
 
-Events to support:
-- `navigate:conversation` - Load a conversation
-- `create:conversation` - Create new conversation
-- `send:message` - Send chat message
-- `user:typing` - User is typing
-- `ws:message` - WebSocket message received
-- `ws:connected` - WebSocket connected
-- `ws:disconnected` - WebSocket disconnected
-- `share:conversation` - Share current conversation
+API endpoints to support:
+- `POST /chat/create` - Create new conversation
+- `GET /chat/my-conversations` - List user's conversations
+- `POST /chat/{conv_id}/messages` - Send message to conversation
+- `GET /health/chat` - Health check
 
-### After Event Bus, continue with:
-1. API Service (api-service.js)
-2. Identity Service (identity-service.js) 
-3. State Manager (state-manager.js)
-4. WebSocket Service (websocket-service.js)
-5. UI Components (sidebar-ui.js, chat-ui.js, share-ui.js)
+### After API Service, continue with:
+1. State Manager (state-manager.js) - Central state management
+2. WebSocket Service (websocket-service.js) - Real-time communication
+3. UI Components (sidebar-ui.js, chat-ui.js, share-ui.js)
 
 ## Backend Tasks (Separate)
 - [ ] Complete reliability tests
