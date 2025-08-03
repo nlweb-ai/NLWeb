@@ -156,3 +156,6 @@
 | 2025-08-03 | 5 | TBD | TBD | TBD | Created end-to-end tests (single/multi-user flows, large conversations, full lifecycle) |
 | 2025-08-03 | 249 | 110 | 139 | ~7% | Executed full test suite - identified missing API endpoints |
 | 2025-08-03 | - | - | - | - | Implemented POST /chat/{id}/join endpoint to enable dynamic participant management |
+| 2025-08-03 | - | - | - | - | Implemented DELETE /chat/{id}/leave endpoint with WebSocket cleanup |
+| 2025-08-03 | - | - | - | - | Implemented GET /chat/conversations/{id} endpoint for conversation details |
+| 2025-08-03 | - | - | - | - | Enhanced WebSocket with participant verification and broadcast updates |

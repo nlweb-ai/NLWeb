@@ -60,17 +60,20 @@ class WebSocketConnection:
     
     def __init__(
         self,
-        ws: web.WebSocketResponse,
-        user_id: str,
-        user_name: str,
+        websocket: web.WebSocketResponse,
+        participant_id: str,
         conversation_id: str,
-        config: ConnectionConfig
+        participant_name: Optional[str] = None,
+        config: Optional[ConnectionConfig] = None
     ):
-        self.ws = ws
-        self.user_id = user_id
-        self.user_name = user_name
+        self.websocket = websocket
+        self.ws = websocket  # Alias for backward compatibility
+        self.participant_id = participant_id
+        self.user_id = participant_id  # Alias for backward compatibility
+        self.participant_name = participant_name or f"User {participant_id}"
+        self.user_name = self.participant_name  # Alias
         self.conversation_id = conversation_id
-        self.config = config
+        self.config = config or ConnectionConfig()
         self.state = ConnectionState.CONNECTED
         self.last_pong_time = datetime.utcnow()
         self.heartbeat_task = None
@@ -125,16 +128,17 @@ class WebSocketManager:
     Tracks connections per conversation and handles broadcasting.
     """
     
-    def __init__(self, config: Dict[str, Any]):
-        self.config = config
-        self.max_participants = config.get("max_participants", 100)
-        self.queue_size_limit = config.get("queue_size_limit", 1000)
+    def __init__(self, config: Optional[Dict[str, Any]] = None, max_connections_per_participant: int = 1):
+        self.config = config or {}
+        self.max_participants = self.config.get("max_participants", 100)
+        self.queue_size_limit = self.config.get("queue_size_limit", 1000)
+        self.max_connections_per_participant = max_connections_per_participant
         
         # Connection configuration
         self.connection_config = ConnectionConfig(
-            ping_interval=config.get("ping_interval", 30),
-            pong_timeout=config.get("pong_timeout", 600),
-            max_retries=config.get("max_retries", 10)
+            ping_interval=self.config.get("ping_interval", 30),
+            pong_timeout=self.config.get("pong_timeout", 600),
+            max_retries=self.config.get("max_retries", 10)
         )
         
         # Storage: conversation_id -> user_id -> connection
@@ -142,6 +146,12 @@ class WebSocketManager:
         
         # Queue sizes per conversation
         self._queue_sizes: Dict[str, int] = defaultdict(int)
+        
+        # Participant verification callback (set by conversation manager)
+        self.verify_participant_callback = None
+        
+        # Get participants callback (set by conversation manager)
+        self.get_participants_callback = None
         
         # Metrics
         self.metrics = ChatMetrics()
@@ -353,6 +363,148 @@ class WebSocketManager:
             message: The message to broadcast
         """
         await self.broadcast_message(conversation_id, message)
+    
+    async def add_connection(self, conversation_id: str, connection: WebSocketConnection) -> None:
+        """
+        Add a WebSocket connection with participant verification.
+        
+        Args:
+            conversation_id: The conversation ID
+            connection: The WebSocket connection
+            
+        Raises:
+            WebSocketError: If participant is not authorized
+        """
+        # Verify participant if callback is set
+        if self.verify_participant_callback:
+            is_participant = await self.verify_participant_callback(
+                conversation_id, connection.participant_id
+            )
+            if not is_participant:
+                raise WebSocketError(
+                    f"User {connection.participant_id} is not a participant in conversation {conversation_id}"
+                )
+        
+        # Store connection
+        if conversation_id not in self._connections:
+            self._connections[conversation_id] = {}
+        
+        self._connections[conversation_id][connection.participant_id] = connection
+        
+        # Start heartbeat
+        connection.heartbeat_task = asyncio.create_task(connection.heartbeat())
+        
+        # Send current participant list
+        await self._send_participant_list(conversation_id, connection)
+        
+        # Broadcast participant join
+        await self.broadcast_participant_update(
+            conversation_id=conversation_id,
+            action="join",
+            participant_id=connection.participant_id,
+            participant_name=connection.participant_name,
+            participant_type="human"
+        )
+        
+        logger.info(f"User {connection.participant_id} connected to conversation {conversation_id}")
+    
+    async def remove_connection(self, conversation_id: str, participant_id: str) -> None:
+        """
+        Remove a WebSocket connection and broadcast leave event.
+        
+        Args:
+            conversation_id: The conversation ID
+            participant_id: The participant ID
+        """
+        if conversation_id in self._connections:
+            if participant_id in self._connections[conversation_id]:
+                connection = self._connections[conversation_id][participant_id]
+                participant_name = connection.participant_name
+                
+                # Close and remove connection
+                await connection.close()
+                del self._connections[conversation_id][participant_id]
+                
+                # Clean up empty conversations
+                if not self._connections[conversation_id]:
+                    del self._connections[conversation_id]
+                
+                # Broadcast participant leave
+                await self.broadcast_participant_update(
+                    conversation_id=conversation_id,
+                    action="leave",
+                    participant_id=participant_id,
+                    participant_name=participant_name,
+                    participant_type="human"
+                )
+                
+                logger.info(f"User {participant_id} disconnected from conversation {conversation_id}")
+    
+    async def broadcast_participant_update(
+        self,
+        conversation_id: str,
+        action: str,
+        participant_id: str,
+        participant_name: str,
+        participant_type: str
+    ) -> None:
+        """
+        Broadcast participant join/leave update to all connections.
+        
+        Args:
+            conversation_id: The conversation ID
+            action: "join" or "leave"
+            participant_id: The participant's ID
+            participant_name: The participant's display name
+            participant_type: "human" or "ai"
+        """
+        # Get current participant list if callback is set
+        participants = []
+        participant_count = 0
+        
+        if self.get_participants_callback:
+            participants_data = await self.get_participants_callback(conversation_id)
+            participants = participants_data.get("participants", [])
+            participant_count = participants_data.get("count", 0)
+        
+        # Build update message
+        update_message = {
+            "type": "participant_update",
+            "action": action,
+            "participant": {
+                "participantId": participant_id,
+                "displayName": participant_name,
+                "type": participant_type
+            },
+            "participants": participants,
+            "participant_count": participant_count,
+            "conversation_id": conversation_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # Broadcast to all connections
+        await self.broadcast_to_conversation(conversation_id, update_message)
+    
+    async def _send_participant_list(self, conversation_id: str, connection: WebSocketConnection) -> None:
+        """
+        Send current participant list to a newly connected user.
+        
+        Args:
+            conversation_id: The conversation ID
+            connection: The WebSocket connection
+        """
+        if self.get_participants_callback:
+            participants_data = await self.get_participants_callback(conversation_id)
+            
+            participant_list_message = {
+                "type": "participant_list",
+                "participants": participants_data.get("participants", []),
+                "participant_count": participants_data.get("count", 0),
+                "conversation_id": conversation_id,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            await connection.send_message(participant_list_message)
 
 
 async def authenticate_websocket(request: web.Request) -> Dict[str, Any]:

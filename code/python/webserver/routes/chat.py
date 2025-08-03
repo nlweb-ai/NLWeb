@@ -28,7 +28,9 @@ def setup_chat_routes(app: web.Application):
     # Conversation management
     app.router.add_post('/chat/create', create_conversation_handler)
     app.router.add_get('/chat/my-conversations', list_conversations_handler)
+    app.router.add_get('/chat/conversations/{id}', get_conversation_handler)
     app.router.add_post('/chat/{id}/join', join_conversation_handler)
+    app.router.add_delete('/chat/{id}/leave', leave_conversation_handler)
     
     # WebSocket endpoint
     app.router.add_get('/chat/ws/{conv_id}', websocket_handler)
@@ -266,6 +268,132 @@ async def list_conversations_handler(request: web.Request) -> web.Response:
         )
 
 
+async def get_conversation_handler(request: web.Request) -> web.Response:
+    """
+    Get specific conversation with messages.
+    
+    GET /chat/conversations/{id}
+    
+    Returns full conversation object with messages and participants.
+    Only accessible to current participants.
+    
+    Returns:
+        200: Full conversation object
+        401: Unauthorized
+        404: Conversation not found or user not a participant
+    """
+    try:
+        # Extract conversation_id from URL
+        conversation_id = request.match_info['id']
+        
+        # Get user info from auth
+        user = request.get('user')
+        if not user or not user.get('authenticated'):
+            return web.json_response(
+                {'error': 'Authentication required'},
+                status=401
+            )
+        
+        user_id = user.get('id')
+        
+        # Get managers from app
+        storage_client: ChatStorageClient = request.app['chat_storage']
+        ws_manager: WebSocketManager = request.app.get('websocket_manager')
+        
+        # Retrieve conversation from storage
+        conversation = await storage_client.get_conversation(conversation_id)
+        if not conversation:
+            return web.json_response(
+                {'error': 'Conversation not found'},
+                status=404
+            )
+        
+        # Verify user is a participant
+        participant_ids = {p.participant_id for p in conversation.active_participants}
+        if user_id not in participant_ids:
+            return web.json_response(
+                {'error': 'Conversation not found'},  # Don't reveal existence
+                status=404
+            )
+        
+        # Get recent messages (last 100)
+        messages = await storage_client.get_conversation_messages(
+            conversation_id=conversation_id,
+            limit=100
+        )
+        
+        # Get online status for participants
+        online_participant_ids = set()
+        if ws_manager and conversation_id in ws_manager._connections:
+            online_participant_ids = {
+                conn.participant_id 
+                for conn in ws_manager._connections[conversation_id]
+            }
+        
+        # Build participant list with online status
+        participants = []
+        for p in conversation.active_participants:
+            participants.append({
+                'participantId': p.participant_id,
+                'displayName': p.name,
+                'type': p.participant_type.value,
+                'joinedAt': p.joined_at.isoformat(),
+                'isOnline': p.participant_id in online_participant_ids
+            })
+        
+        # Build message list
+        formatted_messages = []
+        for msg in messages:
+            formatted_messages.append({
+                'id': msg.message_id,
+                'sequence_id': msg.sequence_id,
+                'sender_id': msg.sender_id,
+                'content': msg.content,
+                'timestamp': msg.timestamp.isoformat(),
+                'type': msg.message_type.value,
+                'status': msg.status.value
+            })
+        
+        # Build response matching test expectations
+        response_data = {
+            'id': conversation.conversation_id,
+            'title': conversation.metadata.get('title', 'Untitled Chat'),
+            'sites': conversation.metadata.get('sites', []),
+            'mode': conversation.metadata.get('mode', 'list'),
+            'participants': participants,
+            'messages': formatted_messages,
+            'created_at': conversation.created_at.isoformat(),
+            'updated_at': conversation.updated_at.isoformat() if hasattr(conversation, 'updated_at') else conversation.created_at.isoformat()
+        }
+        
+        # Add additional metadata if present
+        if conversation.metadata:
+            # Add any additional fields from metadata
+            for key in ['status', 'ended_at']:
+                if key in conversation.metadata:
+                    response_data[key] = conversation.metadata[key]
+        
+        # Add summary statistics
+        response_data['participant_count'] = len(conversation.active_participants)
+        response_data['message_count'] = conversation.message_count
+        response_data['unread_count'] = 0  # TODO: Implement unread tracking
+        
+        # Add last message preview if messages exist
+        if formatted_messages:
+            last_message = formatted_messages[-1]
+            response_data['last_message_preview'] = last_message['content'][:100]
+            response_data['last_message_at'] = last_message['timestamp']
+        
+        return web.json_response(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error getting conversation: {e}", exc_info=True)
+        return web.json_response(
+            {'error': 'Internal server error'},
+            status=500
+        )
+
+
 async def join_conversation_handler(request: web.Request) -> web.Response:
     """
     Join an existing conversation.
@@ -452,6 +580,137 @@ async def join_conversation_handler(request: web.Request) -> web.Response:
         )
 
 
+async def leave_conversation_handler(request: web.Request) -> web.Response:
+    """
+    Leave a conversation.
+    
+    DELETE /chat/{id}/leave
+    
+    Returns:
+        200: {
+            "success": true,
+            "message": "Successfully left conversation"
+        }
+        401: Unauthorized
+        404: Not a participant or conversation not found
+    """
+    try:
+        # Extract conversation_id from URL
+        conversation_id = request.match_info['id']
+        
+        # Get authenticated user from auth context
+        user = request.get('user')
+        if not user or not user.get('authenticated'):
+            return web.json_response(
+                {'error': 'Authentication required'},
+                status=401
+            )
+        
+        # Get user ID
+        user_id = user.get('id')
+        
+        # Get managers from app
+        conv_manager: ConversationManager = request.app['conversation_manager']
+        storage_client: ChatStorageClient = request.app['chat_storage']
+        ws_manager: WebSocketManager = request.app['websocket_manager']
+        
+        # Verify conversation exists
+        conversation = await storage_client.get_conversation(conversation_id)
+        if not conversation:
+            return web.json_response(
+                {'error': 'Conversation not found'},
+                status=404
+            )
+        
+        # Verify user is a participant
+        participant_ids = {p.participant_id for p in conversation.active_participants}
+        if user_id not in participant_ids:
+            return web.json_response(
+                {
+                    'error': 'You are not a participant in this conversation',
+                    'code': 'NOT_PARTICIPANT'
+                },
+                status=404
+            )
+        
+        # Get participant info before removal for broadcast
+        leaving_participant = None
+        for p in conversation.active_participants:
+            if p.participant_id == user_id:
+                leaving_participant = p
+                break
+        
+        # Remove participant from conversation object
+        conversation.active_participants = {
+            p for p in conversation.active_participants 
+            if p.participant_id != user_id
+        }
+        
+        # Remove participant through conversation manager
+        conv_manager.remove_participant(conversation_id, user_id)
+        
+        # Update conversation in storage
+        await storage_client.update_conversation(conversation)
+        
+        # Close any WebSocket connections for this user/conversation
+        if conversation_id in ws_manager._connections:
+            connections_to_close = []
+            for conn in ws_manager._connections[conversation_id]:
+                if conn.participant_id == user_id:
+                    connections_to_close.append(conn)
+            
+            # Close connections
+            for conn in connections_to_close:
+                try:
+                    await conn.websocket.close(code=1000, message=b'Left conversation')
+                    await ws_manager.remove_connection(conversation_id, user_id)
+                except Exception as e:
+                    logger.warning(f"Error closing WebSocket for {user_id}: {e}")
+        
+        # Check if this was the last participant
+        remaining_participants = len(conversation.active_participants)
+        
+        if remaining_participants > 0:
+            # Broadcast participant_left update to remaining participants
+            participant_update = {
+                'type': 'participant_left',
+                'conversation_id': conversation_id,
+                'participant': {
+                    'id': leaving_participant.participant_id,
+                    'name': leaving_participant.name,
+                    'type': leaving_participant.participant_type.value
+                },
+                'participant_count': remaining_participants,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            
+            # Broadcast to all remaining connections
+            await ws_manager.broadcast_to_conversation(conversation_id, participant_update)
+        else:
+            # Last participant left - consider marking conversation as inactive
+            logger.info(f"Last participant left conversation {conversation_id}")
+            # Optionally: Mark conversation as inactive in storage
+            conversation.metadata = conversation.metadata or {}
+            conversation.metadata['status'] = 'inactive'
+            conversation.metadata['ended_at'] = datetime.utcnow().isoformat()
+            await storage_client.update_conversation(conversation)
+        
+        # Return success response
+        return web.json_response({
+            'success': True,
+            'message': 'Successfully left conversation',
+            'conversation_id': conversation_id,
+            'remaining_participants': remaining_participants
+        })
+        
+    except Exception as e:
+        logger.error(f"Error leaving conversation: {e}", exc_info=True)
+        return web.json_response(
+            {'error': 'Internal server error'},
+            status=500
+        )
+
+
 async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     """
     WebSocket endpoint for real-time chat.
@@ -468,25 +727,38 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     if not user or not user.get('authenticated'):
         return web.Response(text='Unauthorized', status=401)
     
-    # Create WebSocket response
-    ws = web.WebSocketResponse(heartbeat=30)
-    await ws.prepare(request)
+    user_id = user.get('id')
+    user_name = user.get('name', 'User')
     
     # Get managers
     ws_manager: WebSocketManager = request.app['websocket_manager']
     conv_manager: ConversationManager = request.app['conversation_manager']
     storage_client: ChatStorageClient = request.app['chat_storage']
     
-    # Create connection
-    user_id = user.get('id')
+    # Verify conversation exists
+    conversation = await storage_client.get_conversation(conversation_id)
+    if not conversation:
+        return web.Response(text='Conversation not found', status=404)
+    
+    # Verify user is a participant
+    participant_ids = {p.participant_id for p in conversation.active_participants}
+    if user_id not in participant_ids:
+        return web.Response(text='Forbidden: You are not a participant in this conversation', status=403)
+    
+    # Create WebSocket response
+    ws = web.WebSocketResponse(heartbeat=30)
+    await ws.prepare(request)
+    
+    # Create connection with participant name
     connection = WebSocketConnection(
         websocket=ws,
         participant_id=user_id,
-        conversation_id=conversation_id
+        conversation_id=conversation_id,
+        participant_name=user_name
     )
     
     try:
-        # Add connection to manager
+        # Add connection to manager (will broadcast join event)
         await ws_manager.add_connection(conversation_id, connection)
         
         # Send connection confirmation

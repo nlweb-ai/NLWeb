@@ -46,8 +46,8 @@ Test framework initialized. Schema unit tests created but not yet executed.
 | Endpoint | Purpose | Status | Priority |
 |----------|---------|--------|----------|
 | POST /chat/{id}/join | Join existing conversation | **IMPLEMENTED** | Critical |
-| DELETE /chat/{id}/leave | Leave conversation | **MISSING** | Critical |
-| GET /chat/conversations/{id} | Get specific conversation | **MISSING** | Critical |
+| DELETE /chat/{id}/leave | Leave conversation | **IMPLEMENTED** | Critical |
+| GET /chat/conversations/{id} | Get specific conversation | **IMPLEMENTED** | Critical |
 
 ### Implementation Progress
 - ✅ `/chat/{id}/join` - Implemented with full functionality including:
@@ -56,8 +56,25 @@ Test framework initialized. Schema unit tests created but not yet executed.
   - WebSocket broadcast of join events
   - Full conversation object in response
   
-- ❌ `/chat/{id}/leave` - Still needs implementation
-- ❌ `/chat/conversations/{id}` - Still needs implementation
+- ✅ `/chat/{id}/leave` - Implemented with:
+  - Participant verification
+  - WebSocket connection cleanup
+  - Broadcast of leave events
+  - Last participant handling
+  
+- ✅ `/chat/conversations/{id}` - Implemented with:
+  - Participant authorization check
+  - Full conversation details with messages
+  - Online status for participants
+  - Matches test response format
+
+### WebSocket Enhancements
+- ✅ Participant verification before connection
+- ✅ Real-time participant join/leave broadcasts
+- ✅ Participant list sent on connection
+- ✅ Connection cleanup on leave
+- ✅ 403 Forbidden for non-participants
+- ✅ 404 for non-existent conversations
 
 ## Known Issues to Address
 

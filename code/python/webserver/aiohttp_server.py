@@ -203,6 +203,51 @@ class AioHTTPServer:
             
             app['conversation_manager'].broadcast_callback = broadcast_to_conversation
             
+            # Set up WebSocket manager callbacks
+            ws_manager = app['websocket_manager']
+            conv_manager = app['conversation_manager']
+            storage = app['chat_storage']
+            
+            # Participant verification callback
+            async def verify_participant(conversation_id: str, participant_id: str) -> bool:
+                """Verify if user is a participant in the conversation"""
+                conversation = await storage.get_conversation(conversation_id)
+                if not conversation:
+                    return False
+                participant_ids = {p.participant_id for p in conversation.active_participants}
+                return participant_id in participant_ids
+            
+            ws_manager.verify_participant_callback = verify_participant
+            
+            # Get participants callback
+            async def get_participants(conversation_id: str) -> Dict[str, Any]:
+                """Get current participants for a conversation"""
+                conversation = await storage.get_conversation(conversation_id)
+                if not conversation:
+                    return {"participants": [], "count": 0}
+                
+                # Check online status
+                online_ids = set()
+                if conversation_id in ws_manager._connections:
+                    online_ids = set(ws_manager._connections[conversation_id].keys())
+                
+                participants = []
+                for p in conversation.active_participants:
+                    participants.append({
+                        "participantId": p.participant_id,
+                        "displayName": p.name,
+                        "type": p.participant_type.value,
+                        "joinedAt": p.joined_at.isoformat(),
+                        "isOnline": p.participant_id in online_ids
+                    })
+                
+                return {
+                    "participants": participants,
+                    "count": len(participants)
+                }
+            
+            ws_manager.get_participants_callback = get_participants
+            
             # Get NLWeb handler if available
             # This will be set up by the existing system
             app['nlweb_handler'] = None  # Will be populated by existing init
