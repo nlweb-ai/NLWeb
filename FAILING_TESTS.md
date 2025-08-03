@@ -33,7 +33,7 @@ Test framework initialized. Schema unit tests created but not yet executed.
 ### Reliability Test Failures
 | Test Suite | Test Name | Failure Scenario | Impact | Issue # |
 |------------|-----------|------------------|---------|----------|
-| - | - | No tests written yet | - | - |
+| test_recovery.py | All reliability tests | Not executed yet - awaiting test run | High | - |
 
 ## Known Issues to Address
 

@@ -99,15 +99,27 @@
 - [x] HTML entity encoding ✓
 - [x] Content Security Policy headers ✓
 
-### Reliability Tests (0/8)
-- [ ] Network interruption recovery
-- [ ] At-least-once delivery verification
-- [ ] Message deduplication
-- [ ] Sequence ID consistency under load
-- [ ] Storage failure handling
-- [ ] Participant disconnect/reconnect
-- [ ] Graceful degradation
-- [ ] Memory leak detection
+### Reliability Tests (20/20)
+- [x] Network interruption recovery ✓
+- [x] At-least-once delivery verification ✓
+- [x] Message deduplication ✓
+- [x] Sequence ID consistency under load ✓
+- [x] Storage failure handling ✓
+- [x] Participant disconnect/reconnect ✓
+- [x] Graceful degradation ✓
+- [x] Memory leak detection ✓
+- [x] Connection drop during message send ✓
+- [x] Intermittent connectivity (flapping) ✓
+- [x] High latency conditions (>1s) ✓
+- [x] Packet loss simulation ✓
+- [x] DNS resolution failures ✓
+- [x] Storage write failures ✓
+- [x] Database failover ✓
+- [x] NLWeb timeout handling ✓
+- [x] Cache eviction under pressure ✓
+- [x] Automatic reconnection ✓
+- [x] Message replay ✓
+- [x] State synchronization ✓
 
 ### End-to-End Tests (0/5)
 - [ ] Single user conversation flow
@@ -140,3 +152,4 @@
 | 2025-08-03 | 32 | TBD | TBD | TBD | Created performance tests (single/multi-participant latency, throughput, large groups) |
 | 2025-08-03 | 16 | TBD | TBD | TBD | Created load and stress tests (sustained load, spikes, resource limits, degradation) |
 | 2025-08-03 | 30 | TBD | TBD | TBD | Created security tests (authentication, authorization, input validation, XSS prevention) |
+| 2025-08-03 | 20 | TBD | TBD | TBD | Created reliability tests (network/storage failures, message delivery guarantees, recovery) |
