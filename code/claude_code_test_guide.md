@@ -210,7 +210,7 @@ Multi-participant scenarios:
 ```
 
 ---
-NEXT
+
 ## Phase 2: Integration Tests - API and WebSocket
 
 ### Command 5: REST API Integration Tests
@@ -303,7 +303,7 @@ Create WebSocket test client:
 ```
 
 ---
-
+NEXT
 ## Phase 3: Performance Tests
 
 ### Command 7: Latency and Throughput Tests

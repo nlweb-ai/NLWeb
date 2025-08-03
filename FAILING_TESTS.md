@@ -16,6 +16,7 @@ Test framework initialized. Schema unit tests created but not yet executed.
 | Test Suite | Test Name | Failure Reason | Priority | Issue # |
 |------------|-----------|----------------|----------|----------|
 | test_rest_api.py | All tests | Not executed yet - requires running API server | High | - |
+| test_websocket.py | All tests | Not executed yet - uses mock WebSocket client | High | - |
 
 ### Performance Test Failures
 | Test Suite | Test Name | Expected | Actual | Priority | Issue # |

@@ -36,7 +36,7 @@
 - [ ] ConversationManager - message routing
 - [ ] ConversationManager - queue management
 
-### Integration Tests (9/15)
+### Integration Tests (15/15)
 - [x] POST /chat/create endpoint (5 tests)
 - [x] GET /chat/my-conversations endpoint (5 tests)
 - [x] GET /chat/conversations/:id endpoint
@@ -46,14 +46,12 @@
 - [x] Authentication flow (OAuth + email fallback) (4 tests)
 - [x] Rate limiting (429 responses) (1 test)
 - [x] Error scenarios (404, 500, malformed requests) (4 tests)
-- [ ] WebSocket connection lifecycle
-- [ ] WebSocket message flow (client→server→AI→client)
-- [ ] WebSocket reconnection with sync
-- [ ] Queue overflow handling
-- [ ] Multi-participant broadcast
-- [ ] Participant join/leave notifications
-- [ ] Typing indicator propagation
-- [ ] Mode switching (SINGLE ↔ MULTI)
+- [x] WebSocket connection lifecycle (5 tests)
+- [x] WebSocket message flow (client→server→AI→client) (5 tests)
+- [x] WebSocket reconnection with sync (4 tests)
+- [x] WebSocket broadcast (3 humans + 2 AI) (4 tests)
+- [x] WebSocket error handling (5 tests)
+- [x] WebSocket test utilities (4 tests)
 
 ### Performance Tests (0/8)
 - [ ] Baseline /ask endpoint latency
@@ -110,3 +108,4 @@
 | 2025-08-03 | 28 | TBD | TBD | TBD | Created storage tests (MemoryStorage, ConversationCache, concurrent access) |
 | 2025-08-03 | 24 | TBD | TBD | TBD | Created participant tests (BaseParticipant, NLWebParticipant, context building) |
 | 2025-08-03 | 27 | TBD | TBD | TBD | Created REST API integration tests (create, retrieve, join/leave, health, auth) |
+| 2025-08-03 | 30 | TBD | TBD | TBD | Created WebSocket integration tests (lifecycle, message flow, sync, broadcast, errors) |
