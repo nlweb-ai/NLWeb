@@ -7,8 +7,8 @@
 import eventBus from './chat/event-bus.js';
 import configService from './chat/config-service.js';
 import identityService from './chat/identity-service.js';
-// import apiService from './chat/api-service.js'; // TODO: Create this
-// import stateManager from './chat/state-manager.js'; // TODO: Create this
+import apiService from './chat/api-service.js';
+import stateManager from './chat/state-manager.js';
 import webSocketService from './chat/websocket-service.js';
 import { SidebarUI } from './chat/sidebar-ui.js';
 import { ChatUI } from './chat/chat-ui.js';
@@ -21,8 +21,8 @@ class MultiChatApp {
         this.eventBus = eventBus;
         this.configService = configService;
         this.identityService = identityService;
-        // this.apiService = apiService; // TODO
-        // this.stateManager = stateManager; // TODO
+        this.apiService = apiService;
+        this.stateManager = stateManager;
         this.webSocketService = webSocketService;
         
         // UI Components (instances)
@@ -60,19 +60,27 @@ class MultiChatApp {
                 return;
             }
             
-            // 3. Initialize state manager (TODO)
-            // await this.stateManager.initialize();
+            // 3. Initialize state manager (loads from localStorage)
+            // State manager initializes itself in constructor
             
-            // 4. Create UI components
+            // 4. Load sites
+            try {
+                const sites = await this.apiService.getSites();
+                // Sites will be emitted via api:sitesLoaded event
+            } catch (error) {
+                console.warn('Failed to load sites:', error);
+            }
+            
+            // 5. Create UI components
             this.initializeUI();
             
-            // 5. Check for shared conversation link
+            // 6. Check for shared conversation link
             const shareHandled = await this.checkForSharedLink();
             
-            // 6. Set up event wiring
+            // 7. Set up event wiring
             this.wireUpEvents();
             
-            // 7. Handle initial conversation
+            // 8. Handle initial conversation
             if (!shareHandled) {
                 await this.handleInitialConversation();
             }
@@ -110,15 +118,51 @@ class MultiChatApp {
     }
     
     wireUpEvents() {
+        // State Manager events → UI updates
+        this.eventBus.on('conversation:added', (conversation) => {
+            // Update sidebar with new conversation
+            this.eventBus.emit('state:conversations', this.stateManager.getAllConversations());
+        });
+        
+        this.eventBus.on('conversation:updated', ({ conversationId, updates, conversation }) => {
+            // Update UI if this is the current conversation
+            if (conversationId === this.currentConversationId) {
+                this.eventBus.emit('state:currentConversation', conversation);
+            }
+            // Update sidebar
+            this.eventBus.emit('state:conversations', this.stateManager.getAllConversations());
+        });
+        
+        this.eventBus.on('conversation:changed', ({ previousId, currentId, conversation }) => {
+            // Update UI for conversation change
+            this.eventBus.emit('state:currentConversation', conversation);
+        });
+        
+        this.eventBus.on('message:added', ({ conversationId, message, conversation }) => {
+            // Messages are already rendered via queueMessage, just update conversation list
+            if (conversationId === this.currentConversationId) {
+                this.eventBus.emit('state:conversations', this.stateManager.getAllConversations());
+            }
+        });
+        
+        this.eventBus.on('participants:updated', ({ conversationId, participants }) => {
+            // Already handled in websocket:participant_update
+        });
+        
+        this.eventBus.on('preference:changed', ({ key, value }) => {
+            // Handle preference changes
+            if (key === 'sidebarSortMode') {
+                this.eventBus.emit('state:conversations', this.stateManager.getAllConversations(value));
+            }
+        });
+        
         // WebSocket events → State Manager → UI updates
         this.eventBus.on('websocket:connected', () => {
             console.log('WebSocket connected');
-            // TODO: Update state manager
         });
         
         this.eventBus.on('websocket:disconnected', () => {
             console.log('WebSocket disconnected');
-            // TODO: Update state manager
         });
         
         // Message receiving flow
@@ -145,7 +189,10 @@ class MultiChatApp {
         });
         
         this.eventBus.on('websocket:participant_update', (update) => {
-            // TODO: Update state manager
+            // Update state manager
+            if (this.currentConversationId) {
+                this.stateManager.updateParticipants(this.currentConversationId, update.participants);
+            }
             this.eventBus.emit('state:participants', update.participants);
         });
         
@@ -203,8 +250,21 @@ class MultiChatApp {
         
         this.eventBus.on('ui:modeChanged', async (data) => {
             if (this.currentConversationId) {
-                // TODO: Update conversation mode via API
-                console.log('Mode changed to:', data.mode);
+                // Update conversation mode via API
+                try {
+                    await this.apiService.updateConversation(this.currentConversationId, {
+                        mode: data.mode
+                    });
+                    
+                    // Update local state
+                    this.stateManager.updateConversation(this.currentConversationId, {
+                        mode: data.mode
+                    });
+                    
+                    console.log('Mode changed to:', data.mode);
+                } catch (error) {
+                    console.error('Failed to update mode:', error);
+                }
             }
         });
         
@@ -225,6 +285,31 @@ class MultiChatApp {
         this.eventBus.on('ui:requestIdentity', () => {
             const identity = this.identityService.getCurrentIdentity();
             this.eventBus.emit('identity:current', identity);
+        });
+        
+        // API events
+        this.eventBus.on('api:sitesLoaded', (sites) => {
+            // Update state with sites
+            this.eventBus.emit('state:sites', sites);
+        });
+        
+        this.eventBus.on('api:conversationCreated', (conversation) => {
+            // Already handled by addConversation in createConversation method
+        });
+        
+        this.eventBus.on('api:conversationsLoaded', (conversations) => {
+            // Already handled in handleInitialConversation
+        });
+        
+        this.eventBus.on('api:error', ({ operation, error }) => {
+            this.showError(`${operation} failed: ${error}`);
+        });
+        
+        // Sort toggle from sidebar
+        this.eventBus.on('ui:sortToggle', () => {
+            const currentMode = this.stateManager.getPreference('sidebarSortMode');
+            const newMode = currentMode === 'recency' ? 'alphabetical' : 'recency';
+            this.stateManager.setPreference('sidebarSortMode', newMode);
         });
     }
     
@@ -249,34 +334,40 @@ class MultiChatApp {
             // Load specific conversation
             await this.loadConversation(conversationId);
         } else {
-            // TODO: Load conversation list from API
-            // For now, just show empty state
-            console.log('No initial conversation');
+            // Load conversation list from API
+            try {
+                const conversations = await this.apiService.getConversations();
+                
+                // Add to state manager
+                conversations.forEach(conv => {
+                    this.stateManager.addConversation(conv);
+                });
+                
+                // Emit event for sidebar to update
+                this.eventBus.emit('state:conversations', this.stateManager.getAllConversations());
+                
+                // Load the most recent conversation if any
+                if (conversations.length > 0) {
+                    await this.loadConversation(conversations[0].id);
+                }
+            } catch (error) {
+                console.error('Failed to load conversations:', error);
+                console.log('Starting with empty conversation list');
+            }
         }
     }
     
     async createConversation(site, mode = 'summarize') {
         try {
-            // TODO: Use API service when available
-            // const conversation = await this.apiService.createConversation({
-            //     title: `Chat with ${site.display_name || site.name}`,
-            //     sites: [site.id],
-            //     mode: mode
-            // });
-            
-            // For now, create a mock conversation
-            const conversation = {
-                id: `conv_${Date.now()}`,
+            // Create via API
+            const conversation = await this.apiService.createConversation({
                 title: `Chat with ${site.display_name || site.name}`,
                 sites: [site.id],
-                mode: mode,
-                participants: [this.identityService.getParticipantInfo()],
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            };
+                mode: mode
+            });
             
-            // TODO: Add to state manager
-            // this.stateManager.addConversation(conversation);
+            // Add to state manager
+            this.stateManager.addConversation(conversation);
             
             // Load the new conversation
             await this.loadConversation(conversation.id);
@@ -294,19 +385,18 @@ class MultiChatApp {
                 await this.webSocketService.disconnect();
             }
             
-            // TODO: Load conversation from API/state
-            // const conversation = await this.apiService.getConversation(conversationId);
-            // this.stateManager.setActiveConversation(conversation);
+            // Check if conversation is in state
+            let conversation = this.stateManager.conversations.get(conversationId);
             
-            // For now, create a mock conversation
-            const conversation = {
-                id: conversationId,
-                title: 'Test Conversation',
-                sites: [],
-                mode: 'summarize',
-                participants: [this.identityService.getParticipantInfo()],
-                messages: []
-            };
+            if (!conversation) {
+                // Load from API
+                conversation = await this.apiService.getConversation(conversationId);
+                // Add to state manager
+                this.stateManager.addConversation(conversation);
+            }
+            
+            // Set as current conversation
+            this.stateManager.setCurrentConversation(conversationId);
             
             // Update URL
             const url = new URL(window.location);
@@ -332,8 +422,8 @@ class MultiChatApp {
     
     async joinConversation(conversationId) {
         try {
-            // TODO: Join via API
-            // await this.apiService.joinConversation(conversationId);
+            // Join via API
+            await this.apiService.joinConversation(conversationId);
             
             // Load the conversation
             await this.loadConversation(conversationId);
@@ -399,8 +489,8 @@ class MultiChatApp {
             status: 'delivered'
         };
         
-        // TODO: Store in state manager by sequence ID
-        // this.stateManager.addMessage(messageWithAttribution);
+        // Store in state manager
+        this.stateManager.addMessage(this.currentConversationId, messageWithAttribution);
         
         // Update UI (will be sanitized by ChatUI)
         if (!isOwnMessage) {
@@ -434,8 +524,8 @@ class MultiChatApp {
             status: 'delivered'
         };
         
-        // TODO: Store in state manager
-        // this.stateManager.addMessage(aiMessage);
+        // Store in state manager
+        this.stateManager.addMessage(this.currentConversationId, aiMessage);
         
         // Update UI (will be sanitized by ChatUI)
         this.chatUI?.queueMessage(aiMessage);

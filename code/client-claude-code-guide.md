@@ -193,7 +193,188 @@ Export as singleton
 ```
 
 ---
+## Phase 3: State Management
 
+### Command 5: State Manager
+
+```
+Create /static/chat/state-manager.js:
+
+Core responsibilities:
+- Store conversations Map (id -> conversation object)
+- Store current conversation ID
+- Store site metadata Map (site -> {lastUsed, conversationCount})
+- User preferences (sidebarSortMode, defaultMode, defaultSite)
+
+Key methods:
+- setCurrentConversation(conversationId)
+- getCurrentConversation()
+- addConversation(conversation)
+- updateConversation(conversationId, updates)
+- addMessage(conversationId, message) - store by sequence_id
+- getMessages(conversationId, startSeq, endSeq)
+- updateParticipants(conversationId, participants)
+- updateSiteUsage(site) - track last used time
+- getSitesSorted(mode) - by recency or alphabetical
+- getConversationsForSite(site) - filtered list
+- saveToStorage() and loadFromStorage() - localStorage persistence
+
+Events to emit:
+- 'conversation:changed' when switching conversations
+- 'conversation:updated' when conversation data changes
+- 'message:added' when new message arrives
+- 'participants:updated' when participants change
+
+Storage limits:
+- Keep only last 50 messages per conversation in memory
+- Persist to localStorage with key 'nlweb_chat_state'
+- Clean up old conversations (>30 days) on load
+
+Export as singleton.
+```
+
+### Command 5a: Participant Tracker
+NEXT
+```
+Create /static/chat/participant-tracker.js:
+
+This is a utility class (not a service) used by StateManager:
+
+Constructor takes conversation object reference.
+
+Methods:
+- updateParticipants(participantList) - sync with server list
+- setTyping(participantId, isTyping) - update typing state
+- clearTyping(participantId) - remove typing state
+- clearAllTyping() - reset all typing states
+- getTypingParticipants() - return array of typing participant IDs
+- getActiveParticipants() - filter by online status
+- isMultiParticipant() - returns true if >2 participants
+
+Typing state management:
+- Store typing states in Map<participantId, timeoutId>
+- Auto-clear typing after 5 seconds using setTimeout
+- Clear typing when participant sends message
+
+This is instantiated per conversation, not a singleton.
+```
+
+### Command 5b: API Service
+
+```
+Create /static/chat/api-service.js:
+
+Handle all REST API calls with proper error handling:
+
+Methods:
+- async createConversation(site, mode, participantIds = [])
+  POST /api/chat/conversations
+  Returns: { conversation_id, created_at }
+
+- async getConversations()
+  GET /api/chat/conversations
+  Returns: array of conversation objects
+
+- async getConversation(conversationId)
+  GET /api/chat/conversations/:id
+  Returns: full conversation with messages
+
+- async joinConversation(conversationId, participantInfo)
+  POST /api/chat/conversations/:id/join
+  Returns: { success: true, conversation }
+
+- async leaveConversation(conversationId)
+  DELETE /api/chat/conversations/:id/leave
+  Returns: { success: true }
+
+For all methods:
+- Get auth token from sessionStorage
+- Add Authorization header if token exists
+- Handle errors with proper status codes
+- Return null on 404, throw on other errors
+- Use eventBus.emit('api:error', error) for errors
+
+Base URL handling:
+- Use relative URLs that work with any origin
+- Support optional baseUrl config parameter
+
+Export as singleton instance.
+```
+
+### Command 5c: Wire State Management
+
+```
+After creating the state management components, update initialization:
+
+In multi-chat-app.js initialization sequence, add:
+
+1. Import the new services:
+   import { stateManager } from './chat/state-manager.js';
+   import { apiService } from './chat/api-service.js';
+
+2. In initialization sequence (after config, before WebSocket):
+   // Load saved state
+   stateManager.loadFromStorage();
+   
+   // Load conversations from API
+   try {
+     const conversations = await apiService.getConversations();
+     conversations.forEach(conv => stateManager.addConversation(conv));
+   } catch (error) {
+     console.error('Failed to load conversations:', error);
+   }
+
+3. Wire up WebSocket events to state:
+   eventBus.on('message:received', (message) => {
+     stateManager.addMessage(message.conversation_id, message);
+   });
+   
+   eventBus.on('participants:update', (data) => {
+     stateManager.updateParticipants(data.conversation_id, data.participants);
+   });
+
+4. Wire up state events to UI:
+   eventBus.on('message:added', ({ conversationId, message }) => {
+     if (conversationId === stateManager.currentConversationId) {
+       chatUI.renderMessage(message);
+     }
+   });
+
+5. Save state periodically:
+   setInterval(() => {
+     stateManager.saveToStorage();
+   }, 30000); // Every 30 seconds
+
+This connects the state layer between WebSocket and UI.
+```
+
+### Command 5d: Update UI Components to Use State
+
+```
+Update existing UI components to use stateManager:
+
+In sidebar-ui.js:
+- Change render() to get conversations from stateManager
+- Use stateManager.getConversationsForSite()
+- Use stateManager.getSitesSorted()
+
+In chat-ui.js:
+- Get current conversation from stateManager
+- Use stateManager.getMessages() for initial render
+- Update header from stateManager.getCurrentConversation()
+
+In share-ui.js:
+- Get conversation data from stateManager for sharing
+
+Example pattern:
+// Old: this.conversations.get(id)
+// New: stateManager.getCurrentConversation()
+
+// Old: this.messages.push(message)  
+// New: stateManager.addMessage(conversationId, message)
+
+This ensures all components use centralized state.
+```
 
 
 ## Phase 4: WebSocket Communication

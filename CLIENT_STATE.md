@@ -2,7 +2,7 @@
 
 ## Current Phase: All Frontend Phases Complete ✓
 - Phase 1 (Foundation) ✓ Complete
-- Phase 2 (Core Services) - 60% complete (missing API Service & State Manager)
+- Phase 2 (Core Services) ✓ Complete (all services implemented)
 - Phase 3 (Main App Integration) - Integrated in Phase 7
 - Phase 4 (WebSocket) ✓ Complete with reconnection logic
 - Phase 5 (UI Components) ✓ Complete with all components
@@ -13,8 +13,8 @@
 
 ## Progress Summary:
 - Phase 1 (Foundation) ✓ Complete
-- Phase 2 (Core Services) - 60% complete (Event Bus, Config, Identity done; need API Service & State Manager)
-- Phase 3 (Main App Integration) - Skipped to Phase 7
+- Phase 2 (Core Services) ✓ Complete (Event Bus, Config, Identity, API Service, State Manager)
+- Phase 3 (Main App Integration) ✓ Complete (integrated in Phase 7)
 - Phase 4 (WebSocket) ✓ Complete
 - Phase 5 (UI Components) ✓ Complete
 - Phase 6 (Site Management) ✓ Complete
@@ -38,8 +38,8 @@
 - [x] Identity Service (identity-service.js) - OAuth + email with modal prompt
 
 ## Next Components:
-- [ ] API Service (api-service.js)
-- [ ] State Manager (state-manager.js)
+- [x] API Service (api-service.js) ✓ Complete
+- [x] State Manager (state-manager.js) ✓ Complete
 - [x] WebSocket Service (websocket-service.js) - Real-time communication with reconnection
 - [x] Sidebar UI (sidebar-ui.js) - Site grouping, dynamic sizing, sort toggle
 - [x] Chat UI (chat-ui.js) - Sanitized rendering, typing indicators, message batching
@@ -47,7 +47,7 @@
 - [x] Site Selector UI (site-selector-ui.js) - Modal grid, search, mode selector
 
 ## Current Focus:
-Complete message flow implemented. Need API Service and State Manager to fully integrate.
+All frontend components complete and integrated. Main app fully wired with State Manager and API Service.
 
 ## Latest Updates:
 - Added complete message sending flow with optimistic updates
@@ -65,6 +65,11 @@ Complete message flow implemented. Need API Service and State Manager to fully i
 - Created comprehensive test harness with MockWebSocket
 - Added debug panels for WebSocket, Events, State, and Sanitization
 - Test controls for all major features
+- Created State Manager with conversation storage and localStorage persistence
+- Created API Service with retry logic and authentication handling
+- Fully integrated State Manager and API Service into main app
+- Wired up all state manager events to UI components
+- Connected API service for conversations, messages, and sites
 
 ## Notes:
 - Need to download DOMPurify before testing
