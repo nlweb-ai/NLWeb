@@ -1,46 +1,64 @@
 # Next Steps - Multi-Participant Chat System
 
-## Immediate Task
-Run integration tests against the real server to verify all endpoints work correctly.
+## Immediate Priority: Fix Failing Tests
 
-## Steps to Execute
+### 1. Fix Validation Errors (2 tests failing)
+**Issue**: Server returns 500 instead of 400 for invalid data
 
-1. **Start the server** (in one terminal):
-   ```bash
-   cd /Users/rvguha/code/conv/code/python
-   python -m webserver.aiohttp_server
+**Tests to fix**:
+- `test_invalid_participant_data` - Missing user_id causes KeyError
+- `test_missing_required_fields` - Missing title validation
+
+**Solution**: Add proper validation in `/code/python/webserver/routes/chat.py`:
+```python
+# Check for required participant fields
+for p in participants:
+    if 'user_id' not in p:
+        return web.json_response({'error': 'user_id required'}, status=400)
+```
+
+### 2. Fix Endpoint Implementation (3 tests failing)
+**Tests to fix**:
+- `test_join_existing_conversation` - Join endpoint needs work
+- `test_get_conversation_details` - Get endpoint needs work  
+- `test_list_all_conversations_for_user` - List endpoint needs work
+
+**Check**:
+- Are these endpoints returning correct data format?
+- Do they handle the authenticated user properly?
+- Are they using the storage layer correctly?
+
+## How to Resume Next Session
+
+1. **Start with validation fixes** in `create_conversation_handler`:
+   ```python
+   # Add validation for participant data
+   try:
+       for p in participants:
+           if 'user_id' not in p or 'name' not in p:
+               return web.json_response({'error': 'Missing required fields'}, status=400)
+   except Exception as e:
+       return web.json_response({'error': str(e)}, status=400)
    ```
 
-2. **Run integration tests** (in another terminal):
+2. **Run the failing tests individually** to debug:
    ```bash
-   cd /Users/rvguha/code/conv
-   python -m pytest tests/integration/test_rest_api.py -xvs
+   python -m pytest tests/integration/test_rest_api.py::TestConversationCreation::test_invalid_participant_data -xvs
    ```
 
-3. **Monitor server logs** for any errors during test execution
+3. **Use the test runner script** to see server output:
+   ```python
+   # Already created at /tmp/run_server_with_tests.py
+   # Shows server errors alongside test failures
+   ```
 
-## Expected Results
-- All chat endpoints should respond correctly:
-  - POST `/chat/create` - 201 Created
-  - GET `/chat/my-conversations` - 200 OK
-  - GET `/chat/conversations/{id}` - 200 OK
-  - POST `/chat/{id}/join` - 200 OK
-  - DELETE `/chat/{id}/leave` - 200 OK
-  - GET `/health/chat` - 200 OK
+## Current Status
+- ✅ 10/15 integration tests passing (66.7%)
+- ✅ Server runs properly with test infrastructure
+- ✅ Test format matches server expectations
+- ❌ Need to fix validation and endpoint bugs
 
-## If Tests Fail
-1. Check server logs for specific error messages
-2. Verify payload format matches server expectations
-3. Ensure auth middleware is properly configured
-4. Check that all required fields are present in requests
-
-## After Tests Pass
-1. Run full test suite: `python -m pytest tests/ -v`
-2. Document any remaining issues
-3. Create pull request with implementation
-
-## Technical Details
-- Server expects `user_id` and `name` fields (not `participantId`/`displayName`)
-- Auth middleware sets `user.id = "authenticated_user"` for valid tokens
-- Conversations require at least one participant
-- The requesting user must be included in participants list
+## Success Metrics
+- All 15 integration tests should pass
+- No 500 errors - only proper 400/404 responses
+- Then run full 249 test suite
