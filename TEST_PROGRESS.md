@@ -36,17 +36,19 @@
 - [ ] ConversationManager - message routing
 - [ ] ConversationManager - queue management
 
-### Integration Tests (0/15)
-- [ ] POST /chat/create endpoint
-- [ ] GET /chat/my-conversations endpoint
-- [ ] GET /chat/conversations/:id endpoint
-- [ ] POST /chat/:id/join endpoint
-- [ ] DELETE /chat/:id/leave endpoint
+### Integration Tests (9/15)
+- [x] POST /chat/create endpoint (5 tests)
+- [x] GET /chat/my-conversations endpoint (5 tests)
+- [x] GET /chat/conversations/:id endpoint
+- [x] POST /chat/:id/join endpoint (3 tests)
+- [x] DELETE /chat/:id/leave endpoint (2 tests)
+- [x] Health endpoint (/health/chat) (3 tests)
+- [x] Authentication flow (OAuth + email fallback) (4 tests)
+- [x] Rate limiting (429 responses) (1 test)
+- [x] Error scenarios (404, 500, malformed requests) (4 tests)
 - [ ] WebSocket connection lifecycle
 - [ ] WebSocket message flow (client→server→AI→client)
 - [ ] WebSocket reconnection with sync
-- [ ] Authentication flow (OAuth + email fallback)
-- [ ] Rate limiting (429 responses)
 - [ ] Queue overflow handling
 - [ ] Multi-participant broadcast
 - [ ] Participant join/leave notifications
@@ -107,3 +109,4 @@
 | 2025-08-03 | 31 | TBD | TBD | TBD | Created schema unit tests (ChatMessage, Conversation, ParticipantInfo) |
 | 2025-08-03 | 28 | TBD | TBD | TBD | Created storage tests (MemoryStorage, ConversationCache, concurrent access) |
 | 2025-08-03 | 24 | TBD | TBD | TBD | Created participant tests (BaseParticipant, NLWebParticipant, context building) |
+| 2025-08-03 | 27 | TBD | TBD | TBD | Created REST API integration tests (create, retrieve, join/leave, health, auth) |

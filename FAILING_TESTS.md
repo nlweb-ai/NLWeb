@@ -15,7 +15,7 @@ Test framework initialized. Schema unit tests created but not yet executed.
 ### Integration Test Failures  
 | Test Suite | Test Name | Failure Reason | Priority | Issue # |
 |------------|-----------|----------------|----------|----------|
-| - | - | No tests written yet | - | - |
+| test_rest_api.py | All tests | Not executed yet - requires running API server | High | - |
 
 ### Performance Test Failures
 | Test Suite | Test Name | Expected | Actual | Priority | Issue # |
