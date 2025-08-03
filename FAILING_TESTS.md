@@ -35,6 +35,11 @@ Test framework initialized. Schema unit tests created but not yet executed.
 |------------|-----------|------------------|---------|----------|
 | test_recovery.py | All reliability tests | Not executed yet - awaiting test run | High | - |
 
+### End-to-End Test Failures
+| Test Suite | Test Name | Failure Scenario | Impact | Issue # |
+|------------|-----------|------------------|---------|----------|
+| test_multi_participant.py | All E2E tests | Not executed yet - awaiting test run | High | - |
+
 ## Known Issues to Address
 
 ### High Priority

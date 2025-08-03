@@ -121,12 +121,12 @@
 - [x] Message replay ✓
 - [x] State synchronization ✓
 
-### End-to-End Tests (0/5)
-- [ ] Single user conversation flow
-- [ ] Multi-user conversation (3 humans + 1 AI)
-- [ ] Large conversation (50+ participants)
-- [ ] Share link and join flow
-- [ ] Full conversation lifecycle (create→chat→leave)
+### End-to-End Tests (5/5)
+- [x] Single user conversation flow ✓
+- [x] Multi-user conversation (3 humans + 1 AI) ✓
+- [x] Large conversation (50+ participants) ✓
+- [x] Share link and join flow ✓
+- [x] Full conversation lifecycle (create→chat→leave) ✓
 
 ## Coverage Metrics
 - Overall Coverage: 0%
@@ -153,3 +153,4 @@
 | 2025-08-03 | 16 | TBD | TBD | TBD | Created load and stress tests (sustained load, spikes, resource limits, degradation) |
 | 2025-08-03 | 30 | TBD | TBD | TBD | Created security tests (authentication, authorization, input validation, XSS prevention) |
 | 2025-08-03 | 20 | TBD | TBD | TBD | Created reliability tests (network/storage failures, message delivery guarantees, recovery) |
+| 2025-08-03 | 5 | TBD | TBD | TBD | Created end-to-end tests (single/multi-user flows, large conversations, full lifecycle) |
