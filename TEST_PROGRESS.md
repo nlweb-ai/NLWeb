@@ -8,7 +8,7 @@
 
 ## Test Suites Progress
 
-### Unit Tests (0/28)
+### Unit Tests (3/28)
 #### Frontend Components
 - [ ] EventBus - pub/sub functionality
 - [ ] ConfigService - configuration loading
@@ -20,7 +20,9 @@
 - [ ] APIService - HTTP client with retry logic
 
 #### Backend Components  
-- [ ] ChatMessage schema validation
+- [x] ChatMessage schema validation (31 tests)
+- [x] Conversation model tests (8 tests)
+- [x] ParticipantInfo tests (5 tests)
 - [ ] ConversationManager - participant management
 - [ ] ConversationManager - message routing
 - [ ] ConversationManager - queue management
@@ -99,3 +101,4 @@
 | Date | Tests Run | Passed | Failed | Coverage | Notes |
 |------|-----------|--------|--------|----------|-------|
 | 2025-08-03 | 0 | 0 | 0 | 0% | Framework initialized, ready for test implementation |
+| 2025-08-03 | 31 | TBD | TBD | TBD | Created schema unit tests (ChatMessage, Conversation, ParticipantInfo) |

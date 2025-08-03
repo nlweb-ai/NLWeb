@@ -16,15 +16,15 @@ from aioresponses import aioresponses
 
 # Add project root to Python path
 import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../code/python'))
 
-from code.python.chat.schemas import (
+from chat.schemas import (
     ChatMessage, MessageType, MessageStatus, 
     ParticipantInfo, ParticipantType
 )
-from code.python.chat.participants import BaseParticipant, HumanParticipant
-from code.python.chat.storage import ChatStorageInterface
-from code.python.chat.conversation import ConversationManager
+from chat.participants import BaseParticipant, HumanParticipant
+from chat.storage import ChatStorageInterface
+from chat.conversation import ConversationManager
 
 # Load mock data
 MOCK_DATA_PATH = os.path.join(os.path.dirname(__file__), '..', 'MOCK_DATA.md')

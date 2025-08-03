@@ -83,7 +83,7 @@ Key requirements:
 ```
 
 ---
-NEXT
+
 ## Phase 1: Unit Tests - Core Components
 
 ### Command 2: Schema and Data Model Tests
@@ -129,6 +129,7 @@ Write property-based tests for:
 - Queue overflow behavior
 ```
 
+NEXT
 ### Command 3: Storage Interface Tests
 
 ```

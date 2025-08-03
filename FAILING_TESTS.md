@@ -1,14 +1,14 @@
 # Failing Tests
 
 ## Current Status
-Test framework not yet initialized. No tests have been executed.
+Test framework initialized. Schema unit tests created but not yet executed.
 
 ## Critical Failures (Will Track Here)
 
 ### Unit Test Failures
 | Test Suite | Test Name | Failure Reason | Priority | Issue # |
 |------------|-----------|----------------|----------|----------|
-| - | - | No tests written yet | - | - |
+| test_schemas.py | All tests | Not executed yet - awaiting user confirmation | High | - |
 
 ### Integration Test Failures  
 | Test Suite | Test Name | Failure Reason | Priority | Issue # |
