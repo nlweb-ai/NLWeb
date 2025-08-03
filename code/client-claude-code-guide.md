@@ -260,7 +260,7 @@ This is instantiated per conversation, not a singleton.
 ```
 
 ### Command 5b: API Service
-NEXT
+
 ```
 Create /static/chat/api-service.js:
 
@@ -302,7 +302,7 @@ Export as singleton instance.
 ```
 
 ### Command 5c: Wire State Management
-
+NEXT
 ```
 After creating the state management components, update initialization:
 

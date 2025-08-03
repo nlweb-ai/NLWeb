@@ -64,12 +64,8 @@ class MultiChatApp {
             // State manager initializes itself in constructor
             
             // 4. Load sites
-            try {
-                const sites = await this.apiService.getSites();
-                // Sites will be emitted via api:sitesLoaded event
-            } catch (error) {
-                console.warn('Failed to load sites:', error);
-            }
+            // Note: Sites loading is now handled by config service
+            // If API provides a sites endpoint in the future, add it here
             
             // 5. Create UI components
             this.initializeUI();
@@ -265,21 +261,12 @@ class MultiChatApp {
         
         this.eventBus.on('ui:modeChanged', async (data) => {
             if (this.currentConversationId) {
-                // Update conversation mode via API
-                try {
-                    await this.apiService.updateConversation(this.currentConversationId, {
-                        mode: data.mode
-                    });
-                    
-                    // Update local state
-                    this.stateManager.updateConversation(this.currentConversationId, {
-                        mode: data.mode
-                    });
-                    
-                    console.log('Mode changed to:', data.mode);
-                } catch (error) {
-                    console.error('Failed to update mode:', error);
-                }
+                // Update local state only - mode changes may be handled by WebSocket
+                this.stateManager.updateConversation(this.currentConversationId, {
+                    mode: data.mode
+                });
+                
+                console.log('Mode changed to:', data.mode);
             }
         });
         
@@ -374,18 +361,21 @@ class MultiChatApp {
     
     async createConversation(site, mode = 'summarize') {
         try {
-            // Create via API
-            const conversation = await this.apiService.createConversation({
-                title: `Chat with ${site.display_name || site.name}`,
-                sites: [site.id],
-                mode: mode
-            });
+            // Create via API - returns { conversation_id, created_at }
+            const result = await this.apiService.createConversation(site, mode);
             
-            // Add to state manager
-            this.stateManager.addConversation(conversation);
-            
-            // Load the new conversation
-            await this.loadConversation(conversation.id);
+            if (result && result.conversation_id) {
+                // Load the full conversation details
+                const conversation = await this.apiService.getConversation(result.conversation_id);
+                
+                if (conversation) {
+                    // Add to state manager
+                    this.stateManager.addConversation(conversation);
+                    
+                    // Load the new conversation
+                    await this.loadConversation(conversation.id || result.conversation_id);
+                }
+            }
             
         } catch (error) {
             console.error('Failed to create conversation:', error);
@@ -438,10 +428,16 @@ class MultiChatApp {
     async joinConversation(conversationId) {
         try {
             // Join via API
-            await this.apiService.joinConversation(conversationId);
+            const participantInfo = this.identityService.getParticipantInfo();
+            const result = await this.apiService.joinConversation(conversationId, participantInfo);
             
-            // Load the conversation
-            await this.loadConversation(conversationId);
+            if (result && result.success && result.conversation) {
+                // Add to state manager
+                this.stateManager.addConversation(result.conversation);
+                
+                // Load the conversation
+                await this.loadConversation(conversationId);
+            }
             
         } catch (error) {
             console.error('Failed to join conversation:', error);

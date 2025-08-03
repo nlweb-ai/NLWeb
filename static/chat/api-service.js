@@ -1,325 +1,122 @@
 import eventBus from './event-bus.js';
-import identityService from './identity-service.js';
 
 class ApiService {
     constructor() {
-        this.baseUrl = window.location.origin;
-        this.retryAttempts = 3;
-        this.retryDelay = 1000; // Start with 1 second
+        this.baseUrl = ''; // Use relative URLs by default
     }
     
     // Helper method to build headers
-    getHeaders(additionalHeaders = {}) {
+    getHeaders() {
         const headers = {
-            'Content-Type': 'application/json',
-            ...additionalHeaders
+            'Content-Type': 'application/json'
         };
         
-        // Add authentication token if available
+        // Get auth token from sessionStorage
         const authToken = sessionStorage.getItem('authToken');
         if (authToken) {
             headers['Authorization'] = `Bearer ${authToken}`;
         }
         
-        // Add participant info for non-OAuth users
-        const identity = identityService.getCurrentIdentity();
-        if (identity && !authToken) {
-            headers['X-Participant-Id'] = identity.participantId;
-            headers['X-Participant-Email'] = identity.email;
-        }
-        
         return headers;
     }
     
-    // Helper method for fetch with retry logic
-    async fetchWithRetry(url, options = {}, attempt = 1) {
+    // Helper method for API calls
+    async apiCall(method, endpoint, body = null) {
+        const url = `${this.baseUrl}${endpoint}`;
+        const options = {
+            method,
+            headers: this.getHeaders()
+        };
+        
+        if (body) {
+            options.body = JSON.stringify(body);
+        }
+        
         try {
-            const response = await fetch(url, {
-                ...options,
-                headers: this.getHeaders(options.headers)
-            });
+            const response = await fetch(url, options);
             
-            if (!response.ok) {
-                // Handle specific error codes
-                if (response.status === 401) {
-                    eventBus.emit('auth:unauthorized');
-                    throw new Error('Unauthorized');
-                }
-                
-                if (response.status >= 500 && attempt < this.retryAttempts) {
-                    // Server error - retry
-                    const delay = this.retryDelay * attempt;
-                    console.warn(`Server error ${response.status}, retrying in ${delay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    return this.fetchWithRetry(url, options, attempt + 1);
-                }
-                
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // Handle 404 specifically
+            if (response.status === 404) {
+                return null;
             }
             
-            return response;
+            // Handle other non-OK responses
+            if (!response.ok) {
+                const error = new Error(`API Error: ${response.status} ${response.statusText}`);
+                error.status = response.status;
+                error.response = response;
+                
+                // Try to get error message from response
+                try {
+                    const errorData = await response.json();
+                    error.message = errorData.message || error.message;
+                    error.data = errorData;
+                } catch (e) {
+                    // Ignore JSON parse errors
+                }
+                
+                throw error;
+            }
+            
+            // Parse successful response
+            return await response.json();
             
         } catch (error) {
-            // Network error - retry if attempts remaining
-            if (attempt < this.retryAttempts && error.name === 'TypeError') {
-                const delay = this.retryDelay * attempt;
-                console.warn(`Network error, retrying in ${delay}ms...`, error);
-                await new Promise(resolve => setTimeout(resolve, delay));
-                return this.fetchWithRetry(url, options, attempt + 1);
-            }
+            // Emit error event
+            eventBus.emit('api:error', {
+                method,
+                endpoint,
+                error: error.message,
+                status: error.status
+            });
             
             throw error;
         }
     }
     
     // Create a new conversation
-    async createConversation(params = {}) {
-        const url = `${this.baseUrl}/chat/create`;
-        
+    async createConversation(site, mode, participantIds = []) {
         const body = {
-            title: params.title || `Chat - ${new Date().toLocaleDateString()}`,
-            sites: params.sites || [],
-            mode: params.mode || 'summarize',
-            participant: params.participant || identityService.getParticipantInfo()
+            site,
+            mode,
+            participantIds
         };
         
-        try {
-            const response = await this.fetchWithRetry(url, {
-                method: 'POST',
-                body: JSON.stringify(body)
-            });
-            
-            const conversation = await response.json();
-            
-            eventBus.emit('api:conversationCreated', conversation);
-            return conversation;
-            
-        } catch (error) {
-            console.error('Failed to create conversation:', error);
-            eventBus.emit('api:error', {
-                operation: 'createConversation',
-                error: error.message
-            });
-            throw error;
-        }
+        const result = await this.apiCall('POST', '/api/chat/conversations', body);
+        return result; // { conversation_id, created_at }
     }
     
-    // Get user's conversations
-    async getConversations(params = {}) {
-        const url = new URL(`${this.baseUrl}/chat/my-conversations`);
-        
-        // Add query parameters
-        if (params.site) {
-            url.searchParams.append('site', params.site);
-        }
-        if (params.limit) {
-            url.searchParams.append('limit', params.limit);
-        }
-        if (params.offset) {
-            url.searchParams.append('offset', params.offset);
-        }
-        
-        try {
-            const response = await this.fetchWithRetry(url.toString());
-            const conversations = await response.json();
-            
-            eventBus.emit('api:conversationsLoaded', conversations);
-            return conversations;
-            
-        } catch (error) {
-            console.error('Failed to get conversations:', error);
-            eventBus.emit('api:error', {
-                operation: 'getConversations',
-                error: error.message
-            });
-            throw error;
-        }
+    // Get all conversations
+    async getConversations() {
+        const conversations = await this.apiCall('GET', '/api/chat/conversations');
+        return conversations || []; // Return empty array if null
     }
     
     // Get a specific conversation
     async getConversation(conversationId) {
-        const url = `${this.baseUrl}/chat/conversations/${conversationId}`;
-        
-        try {
-            const response = await this.fetchWithRetry(url);
-            const conversation = await response.json();
-            
-            eventBus.emit('api:conversationLoaded', conversation);
-            return conversation;
-            
-        } catch (error) {
-            console.error(`Failed to get conversation ${conversationId}:`, error);
-            eventBus.emit('api:error', {
-                operation: 'getConversation',
-                error: error.message,
-                conversationId
-            });
-            throw error;
-        }
-    }
-    
-    // Send a message to a conversation
-    async sendMessage(conversationId, content, params = {}) {
-        const url = `${this.baseUrl}/chat/${conversationId}/messages`;
-        
-        const body = {
-            content: content,
-            sites: params.sites || [],
-            mode: params.mode || 'summarize',
-            participant: params.participant || identityService.getParticipantInfo()
-        };
-        
-        try {
-            const response = await this.fetchWithRetry(url, {
-                method: 'POST',
-                body: JSON.stringify(body)
-            });
-            
-            const result = await response.json();
-            
-            eventBus.emit('api:messageSent', {
-                conversationId,
-                message: result.message,
-                response: result
-            });
-            
-            return result;
-            
-        } catch (error) {
-            console.error('Failed to send message:', error);
-            eventBus.emit('api:error', {
-                operation: 'sendMessage',
-                error: error.message,
-                conversationId
-            });
-            throw error;
-        }
+        const conversation = await this.apiCall('GET', `/api/chat/conversations/${conversationId}`);
+        return conversation; // Full conversation with messages, or null if 404
     }
     
     // Join a conversation
-    async joinConversation(conversationId) {
-        const url = `${this.baseUrl}/chat/${conversationId}/join`;
-        
+    async joinConversation(conversationId, participantInfo) {
         const body = {
-            participant: identityService.getParticipantInfo()
+            participantInfo
         };
         
-        try {
-            const response = await this.fetchWithRetry(url, {
-                method: 'POST',
-                body: JSON.stringify(body)
-            });
-            
-            const result = await response.json();
-            
-            eventBus.emit('api:conversationJoined', {
-                conversationId,
-                result
-            });
-            
-            return result;
-            
-        } catch (error) {
-            console.error(`Failed to join conversation ${conversationId}:`, error);
-            eventBus.emit('api:error', {
-                operation: 'joinConversation',
-                error: error.message,
-                conversationId
-            });
-            throw error;
-        }
+        const result = await this.apiCall('POST', `/api/chat/conversations/${conversationId}/join`, body);
+        return result; // { success: true, conversation }
     }
     
-    // Update conversation (title, mode, etc.)
-    async updateConversation(conversationId, updates) {
-        const url = `${this.baseUrl}/chat/conversations/${conversationId}`;
-        
-        try {
-            const response = await this.fetchWithRetry(url, {
-                method: 'PATCH',
-                body: JSON.stringify(updates)
-            });
-            
-            const conversation = await response.json();
-            
-            eventBus.emit('api:conversationUpdated', {
-                conversationId,
-                updates,
-                conversation
-            });
-            
-            return conversation;
-            
-        } catch (error) {
-            console.error(`Failed to update conversation ${conversationId}:`, error);
-            eventBus.emit('api:error', {
-                operation: 'updateConversation',
-                error: error.message,
-                conversationId
-            });
-            throw error;
-        }
+    // Leave a conversation
+    async leaveConversation(conversationId) {
+        const result = await this.apiCall('DELETE', `/api/chat/conversations/${conversationId}/leave`);
+        return result; // { success: true }
     }
     
-    // Health check
-    async checkHealth() {
-        const url = `${this.baseUrl}/health/chat`;
-        
-        try {
-            const response = await this.fetchWithRetry(url, {}, 1); // Only 1 attempt for health
-            const health = await response.json();
-            
-            eventBus.emit('api:healthChecked', health);
-            return health;
-            
-        } catch (error) {
-            console.error('Health check failed:', error);
-            eventBus.emit('api:error', {
-                operation: 'checkHealth',
-                error: error.message
-            });
-            return { status: 'error', error: error.message };
-        }
-    }
-    
-    // Get sites list
-    async getSites() {
-        const url = `${this.baseUrl}/sites?streaming=false`;
-        
-        try {
-            const response = await this.fetchWithRetry(url);
-            const data = await response.json();
-            const sites = Array.isArray(data) ? data : (data.sites || []);
-            
-            eventBus.emit('api:sitesLoaded', sites);
-            return sites;
-            
-        } catch (error) {
-            console.error('Failed to get sites:', error);
-            eventBus.emit('api:error', {
-                operation: 'getSites',
-                error: error.message
-            });
-            throw error;
-        }
-    }
-    
-    // Get configuration
-    async getConfig() {
-        const url = `${this.baseUrl}/api/chat/config`;
-        
-        try {
-            const response = await this.fetchWithRetry(url);
-            const config = await response.json();
-            
-            eventBus.emit('api:configLoaded', config);
-            return config;
-            
-        } catch (error) {
-            console.error('Failed to get config:', error);
-            // Non-critical error - just log
-            return {};
-        }
+    // Support optional baseUrl configuration
+    setBaseUrl(baseUrl) {
+        this.baseUrl = baseUrl || '';
     }
 }
 
