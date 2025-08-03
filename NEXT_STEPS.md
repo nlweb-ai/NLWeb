@@ -1,80 +1,46 @@
-# Next Steps for Frontend Chat Client Implementation
+# Next Steps - Multi-Participant Chat System
 
-## Current Status
-All frontend phases complete including API Service and State Manager. Frontend is fully integrated and ready.
+## Immediate Task
+Run integration tests against the real server to verify all endpoints work correctly.
 
-## Completed in this session:
-- ✓ WebSocket service with reconnection
-- ✓ All UI components (Sidebar, Chat, Share, Site Selector)
-- ✓ Site selector with mode selection
-- ✓ Main app integration and event wiring
-- ✓ Complete message flow with sanitization
-- ✓ Secure renderer for XSS protection
-- ✓ Responsive CSS with dark mode
-- ✓ Test harness with MockWebSocket
-- ✓ Integration test scenarios
-- ✓ API Service with retry logic and auth
-- ✓ State Manager with localStorage persistence
-- ✓ Full integration of all services and UI components
+## Steps to Execute
 
-## Immediate Next Tasks (In Order):
-
-### 1. Dependencies ✓ COMPLETE
-- DOMPurify.js already exists in /static/
-- Renderer files (type-renderers.js, recipe-renderer.js, json-renderer.js) already present
-
-## Frontend Status: COMPLETE ✓
-All frontend components have been implemented and integrated:
-- State Manager and API Service created and integrated
-- All UI components connected to state management
-- WebSocket service with reconnection logic
-- Complete message flow with sanitization
-- Test harness and integration test scenarios ready
-
-The frontend is now ready for testing and backend integration.
-
-## Just Completed:
-- ✓ Command 5a: ParticipantTracker utility class
-- ✓ Command 5b: API Service with exact specifications
-- ✓ Integration of ParticipantTracker into StateManager
-
-## Next Command to Execute:
-Check client-claude-code-guide.md for Command 5c: Wire State Management
-
-## Backend Tasks (Separate)
-- [ ] Complete reliability tests
-- [ ] Fix storage provider implementations
-- [ ] Run full test suite
-- [ ] Integration testing
-
-## Resume Instructions
-
-To resume development:
-
-1. **Check test status**:
+1. **Start the server** (in one terminal):
    ```bash
    cd /Users/rvguha/code/conv/code/python
-   python -m pytest tests/test_chat_performance.py -v
-   python -m pytest tests/test_chat_security.py -v
+   python -m webserver.aiohttp_server
    ```
 
-2. **Continue with reliability tests**:
+2. **Run integration tests** (in another terminal):
    ```bash
-   # Create test_chat_reliability.py
-   # Focus on network interruption and reconnection scenarios
+   cd /Users/rvguha/code/conv
+   python -m pytest tests/integration/test_rest_api.py -xvs
    ```
 
-3. **Fix any failing tests**:
-   - Most likely issues: missing imports, storage method implementations
-   - Check conversation access control in WebSocket handler
+3. **Monitor server logs** for any errors during test execution
 
-4. **Key files to reference**:
-   - `/Users/rvguha/code/conv/code/python/chat/` - Core chat implementation
-   - `/Users/rvguha/code/conv/code/python/webserver/routes/chat.py` - API endpoints
-   - `/Users/rvguha/code/conv/code/python/tests/test_chat_*.py` - Test suites
+## Expected Results
+- All chat endpoints should respond correctly:
+  - POST `/chat/create` - 201 Created
+  - GET `/chat/my-conversations` - 200 OK
+  - GET `/chat/conversations/{id}` - 200 OK
+  - POST `/chat/{id}/join` - 200 OK
+  - DELETE `/chat/{id}/leave` - 200 OK
+  - GET `/health/chat` - 200 OK
 
-5. **Architecture reminders**:
-   - WebSocket per human, messages broadcast to all
-   - ConversationManager is the central orchestrator
-   - At-least-once delivery with async persistence
-   - Mode switching: SINGLE (100ms) vs MULTI (2000ms)
+## If Tests Fail
+1. Check server logs for specific error messages
+2. Verify payload format matches server expectations
+3. Ensure auth middleware is properly configured
+4. Check that all required fields are present in requests
+
+## After Tests Pass
+1. Run full test suite: `python -m pytest tests/ -v`
+2. Document any remaining issues
+3. Create pull request with implementation
+
+## Technical Details
+- Server expects `user_id` and `name` fields (not `participantId`/`displayName`)
+- Auth middleware sets `user.id = "authenticated_user"` for valid tokens
+- Conversations require at least one participant
+- The requesting user must be included in participants list

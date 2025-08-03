@@ -7,6 +7,9 @@ server:
   enable_cors: true
   max_connections: 50  # Lower for tests
 
+# Mode configuration
+mode: "test"
+
 chat:
   storage:
     backend: "memory"  # Always use memory backend for tests

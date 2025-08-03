@@ -357,9 +357,9 @@ async def get_conversation_handler(request: web.Request) -> web.Response:
         # Build response matching test expectations
         response_data = {
             'id': conversation.conversation_id,
-            'title': conversation.metadata.get('title', 'Untitled Chat'),
-            'sites': conversation.metadata.get('sites', []),
-            'mode': conversation.metadata.get('mode', 'list'),
+            'title': conversation.metadata.get('title', 'Untitled Chat') if conversation.metadata else 'Untitled Chat',
+            'sites': conversation.metadata.get('sites', []) if conversation.metadata else [],
+            'mode': conversation.metadata.get('mode', 'list') if conversation.metadata else 'list',
             'participants': participants,
             'messages': formatted_messages,
             'created_at': conversation.created_at.isoformat(),
@@ -533,9 +533,9 @@ async def join_conversation_handler(request: web.Request) -> web.Response:
             'success': True,
             'conversation': {
                 'id': conversation.conversation_id,
-                'title': conversation.metadata.get('title', 'Untitled Chat'),
-                'sites': conversation.metadata.get('sites', []),
-                'mode': conversation.metadata.get('mode', 'list'),
+                'title': conversation.metadata.get('title', 'Untitled Chat') if conversation.metadata else 'Untitled Chat',
+                'sites': conversation.metadata.get('sites', []) if conversation.metadata else [],
+                'mode': conversation.metadata.get('mode', 'list') if conversation.metadata else 'list',
                 'participants': [
                     {
                         'participantId': p.participant_id,

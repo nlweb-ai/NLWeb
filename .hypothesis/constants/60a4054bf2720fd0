@@ -1,0 +1,4 @@
+# file: /Users/rvguha/code/conv/code/python/methods/recipe_substitution.py
+# hypothesis_version: 6.136.7
+
+['\nReference Recipes:\n', '1:1', '</li>', '</ul>', '<li>', '<ul>', 'content', 'cooking_adjustments', 'dairy-free', 'dietary_need', 'egg-free', 'error', 'general_tips', 'gluten-free', 'high', 'instead', 'message', 'message_type', 'name', 'no_results', 'notes', 'nut-free', 'original_ingredient', 'preference', 'ratio', 'recipeIngredient', 'recipe_name', 'recipes', 'reference_recipes', 'replace', 'schema_object', 'string', 'substitute', 'substitution', 'substitution_data', 'substitutions', 'taste_texture_impact', 'url', 'vegan', 'without']

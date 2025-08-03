@@ -93,14 +93,38 @@ Implementing conversation API endpoints and storage functionality for the NLWeb 
     - PII redaction infrastructure
     - Access control verification
 
+## TODAY'S PROGRESS - Integration Test Fixes
+
+### Implemented Missing Endpoints
+- **POST `/chat/{id}/join`** - Join existing conversation with duplicate checking
+- **DELETE `/chat/{id}/leave`** - Leave conversation with proper cleanup
+- **GET `/chat/conversations/{id}`** - Get full conversation details
+- All endpoints integrated with storage and WebSocket broadcasting
+
+### Fixed Test Infrastructure
+- **Removed mock-based testing** - No more aioresponses
+- **Updated to use real server** - Tests hit localhost:8000
+- **Fixed payload format** to match server expectations:
+  - `participantId` → `user_id`
+  - `displayName` → `name`
+  - Removed `type` field
+  - Added `enable_ai` field
+  - Use `authenticated_user` as user_id (matches auth middleware)
+
+### Current Status
+- **249 total tests** identified in test suite
+- **54 integration tests** completely rewritten
+- **Server configuration** debugged (was in wrong directory)
+- **Ready to run** once server is started
+
 ## System Status
 - Chat system infrastructure complete
 - WebSocket + REST API ready
 - Performance and security test suites created
-- Ready for integration testing
+- Integration tests updated and ready to run
 
 ## Next Steps
-- Create reliability tests (network interruption, reconnection)
-- Create multi-human specific tests (simultaneous messages, mode switching)
-- Update documentation with security section and scaling notes
-- Run full test suite and address any failures
+- Run integration tests against real server
+- Fix any remaining test failures
+- Run full test suite (249 tests)
+- Address any system issues found

@@ -495,7 +495,7 @@ def mock_nlweb_handler():
 
 
 # Mock external services fixture
-@pytest_asyncio.fixture(autouse=True)
+@pytest_asyncio.fixture
 async def mock_external_services(monkeypatch):
     """Mock all external service calls"""
     # Mock OpenAI API calls
@@ -505,9 +505,18 @@ async def mock_external_services(monkeypatch):
     ))
     monkeypatch.setattr("openai.AsyncOpenAI", lambda **kwargs: mock_openai)
     
-    # Mock Azure services
-    monkeypatch.setattr("azure.storage.blob.BlobServiceClient", MagicMock)
-    monkeypatch.setattr("azure.cosmos.CosmosClient", MagicMock)
+    # Mock Azure services (only if they exist)
+    try:
+        import azure.storage.blob
+        monkeypatch.setattr("azure.storage.blob.BlobServiceClient", MagicMock)
+    except ImportError:
+        pass
+    
+    try:
+        import azure.cosmos
+        monkeypatch.setattr("azure.cosmos.CosmosClient", MagicMock)
+    except ImportError:
+        pass
     
     # Mock HTTP requests to external services
     with aioresponses() as mocked:

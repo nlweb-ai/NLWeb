@@ -3,12 +3,12 @@ Chat storage interface and client.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set
 import time
 import importlib
 from datetime import datetime
 
-from chat.schemas import ChatMessage, Conversation
+from chat.schemas import ChatMessage, Conversation, ParticipantInfo
 from chat.metrics import ChatMetrics
 from core.config import CONFIG
 

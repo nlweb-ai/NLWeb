@@ -168,29 +168,16 @@ class AioHTTPServer:
             
             # Initialize storage client
             storage_config = chat_config.get('storage', {})
-            storage_type = storage_config.get('type', 'memory')
-            storage_providers = {}
+            storage_type = storage_config.get('backend', 'memory')
             
             if storage_type == 'memory':
                 from chat_storage_providers.memory_storage import MemoryStorage
-                storage_providers['memory'] = MemoryStorage(storage_config)
-            
-            # Add more storage providers as needed
-            # elif storage_type == 'postgres':
-            #     from chat_storage_providers.postgres_storage import PostgresStorageProvider
-            #     storage_providers['postgres'] = PostgresStorageProvider(storage_config)
-            
-            storage_client_config = {
-                'default_provider': storage_type,
-                'cache_enabled': storage_config.get('cache_enabled', True),
-                'cache_ttl': storage_config.get('cache_ttl', 300),
-                'cache_max_size': storage_config.get('cache_max_size', 1000)
-            }
-            
-            app['chat_storage'] = ChatStorageClient(
-                providers=storage_providers,
-                config=storage_client_config
-            )
+                storage_backend = MemoryStorage(storage_config)
+                # Use the backend directly for now
+                app['chat_storage'] = storage_backend
+            else:
+                # Initialize storage client for other backends
+                app['chat_storage'] = ChatStorageClient(config=chat_config)
             
             # Store storage in conversation manager
             app['conversation_manager'].storage = app['chat_storage']

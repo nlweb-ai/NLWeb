@@ -1,0 +1,4 @@
+# file: /Users/rvguha/code/conv/code/python/methods/generate_answer.py
+# hypothesis_version: 6.136.7
+
+[100, 'Full error trace: ', 'answer', 'description', 'generate_answer', 'item.description', 'items', 'low', 'message_type', 'name', 'nlws', 'query_id', 'ranking', 'schema_object', 'score', 'sent', 'site', 'url', 'urls']
