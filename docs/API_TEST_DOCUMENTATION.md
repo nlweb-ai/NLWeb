@@ -533,6 +533,273 @@ GET  /sites?streaming=false  # Site configuration
 6. **State Verification**: localStorage/sessionStorage mocking
 7. **Network Simulation**: Latency and disconnection
 
+## Backend Internal APIs
+
+### 10. ConversationManager API
+
+The ConversationManager orchestrates all conversations and message routing.
+
+#### Methods
+
+##### add_participant
+```python
+def add_participant(conversation_id: str, participant: BaseParticipant) -> None
+```
+- Adds a participant to the conversation
+- Enforces max_participants limit
+- Updates conversation mode (SINGLE/MULTI)
+- Broadcasts participant update to all
+
+##### remove_participant
+```python
+def remove_participant(conversation_id: str, participant_id: str) -> None
+```
+- Removes participant from conversation
+- Updates conversation mode
+- Broadcasts participant update
+
+##### process_message
+```python
+async def process_message(
+    conversation_id: str,
+    message: ChatMessage,
+    sender: BaseParticipant
+) -> int  # returns sequence_id
+```
+- Validates conversation exists
+- Checks queue limits (raises QueueFullError if full)
+- Assigns sequence ID atomically
+- Delivers to all participants immediately
+- Triggers async persistence
+- Returns assigned sequence_id
+
+##### get_conversation_state
+```python
+def get_conversation_state(conversation_id: str) -> ConversationState
+```
+- Returns current conversation state
+- Includes participants, mode, message count
+
+### 11. BaseParticipant API (Abstract)
+
+All participants (Human, NLWeb) must implement this interface.
+
+#### Methods
+
+##### process_message
+```python
+async def process_message(
+    message: ChatMessage,
+    context: List[ChatMessage],
+    stream_callback: Optional[Callable] = None
+) -> Optional[ChatMessage]
+```
+- Processes incoming message
+- Context includes previous messages
+- Returns response or None
+- stream_callback for streaming responses
+
+##### get_participant_info
+```python
+def get_participant_info() -> ParticipantInfo
+```
+- Returns participant metadata
+- Includes ID, name, type, joined_at
+
+### 12. NLWebParticipant API
+
+Wraps NLWebHandler for AI participation.
+
+#### Constructor
+```python
+def __init__(
+    nlweb_handler: NLWebHandler,
+    participant_id: str,
+    config: ParticipantConfig
+)
+```
+
+#### process_message Implementation
+```python
+async def process_message(...) -> Optional[ChatMessage]
+```
+- Builds context using NLWebContextBuilder
+- Calls NLWebHandler.process_query()
+- Handles timeout (default 20s)
+- Streams response via callback
+- Returns None if NLWeb decides not to respond
+
+### 13. NLWebContextBuilder API
+
+Builds context for NLWeb from chat history.
+
+#### build_context
+```python
+def build_context(
+    messages: List[ChatMessage],
+    current_message: Optional[ChatMessage] = None
+) -> Dict[str, Any]
+```
+
+**Returns:**
+```python
+{
+    "prev_queries": [
+        {
+            "query": "message text",
+            "user_id": "sender_id",
+            "timestamp": "2024-01-01T12:00:00"
+        }
+    ],
+    "last_answers": [
+        {
+            "content": "AI response",
+            "timestamp": "2024-01-01T12:00:01",
+            "metadata": {...}
+        }
+    ],
+    "site": "site_name",
+    "mode": "summarize"
+}
+```
+
+### 14. ChatStorageInterface API (Abstract)
+
+All storage backends must implement this interface.
+
+#### store_message
+```python
+async def store_message(
+    conversation_id: str,
+    message: ChatMessage
+) -> None
+```
+- Persists message to storage
+- Must be idempotent (handle duplicates)
+
+#### get_conversation_messages
+```python
+async def get_conversation_messages(
+    conversation_id: str,
+    limit: int = 100,
+    before_sequence_id: Optional[int] = None
+) -> List[ChatMessage]
+```
+- Returns messages ordered by sequence_id
+- Supports pagination
+
+#### get_next_sequence_id
+```python
+async def get_next_sequence_id(conversation_id: str) -> int
+```
+- Returns next sequence ID atomically
+- Must be thread-safe
+- Critical for message ordering
+
+### 15. Message Flow Sequence
+
+1. **Human sends message via WebSocket**
+   ```
+   WebSocket → WebSocketManager.handle_message()
+   ```
+
+2. **WebSocket creates ChatMessage**
+   ```python
+   message = ChatMessage(
+       message_id=client_provided_id,
+       conversation_id=conversation_id,
+       sender_id=human.user_id,
+       content=content,
+       message_type=MessageType.TEXT
+   )
+   ```
+
+3. **ConversationManager processes**
+   ```python
+   sequence_id = await conversation_manager.process_message(
+       conversation_id, message, human_participant
+   )
+   ```
+
+4. **Sequence ID assigned**
+   ```python
+   message.sequence_id = await storage.get_next_sequence_id(conversation_id)
+   ```
+
+5. **Broadcast to all participants**
+   ```python
+   for participant in conversation.participants.values():
+       await participant.deliver_message(message)
+   ```
+
+6. **NLWeb participants process**
+   ```python
+   response = await nlweb_participant.process_message(
+       message, context, stream_callback
+   )
+   ```
+
+7. **NLWeb response broadcast**
+   ```python
+   if response:
+       await conversation_manager.process_message(
+           conversation_id, response, nlweb_participant
+       )
+   ```
+
+8. **Async persistence**
+   ```python
+   asyncio.create_task(storage.store_message(conversation_id, message))
+   ```
+
+### 16. Error Handling
+
+#### QueueFullError
+- Raised when conversation queue exceeds limit
+- Returns 429 to client
+- Client should implement exponential backoff
+
+#### MessageDeliveryError
+- Tracks failed deliveries per participant
+- Conversation continues for other participants
+- Failed participant may be removed after threshold
+
+#### TimeoutError
+- NLWeb responses timeout after 20s
+- Timeout doesn't affect other participants
+- Message marked as failed in storage
+
+### 17. Backend Internal API Test Scenarios
+
+#### ConversationManager Tests
+1. **Add participant to empty conversation** - Mode should be SINGLE
+2. **Add second human** - Mode should switch to MULTI
+3. **Remove participant** - Mode should update correctly
+4. **Exceed max participants** - Should raise error
+5. **Process message with full queue** - Should raise QueueFullError
+6. **Concurrent message processing** - Sequence IDs must be sequential
+7. **Broadcast failure to one participant** - Others should still receive
+
+#### NLWebParticipant Tests
+1. **Context building** - Verify correct number of messages included
+2. **Timeout handling** - Response should fail after 20s
+3. **Stream callback** - Chunks should be delivered in order
+4. **NLWeb decides not to respond** - Should return None gracefully
+5. **Multiple NLWeb participants** - All should process every message
+
+#### Storage Interface Tests
+1. **Atomic sequence ID generation** - No duplicates under concurrent load
+2. **Message retrieval pagination** - before_sequence_id should work
+3. **Duplicate message storage** - Should be idempotent
+4. **Storage failure during persistence** - Message already delivered, should not crash
+
+#### Integration Flow Tests
+1. **3 humans + 2 NLWeb agents** - All receive all messages
+2. **Rapid message sending** - Queue management and ordering
+3. **Participant join during active chat** - Should receive sync
+4. **Network partition** - Reconnection and message sync
+5. **Mode switching** - SINGLE → MULTI → SINGLE transitions
+
 ## Success Criteria
 
 1. All REST endpoints return expected responses
@@ -542,3 +809,8 @@ GET  /sites?streaming=false  # Site configuration
 5. System recovers from all failure scenarios
 6. UI updates reflect backend state accurately
 7. Multi-participant scenarios work smoothly
+8. ConversationManager correctly routes messages between all participants
+9. NLWebParticipant properly integrates with existing NLWebHandler
+10. Storage operations maintain message ordering via sequence IDs
+11. Queue limits and backpressure work correctly
+12. Participant failures don't crash conversations
