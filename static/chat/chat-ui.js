@@ -1,5 +1,6 @@
 import eventBus from './event-bus.js';
 import secureRenderer from './secure-renderer.js';
+import stateManager from './state-manager.js';
 
 export class ChatUI {
     constructor() {
@@ -120,18 +121,20 @@ export class ChatUI {
     }
 
     setCurrentConversation(conversation) {
-        this.currentConversation = conversation;
+        // Get current conversation from stateManager
+        this.currentConversation = stateManager.getCurrentConversation();
         this.clearMessages();
-        this.updateChatHeader(conversation);
-        this.setInputMode(conversation?.mode || 'multi');
+        this.updateChatHeader(this.currentConversation);
+        this.setInputMode(this.currentConversation?.mode || 'multi');
         
-        if (conversation) {
+        if (this.currentConversation) {
             this.enableInput();
             this.shareButton.style.display = 'block';
             
-            // Load existing messages
-            if (conversation.messages && conversation.messages.length > 0) {
-                conversation.messages.forEach(message => this.queueMessage(message));
+            // Use stateManager.getMessages() for initial render
+            const messages = stateManager.getMessages(this.currentConversation.id);
+            if (messages && messages.length > 0) {
+                messages.forEach(message => this.queueMessage(message));
             }
         } else {
             this.disableInput();

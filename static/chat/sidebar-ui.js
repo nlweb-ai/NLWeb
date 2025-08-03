@@ -1,4 +1,5 @@
 import eventBus from './event-bus.js';
+import stateManager from './state-manager.js';
 
 export class SidebarUI {
     constructor() {
@@ -88,6 +89,10 @@ export class SidebarUI {
     render() {
         if (!this.container) return;
 
+        // Get conversations from stateManager
+        this.conversations = stateManager.getAllConversations();
+        this.sortMode = stateManager.getPreference('sidebarSortMode') || 'recency';
+
         this.container.innerHTML = `
             <div class="sidebar-header">
                 <div class="sidebar-title">
@@ -120,10 +125,12 @@ export class SidebarUI {
     }
 
     getSortedSites() {
+        // Get sites sorted by stateManager preference
+        const sortedSiteData = stateManager.getSitesSorted(this.sortMode);
+        
         const sitesWithConversations = this.sites.map(site => {
-            const siteConversations = this.conversations.filter(conv => 
-                conv.sites && conv.sites.includes(site.id)
-            );
+            // Use stateManager to get conversations for site
+            const siteConversations = stateManager.getConversationsForSite(site.id);
             
             return {
                 ...site,
@@ -266,8 +273,8 @@ export class SidebarUI {
     }
 
     handleSortToggle() {
-        this.sortMode = this.sortMode === 'recency' ? 'alphabetical' : 'recency';
-        eventBus.emit('ui:sortChanged', { sortMode: this.sortMode });
+        // Toggle sort mode and update state manager preference
+        eventBus.emit('ui:sortToggle');
         this.render();
     }
 

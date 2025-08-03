@@ -1,4 +1,5 @@
 import eventBus from './event-bus.js';
+import stateManager from './state-manager.js';
 
 export class ShareUI {
     constructor() {
@@ -25,9 +26,11 @@ export class ShareUI {
         });
 
         eventBus.on('state:currentConversation', (conversation) => {
-            this.currentConversationId = conversation?.id;
-            if (conversation?.participants) {
-                this.showParticipantPanel(conversation.participants);
+            // Get conversation data from stateManager for sharing
+            const currentConv = stateManager.getCurrentConversation();
+            this.currentConversationId = currentConv?.id;
+            if (currentConv?.participants) {
+                this.showParticipantPanel(currentConv.participants);
             }
         });
     }
@@ -38,6 +41,13 @@ export class ShareUI {
     }
 
     async handleShareClick(conversationId) {
+        // Get conversation from stateManager to ensure we have the latest data
+        const conversation = stateManager.conversations.get(conversationId);
+        if (!conversation) {
+            this.showErrorFeedback('Conversation not found');
+            return;
+        }
+        
         const shareLink = this.generateShareLink(conversationId);
         
         try {
