@@ -302,7 +302,7 @@ Export as singleton instance.
 ```
 
 ### Command 5c: Wire State Management
-NEXT
+
 ```
 After creating the state management components, update initialization:
 
@@ -349,7 +349,7 @@ This connects the state layer between WebSocket and UI.
 ```
 
 ### Command 5d: Update UI Components to Use State
-
+NEXT
 ```
 Update existing UI components to use stateManager:
 

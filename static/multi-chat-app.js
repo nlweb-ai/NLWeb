@@ -7,8 +7,8 @@
 import eventBus from './chat/event-bus.js';
 import configService from './chat/config-service.js';
 import identityService from './chat/identity-service.js';
-import apiService from './chat/api-service.js';
-import stateManager from './chat/state-manager.js';
+import { default as apiService } from './chat/api-service.js';
+import { default as stateManager } from './chat/state-manager.js';
 import webSocketService from './chat/websocket-service.js';
 import { SidebarUI } from './chat/sidebar-ui.js';
 import { ChatUI } from './chat/chat-ui.js';
@@ -61,7 +61,16 @@ class MultiChatApp {
             }
             
             // 3. Initialize state manager (loads from localStorage)
-            // State manager initializes itself in constructor
+            // Load saved state
+            stateManager.loadFromStorage();
+            
+            // Load conversations from API
+            try {
+                const conversations = await apiService.getConversations();
+                conversations.forEach(conv => stateManager.addConversation(conv));
+            } catch (error) {
+                console.error('Failed to load conversations:', error);
+            }
             
             // 4. Load sites
             // Note: Sites loading is now handled by config service
@@ -80,6 +89,11 @@ class MultiChatApp {
             if (!shareHandled) {
                 await this.handleInitialConversation();
             }
+            
+            // 9. Save state periodically
+            setInterval(() => {
+                stateManager.saveToStorage();
+            }, 30000); // Every 30 seconds
             
             this.isInitialized = true;
             console.log('Multi-Chat Application initialized successfully');
@@ -135,10 +149,12 @@ class MultiChatApp {
         });
         
         this.eventBus.on('message:added', ({ conversationId, message, conversation }) => {
-            // Messages are already rendered via queueMessage, just update conversation list
-            if (conversationId === this.currentConversationId) {
-                this.eventBus.emit('state:conversations', this.stateManager.getAllConversations());
+            // Wire up state events to UI (Command 5c)
+            if (conversationId === stateManager.currentConversationId) {
+                this.chatUI?.renderMessage(message);
             }
+            // Update conversation list
+            this.eventBus.emit('state:conversations', this.stateManager.getAllConversations());
         });
         
         this.eventBus.on('participants:updated', ({ conversationId, participants }) => {
@@ -169,6 +185,15 @@ class MultiChatApp {
         // Message receiving flow
         this.eventBus.on('websocket:message', (message) => {
             this.handleIncomingMessage(message);
+        });
+        
+        // Wire up WebSocket events to state (Command 5c)
+        this.eventBus.on('message:received', (message) => {
+            stateManager.addMessage(message.conversation_id, message);
+        });
+        
+        this.eventBus.on('participants:update', (data) => {
+            stateManager.updateParticipants(data.conversation_id, data.participants);
         });
         
         // AI response handling with routing
