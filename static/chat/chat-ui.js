@@ -49,6 +49,19 @@ export class ChatUI {
                     </button>
                 </div>
             </div>
+            <div class="share-link-container" id="share-link-container" style="display: none;">
+                <div class="share-link-content">
+                    <span class="share-link-label">Share this conversation:</span>
+                    <input type="text" class="share-link-input" id="share-link-input" readonly>
+                    <button class="btn btn-secondary btn-copy" id="copy-share-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                        </svg>
+                        Copy
+                    </button>
+                </div>
+            </div>
             <div class="chat-messages" id="messages-container">
                 <div class="welcome-message">
                     <h3>Welcome to Multi-Participant Chat</h3>
@@ -78,6 +91,9 @@ export class ChatUI {
         this.inputElement = this.container.querySelector('#chat-input');
         this.sendButton = this.container.querySelector('#send-button');
         this.shareButton = this.container.querySelector('#share-button');
+        this.shareLinkContainer = this.container.querySelector('#share-link-container');
+        this.shareLinkInput = this.container.querySelector('#share-link-input');
+        this.copyShareLinkButton = this.container.querySelector('#copy-share-link');
         this.typingIndicators = this.container.querySelector('#typing-indicators');
         this.typingUsersContainer = this.container.querySelector('.typing-users');
     }
@@ -118,6 +134,30 @@ export class ChatUI {
         this.shareButton.addEventListener('click', () => {
             eventBus.emit('ui:shareConversation', { conversationId: this.currentConversation?.id });
         });
+
+        // Copy share link button
+        this.copyShareLinkButton.addEventListener('click', () => {
+            const shareLink = this.shareLinkInput.value;
+            navigator.clipboard.writeText(shareLink).then(() => {
+                // Show success feedback
+                const originalText = this.copyShareLinkButton.textContent;
+                this.copyShareLinkButton.textContent = 'Copied!';
+                this.copyShareLinkButton.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    this.copyShareLinkButton.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
+                        </svg>
+                        Copy
+                    `;
+                    this.copyShareLinkButton.classList.remove('btn-success');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy share link:', err);
+            });
+        });
     }
 
     setCurrentConversation(conversation) {
@@ -131,6 +171,12 @@ export class ChatUI {
             this.enableInput();
             this.shareButton.style.display = 'block';
             
+            // Show share link container and populate the link
+            this.shareLinkContainer.style.display = 'block';
+            const baseUrl = window.location.origin;
+            const shareLink = `${baseUrl}/chat/join/${this.currentConversation.id}`;
+            this.shareLinkInput.value = shareLink;
+            
             // Use stateManager.getMessages() for initial render
             const messages = stateManager.getMessages(this.currentConversation.id);
             if (messages && messages.length > 0) {
@@ -139,6 +185,7 @@ export class ChatUI {
         } else {
             this.disableInput();
             this.shareButton.style.display = 'none';
+            this.shareLinkContainer.style.display = 'none';
             this.showWelcomeMessage();
         }
     }

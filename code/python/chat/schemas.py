@@ -181,9 +181,10 @@ class Conversation:
             "conversation_id": self.conversation_id,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "active_participants": [p.to_dict() for p in self.active_participants],
+            "participants": [p.to_dict() for p in self.active_participants],
             "queue_size_limit": self.queue_size_limit,
             "message_count": self.message_count,
+            "participant_count": len(self.active_participants),
             "metadata": self.metadata or {}
         }
     

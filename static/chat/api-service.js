@@ -98,14 +98,28 @@ class ApiService {
         return conversation; // Full conversation with messages, or null if 404
     }
     
-    // Join a conversation
+    // Join a conversation (for already authorized users)
     async joinConversation(conversationId, participantInfo) {
         const body = {
-            participantInfo
+            participant: {
+                user_id: participantInfo.participantId || participantInfo.id,
+                name: participantInfo.displayName || participantInfo.name
+            }
         };
         
-        const result = await this.apiCall('POST', `/api/chat/conversations/${conversationId}/join`, body);
-        return result; // { success: true, conversation }
+        // Check if this is a share link join (direct conversation ID)
+        // Try the share link endpoint first
+        try {
+            const result = await this.apiCall('POST', `/chat/join/${conversationId}`, body);
+            return result; // { success: true, conversation }
+        } catch (error) {
+            // If share link fails, try regular join
+            if (error.status === 404) {
+                const result = await this.apiCall('POST', `/chat/${conversationId}/join`, body);
+                return result; // { success: true, conversation }
+            }
+            throw error;
+        }
     }
     
     // Leave a conversation

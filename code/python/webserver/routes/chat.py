@@ -32,6 +32,9 @@ def setup_chat_routes(app: web.Application):
     app.router.add_post('/chat/{id}/join', join_conversation_handler)
     app.router.add_delete('/chat/{id}/leave', leave_conversation_handler)
     
+    # Share link endpoints (using conversation ID as the share token)
+    app.router.add_post('/chat/join/{conv_id}', join_via_share_link_handler)
+    
     # WebSocket endpoint
     app.router.add_get('/chat/ws/{conv_id}', websocket_handler)
     
@@ -749,6 +752,176 @@ async def leave_conversation_handler(request: web.Request) -> web.Response:
         
     except Exception as e:
         logger.error(f"Error leaving conversation: {e}", exc_info=True)
+        return web.json_response(
+            {'error': 'Internal server error'},
+            status=500
+        )
+
+
+async def join_via_share_link_handler(request: web.Request) -> web.Response:
+    """
+    Join a conversation via share link.
+    
+    POST /chat/join/{conv_id}
+    {
+        "participant": {
+            "user_id": "user123",
+            "name": "John Doe"
+        }
+    }
+    
+    The conversation ID in the URL acts as the share token.
+    Anyone with the link can join the conversation.
+    
+    Returns:
+        200: Success with full conversation details
+        401: Unauthorized (no auth token)
+        404: Conversation not found
+        409: Already a participant
+    """
+    try:
+        # Get conversation ID from URL
+        conversation_id = request.match_info['conv_id']
+        
+        # Get authenticated user
+        user = request.get('user')
+        if not user or not user.get('authenticated'):
+            return web.json_response(
+                {'error': 'Authentication required'},
+                status=401
+            )
+        
+        # Parse request body
+        try:
+            data = await request.json()
+        except json.JSONDecodeError:
+            data = {}  # Use defaults if no body provided
+        
+        # Get participant info
+        participant_data = data.get('participant', {})
+        user_id = participant_data.get('user_id', user.get('id'))
+        user_name = participant_data.get('name', user.get('name', 'User'))
+        
+        # Get managers from app
+        conv_manager: ConversationManager = request.app['conversation_manager']
+        storage_client: ChatStorageClient = request.app['chat_storage']
+        ws_manager: WebSocketManager = request.app['websocket_manager']
+        
+        # Verify conversation exists
+        conversation = await storage_client.get_conversation(conversation_id)
+        if not conversation:
+            return web.json_response(
+                {'error': 'Invalid share link - conversation not found'},
+                status=404
+            )
+        
+        # Check if already a participant
+        existing_participant_ids = {p.participant_id for p in conversation.active_participants}
+        if user_id in existing_participant_ids:
+            # Already a member - return success with conversation details
+            messages = await storage_client.get_conversation_messages(
+                conversation_id=conversation_id,
+                limit=50
+            )
+            
+            return web.json_response({
+                'success': True,
+                'already_member': True,
+                'conversation': {
+                    'id': conversation.conversation_id,
+                    'title': conversation.metadata.get('title', 'Untitled Chat') if conversation.metadata else 'Untitled Chat',
+                    'participants': [
+                        {
+                            'participantId': p.participant_id,
+                            'displayName': p.name,
+                            'type': p.participant_type.value
+                        }
+                        for p in conversation.active_participants
+                    ],
+                    'message_count': conversation.message_count
+                }
+            })
+        
+        # Add new participant
+        participant_info = ParticipantInfo(
+            participant_id=user_id,
+            name=user_name,
+            participant_type=ParticipantType.HUMAN,
+            joined_at=datetime.utcnow()
+        )
+        
+        # Add to conversation
+        conversation.add_participant(participant_info)
+        
+        # Create HumanParticipant instance
+        human = HumanParticipant(
+            user_id=user_id,
+            user_name=user_name
+        )
+        
+        # Add participant through conversation manager
+        conv_manager.add_participant(conversation_id, human)
+        
+        # Update conversation in storage
+        await storage_client.update_conversation(conversation)
+        
+        # Broadcast participant joined event
+        participant_update = {
+            'type': 'participant_joined',
+            'conversation_id': conversation_id,
+            'participant': {
+                'id': participant_info.participant_id,
+                'name': participant_info.name,
+                'type': participant_info.participant_type.value,
+                'joined_at': participant_info.joined_at.isoformat()
+            },
+            'participant_count': len(conversation.active_participants),
+            'timestamp': datetime.utcnow().isoformat()
+        }
+        
+        await ws_manager.broadcast_to_conversation(conversation_id, participant_update)
+        
+        # Get recent messages
+        messages = await storage_client.get_conversation_messages(
+            conversation_id=conversation_id,
+            limit=50
+        )
+        
+        # Return success with conversation details
+        return web.json_response({
+            'success': True,
+            'conversation': {
+                'id': conversation.conversation_id,
+                'title': conversation.metadata.get('title', 'Untitled Chat') if conversation.metadata else 'Untitled Chat',
+                'sites': conversation.metadata.get('sites', []) if conversation.metadata else [],
+                'mode': conversation.metadata.get('mode', 'list') if conversation.metadata else 'list',
+                'participants': [
+                    {
+                        'participantId': p.participant_id,
+                        'displayName': p.name,
+                        'type': p.participant_type.value,
+                        'joinedAt': p.joined_at.isoformat()
+                    }
+                    for p in conversation.active_participants
+                ],
+                'messages': [
+                    {
+                        'id': msg.message_id,
+                        'sender_id': msg.sender_id,
+                        'content': msg.content,
+                        'timestamp': msg.timestamp.isoformat(),
+                        'type': msg.message_type.value
+                    }
+                    for msg in messages
+                ],
+                'created_at': conversation.created_at.isoformat(),
+                'participant_count': len(conversation.active_participants),
+                'message_count': conversation.message_count
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error joining via share link: {e}", exc_info=True)
         return web.json_response(
             {'error': 'Internal server error'},
             status=500
