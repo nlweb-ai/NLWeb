@@ -338,6 +338,7 @@ async def get_conversation_handler(request: web.Request) -> web.Response:
                 status=404
             )
         
+        
         # Verify user is a participant
         participant_ids = {p.participant_id for p in conversation.active_participants}
         if user_id not in participant_ids:
@@ -357,7 +358,7 @@ async def get_conversation_handler(request: web.Request) -> web.Response:
         if ws_manager and conversation_id in ws_manager._connections:
             online_participant_ids = {
                 conn.participant_id 
-                for conn in ws_manager._connections[conversation_id]
+                for conn in ws_manager._connections[conversation_id].values()
             }
         
         # Build participant list with online status
@@ -586,7 +587,7 @@ async def join_conversation_handler(request: web.Request) -> web.Response:
                         'type': p.participant_type.value,
                         'joinedAt': p.joined_at.isoformat(),
                         'isOnline': p.participant_id in [c.participant_id 
-                                                        for c in ws_manager._connections.get(conversation_id, [])]
+                                                        for c in ws_manager._connections.get(conversation_id, {}).values()]
                     }
                     for p in conversation.active_participants
                 ],
@@ -698,7 +699,7 @@ async def leave_conversation_handler(request: web.Request) -> web.Response:
         # Close any WebSocket connections for this user/conversation
         if conversation_id in ws_manager._connections:
             connections_to_close = []
-            for conn in ws_manager._connections[conversation_id]:
+            for conn in ws_manager._connections[conversation_id].values():
                 if conn.participant_id == user_id:
                     connections_to_close.append(conn)
             

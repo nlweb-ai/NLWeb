@@ -17,7 +17,8 @@ If it's over 60%, please:
 1. Update CURRENT_STATE.md with our current progress
 2. Update NEXT_STEPS.md with the immediate next task
 3. Commit all changes with message "WIP: [describe what we just did]"
-4. Tell me exactly how to resume
+4. compact
+5. Continue with what you were doing
 ```
 
 ### To Resume Work After a Break

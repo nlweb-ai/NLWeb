@@ -184,8 +184,8 @@ class TestSingleUserConversationFlow:
         
         assert conv_response.status_code == 200
         conv_data = conv_response.json()
-        assert conv_data["conversation"]["conversation_id"] == conversation_id
-        assert len(conv_data["conversation"]["messages"]) >= 1
+        assert conv_data["id"] == conversation_id
+        assert len(conv_data["messages"]) >= 1
         
         # Cleanup
         await ws_client.disconnect()
@@ -354,7 +354,7 @@ class TestMultiUserConversation:
         
         # First participant joins
         bob_token = "Bearer e2e_early_bob"
-        await e2e_client.post(
+        bob_join_response = await e2e_client.post(
             f"/chat/{conversation_id}/join",
             json={
                 "participant": {
@@ -364,6 +364,7 @@ class TestMultiUserConversation:
             },
             headers={"Authorization": bob_token}
         )
+        assert bob_join_response.status_code == 200
         
         # Connect early participants
         alice_ws = E2EWebSocketClient(conversation_id, creator_token)
@@ -408,7 +409,7 @@ class TestMultiUserConversation:
         
         assert history_response.status_code == 200
         history_data = history_response.json()
-        assert len(history_data["conversation"]["messages"]) >= 3
+        assert len(history_data["messages"]) >= 3
         
         # Cleanup
         await alice_ws.disconnect()

@@ -115,6 +115,16 @@ class Conversation:
     updated_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
     
+    def __post_init__(self):
+        """Validate that active_participants contains ParticipantInfo objects."""
+        if self.active_participants:
+            for p in self.active_participants:
+                if not isinstance(p, ParticipantInfo):
+                    raise TypeError(
+                        f"active_participants must contain ParticipantInfo objects, "
+                        f"got {type(p).__name__}: {p}"
+                    )
+    
     def get_human_participants(self) -> List[ParticipantInfo]:
         """Get all human participants"""
         return [p for p in self.active_participants if p.is_human()]
@@ -125,16 +135,28 @@ class Conversation:
     
     def add_participant(self, participant: ParticipantInfo):
         """Add a participant to the conversation"""
+        if not isinstance(participant, ParticipantInfo):
+            raise TypeError(f"Expected ParticipantInfo, got {type(participant)}: {participant}")
+        
         self.active_participants.add(participant)
         self.updated_at = datetime.utcnow()
     
     def remove_participant(self, participant_id: str):
         """Remove a participant from the conversation"""
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"=== Conversation.remove_participant called on {self.conversation_id} ===")
+        logger.info(f"  Removing participant ID: {participant_id}")
+        logger.info(f"  Active participants before: {self.active_participants}")
+        
         self.active_participants = {
             p for p in self.active_participants 
             if p.participant_id != participant_id
         }
         self.updated_at = datetime.utcnow()
+        
+        logger.info(f"  Active participants after: {self.active_participants}")
+        logger.info(f"=== Participant removed from {self.conversation_id} ===\n")
     
     def increment_message_count(self):
         """Increment the message count"""
@@ -200,17 +222,6 @@ class Conversation:
             metadata=metadata
         )
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert conversation to dictionary for serialization"""
-        return {
-            "conversation_id": self.conversation_id,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-            "participant_count": len(self.active_participants),
-            "participants": [p.to_dict() for p in self.active_participants],
-            "message_count": self.message_count,
-            "queue_size_limit": self.queue_size_limit
-        }
 
 
 class QueueFullError(Exception):
