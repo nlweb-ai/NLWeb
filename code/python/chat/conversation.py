@@ -259,9 +259,6 @@ class ConversationManager:
             
             # Broadcast to WebSocket connections
             if self.websocket_manager:
-                print(f"=== ConversationManager broadcasting message to WebSocket ===")
-                print(f"Message type: {sequenced_message.message_type}")
-                print(f"Message sender: {sequenced_message.sender_id}")
                 await self.websocket_manager.broadcast_message(
                     message.conversation_id,
                     {
@@ -373,8 +370,6 @@ class ConversationManager:
             
             # If participant generated a response, process it
             if response:
-                print(f"=== ConversationManager got response from {participant_id} ===")
-                print(f"Response content preview: {response.content[:200]}")
                 # Process the response as a new message
                 await self.process_message(response)
             

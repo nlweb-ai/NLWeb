@@ -205,9 +205,6 @@ class NLWebParticipant(BaseParticipant):
             Response message if NLWeb responds, None otherwise
         """
         try:
-            print(f"=== NLWebParticipant.process_message() CALLED ===")
-            print(f"Message content: {message.content[:100]}")
-            print(f"Message sender: {message.sender_id}")
             logger.info(f"NLWebParticipant processing message: {message.content[:100]}")
             
             # Build context from chat history  
@@ -222,19 +219,15 @@ class NLWebParticipant(BaseParticipant):
             
             # Check if message has metadata with sites
             if hasattr(message, 'metadata') and message.metadata:
-                print(f"Message metadata: {message.metadata}")
                 if 'sites' in message.metadata and message.metadata['sites']:
                     # Convert sites array to comma-separated string for 'site' param
                     sites = message.metadata['sites']
                     if isinstance(sites, list) and len(sites) > 0:
                         query_params["site"] = [",".join(sites)]
-                        print(f"Added site param from metadata: {query_params['site']}")
                 
                 # Also check for generate_mode in metadata
                 if 'generate_mode' in message.metadata:
                     query_params["generate_mode"] = [message.metadata['generate_mode']]
-            
-            print(f"Query params prepared: {query_params}")
             logger.info(f"NLWebParticipant query_params: {query_params}")
             
             # Add context to query params
@@ -252,16 +245,11 @@ class NLWebParticipant(BaseParticipant):
             class ChunkCapture:
                 async def write_stream(self, data, end_response=False):
                     nonlocal response_sent
-                    print(f"=== ChunkCapture.write_stream() CALLED ===")
-                    print(f"Data type: {type(data)}")
-                    print(f"Data preview: {str(data)[:200]}")
-                    print(f"End response: {end_response}")
                     
                     # Stream directly to WebSocket if we have a manager
                     if websocket_manager:
                         response_sent = True
                         # Send the raw data exactly like HTTP streaming does
-                        print(f"=== Streaming chunk to WebSocket ===")
                         await websocket_manager.broadcast_message(conversation_id, data)
                     
                     # Also keep the chunk for fallback
@@ -279,21 +267,16 @@ class NLWebParticipant(BaseParticipant):
             
             # If nlweb_handler is a class, instantiate it
             if isinstance(self.nlweb_handler, type):
-                print(f"=== NLWebParticipant creating NLWebHandler instance ===")
-                print(f"Handler class: {self.nlweb_handler}")
                 logger.info(f"NLWebParticipant instantiating NLWebHandler with query_params")
                 handler = self.nlweb_handler(query_params, chunk_capture)
-                print(f"=== NLWebParticipant calling handler.runQuery() ===")
                 logger.info(f"NLWebParticipant calling handler.runQuery()")
                 # Run query with timeout
                 await asyncio.wait_for(
                     handler.runQuery(),
                     timeout=self.config.timeout
                 )
-                print(f"=== NLWebParticipant handler.runQuery() COMPLETED ===")
                 logger.info(f"NLWebParticipant handler.runQuery() completed")
             else:
-                print(f"=== NLWebParticipant calling mock handler function ===")
                 logger.info(f"NLWebParticipant calling mock handler function")
                 # For testing, nlweb_handler might be a mock function
                 await asyncio.wait_for(
@@ -303,7 +286,6 @@ class NLWebParticipant(BaseParticipant):
             
             # If we streamed the response, we're done
             if response_sent:
-                print(f"=== Response was streamed via WebSocket ===")
                 # Send a completion message just like HTTP streaming
                 if websocket_manager:
                     completion_message = {
@@ -313,7 +295,6 @@ class NLWebParticipant(BaseParticipant):
                 return None  # No need to return a ChatMessage since we streamed
             
             # If no streaming happened, return None (NLWeb didn't respond)
-            print(f"=== No response from NLWeb ===")
             return None
             
         except asyncio.TimeoutError:

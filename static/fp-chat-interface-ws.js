@@ -150,8 +150,9 @@ class ModernChatInterface {
     });
     
     // Share button
-    if (this.elements.shareButton) {
-      this.elements.shareButton.addEventListener('click', () => this.shareConversation());
+    const shareBtn = document.getElementById('shareBtn');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', () => this.shareConversation());
     }
     
     // Auto-resize textarea
@@ -208,21 +209,53 @@ class ModernChatInterface {
     
     const shareUrl = `${window.location.origin}/chat/join/${this.currentConversationId}`;
     
-    // Copy to clipboard
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      // Show success feedback
-      const originalHTML = this.elements.shareButton.innerHTML;
-      this.elements.shareButton.innerHTML = '✓ Copied!';
-      this.elements.shareButton.style.color = 'var(--success-color)';
+    // Show the share link container
+    const shareLinkContainer = document.getElementById('shareLinkContainer');
+    const shareLinkInput = document.getElementById('shareLinkInput');
+    const copyShareLink = document.getElementById('copyShareLink');
+    
+    if (shareLinkContainer && shareLinkInput) {
+      shareLinkInput.value = shareUrl;
+      shareLinkContainer.style.display = 'block';
       
-      setTimeout(() => {
-        this.elements.shareButton.innerHTML = originalHTML;
-        this.elements.shareButton.style.color = '';
-      }, 2000);
-    }).catch(err => {
-      console.error('Failed to copy share link:', err);
-      alert(`Share link: ${shareUrl}`);
-    });
+      // Add copy button functionality
+      if (copyShareLink) {
+        copyShareLink.onclick = () => {
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            const originalText = copyShareLink.textContent;
+            copyShareLink.textContent = 'Copied!';
+            setTimeout(() => {
+              copyShareLink.textContent = originalText;
+            }, 2000);
+          });
+        };
+      }
+      
+      // Also copy immediately on share button click
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        // Show success feedback
+        const shareBtn = document.getElementById('shareBtn');
+        if (shareBtn) {
+          const originalHTML = shareBtn.innerHTML;
+          shareBtn.innerHTML = '✓ Copied!';
+          shareBtn.style.color = 'var(--success-color)';
+          
+          setTimeout(() => {
+            shareBtn.innerHTML = originalHTML;
+            shareBtn.style.color = '';
+          }, 2000);
+        }
+      }).catch(err => {
+        console.error('Failed to copy share link:', err);
+      });
+    } else {
+      // Fallback if container not found
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        alert(`Share link copied: ${shareUrl}`);
+      }).catch(err => {
+        alert(`Share link: ${shareUrl}`);
+      });
+    }
   }
   
   createNewChat(existingInputElementId = null, site = null) {
@@ -236,9 +269,10 @@ class ModernChatInterface {
     this.elements.chatInput.value = '';
     this.elements.chatInput.style.height = 'auto';
     
-    // Show share button
-    if (this.elements.shareButton) {
-      this.elements.shareButton.style.display = 'block';
+    // Hide share link container
+    const shareLinkContainer = document.getElementById('shareLinkContainer');
+    if (shareLinkContainer) {
+      shareLinkContainer.style.display = 'none';
     }
     
     // Clear context arrays for new chat
@@ -311,6 +345,7 @@ class ModernChatInterface {
     // Clear input
     this.elements.chatInput.value = '';
     this.elements.chatInput.style.height = 'auto';
+    
     
     // Get response via WebSocket
     await this.sendViaWebSocket(message);
@@ -698,11 +733,9 @@ class ModernChatInterface {
   handleWebSocketMessage(event) {
     try {
       const data = JSON.parse(event.data);
-      console.log('WebSocket message received:', data);
       
       // Handle different message types
       if (data.type === 'connected') {
-        console.log('WebSocket connected message:', data);
         return;
       }
       

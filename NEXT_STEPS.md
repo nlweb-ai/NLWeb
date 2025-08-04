@@ -2,16 +2,19 @@
 
 ## Immediate Tasks
 
-### 1. Remove Debug Print Statements
-- Remove all the print statements added for debugging in:
-  - `/code/python/chat/participants.py`
-  - `/code/python/core/baseHandler.py`
-  - `/code/python/webserver/routes/chat.py`
-  - `/code/python/chat/conversation.py`
-- Keep only essential logging statements
+### 1. Complete Google Maps API Removal
+- Remove all Google Maps API references from:
+  - `/static/managed-event-source.js` (partially done)
+  - `/static/fp-chat-interface-ws.js`
+  - `/static/fp-chat-interface.js`
+  - `/static/display_map.js`
+  - `/config/config_nlweb.yaml`
+- Replace map functionality with simple location list display
+- Remove any API key handling code
 
 ### 2. Test Full User Flow
 - Test complete flow from login to chat with real queries
+- Test share functionality with multiple users
 - Verify results display correctly for different query types
 - Test with multiple users in same conversation
 - Ensure AI participants respond appropriately
@@ -20,6 +23,11 @@
 ```bash
 python scripts/run_tests_with_server.py
 ```
+
+### 4. Documentation Updates
+- Document the OAuth flow and configuration
+- Document the WebSocket streaming protocol
+- Update deployment guide with OAuth setup instructions
 
 ## Previous Milestones
 

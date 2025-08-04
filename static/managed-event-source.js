@@ -359,12 +359,7 @@ export class ManagedEventSource {
         // These are header/metadata messages, no action needed
         break;
       case "api_key":
-        // Handle API key configuration
-        if (data.key_name === 'google_maps' && data.key_value) {
-          // Store the Google Maps API key globally
-          window.GOOGLE_MAPS_API_KEY = data.key_value;
-          console.log('Received Google Maps API key from server');
-        }
+        // Handle API key configuration (removed Google Maps)
         break;
       default:
         console.log("Unknown message type:", messageType);
