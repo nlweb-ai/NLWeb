@@ -1,0 +1,22 @@
+# Shopify sites that we have tested with the MCP endpoint.
+# This list is used by retriever to decide whether to 
+# call the shopify mcp endpoing.
+# One site per line, use domain name only (without https://)
+# Lines starting with # are comments
+# 
+
+miyakeceramics.com
+ikebanavase.com
+shop.japanese-food-craftsman.com
+musubikiln.com
+omakase-forest.com
+kutani-ware.jp
+www.saranyc.com
+kiichin.com
+masuhome.com
+mocad-shop.com
+usa.kayanoya.com
+kettl.co
+wazatokyo.com
+hashipottery.com
+www.hotnsaucy.co

@@ -1829,6 +1829,14 @@ class ModernChatInterface {
   updateRememberedItemsList() {
     // Find or create remembered section
     let rememberedSection = document.getElementById('remembered-section');
+    
+    // Update sidebar class based on remembered items
+    if (this.rememberedItems.length > 0) {
+      this.elements.sidebar.classList.add('has-remembered');
+    } else {
+      this.elements.sidebar.classList.remove('has-remembered');
+    }
+    
     if (!rememberedSection && this.rememberedItems.length > 0) {
       // Create remembered section
       rememberedSection = document.createElement('div');

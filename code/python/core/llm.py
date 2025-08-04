@@ -25,21 +25,16 @@ _loaded_providers = {}
 
 def init():
     """Initialize LLM providers based on configuration."""
-    print("=== LLM initialization starting ===")
-    
     # Get all configured LLM endpoints
     for endpoint_name, endpoint_config in CONFIG.llm_endpoints.items():
         llm_type = endpoint_config.llm_type
         if llm_type and endpoint_name == CONFIG.preferred_llm_endpoint:
-            print(f"Preloading preferred LLM provider: {endpoint_name} (type: {llm_type})")
             try:
                 # Use _get_provider which will load and cache the provider
                 _get_provider(llm_type)
-                print(f"Successfully loaded {llm_type} provider")
+                logger.info(f"Successfully loaded {llm_type} provider")
             except Exception as e:
-                print(f"Failed to load {llm_type} provider: {e}")
-    
-    print("=== LLM initialization complete ===")
+                logger.warning(f"Failed to load {llm_type} provider: {e}")
 
 # Mapping of LLM types to their required pip packages
 _llm_type_packages = {
@@ -214,7 +209,6 @@ async def ask_llm(
     if provider_name not in CONFIG.llm_endpoints:
         error_msg = f"Unknown provider '{provider_name}'"
         logger.error(error_msg)
-        print(f"Unknown provider '{provider_name}'")
         return {}
 
     # Get provider config using the helper method
@@ -260,7 +254,6 @@ async def ask_llm(
     except Exception as e:
         error_msg = f"LLM call failed: {type(e).__name__}: {str(e)}"
         logger.error(f"Error with provider {provider_name}: {error_msg}")
-        print(f"LLM Error ({provider_name}): {type(e).__name__}: {str(e)}")
 
         logger.log_with_context(
             LogLevel.ERROR,

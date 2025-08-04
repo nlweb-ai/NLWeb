@@ -12,7 +12,7 @@ import json
 import traceback
 import asyncio
 from core.baseHandler import NLWebHandler
-from webserver.StreamingWrapper import HandleRequest, SendChunkWrapper
+# from webserver.StreamingWrapper import HandleRequest, SendChunkWrapper  # Removed - using direct handlers
 from misc.logger.logger import get_logger, LogLevel
 from core.config import CONFIG  # Import CONFIG for site validation
 # from core.router import ToolSelector  # Not needed for basic MCP

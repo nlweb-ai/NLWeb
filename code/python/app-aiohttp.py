@@ -44,27 +44,10 @@ async def main():
     import core.retriever as retriever
     retriever.init()
     
-    # Determine which server to use
-    use_aiohttp = os.environ.get('USE_AIOHTTP', 'true').lower() == 'true'
-    
-    if use_aiohttp:
-        print("Starting aiohttp server...")
-        from webserver.aiohttp_server import AioHTTPServer
-        server = AioHTTPServer()
-        await server.start()
-    else:
-        print("Starting legacy server...")
-        from webserver.WebServer import fulfill_request, start_server
-        
-        # Get port from Azure environment or use default
-        port = int(os.environ.get('PORT', 8000))
-        
-        # Start the server
-        await start_server(
-            host='0.0.0.0',
-            port=port,
-            fulfill_request=fulfill_request
-        )
+    print("Starting aiohttp server...")
+    from webserver.aiohttp_server import AioHTTPServer
+    server = AioHTTPServer()
+    await server.start()
 
 
 if __name__ == "__main__":

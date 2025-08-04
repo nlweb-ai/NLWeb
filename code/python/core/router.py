@@ -35,20 +35,15 @@ class Tool:
 
 def init():
     """Initialize the router module by loading tools."""
-    print("=== Router initialization starting ===")
-    
     # Load tools from config directory
     tools_xml_path = os.path.join(CONFIG.config_directory, "tools.xml")
     
-    print(f"Loading tools from {tools_xml_path}")
     logger.info(f"Loading tools from {tools_xml_path}")
     tools = _load_tools_from_file(tools_xml_path)
     _tools_cache[tools_xml_path] = tools
     
-    print(f"Successfully loaded {len(tools)} tools")
     logger.info(f"Loaded {len(tools)} tools")
     logger.info("Router initialization complete")
-    print("=== Router initialization complete ===")
 
 def _load_tools_from_file(tools_xml_path: str) -> List[Tool]:
     """Load tools from XML file."""
@@ -222,9 +217,9 @@ class ToolSelector:
                                 if not task.done():
                                     task.cancel()
                                     cancelled_count += 1
-                            print(f"DEBUG: Cancelled {cancelled_count} remaining tasks")
+                            logger.debug(f"Cancelled {cancelled_count} remaining tasks")
                             # Return immediately with high-scoring result
-                            print(f"Early termination: Tool '{tool_name}' with score {score}")
+                            logger.info(f"Early termination: Tool '{tool_name}' with score {score}")
                             return [result]
                         
                 except asyncio.CancelledError:
@@ -346,7 +341,7 @@ class ToolSelector:
             
             # Check if top tool is not search and abort fastTrack if needed
             if tool_results and tool_results[0]['tool'].name != 'search':
-                print(f"FastTrack aborted: Top tool is '{tool_results[0]['tool'].name}', not 'search'")
+                logger.info(f"FastTrack aborted: Top tool is '{tool_results[0]['tool'].name}', not 'search'")
                 # Abort fast track using the proper event mechanism
                 self.handler.abort_fast_track_event.set()
             

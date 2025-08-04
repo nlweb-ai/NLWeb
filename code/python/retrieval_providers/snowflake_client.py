@@ -21,7 +21,7 @@ class SnowflakeCortexSearchClient:
     async def upload_documents(self, documents: List[Dict[str, Any]], **kwargs) -> int:
         raise NotImplementedError("Incremental updates not implemented here yet, see snowflake.sql and docs/Snowflake.md for how to bulk upload datasets")
 
-    async def search(self, query: str, site: Union[str, List[str]], num_results: int=50, **kwargs) -> List[List[str]]:
+    async def search(self, query: str, site: Union[str, List[str]], num_results: int=50, query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
         return await search(query, site=site, top_n=num_results, cfg=self._cfg)
 
     async def search_by_url(self, url: str, **kwargs) -> Optional[List[str]]:

@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
+import logging    
+# We need to set up logging at the very beginning
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+)
+
 import asyncio
-import logging
 import ssl
 import sys
 import os
@@ -11,6 +17,10 @@ from typing import Optional, Dict, Any
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Check operating system to optimize port reuse
+reuse_port_supported = sys.platform != "win32"  # True for Linux/macOS, False for Windows
+
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +171,7 @@ class AioHTTPServer:
             ssl_context=ssl_context,
             backlog=128,
             reuse_address=True,
-            reuse_port=True
+            reuse_port=reuse_port_supported    # Reuse port is not supported by default on Windows and will cause issues
         )
         
         await self.site.start()
@@ -187,11 +197,6 @@ class AioHTTPServer:
 
 async def main():
     """Main entry point"""
-    # Setup logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
     
     # Suppress verbose HTTP client logging from OpenAI SDK
     logging.getLogger("httpx").setLevel(logging.WARNING)

@@ -10,11 +10,10 @@ Backwards compatibility is not guaranteed at this time.
 
 import asyncio
 import os
-from webserver.WebServer import fulfill_request, start_server
 from dotenv import load_dotenv
 
 
-def main():
+async def main():
     # Load environment variables from .env file
     load_dotenv()
     
@@ -28,6 +27,10 @@ def main():
     logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
     logging.getLogger("azure").setLevel(logging.WARNING)
     
+    # Suppress webserver middleware INFO logs
+    logging.getLogger("webserver.middleware.logging_middleware").setLevel(logging.WARNING)
+    logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
+    
     # Initialize router
     import core.router as router
     router.init()
@@ -40,15 +43,10 @@ def main():
     import core.retriever as retriever
     retriever.init()
 
-    # Get port from Azure environment or use default
-    port = int(os.environ.get('PORT', 8000))
-    
-    # Start the server
-    asyncio.run(start_server(
-        host='0.0.0.0',
-        port=port,
-        fulfill_request=fulfill_request
-    ))
+    print("Starting aiohttp server...")
+    from webserver.aiohttp_server import AioHTTPServer
+    server = AioHTTPServer()
+    await server.start()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -54,7 +54,8 @@ class FastTrack:
             items = await search(
                 self.handler.query, 
                 self.handler.site,
-                query_params=self.handler.query_params
+                query_params=self.handler.query_params,
+                handler=self.handler
             )
             self.handler.final_retrieved_items = items
             logger.info(f"Fast track retrieved {len(items)} items")

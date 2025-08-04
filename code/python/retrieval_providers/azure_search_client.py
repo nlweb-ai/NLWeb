@@ -375,6 +375,12 @@ class AzureSearchClient:
                 return search_client.upload_documents(documents)
             
             await asyncio.get_event_loop().run_in_executor(None, upload_sync)
+            
+            # Log the API endpoint and index where data was loaded
+            logger.info(f"Successfully uploaded {len(documents)} documents to Azure AI Search")
+            logger.info(f"API Endpoint: {self.api_endpoint}")
+            logger.info(f"Index: {index_name}")
+            
             return len(documents)
         except Exception as e:
             logger.error(f"Error uploading documents to index '{index_name}': {str(e)}")
@@ -382,7 +388,7 @@ class AzureSearchClient:
     
     async def search(self, query: str, site: Union[str, List[str]], 
                    num_results: int = 50, index_name: Optional[str] = None, 
-                   query_params: Optional[Dict[str, Any]] = None) -> List[List[str]]:
+                   query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
         """
         Search the Azure AI Search index for records filtered by site and ranked by vector similarity
         
@@ -549,7 +555,7 @@ class AzureSearchClient:
     
     async def search_all_sites(self, query: str, num_results: int = 50, 
                              index_name: Optional[str] = None,
-                             query_params: Optional[Dict[str, Any]] = None) -> List[List[str]]:
+                             query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
         """
         Search across all sites using vector similarity
         

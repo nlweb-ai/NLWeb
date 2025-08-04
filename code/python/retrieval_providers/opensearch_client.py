@@ -752,7 +752,7 @@ class OpenSearchClient:
             raise
     
     async def search_all_sites(self, query: str, top_n: int = 10, 
-                             index_name: Optional[str] = None, query_params: Optional[Dict[str, Any]] = None) -> List[List[str]]:
+                             index_name: Optional[str] = None, query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
         """
         Search across all sites using vector similarity
         
