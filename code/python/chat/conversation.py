@@ -257,6 +257,19 @@ class ConversationManager:
             # Track metrics
             self.metrics.update_queue_depth(message.conversation_id, conv_state.message_count)
             
+            # Broadcast to WebSocket connections
+            if self.websocket_manager:
+                print(f"=== ConversationManager broadcasting message to WebSocket ===")
+                print(f"Message type: {sequenced_message.message_type}")
+                print(f"Message sender: {sequenced_message.sender_id}")
+                await self.websocket_manager.broadcast_message(
+                    message.conversation_id,
+                    {
+                        'type': 'message',
+                        'message': sequenced_message.to_dict()
+                    }
+                )
+            
             return sequenced_message
     
     async def _deliver_to_participants(
@@ -351,9 +364,19 @@ class ConversationManager:
             # For AI participants, track as active job
             if participant_info.participant_type == ParticipantType.AI:
                 conv_state.active_nlweb_jobs.add(f"{message.message_id}_{participant_id}")
+                logger.info(f"ConversationManager calling AI participant {participant_id} for message {message.message_id}")
+            else:
+                logger.info(f"ConversationManager calling human participant {participant_id} for message {message.message_id}")
             
-            # Process message
-            await participant.process_message(message, context)
+            # Process message - pass websocket manager for streaming
+            response = await participant.process_message(message, context, self.websocket_manager)
+            
+            # If participant generated a response, process it
+            if response:
+                print(f"=== ConversationManager got response from {participant_id} ===")
+                print(f"Response content preview: {response.content[:200]}")
+                # Process the response as a new message
+                await self.process_message(response)
             
             # Remove from active jobs if AI
             if participant_info.participant_type == ParticipantType.AI:

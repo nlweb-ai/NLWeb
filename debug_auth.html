@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Auth</title>
+</head>
+<body>
+    <h1>Debug Authentication</h1>
+    <button onclick="checkAuth()">Check Auth Status</button>
+    <button onclick="clearAuth()">Clear Auth & Reload</button>
+    <pre id="output"></pre>
+    
+    <script>
+    function checkAuth() {
+        const authToken = localStorage.getItem('authToken');
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        
+        let output = 'Auth Token: ' + (authToken ? authToken.substring(0, 50) + '...' : 'None') + '\n';
+        output += 'User Info: ' + JSON.stringify(userInfo, null, 2) + '\n\n';
+        
+        if (authToken) {
+            // Try to decode JWT
+            try {
+                const parts = authToken.split('.');
+                if (parts.length === 3) {
+                    const payload = JSON.parse(atob(parts[1]));
+                    output += 'JWT Payload: ' + JSON.stringify(payload, null, 2) + '\n';
+                    
+                    // Check expiration
+                    if (payload.exp) {
+                        const expDate = new Date(payload.exp * 1000);
+                        const now = new Date();
+                        output += '\nToken expires: ' + expDate + '\n';
+                        output += 'Current time: ' + now + '\n';
+                        output += 'Token valid: ' + (expDate > now) + '\n';
+                    }
+                }
+            } catch (e) {
+                output += 'Error decoding JWT: ' + e.message;
+            }
+        }
+        
+        document.getElementById('output').textContent = output;
+    }
+    
+    function clearAuth() {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userInfo');
+        alert('Auth cleared. Reloading page...');
+        window.location.reload();
+    }
+    </script>
+</body>
+</html>

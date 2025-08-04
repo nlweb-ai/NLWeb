@@ -205,7 +205,12 @@ class NLWebParticipant(BaseParticipant):
             Response message if NLWeb responds, None otherwise
         """
         try:
-            # Build context from chat history
+            print(f"=== NLWebParticipant.process_message() CALLED ===")
+            print(f"Message content: {message.content[:100]}")
+            print(f"Message sender: {message.sender_id}")
+            logger.info(f"NLWebParticipant processing message: {message.content[:100]}")
+            
+            # Build context from chat history  
             nlweb_context = self.context_builder.build_context(context, message)
             
             # Prepare query parameters for NLWebHandler
@@ -215,6 +220,23 @@ class NLWebParticipant(BaseParticipant):
                 "generate_mode": ["list"],  # Default mode
             }
             
+            # Check if message has metadata with sites
+            if hasattr(message, 'metadata') and message.metadata:
+                print(f"Message metadata: {message.metadata}")
+                if 'sites' in message.metadata and message.metadata['sites']:
+                    # Convert sites array to comma-separated string for 'site' param
+                    sites = message.metadata['sites']
+                    if isinstance(sites, list) and len(sites) > 0:
+                        query_params["site"] = [",".join(sites)]
+                        print(f"Added site param from metadata: {query_params['site']}")
+                
+                # Also check for generate_mode in metadata
+                if 'generate_mode' in message.metadata:
+                    query_params["generate_mode"] = [message.metadata['generate_mode']]
+            
+            print(f"Query params prepared: {query_params}")
+            logger.info(f"NLWebParticipant query_params: {query_params}")
+            
             # Add context to query params
             if nlweb_context["prev_queries"]:
                 query_params["prev_queries"] = [json.dumps(nlweb_context["prev_queries"])]
@@ -222,24 +244,33 @@ class NLWebParticipant(BaseParticipant):
             if nlweb_context["last_answers"]:
                 query_params["last_answers"] = [json.dumps(nlweb_context["last_answers"])]
             
-            # Capture response chunks
-            response_chunks = []
+            # Track if we've sent any response
+            response_sent = False
+            conversation_id = message.conversation_id
+            websocket_manager = stream_callback  # stream_callback is the websocket manager
             
             class ChunkCapture:
                 async def write_stream(self, data, end_response=False):
-                    # Capture chunk
+                    nonlocal response_sent
+                    print(f"=== ChunkCapture.write_stream() CALLED ===")
+                    print(f"Data type: {type(data)}")
+                    print(f"Data preview: {str(data)[:200]}")
+                    print(f"End response: {end_response}")
+                    
+                    # Stream directly to WebSocket if we have a manager
+                    if websocket_manager:
+                        response_sent = True
+                        # Send the raw data exactly like HTTP streaming does
+                        print(f"=== Streaming chunk to WebSocket ===")
+                        await websocket_manager.broadcast_message(conversation_id, data)
+                    
+                    # Also keep the chunk for fallback
                     if isinstance(data, dict):
                         chunk = json.dumps(data)
                     elif isinstance(data, bytes):
                         chunk = data.decode('utf-8')
                     else:
                         chunk = str(data)
-                    
-                    response_chunks.append(chunk)
-                    
-                    # Stream to callback if provided
-                    if stream_callback:
-                        await stream_callback(chunk)
             
             chunk_capture = ChunkCapture()
             
@@ -248,41 +279,41 @@ class NLWebParticipant(BaseParticipant):
             
             # If nlweb_handler is a class, instantiate it
             if isinstance(self.nlweb_handler, type):
+                print(f"=== NLWebParticipant creating NLWebHandler instance ===")
+                print(f"Handler class: {self.nlweb_handler}")
+                logger.info(f"NLWebParticipant instantiating NLWebHandler with query_params")
                 handler = self.nlweb_handler(query_params, chunk_capture)
+                print(f"=== NLWebParticipant calling handler.runQuery() ===")
+                logger.info(f"NLWebParticipant calling handler.runQuery()")
                 # Run query with timeout
                 await asyncio.wait_for(
                     handler.runQuery(),
                     timeout=self.config.timeout
                 )
+                print(f"=== NLWebParticipant handler.runQuery() COMPLETED ===")
+                logger.info(f"NLWebParticipant handler.runQuery() completed")
             else:
+                print(f"=== NLWebParticipant calling mock handler function ===")
+                logger.info(f"NLWebParticipant calling mock handler function")
                 # For testing, nlweb_handler might be a mock function
                 await asyncio.wait_for(
                     self.nlweb_handler(query_params, chunk_capture),
                     timeout=self.config.timeout
                 )
             
-            # If NLWeb produced a response, create a chat message
-            if response_chunks:
-                full_response = ''.join(response_chunks)
-                
-                # Create response message
-                return ChatMessage(
-                    message_id=f"nlweb_{datetime.utcnow().timestamp()}",
-                    conversation_id=message.conversation_id,
-                    sequence_id=0,  # Will be assigned by conversation manager
-                    sender_id=self.participant_id,
-                    sender_name="NLWeb Assistant",
-                    content=full_response,
-                    message_type=MessageType.NLWEB_RESPONSE,
-                    timestamp=datetime.utcnow(),
-                    status=MessageStatus.DELIVERED,
-                    metadata={
-                        "responding_to": message.sender_id,
-                        "context_messages": len(context)
+            # If we streamed the response, we're done
+            if response_sent:
+                print(f"=== Response was streamed via WebSocket ===")
+                # Send a completion message just like HTTP streaming
+                if websocket_manager:
+                    completion_message = {
+                        'message_type': 'complete'
                     }
-                )
+                    await websocket_manager.broadcast_message(conversation_id, completion_message)
+                return None  # No need to return a ChatMessage since we streamed
             
-            # NLWeb decided not to respond
+            # If no streaming happened, return None (NLWeb didn't respond)
+            print(f"=== No response from NLWeb ===")
             return None
             
         except asyncio.TimeoutError:

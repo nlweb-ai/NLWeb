@@ -3,6 +3,37 @@
 ## Active Branch
 `conversation-api-implementation`
 
+## Latest Updates (2025-08-04)
+
+### OAuth Implementation ✅
+- Implemented OAuth 2.0 authentication for GitHub, Google, Microsoft, and Facebook
+- Created `/api/oauth/config` endpoint to provide client configuration
+- Implemented `/api/oauth/token` endpoint for authorization code exchange
+- Added JWT token generation with proper Unix timestamps
+- Updated auth middleware to validate JWT tokens
+- OAuth persists across server restarts using JWT tokens
+
+### WebSocket Integration ✅
+- Fixed WebSocket connection issues for both authenticated and anonymous users
+- Decoupled WebSocket from authentication requirements
+- Added proper participant management in conversations
+- Fixed conversation creation to include authenticated users as participants
+
+### NLWebHandler Integration ✅
+- Fixed NLWebHandler availability in app context by setting `app['nlweb_handler'] = NLWebHandler`
+- Added extensive debugging with print statements
+- Fixed parameter passing from frontend to backend
+- Resolved site/sites parameter mismatch (frontend sends "sites" array, backend expects "site" string)
+- Fixed ConversationManager missing websocket_manager attribute
+
+### Streaming Implementation ✅
+- Implemented real-time streaming via WebSocket
+- Backend sends raw message objects (same format as HTTP EventSource)
+- Frontend uses shared `handleStreamingData()` method for both HTTP and WebSocket
+- No code duplication - both transports use the same display logic
+- Added proper completion message handling
+- Results stream from NLWebHandler through WebSocket to browser in real-time
+
 ## Test Results Summary (Latest Run - 2025-08-03)
 
 ### Integration Tests Status

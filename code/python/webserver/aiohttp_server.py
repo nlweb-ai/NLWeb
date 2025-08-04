@@ -182,6 +182,9 @@ class AioHTTPServer:
             # Store storage in conversation manager
             app['conversation_manager'].storage = app['chat_storage']
             
+            # Store websocket manager in conversation manager
+            app['conversation_manager'].websocket_manager = app['websocket_manager']
+            
             # Set up WebSocket broadcast callback
             def broadcast_to_conversation(conversation_id: str, message: dict):
                 """Broadcast message to all participants in a conversation"""
@@ -237,9 +240,14 @@ class AioHTTPServer:
             
             ws_manager.get_participants_callback = get_participants
             
-            # Get NLWeb handler if available
-            # This will be set up by the existing system
-            app['nlweb_handler'] = None  # Will be populated by existing init
+            # Set up NLWeb handler class for chat system
+            try:
+                from core.baseHandler import NLWebHandler
+                app['nlweb_handler'] = NLWebHandler
+                logger.info("NLWebHandler configured for chat system")
+            except ImportError as e:
+                logger.error(f"Failed to import NLWebHandler: {e}")
+                app['nlweb_handler'] = None
             
             logger.info("Chat system initialized successfully")
             

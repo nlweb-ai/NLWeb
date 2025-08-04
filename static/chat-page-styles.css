@@ -29,6 +29,21 @@ body {
   gap: 12px;
 }
 
+.share-button {
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.share-button:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--primary-color);
+}
+
 .login-button, .logout-button {
   padding: 6px 16px;
   border-radius: 6px;

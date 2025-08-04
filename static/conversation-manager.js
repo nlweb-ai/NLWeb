@@ -16,7 +16,7 @@ class ConversationManager {
         const userId = userInfo.id || userInfo.email;
         const site = selectedSite;
         const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
-        const url = `${baseUrl}/api/conversations?user_id=${encodeURIComponent(userId)}&site=${encodeURIComponent(site)}&limit=50`;
+        const url = `${baseUrl}/chat/my-conversations?limit=50&offset=0`;
         
         const response = await fetch(url, {
           headers: {

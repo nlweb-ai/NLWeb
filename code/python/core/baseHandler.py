@@ -38,6 +38,9 @@ class NLWebHandler:
 
     def __init__(self, query_params, http_handler): 
         import time
+        print(f"=== NLWebHandler INIT ===")
+        print(f"Query params: {query_params}")
+        print(f"HTTP handler: {http_handler}")
         logger.info("Initializing NLWebHandler")
         self.http_handler = http_handler
         self.query_params = query_params
@@ -47,7 +50,15 @@ class NLWebHandler:
         self.first_result_sent = False
 
         # the site that is being queried
-        self.site = get_param(query_params, "site", str, "all")  
+        self.site = get_param(query_params, "site", str, "all")
+        
+        # Print all extracted parameters
+        print(f"=== NLWebHandler PARAMS ===")
+        print(f"Site: {self.site}")
+        print(f"Query: {get_param(query_params, 'query', str, '')}")
+        print(f"User ID: {get_param(query_params, 'user_id', str, '')}")
+        print(f"Generate Mode: {get_param(query_params, 'generate_mode', str, '')}")
+        print(f"===========================")  
         
         # Parse comma-separated sites
         if self.site and isinstance(self.site, str) and "," in self.site:
@@ -173,6 +184,9 @@ class NLWebHandler:
 
     async def send_message(self, message):
         import time
+        print(f"=== NLWebHandler.send_message() CALLED ===")
+        print(f"Message type: {message.get('message_type', 'unknown')}")
+        print(f"Message content preview: {str(message)[:200]}")
         logger.debug(f"Sending message of type: {message.get('message_type', 'unknown')}")
         async with self._send_lock:  # Protect send operation with lock
             # Check connection before sending
@@ -304,10 +318,14 @@ class NLWebHandler:
 
 
     async def runQuery(self):
+        print(f"=== NLWebHandler.runQuery() CALLED ===")
+        print(f"Query: {self.query}")
+        print(f"Query ID: {self.query_id}")
         logger.info(f"Starting query execution for query_id: {self.query_id}")
         try:
             await self.prepare()
             if (self.query_done):
+                print(f"=== Query done prematurely ===")
                 logger.info(f"Query done prematurely")
                 log(f"query done prematurely")
                 return self.return_value

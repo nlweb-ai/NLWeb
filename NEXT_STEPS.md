@@ -1,6 +1,29 @@
 # Next Steps
 
-## ✅ MAJOR MILESTONE: Integration Tests 100% Passing!
+## Immediate Tasks
+
+### 1. Remove Debug Print Statements
+- Remove all the print statements added for debugging in:
+  - `/code/python/chat/participants.py`
+  - `/code/python/core/baseHandler.py`
+  - `/code/python/webserver/routes/chat.py`
+  - `/code/python/chat/conversation.py`
+- Keep only essential logging statements
+
+### 2. Test Full User Flow
+- Test complete flow from login to chat with real queries
+- Verify results display correctly for different query types
+- Test with multiple users in same conversation
+- Ensure AI participants respond appropriately
+
+### 3. Run Full Test Suite
+```bash
+python scripts/run_tests_with_server.py
+```
+
+## Previous Milestones
+
+### ✅ MAJOR MILESTONE: Integration Tests 100% Passing!
 - **REST API Tests**: 15/15 passing ✅
 - **WebSocket Tests**: 16/16 passing ✅
 - All validation fixed, proper error codes, WebSocket protocol correct

@@ -64,17 +64,25 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
             "websocket_url": "/chat/ws/conv_uuid"
         }
         400: Bad request (invalid participants)
-        401: Unauthorized
+        401: Unauthorized (removed - now supports anonymous)
         429: Too many conversations
     """
     try:
-        # Get authenticated user
+        # Get authenticated user or create anonymous user
         user = request.get('user')
+        logger.info(f"Create conversation - user from request: {user}")
+        
         if not user or not user.get('authenticated'):
-            return web.json_response(
-                {'error': 'Authentication required'},
-                status=401
-            )
+            # Create anonymous user
+            import random
+            anon_id = f"anon_{random.randint(1000, 9999)}"
+            user = {
+                'id': anon_id,
+                'name': f'Anonymous {anon_id[-4:]}',
+                'authenticated': False,
+                'is_anonymous': True
+            }
+            logger.info(f"Created anonymous user: {user['id']}")
         
         # Parse request body
         try:
@@ -85,20 +93,17 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
                 status=400
             )
         
-        # Validate required fields
-        if 'title' not in data:
-            return web.json_response(
-                {'error': 'Title is required'},
-                status=400
-            )
+        # Get title or use default
+        title = data.get('title', 'New Conversation')
         
-        # Validate participants
+        # Get participants or create default with current user
         participants = data.get('participants', [])
         if not participants:
-            return web.json_response(
-                {'error': 'At least one participant is required'},
-                status=400
-            )
+            # Add current user as the only participant
+            participants = [{
+                'user_id': user.get('id'),
+                'name': user.get('name', 'User')
+            }]
         
         # Validate each participant has required fields
         for i, p in enumerate(participants):
@@ -118,18 +123,18 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
                     status=400
                 )
         
-        # Ensure requesting user is included
+        # Always ensure requesting user is included as a participant
         requesting_user_id = user.get('id')
-        requesting_user_included = any(
-            p.get('user_id') == requesting_user_id for p in participants
-        )
+        requesting_user_name = user.get('name', 'User')
         
-        if not requesting_user_included:
-            # Add requesting user if not included
-            participants.append({
-                'user_id': requesting_user_id,
-                'name': user.get('name', 'User')
-            })
+        # Remove any duplicate of the requesting user
+        participants = [p for p in participants if p.get('user_id') != requesting_user_id]
+        
+        # Add requesting user as first participant
+        participants.insert(0, {
+            'user_id': requesting_user_id,
+            'name': requesting_user_name
+        })
         
         # Validate participant count
         if len(participants) > 10:  # Reasonable limit
@@ -140,7 +145,6 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
         
         # Create conversation
         conversation_id = f"conv_{uuid.uuid4().hex[:12]}"
-        title = data.get('title', f"Chat with {len(participants)} participants")
         
         # Get managers from app
         conv_manager: ConversationManager = request.app['conversation_manager']
@@ -181,6 +185,7 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
         if data.get('enable_ai', True):
             # Get NLWeb handler from app
             nlweb_handler = request.app.get('nlweb_handler')
+            logger.info(f"NLWeb handler available: {nlweb_handler is not None}")
             if nlweb_handler:
                 config = ParticipantConfig(
                     timeout=20,
@@ -193,6 +198,9 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
                 # Add to conversation
                 ai_info = nlweb.get_participant_info()
                 conversation.add_participant(ai_info)
+                logger.info(f"Added NLWeb participant to conversation {conversation_id}")
+            else:
+                logger.warning("NLWeb handler not found in app - AI responses disabled")
         
         # Store conversation
         await storage_client.create_conversation(conversation)
@@ -939,10 +947,18 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     """
     conversation_id = request.match_info['conv_id']
     
-    # Get authenticated user
+    # Get authenticated user or create anonymous user
     user = request.get('user')
     if not user or not user.get('authenticated'):
-        return web.Response(text='Unauthorized', status=401)
+        # Create anonymous user
+        import random
+        anon_id = f"anon_{random.randint(1000, 9999)}"
+        user = {
+            'id': anon_id,
+            'name': f'Anonymous {anon_id[-4:]}',
+            'authenticated': False,
+            'is_anonymous': True
+        }
     
     user_id = user.get('id')
     user_name = user.get('name', 'User')
@@ -957,10 +973,60 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     if not conversation:
         return web.Response(text='Conversation not found', status=404)
     
-    # Verify user is a participant
+    # Verify user is a participant or add them if they're not
     participant_ids = {p.participant_id for p in conversation.active_participants}
     if user_id not in participant_ids:
-        return web.Response(text='Forbidden: You are not a participant in this conversation', status=403)
+        # Add user as participant if not already one
+        logger.info(f"Adding user {user_id} to conversation {conversation_id}")
+        
+        # Create participant info
+        participant_info = ParticipantInfo(
+            participant_id=user_id,
+            name=user_name,
+            participant_type=ParticipantType.HUMAN,
+            joined_at=datetime.utcnow()
+        )
+        
+        # Add to conversation
+        conversation.add_participant(participant_info)
+        
+        # Create participant instance
+        human = HumanParticipant(
+            user_id=user_id,
+            user_name=user_name
+        )
+        
+        # Add participant through conversation manager
+        conv_manager.add_participant(conversation_id, human)
+        
+        # Update conversation in storage
+        await storage_client.update_conversation(conversation)
+        
+        # Check if AI participant exists, if not add it
+        ai_participant_exists = any(
+            p.participant_type != ParticipantType.HUMAN 
+            for p in conversation.active_participants
+        )
+        
+        if not ai_participant_exists:
+            logger.info(f"No AI participant found in conversation {conversation_id}, adding NLWeb participant")
+            nlweb_handler = request.app.get('nlweb_handler')
+            if nlweb_handler:
+                config = ParticipantConfig(
+                    timeout=20,
+                    human_messages_context=5,
+                    nlweb_messages_context=1
+                )
+                nlweb = NLWebParticipant(nlweb_handler, config)
+                conv_manager.add_participant(conversation_id, nlweb)
+                
+                # Add to conversation
+                ai_info = nlweb.get_participant_info()
+                conversation.add_participant(ai_info)
+                await storage_client.update_conversation(conversation)
+                logger.info(f"Added NLWeb participant to existing conversation {conversation_id}")
+            else:
+                logger.warning("NLWeb handler not available - AI responses will not work")
     
     # Create WebSocket response
     ws = web.WebSocketResponse(heartbeat=30)
@@ -1018,6 +1084,21 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                     data = json.loads(msg.data)
                     
                     if data.get('type') == 'message':
+                        logger.info(f"WebSocket received message from {user_id}: {data.get('content', '')[:100]}")
+                        
+                        # Extract metadata from the WebSocket message
+                        metadata = {}
+                        if 'sites' in data:
+                            metadata['sites'] = data['sites']
+                        if 'mode' in data:
+                            metadata['generate_mode'] = data['mode']
+                        if 'metadata' in data:
+                            # Merge any additional metadata
+                            metadata.update(data['metadata'])
+                        
+                        print(f"=== WebSocket creating ChatMessage ===")
+                        print(f"Extracted metadata: {metadata}")
+                        
                         # Create chat message
                         message = ChatMessage(
                             message_id=f"msg_{uuid.uuid4().hex[:12]}",
@@ -1027,12 +1108,16 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             sender_name=user.get('name', 'User'),
                             content=data.get('content', ''),
                             message_type=MessageType.TEXT,
-                            timestamp=datetime.utcnow()
+                            timestamp=datetime.utcnow(),
+                            metadata=metadata
                         )
+                        
+                        logger.info(f"Processing message {message.message_id} through ConversationManager")
                         
                         # Process through conversation manager
                         try:
                             processed_msg = await conv_manager.process_message(message)
+                            logger.info(f"Message processed successfully, got response with sequence_id: {processed_msg.sequence_id}")
                             
                             # Send acknowledgment
                             await ws.send_json({
