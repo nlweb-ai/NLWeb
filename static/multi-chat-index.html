@@ -32,7 +32,7 @@
       <div class="sidebar-header">
         <!-- Conversations header with new button -->
         <div class="conversations-header">
-          <h2 class="conversations-title">Conversations</h2>
+          <h2 class="conversations-title"><a href="clear-storage.html" style="color: inherit; text-decoration: none;">Conversations</a></h2>
           <button class="new-chat-icon-btn" id="new-chat-btn" title="New chat">
             <span class="plus-icon">+</span>
           </button>
@@ -169,6 +169,25 @@
             </svg>
             Continue with GitHub
           </button>
+        </div>
+        <div class="oauth-divider">
+          <span>or</span>
+        </div>
+        <div class="email-login-section">
+          <h3>Login with Email</h3>
+          <input 
+            type="email" 
+            id="emailLoginInput" 
+            class="email-login-input" 
+            placeholder="Enter your email address"
+            autocomplete="email"
+          >
+          <button class="email-login-button" id="emailLoginBtn">
+            Continue with Email
+          </button>
+          <p class="email-login-note">
+            Enter any valid email address to continue as that user
+          </p>
         </div>
       </div>
     </div>

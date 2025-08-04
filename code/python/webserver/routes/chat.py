@@ -34,6 +34,7 @@ def setup_chat_routes(app: web.Application):
     
     # Share link endpoints (using conversation ID as the share token)
     app.router.add_post('/chat/join/{conv_id}', join_via_share_link_handler)
+    app.router.add_get('/chat/join/{conv_id}', join_via_share_link_get_handler)
     
     # WebSocket endpoint
     app.router.add_get('/chat/ws/{conv_id}', websocket_handler)
@@ -936,6 +937,24 @@ async def join_via_share_link_handler(request: web.Request) -> web.Response:
         )
 
 
+async def join_via_share_link_get_handler(request: web.Request) -> web.Response:
+    """
+    Handle GET request to join link - redirect to chat interface.
+    
+    GET /chat/join/{conv_id}
+    
+    This handler redirects to the chat interface with the conversation ID
+    so the user can join through the UI.
+    """
+    conv_id = request.match_info['conv_id']
+    
+    # Redirect to the chat interface with the conversation ID as a parameter
+    # The frontend will handle the actual join process
+    redirect_url = f"/static/multi-chat-index.html?join={conv_id}"
+    
+    return web.HTTPFound(location=redirect_url)
+
+
 async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     """
     WebSocket endpoint for real-time chat.
@@ -946,13 +965,84 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     Messages are routed to all participants in the conversation.
     """
     conversation_id = request.match_info['conv_id']
+    print(f"\n{'='*80}")
+    print(f"WEBSOCKET CONNECTION REQUEST")
+    print(f"{'='*80}")
+    print(f"Conversation ID: {conversation_id}")
     
     # Get authenticated user or create anonymous user
     user = request.get('user')
+    
+    # For WebSocket, also check auth_token in query params
     if not user or not user.get('authenticated'):
-        # Create anonymous user
-        import random
-        anon_id = f"anon_{random.randint(1000, 9999)}"
+        auth_token = request.query.get('auth_token')
+        if auth_token:
+            # Validate the auth token using same logic as auth middleware
+            try:
+                import base64
+                import json
+                
+                # First try email-based base64 token
+                try:
+                    decoded = base64.b64decode(auth_token).decode('utf-8')
+                    token_data = json.loads(decoded)
+                    if 'user_id' in token_data:
+                        # Email-based auth token
+                        user = {
+                            'id': token_data['user_id'],
+                            'email': token_data.get('email', token_data['user_id']),
+                            'name': token_data.get('email', '').split('@')[0],
+                            'provider': 'email',
+                            'authenticated': True
+                        }
+                except:
+                    # Not a simple base64 token, try JWT format
+                    parts = auth_token.split('.')
+                    if len(parts) == 3:
+                        # JWT format - decode payload
+                        payload = parts[1]
+                        # Add padding if needed
+                        payload += '=' * (4 - len(payload) % 4)
+                        decoded = base64.urlsafe_b64decode(payload)
+                        claims = json.loads(decoded)
+                        
+                        user = {
+                            'id': claims.get('sub', claims.get('user_id', 'user')),
+                            'email': claims.get('email'),
+                            'name': claims.get('name', claims.get('email', 'User')),
+                            'provider': claims.get('provider', 'oauth'),
+                            'authenticated': True
+                        }
+                        logger.info(f"Decoded JWT token for WebSocket user: {user['id']}")
+                    else:
+                        # Not JWT either, could be an OAuth access token
+                        # Check if user info was passed in query params
+                        user_id = request.query.get('user_id')
+                        user_name = request.query.get('user_name')
+                        provider = request.query.get('provider')
+                        
+                        if user_id:
+                            user = {
+                                'id': user_id,
+                                'name': user_name or 'User',
+                                'provider': provider or 'oauth',
+                                'authenticated': True,
+                                'token': auth_token
+                            }
+                            logger.info(f"Using user info from query params for WebSocket: {user['id']}")
+                        else:
+                            logger.warning(f"Unknown token format with {len(parts)} parts and no user info in query")
+            except Exception as e:
+                logger.warning(f"Failed to validate auth token: {e}")
+    
+    if not user or not user.get('authenticated'):
+        # Check if anonymous user ID was provided in query params
+        anon_id = request.query.get('anon_user_id')
+        if not anon_id:
+            # Create new anonymous user ID if not provided
+            import random
+            anon_id = f"anon_{random.randint(1000, 9999)}"
+        
         user = {
             'id': anon_id,
             'name': f'Anonymous {anon_id[-4:]}',
@@ -962,6 +1052,8 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     
     user_id = user.get('id')
     user_name = user.get('name', 'User')
+    print(f"User: {user_name} (ID: {user_id})")
+    print(f"User authenticated: {user.get('authenticated', False)}")
     
     # Get managers
     ws_manager: WebSocketManager = request.app['websocket_manager']
@@ -971,11 +1063,21 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     # Verify conversation exists
     conversation = await storage_client.get_conversation(conversation_id)
     if not conversation:
+        print(f"ERROR: Conversation {conversation_id} not found")
         return web.Response(text='Conversation not found', status=404)
+    
+    print(f"Conversation found: {conversation.conversation_id}")
     
     # Verify user is a participant or add them if they're not
     participant_ids = {p.participant_id for p in conversation.active_participants}
-    if user_id not in participant_ids:
+    is_new_participant = user_id not in participant_ids
+    
+    print(f"Current participants: {participant_ids}")
+    print(f"Is new participant: {is_new_participant}")
+    
+    logger.info(f"WebSocket connection - user_id: {user_id}, participant_ids: {participant_ids}, is_new: {is_new_participant}")
+    
+    if is_new_participant:
         # Add user as participant if not already one
         logger.info(f"Adding user {user_id} to conversation {conversation_id}")
         
@@ -1041,10 +1143,12 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     )
     
     try:
+        print(f"\n=== WEBSOCKET CONNECTION SETUP ===")
         # Add connection to manager (this just stores the connection now)
         await ws_manager.add_connection(conversation_id, connection)
         
         # Send connection confirmation FIRST (proper WebSocket handshake)
+        print(f"Sending connection confirmation to {user_id}")
         await ws.send_json({
             'type': 'connected',
             'conversation_id': conversation_id,
@@ -1054,23 +1158,30 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         })
         
         # Send current participant list
+        print(f"Sending participant list to {user_id}")
         await ws_manager._send_participant_list(conversation_id, connection)
         
-        # Broadcast participant join to other users
-        await ws_manager.broadcast_participant_update(
-            conversation_id=conversation_id,
-            action="join",
-            participant_id=user_id,
-            participant_name=user_name,
-            participant_type="human"
-        )
+        # Only broadcast participant join if they're truly new to the conversation
+        if is_new_participant:
+            print(f"Broadcasting join event for new participant {user_name}")
+            await ws_manager.broadcast_participant_update(
+                conversation_id=conversation_id,
+                action="join",
+                participant_id=user_id,
+                participant_name=user_name,
+                participant_type="human"
+            )
+        else:
+            print(f"Not broadcasting join - {user_name} is already a participant")
         
         # Send recent message history
+        print(f"Fetching message history for {user_id}")
         recent_messages = await storage_client.get_conversation_messages(
             conversation_id=conversation_id,
             limit=50
         )
         
+        print(f"Sending {len(recent_messages)} historical messages to {user_id}")
         for msg in reversed(recent_messages):  # Send in chronological order
             await ws.send_json({
                 'type': 'message',
@@ -1086,30 +1197,22 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                     if data.get('type') == 'message':
                         logger.info(f"WebSocket received message from {user_id}: {data.get('content', '')[:100]}")
                         
-                        # Extract metadata from the WebSocket message
-                        metadata = {}
-                        if 'sites' in data:
-                            metadata['sites'] = data['sites']
-                        if 'mode' in data:
-                            metadata['generate_mode'] = data['mode']
-                        if 'metadata' in data:
-                            # Merge any additional metadata
-                            metadata.update(data['metadata'])
+                        # Extract sites and mode from the WebSocket message
+                        sites = data.get('sites', [])
+                        mode = data.get('mode', 'list')
                         
-                        print(f"=== WebSocket creating ChatMessage ===")
-                        print(f"Extracted metadata: {metadata}")
+                        # Extract any additional metadata
+                        additional_metadata = data.get('metadata', {})
                         
-                        # Create chat message
-                        message = ChatMessage(
-                            message_id=f"msg_{uuid.uuid4().hex[:12]}",
+                        # Create chat message using the clean interface
+                        message = ConversationManager.create_message(
                             conversation_id=conversation_id,
-                            sequence_id=0,  # Will be assigned
                             sender_id=user_id,
                             sender_name=user.get('name', 'User'),
                             content=data.get('content', ''),
-                            message_type=MessageType.TEXT,
-                            timestamp=datetime.utcnow(),
-                            metadata=metadata
+                            sites=sites,
+                            mode=mode,
+                            metadata=additional_metadata
                         )
                         
                         logger.info(f"Processing message {message.message_id} through ConversationManager")
@@ -1155,11 +1258,20 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                 logger.error(f'WebSocket error: {ws.exception()}')
                 
     except Exception as e:
+        print(f"\nERROR in WebSocket handler: {e}")
         logger.error(f"WebSocket handler error: {e}", exc_info=True)
     finally:
-        # Remove connection
-        await ws_manager.remove_connection(conversation_id, user_id)
+        print(f"\n=== WEBSOCKET CLEANUP ===")
+        print(f"Removing connection for {user_id} from conversation {conversation_id}")
+        
+        # Only remove connection if it was added
+        try:
+            await ws_manager.remove_connection(conversation_id, user_id)
+        except Exception as e:
+            print(f"Error removing connection: {e}")
+            
         await ws.close()
+        print(f"WebSocket closed for {user_id}")
     
     return ws
 

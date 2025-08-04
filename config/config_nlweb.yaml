@@ -54,14 +54,10 @@ chatbot_instructions:
     and key information about the event.
 
 # Headers to include in API responses (sent before results)
-headers:
-  license: "This data is provided under MIT License. See https://opensource.org/license/mit for details."
-  data_retention: "Data provided may be retained for up to 1 day."
-  ui_component: "This field may be used to provide a link to the web components that can be used to display the results."
-
-# API Keys
-api_keys:
-  google_maps: GOOGLE_MAPS_API_KEY  # Set via environment variable
+#headers:
+#  license: "This data is provided under MIT License. See https://opensource.org/license/mit for details."
+#  data_retention: "Data provided may be retained for up to 1 day."
+#  ui_component: "This field may be used to provide a link to the web components that can be used to display the results."
 
 # Chat configuration
 chat:

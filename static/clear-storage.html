@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Local Storage</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+        .site-section {
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .site-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #f5f5f5;
+            cursor: pointer;
+            user-select: none;
+        }
+        .site-header:hover {
+            background: #ebebeb;
+        }
+        .site-info {
+            flex: 1;
+        }
+        .site-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .site-stats {
+            font-size: 14px;
+            color: #666;
+        }
+        .expand-icon {
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+        .expanded .expand-icon {
+            transform: rotate(90deg);
+        }
+        .conversations-list {
+            display: none;
+            padding: 0;
+            background: white;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .expanded .conversations-list {
+            display: block;
+        }
+        .conversation-item {
+            padding: 12px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .conversation-item:last-child {
+            border-bottom: none;
+        }
+        .conversation-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .conversation-meta {
+            color: #666;
+            font-size: 13px;
+        }
+        .conversation-preview {
+            color: #888;
+            font-size: 13px;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        button {
+            padding: 8px 16px;
+            border: 1px solid #dc3545;
+            background: white;
+            color: #dc3545;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #dc3545;
+            color: white;
+        }
+        .clear-all-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 30px;
+            font-size: 16px;
+        }
+        .back-link {
+            color: #0066cc;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <a href="multi-chat-index.html" class="back-link">← Back to Chat</a>
+    
+    <h1>Clear Conversations by Site</h1>
+    
+    <div id="sitesList"></div>
+    
+    <button class="clear-all-btn" onclick="clearAll()">Clear All Conversations</button>
+
+    <script>
+        function formatDate(dateString) {
+            if (!dateString) return 'Unknown date';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+            if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+            if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+            
+            return date.toLocaleDateString();
+        }
+        
+        function getConversationTitle(conv) {
+            // Try to get first user message as title
+            if (conv.messages && conv.messages.length > 0) {
+                const firstUserMsg = conv.messages.find(m => m.sender !== 'ai' && m.sender !== 'system');
+                if (firstUserMsg && firstUserMsg.content) {
+                    const text = typeof firstUserMsg.content === 'string' ? 
+                        firstUserMsg.content : firstUserMsg.content.text || '';
+                    return text.substring(0, 100) + (text.length > 100 ? '...' : '');
+                }
+            }
+            return conv.id || 'Untitled conversation';
+        }
+        
+        function getLastMessage(conv) {
+            if (!conv.messages || conv.messages.length === 0) return '';
+            const lastMsg = conv.messages[conv.messages.length - 1];
+            const content = typeof lastMsg.content === 'string' ? 
+                lastMsg.content : lastMsg.content.text || '';
+            return content.substring(0, 150) + (content.length > 150 ? '...' : '');
+        }
+        
+        function toggleSection(siteId) {
+            const section = document.getElementById(`section-${siteId}`);
+            section.classList.toggle('expanded');
+        }
+        
+        function loadSites() {
+            const data = localStorage.getItem('nlweb-modern-conversations');
+            const container = document.getElementById('sitesList');
+            
+            if (!data) {
+                container.innerHTML = '<div class="empty-state">No conversations stored</div>';
+                return;
+            }
+            
+            try {
+                const conversations = JSON.parse(data);
+                
+                // Group by site
+                const siteGroups = {};
+                conversations.forEach(conv => {
+                    const site = conv.site || 'all';
+                    if (!siteGroups[site]) {
+                        siteGroups[site] = [];
+                    }
+                    siteGroups[site].push(conv);
+                });
+                
+                // Display sites
+                container.innerHTML = '';
+                Object.keys(siteGroups).sort().forEach(site => {
+                    const convs = siteGroups[site];
+                    const messages = convs.reduce((sum, c) => sum + (c.messages?.length || 0), 0);
+                    const siteId = site.replace(/[^a-zA-Z0-9]/g, '_');
+                    
+                    // Sort conversations by date (newest first)
+                    convs.sort((a, b) => {
+                        const dateA = new Date(a.created_at || 0);
+                        const dateB = new Date(b.created_at || 0);
+                        return dateB - dateA;
+                    });
+                    
+                    const siteSection = document.createElement('div');
+                    siteSection.className = 'site-section';
+                    siteSection.id = `section-${siteId}`;
+                    
+                    const conversationsList = convs.map(conv => `
+                        <div class="conversation-item">
+                            <div class="conversation-title">${getConversationTitle(conv)}</div>
+                            <div class="conversation-meta">
+                                ${formatDate(conv.created_at)} • ${conv.messages?.length || 0} messages
+                            </div>
+                            ${getLastMessage(conv) ? `<div class="conversation-preview">${getLastMessage(conv)}</div>` : ''}
+                        </div>
+                    `).join('');
+                    
+                    siteSection.innerHTML = `
+                        <div class="site-header" onclick="toggleSection('${siteId}')">
+                            <div class="site-info">
+                                <div class="site-name">
+                                    <span class="expand-icon">▶</span>
+                                    ${site}
+                                </div>
+                                <div class="site-stats">${convs.length} conversation${convs.length !== 1 ? 's' : ''}, ${messages} message${messages !== 1 ? 's' : ''}</div>
+                            </div>
+                            <button onclick="event.stopPropagation(); clearSite('${site}')">Clear</button>
+                        </div>
+                        <div class="conversations-list">
+                            ${conversationsList}
+                        </div>
+                    `;
+                    container.appendChild(siteSection);
+                });
+                
+            } catch (e) {
+                container.innerHTML = '<div class="empty-state">Error loading conversations</div>';
+            }
+        }
+        
+        function clearSite(site) {
+            if (!confirm(`Clear all conversations for "${site}"?`)) return;
+            
+            const data = localStorage.getItem('nlweb-modern-conversations');
+            if (!data) return;
+            
+            try {
+                const conversations = JSON.parse(data);
+                const filtered = conversations.filter(conv => (conv.site || 'all') !== site);
+                localStorage.setItem('nlweb-modern-conversations', JSON.stringify(filtered));
+                loadSites();
+            } catch (e) {
+                alert('Error clearing site conversations');
+            }
+        }
+        
+        function clearAll() {
+            if (!confirm('Clear ALL conversations?')) return;
+            if (!confirm('This cannot be undone. Are you sure?')) return;
+            
+            localStorage.removeItem('nlweb-modern-conversations');
+            loadSites();
+        }
+        
+        // Load on startup
+        loadSites();
+    </script>
+</body>
+</html>

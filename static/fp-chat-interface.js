@@ -620,22 +620,7 @@ class ModernChatInterface {
           }
 
         } else if (data.message_type === 'api_key') {
-          // Handle API key configuration EARLY to ensure it's available for maps
-          console.log('=== API KEY MESSAGE RECEIVED ===');
-          console.log('API key message:', data);
-          console.log('Before setting - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY);
-          if (data.key_name === 'google_maps' && data.key_value) {
-            // Store the Google Maps API key globally
-            window.GOOGLE_MAPS_API_KEY = data.key_value;
-            console.log('Google Maps API key set from server:', data.key_value.substring(0, 10) + '...');
-            console.log('After setting - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY.substring(0, 10) + '...');
-            // Verify it's actually set
-            console.log('Verification - window.GOOGLE_MAPS_API_KEY exists?', !!window.GOOGLE_MAPS_API_KEY);
-            console.log('Verification - typeof window.GOOGLE_MAPS_API_KEY:', typeof window.GOOGLE_MAPS_API_KEY);
-          } else {
-            console.log('API key message not for google_maps or no value');
-            console.log('key_name:', data.key_name, 'has value?', !!data.key_value);
-          }
+          // API key handling removed (Google Maps no longer used)
           
         } else if (data.message_type === 'nlws') {
           // Handle NLWS message type (Natural Language Web Search synthesized response)

@@ -76,6 +76,18 @@ class OAuthManager {
             }
         });
         
+        // Setup email login
+        const emailLoginBtn = document.getElementById('emailLoginBtn');
+        const emailLoginInput = document.getElementById('emailLoginInput');
+        if (emailLoginBtn && emailLoginInput) {
+            emailLoginBtn.addEventListener('click', () => this.handleEmailLogin());
+            emailLoginInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.handleEmailLogin();
+                }
+            });
+        }
+        
         // Setup popup close button
         const closeBtn = document.querySelector('.oauth-popup-close');
         if (closeBtn) {
@@ -328,6 +340,74 @@ class OAuthManager {
     clearSession() {
         localStorage.removeItem('authToken');
         localStorage.removeItem('userInfo');
+    }
+    
+    async handleEmailLogin() {
+        const emailInput = document.getElementById('emailLoginInput');
+        const email = emailInput.value.trim();
+        
+        if (!email) {
+            alert('Please enter an email address');
+            return;
+        }
+        
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            alert('Please enter a valid email address');
+            return;
+        }
+        
+        try {
+            // Create a simple auth token for email users
+            const userInfo = {
+                id: email,
+                email: email,
+                name: email.split('@')[0], // Use part before @ as name
+                provider: 'email',
+                authenticated: true
+            };
+            
+            // Generate a simple token (in production, this should be done server-side)
+            const authToken = btoa(JSON.stringify({
+                user_id: email,
+                email: email,
+                provider: 'email',
+                timestamp: Date.now()
+            }));
+            
+            // Store auth info
+            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('userInfo', JSON.stringify(userInfo));
+            
+            // Update UI
+            this.updateUIForLoggedInUser(userInfo);
+            
+            // Hide login popup
+            this.hideLoginPopup();
+            
+            // Dispatch auth state change event
+            window.dispatchEvent(new CustomEvent('authStateChanged', {
+                detail: {
+                    isAuthenticated: true,
+                    user: userInfo
+                }
+            }));
+            
+            // If there's a pending join operation, retry it
+            if (window.pendingJoinConversationId) {
+                const joinConvId = window.pendingJoinConversationId;
+                delete window.pendingJoinConversationId;
+                
+                // Dispatch event to retry join
+                window.dispatchEvent(new CustomEvent('retryJoin', {
+                    detail: { conversationId: joinConvId }
+                }));
+            }
+        } catch (error) {
+            console.error('Email login error:', error);
+            alert('Login failed. Please try again.');
+        }
     }
 }
 

@@ -39,6 +39,15 @@ class NLWebHandler:
     def __init__(self, query_params, http_handler): 
         import time
         logger.info("Initializing NLWebHandler")
+        
+        # Print all received arguments
+        print("\n" + "="*80)
+        print("NLWebHandler RECEIVED ARGUMENTS:")
+        print("="*80)
+        for key, value in query_params.items():
+            print(f"{key}: {value}")
+        print("="*80 + "\n")
+        
         self.http_handler = http_handler
         self.query_params = query_params
         
@@ -68,7 +77,7 @@ class NLWebHandler:
 
         # the request may provide a fully decontextualized query, in which case 
         # we don't need to decontextualize the latest query.
-        self.decontextualized_query = get_param(query_params, "decontextualized_query", str, "") 
+        self.decontextualized_query = get_param(query_params, "decontextualized_query", str, "")
 
         # the url of the page on which the query was entered, in case that needs to be 
         # used to decontextualize the query. Typically left empty

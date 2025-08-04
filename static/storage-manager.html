@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Storage Manager - NLWeb</title>
+    <link rel="stylesheet" href="chat-page-styles.css">
+    <style>
+        .storage-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .storage-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .storage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .storage-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .storage-info {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+        
+        .storage-size {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+        
+        .data-preview {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 0.85em;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .action-button {
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .action-button:hover {
+            background: var(--bg-hover);
+            border-color: var(--primary-color);
+        }
+        
+        .action-button.danger {
+            border-color: #dc3545;
+            color: #dc3545;
+        }
+        
+        .action-button.danger:hover {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            display: none;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="storage-container">
+        <a href="multi-chat-index.html" class="back-link">← Back to Chat</a>
+        
+        <h1>Local Storage Manager</h1>
+        
+        <div id="successMessage" class="success-message"></div>
+        
+        <!-- Conversations Section -->
+        <div class="storage-section">
+            <div class="storage-header">
+                <h2 class="storage-title">Conversations</h2>
+                <div class="button-group">
+                    <button class="action-button" onclick="exportConversations()">Export JSON</button>
+                    <button class="action-button danger" onclick="clearConversations()">Clear All</button>
+                </div>
+            </div>
+            <div class="storage-info">
+                Key: <code>nlweb-modern-conversations</code> | 
+                Size: <span id="conversationsSize" class="storage-size">Calculating...</span>
+            </div>
+            <div id="conversationsStats" class="stats-grid"></div>
+            <div id="conversationsPreview" class="data-preview">Loading...</div>
+        </div>
+        
+        <!-- User Info Section -->
+        <div class="storage-section">
+            <div class="storage-header">
+                <h2 class="storage-title">User Information</h2>
+                <div class="button-group">
+                    <button class="action-button danger" onclick="clearUserInfo()">Clear</button>
+                </div>
+            </div>
+            <div class="storage-info">
+                Key: <code>userInfo</code> | 
+                Size: <span id="userInfoSize" class="storage-size">Calculating...</span>
+            </div>
+            <div id="userInfoPreview" class="data-preview">Loading...</div>
+        </div>
+        
+        <!-- Auth Token Section -->
+        <div class="storage-section">
+            <div class="storage-header">
+                <h2 class="storage-title">Authentication Token</h2>
+                <div class="button-group">
+                    <button class="action-button danger" onclick="clearAuthToken()">Clear</button>
+                </div>
+            </div>
+            <div class="storage-info">
+                Key: <code>authToken</code> | 
+                Status: <span id="authStatus" class="storage-size">Checking...</span>
+            </div>
+            <div id="authTokenPreview" class="data-preview">Loading...</div>
+        </div>
+        
+        <!-- All Storage Section -->
+        <div class="storage-section">
+            <div class="storage-header">
+                <h2 class="storage-title">All Local Storage</h2>
+                <div class="button-group">
+                    <button class="action-button" onclick="exportAllData()">Export All</button>
+                    <button class="action-button danger" onclick="clearAllStorage()">Clear Everything</button>
+                </div>
+            </div>
+            <div class="storage-info">
+                Total items: <span id="totalItems" class="storage-size">Calculating...</span> | 
+                Total size: <span id="totalSize" class="storage-size">Calculating...</span>
+            </div>
+            <div id="allStoragePreview" class="data-preview">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        // Helper function to calculate size of data
+        function getDataSize(data) {
+            const str = typeof data === 'string' ? data : JSON.stringify(data);
+            const bytes = new Blob([str]).size;
+            if (bytes < 1024) return bytes + ' bytes';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // Helper function to format JSON for display
+        function formatJSON(data) {
+            try {
+                const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+                return JSON.stringify(parsed, null, 2);
+            } catch (e) {
+                return data;
+            }
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const successEl = document.getElementById('successMessage');
+            successEl.textContent = message;
+            successEl.style.display = 'block';
+            setTimeout(() => {
+                successEl.style.display = 'none';
+            }, 3000);
+        }
+
+        // Load and display conversations
+        function loadConversations() {
+            const data = localStorage.getItem('nlweb-modern-conversations');
+            const sizeEl = document.getElementById('conversationsSize');
+            const previewEl = document.getElementById('conversationsPreview');
+            const statsEl = document.getElementById('conversationsStats');
+            
+            if (!data) {
+                sizeEl.textContent = '0 bytes';
+                previewEl.innerHTML = '<div class="empty-state">No conversations stored</div>';
+                statsEl.innerHTML = '';
+                return;
+            }
+            
+            sizeEl.textContent = getDataSize(data);
+            
+            try {
+                const conversations = JSON.parse(data);
+                
+                // Calculate stats
+                const totalConversations = conversations.length;
+                const totalMessages = conversations.reduce((sum, conv) => sum + (conv.messages?.length || 0), 0);
+                const sites = [...new Set(conversations.map(conv => conv.site || 'all'))];
+                
+                // Display stats
+                statsEl.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${totalConversations}</div>
+                        <div class="stat-label">Conversations</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${totalMessages}</div>
+                        <div class="stat-label">Messages</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${sites.length}</div>
+                        <div class="stat-label">Sites</div>
+                    </div>
+                `;
+                
+                // Show preview (first 3 conversations)
+                const preview = conversations.slice(0, 3).map(conv => ({
+                    id: conv.id,
+                    title: conv.title,
+                    created_at: conv.created_at,
+                    messages: conv.messages?.length || 0,
+                    site: conv.site
+                }));
+                
+                previewEl.textContent = formatJSON(preview);
+                if (conversations.length > 3) {
+                    previewEl.textContent += `\n\n... and ${conversations.length - 3} more conversations`;
+                }
+            } catch (e) {
+                previewEl.textContent = 'Error parsing conversations: ' + e.message;
+            }
+        }
+
+        // Load and display user info
+        function loadUserInfo() {
+            const data = localStorage.getItem('userInfo');
+            const sizeEl = document.getElementById('userInfoSize');
+            const previewEl = document.getElementById('userInfoPreview');
+            
+            if (!data) {
+                sizeEl.textContent = '0 bytes';
+                previewEl.innerHTML = '<div class="empty-state">No user information stored</div>';
+                return;
+            }
+            
+            sizeEl.textContent = getDataSize(data);
+            previewEl.textContent = formatJSON(data);
+        }
+
+        // Load and display auth token
+        function loadAuthToken() {
+            const token = localStorage.getItem('authToken');
+            const statusEl = document.getElementById('authStatus');
+            const previewEl = document.getElementById('authTokenPreview');
+            
+            if (!token) {
+                statusEl.textContent = 'Not authenticated';
+                previewEl.innerHTML = '<div class="empty-state">No authentication token stored</div>';
+                return;
+            }
+            
+            statusEl.textContent = 'Authenticated';
+            
+            // Decode JWT to show expiry (without exposing sensitive data)
+            try {
+                const parts = token.split('.');
+                if (parts.length === 3) {
+                    const payload = JSON.parse(atob(parts[1]));
+                    const exp = payload.exp ? new Date(payload.exp * 1000) : null;
+                    const provider = payload.provider || 'Unknown';
+                    
+                    previewEl.textContent = formatJSON({
+                        provider: provider,
+                        expires: exp ? exp.toLocaleString() : 'No expiry',
+                        expired: exp ? exp < new Date() : false,
+                        tokenLength: token.length + ' characters'
+                    });
+                } else {
+                    previewEl.textContent = 'Token stored (length: ' + token.length + ' characters)';
+                }
+            } catch (e) {
+                previewEl.textContent = 'Token stored (length: ' + token.length + ' characters)';
+            }
+        }
+
+        // Load all storage data
+        function loadAllStorage() {
+            const itemsEl = document.getElementById('totalItems');
+            const sizeEl = document.getElementById('totalSize');
+            const previewEl = document.getElementById('allStoragePreview');
+            
+            const allData = {};
+            let totalSize = 0;
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                allData[key] = value;
+                totalSize += new Blob([key + value]).size;
+            }
+            
+            itemsEl.textContent = localStorage.length;
+            sizeEl.textContent = getDataSize(totalSize);
+            
+            // Show keys and sizes
+            const preview = Object.keys(allData).map(key => ({
+                key: key,
+                size: getDataSize(allData[key])
+            }));
+            
+            previewEl.textContent = formatJSON(preview);
+        }
+
+        // Export functions
+        function exportConversations() {
+            const data = localStorage.getItem('nlweb-modern-conversations');
+            if (!data) {
+                alert('No conversations to export');
+                return;
+            }
+            
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'nlweb-conversations-' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showSuccess('Conversations exported successfully');
+        }
+
+        function exportAllData() {
+            const allData = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                allData[key] = localStorage.getItem(key);
+            }
+            
+            const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'nlweb-all-data-' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showSuccess('All data exported successfully');
+        }
+
+        // Clear functions
+        function clearConversations() {
+            if (confirm('Are you sure you want to delete all conversations? This cannot be undone.')) {
+                localStorage.removeItem('nlweb-modern-conversations');
+                loadConversations();
+                showSuccess('Conversations cleared successfully');
+            }
+        }
+
+        function clearUserInfo() {
+            if (confirm('Are you sure you want to clear user information? You will need to log in again.')) {
+                localStorage.removeItem('userInfo');
+                loadUserInfo();
+                showSuccess('User information cleared successfully');
+            }
+        }
+
+        function clearAuthToken() {
+            if (confirm('Are you sure you want to clear the authentication token? You will need to log in again.')) {
+                localStorage.removeItem('authToken');
+                loadAuthToken();
+                showSuccess('Authentication token cleared successfully');
+            }
+        }
+
+        function clearAllStorage() {
+            if (confirm('Are you sure you want to clear ALL local storage? This will delete all conversations, settings, and login information. This cannot be undone.')) {
+                if (confirm('This is your last chance. Really delete everything?')) {
+                    localStorage.clear();
+                    loadAll();
+                    showSuccess('All local storage cleared successfully');
+                }
+            }
+        }
+
+        // Load all data on page load
+        function loadAll() {
+            loadConversations();
+            loadUserInfo();
+            loadAuthToken();
+            loadAllStorage();
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', loadAll);
+        
+        // Refresh data every 5 seconds
+        setInterval(loadAll, 5000);
+    </script>
+</body>
+</html>

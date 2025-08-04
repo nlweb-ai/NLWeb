@@ -16,7 +16,7 @@ What's our current context usage?
 If it's over 60%, please:
 1. Update CURRENT_STATE.md with our current progress
 2. Update NEXT_STEPS.md with the immediate next task
-3. Commit all changes with message "WIP: [describe what we just did]"
+3. Commit all changes with message "WIP: [describe what we just did]" without attribution
 4. compact
 5. Continue with what you were doing
 ```

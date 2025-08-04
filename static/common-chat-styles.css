@@ -169,6 +169,35 @@ body {
   flex: 1;
 }
 
+/* Sidebar footer */
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid var(--border-color);
+  margin-top: auto;
+}
+
+.storage-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: var(--transition);
+  font-size: 14px;
+}
+
+.storage-link:hover {
+  background-color: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.storage-link svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* Conversation Items */
 .conversation-item {
   padding: 12px 16px;

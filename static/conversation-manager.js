@@ -1,4 +1,16 @@
 class ConversationManager {
+  /**
+   * Field Name Standardization for Timestamps:
+   * 
+   * We use 'created_at' as the standard field name on the client side for consistency.
+   * However, the server may send either:
+   * - 'created_at' (from Conversation model)
+   * - 'time_of_creation' (from ConversationEntry model)
+   * 
+   * We handle both field names for backwards compatibility and to support different
+   * server data models. When processing server data, we always check for both names
+   * and normalize to 'created_at' in our client-side conversation objects.
+   */
   constructor() {
     this.conversations = [];
   }
@@ -96,6 +108,7 @@ class ConversationManager {
           id: threadId,
           title: '',
           timestamp: 0,
+          created_at: entry.created_at || entry.time_of_creation || new Date().toISOString(), // Handle both field names from server
           site: entry.site,
           siteInfo: {
             site: entry.site,
@@ -106,7 +119,7 @@ class ConversationManager {
       }
       
       const conversation = conversationMap.get(threadId);
-      const timestamp = new Date(entry.timestamp).getTime();
+      const timestamp = new Date(entry.time_of_creation || entry.timestamp).getTime();
       
       // Add user message
       conversation.messages.push({
@@ -199,6 +212,7 @@ class ConversationManager {
               user_prompt: userMsg.content,
               response: assistantMsg.content,
               timestamp: new Date(userMsg.timestamp || Date.now()).toISOString(),
+              time_of_creation: conv.created_at || new Date(userMsg.timestamp || Date.now()).toISOString(),
               site: conv.site || 'all'
             });
           }
@@ -224,8 +238,8 @@ class ConversationManager {
       
       if (response.ok) {
         console.log('Successfully migrated conversations to server');
-        // Clear local storage after successful migration
-        localStorage.removeItem('nlweb-modern-conversations');
+        // Don't clear local storage - we want to keep local copies
+        // localStorage.removeItem('nlweb-modern-conversations');
       } else {
         console.error('Failed to migrate conversations:', response.status);
       }
@@ -235,6 +249,7 @@ class ConversationManager {
   }
 
   saveConversations() {
+    // Always save conversations locally, regardless of login status
     // Only save conversations that have messages
     const conversationsToSave = this.conversations.filter(conv => conv.messages && conv.messages.length > 0);
     localStorage.setItem('nlweb-modern-conversations', JSON.stringify(conversationsToSave));
@@ -246,6 +261,15 @@ class ConversationManager {
     
     chatInterface.currentConversationId = id;
     
+    // Check if this is a server conversation (starts with conv_) or local
+    if (id.startsWith('conv_')) {
+      // This is a server conversation, we can reconnect to it
+      chatInterface.wsConversationId = id;
+    } else {
+      // This is a local conversation, we'll need to create it on server when sending first message
+      chatInterface.wsConversationId = null;
+    }
+    
     // Restore the site selection for this conversation
     if (conversation.site) {
       chatInterface.selectedSite = conversation.site;
@@ -256,6 +280,28 @@ class ConversationManager {
       // Update site selector icon if it exists
       if (chatInterface.siteSelectorIcon) {
         chatInterface.siteSelectorIcon.title = `Site: ${conversation.site}`;
+      }
+    }
+    
+    // Restore the mode selection for this conversation
+    if (conversation.mode) {
+      chatInterface.selectedMode = conversation.mode;
+      // Update mode selector UI if it exists
+      const modeSelectorIcon = document.getElementById('mode-selector-icon');
+      if (modeSelectorIcon) {
+        modeSelectorIcon.title = `Mode: ${conversation.mode.charAt(0).toUpperCase() + conversation.mode.slice(1)}`;
+      }
+      // Update selected state in dropdown
+      const modeDropdown = document.getElementById('mode-dropdown');
+      if (modeDropdown) {
+        const modeItems = modeDropdown.querySelectorAll('.mode-dropdown-item');
+        modeItems.forEach(item => {
+          if (item.getAttribute('data-mode') === conversation.mode) {
+            item.classList.add('selected');
+          } else {
+            item.classList.remove('selected');
+          }
+        });
       }
     }
     
@@ -271,16 +317,48 @@ class ConversationManager {
     chatInterface.lastAnswers = [];
     const assistantMessages = conversation.messages.filter(m => m.type === 'assistant');
     if (assistantMessages.length > 0) {
-      // Get the last assistant message
-      const lastAssistant = assistantMessages[assistantMessages.length - 1];
-      if (lastAssistant.content) {
-        chatInterface.lastAnswers.push(lastAssistant.content);
-      }
+      // Extract answers from assistant messages
+      assistantMessages.slice(-20).forEach(msg => {
+        if (msg.parsedAnswers && msg.parsedAnswers.length > 0) {
+          chatInterface.lastAnswers.push(...msg.parsedAnswers);
+        }
+      });
+      // Keep only last 20 answers
+      chatInterface.lastAnswers = chatInterface.lastAnswers.slice(-20);
     }
     
     // Restore messages to UI
     conversation.messages.forEach(msg => {
-      chatInterface.addMessageToUI(msg.content, msg.type, false);
+      // Create sender info based on message type and any stored metadata
+      let senderInfo = null;
+      if (msg.senderInfo) {
+        // Use stored sender info if available
+        senderInfo = msg.senderInfo;
+      } else if (msg.type === 'user') {
+        // For user messages, try to get from current user info or use default
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        senderInfo = {
+          id: userInfo.id || 'user',
+          name: userInfo.name || userInfo.email || 'User'
+        };
+      } else if (msg.type === 'assistant') {
+        // For assistant messages, include site if available
+        const site = msg.site || conversation.site || chatInterface.selectedSite || 'all';
+        senderInfo = {
+          id: 'nlweb_assistant',
+          name: `NLWeb ${site}`
+        };
+      }
+      
+      // For assistant messages, check if content contains HTML
+      if (msg.type === 'assistant' && msg.content && 
+          (msg.content.includes('<') || msg.content.includes('class='))) {
+        // Content has HTML, pass it as an object with html property
+        chatInterface.addMessageToUI({ html: msg.content }, msg.type, false, senderInfo);
+      } else {
+        // Plain text content
+        chatInterface.addMessageToUI(msg.content, msg.type, false, senderInfo);
+      }
     });
     
     // Update title
@@ -291,6 +369,18 @@ class ConversationManager {
     
     // Hide centered input and show regular chat input
     chatInterface.hideCenteredInput();
+    
+    // Connect to WebSocket for server conversations
+    if (id.startsWith('conv_') && chatInterface.connectWebSocket) {
+      // This is a server conversation, connect to it
+      chatInterface.connectWebSocket(id).then(() => {
+        console.log('Successfully reconnected to conversation:', id);
+      }).catch(error => {
+        console.error('Failed to connect WebSocket:', error);
+        // Reset wsConversationId if connection fails
+        chatInterface.wsConversationId = null;
+      });
+    }
     
     // Scroll to bottom
     setTimeout(() => {
@@ -327,6 +417,11 @@ class ConversationManager {
     // Only show conversations that have messages
     const conversationsWithContent = this.conversations.filter(conv => conv.messages && conv.messages.length > 0);
     console.log('Updating conversations list with', conversationsWithContent.length, 'conversations');
+    console.log('All conversations:', this.conversations.map(c => ({
+      id: c.id,
+      title: c.title,
+      messageCount: c.messages ? c.messages.length : 0
+    })));
     
     // Group conversations by site
     const conversationsBySite = {};

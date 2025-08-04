@@ -23,7 +23,6 @@ class ModernChatInterface {
     this.currentStreamingMessage = null;
     this.prevQueries = [];  // Track previous queries
     this.lastAnswers = [];  // Track last answers
-    this.rememberedItems = [];  // Track remembered items
     
     // Store options
     this.options = options;
@@ -62,25 +61,39 @@ class ModernChatInterface {
     this.selectedSite = this.options.site || 'all';
     this.selectedMode = this.options.mode || 'list'; // Default generate_mode
     
+    // Check for join parameter in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinConvId = urlParams.get('join');
+    
     // Load saved conversations (async operation)
     this.conversationManager.loadConversations(this.selectedSite, this.elements).then(() => {
       this.updateConversationsList();
       
       // After loading conversations, decide what to show
       if (!this.options.skipAutoInit) {
-        const conversations = this.conversationManager.getConversations();
-        console.log('Loaded conversations:', conversations.length);
-        
-        // Always show centered input for new page loads to match user expectation
-        console.log('Showing centered input for new page load');
-        this.showCenteredInput();
+        if (joinConvId) {
+          // Handle join link
+          this.handleJoinLink(joinConvId);
+        } else {
+          const conversations = this.conversationManager.getConversations();
+          console.log('Loaded conversations:', conversations.length);
+          
+          // Always show centered input for new page loads to match user expectation
+          console.log('Showing centered input for new page load');
+          this.showCenteredInput();
+        }
       }
     }).catch(error => {
       console.error('Error loading conversations:', error);
       // Show centered input as fallback
       if (!this.options.skipAutoInit) {
-        console.log('Error loading conversations, showing centered input as fallback');
-        this.showCenteredInput();
+        if (joinConvId) {
+          // Still try to join even if conversations failed to load
+          this.handleJoinLink(joinConvId);
+        } else {
+          console.log('Error loading conversations, showing centered input as fallback');
+          this.showCenteredInput();
+        }
       }
     });
     
@@ -258,10 +271,10 @@ class ModernChatInterface {
     }
   }
   
-  createNewChat(existingInputElementId = null, site = null) {
-    // Create new conversation
-    // Create new conversation ID but don't add to conversations array yet
-    this.currentConversationId = Date.now().toString();
+  async createNewChat(existingInputElementId = null, site = null) {
+    // Clear current conversation IDs to force creation of new one
+    this.currentConversationId = null;
+    this.wsConversationId = null;
     
     // Clear UI
     this.elements.messagesContainer.innerHTML = '';
@@ -339,8 +352,23 @@ class ModernChatInterface {
     const message = messageText || this.elements.chatInput.value.trim();
     if (!message || this.isStreaming) return;
     
-    // Add user message
-    this.addMessage(message, 'user');
+    // Get user info for sender attribution
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const senderInfo = {
+      id: userInfo.id || userInfo.email || 'anonymous',
+      name: userInfo.name || userInfo.email || 'Anonymous User'
+    };
+    
+    // Store the pending message to add to conversation once created
+    this.pendingUserMessage = {
+      content: message,
+      type: 'user',
+      timestamp: Date.now(),
+      senderInfo: senderInfo
+    };
+    
+    // Add user message with sender info
+    this.addMessage(message, 'user', senderInfo);
     
     // Clear input
     this.elements.chatInput.value = '';
@@ -351,46 +379,44 @@ class ModernChatInterface {
     await this.sendViaWebSocket(message);
   }
   
-  addMessage(content, type) {
+  addMessage(content, type, senderInfo = null) {
     // Add to UI
-    this.addMessageToUI(content, type, true);
+    this.addMessageToUI(content, type, true, senderInfo);
     
-    // Find or create conversation
+    // Find conversation - don't create here, should be created by server
     let conversation = this.conversationManager.findConversation(this.currentConversationId);
     
-    // If conversation doesn't exist, create it now (this happens on first message)
-    if (!conversation) {
-      conversation = {
-        id: this.currentConversationId,
-        title: 'New chat',
-        messages: [],
+    // Only add to conversation if it exists
+    if (conversation) {
+      // Add message to conversation with sender info
+      conversation.messages.push({ 
+        content, 
+        type, 
         timestamp: Date.now(),
-        site: this.selectedSite || 'all'
-      };
-      this.conversationManager.addConversation(conversation);
-    }
-    
-    // Add message to conversation
-    conversation.messages.push({ content, type, timestamp: Date.now() });
-    
-    // Update title from first user message
-    if (type === 'user' && (!conversation.title || conversation.title === 'New chat')) {
-      conversation.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+        senderInfo: senderInfo 
+      });
       
-      // Only update UI element if it exists
-      if (this.elements.chatTitle) {
-        this.elements.chatTitle.textContent = conversation.title;
+      // Update conversation title from first user message
+      if (type === 'user' && (conversation.messages.length === 1 || conversation.title === 'New chat')) {
+        conversation.title = content.substring(0, 50) + (content.length > 50 ? '...' : '');
+        
+        // Update UI element if it exists
+        if (this.elements.chatTitle) {
+          this.elements.chatTitle.textContent = conversation.title;
+        }
+        
+        console.log('Set conversation title:', conversation.title, 'for conversation:', conversation.id);
       }
       
-      console.log('Set conversation title:', conversation.title, 'for conversation:', conversation.id);
+      // Update timestamp
+      conversation.timestamp = Date.now();
       
-      // Also update in conversationManager to ensure it's saved
-      this.conversationManager.updateConversation(conversation.id, { title: conversation.title });
+      // Save updated conversations
+      this.conversationManager.saveConversations();
+      
+      // Update UI to show the new conversation
+      this.updateConversationsList();
     }
-    
-    conversation.timestamp = Date.now();
-    this.conversationManager.saveConversations();
-    this.updateConversationsList();
     
     // When user sends a message, we'll add debug icon to the next assistant message
     if (type === 'user') {
@@ -398,7 +424,7 @@ class ModernChatInterface {
     }
   }
   
-  addMessageToUI(content, type, animate = true) {
+  addMessageToUI(content, type, animate = true, senderInfo = null) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}-message`;
     if (animate) {
@@ -428,6 +454,24 @@ class ModernChatInterface {
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
+    
+    // Add sender name if provided
+    if (senderInfo && senderInfo.name) {
+      const senderDiv = document.createElement('div');
+      senderDiv.className = 'message-sender';
+      
+      // Check if this is the current user
+      const currentUserInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const currentUserId = currentUserInfo.id || currentUserInfo.email;
+      
+      if (senderInfo.id === currentUserId && type === 'user') {
+        senderDiv.textContent = 'You';
+      } else {
+        senderDiv.textContent = senderInfo.name;
+      }
+      
+      contentDiv.appendChild(senderDiv);
+    }
     
     const textDiv = document.createElement('div');
     textDiv.className = 'message-text';
@@ -475,33 +519,85 @@ class ModernChatInterface {
     return { messageDiv, textDiv };
   }
   
+  getOrCreateAnonymousUserId() {
+    // Check if user is authenticated
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const authToken = localStorage.getItem('authToken');
+    
+    if (authToken && userInfo.id) {
+      // User is authenticated, return their ID
+      return null;
+    }
+    
+    // Check for existing anonymous user ID
+    let anonUserId = sessionStorage.getItem('anonymousUserId');
+    if (!anonUserId) {
+      // Create new anonymous user ID
+      const randomId = Math.floor(Math.random() * 9000) + 1000;
+      anonUserId = `anon_${randomId}`;
+      sessionStorage.setItem('anonymousUserId', anonUserId);
+    }
+    
+    return anonUserId;
+  }
+  
   async connectWebSocket(conversationId) {
+    console.log(`connectWebSocket called for conversation: ${conversationId}`);
+    
     if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
       if (this.wsConversationId === conversationId) {
+        console.log('Already connected to this conversation');
         return; // Already connected to this conversation
       }
+      console.log('Closing existing WebSocket connection');
       this.websocket.close();
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/chat/ws/${conversationId}`;
+    console.log(`WebSocket protocol: ${protocol}, host: ${host}`);
+    
+    // Build WebSocket URL with auth token or anonymous user ID
+    let wsUrl = `${protocol}//${host}/chat/ws/${conversationId}`;
+    const authToken = localStorage.getItem('authToken');
+    
+    if (authToken) {
+      // User is authenticated, pass auth token and user info
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      wsUrl += `?auth_token=${encodeURIComponent(authToken)}`;
+      
+      // Also pass user info for OAuth tokens that can't be decoded
+      if (userInfo.id) {
+        wsUrl += `&user_id=${encodeURIComponent(userInfo.id)}`;
+        wsUrl += `&user_name=${encodeURIComponent(userInfo.name || userInfo.email || 'User')}`;
+        wsUrl += `&provider=${encodeURIComponent(userInfo.provider || 'oauth')}`;
+      }
+    } else {
+      // Add anonymous user ID if not authenticated
+      const anonUserId = this.getOrCreateAnonymousUserId();
+      if (anonUserId) {
+        wsUrl += `?anon_user_id=${encodeURIComponent(anonUserId)}`;
+      }
+    }
+    
+    console.log(`Creating WebSocket connection to: ${wsUrl}`);
     
     this.websocket = new WebSocket(wsUrl);
     this.wsConversationId = conversationId;
     
     return new Promise((resolve, reject) => {
       this.websocket.onopen = () => {
-        console.log('WebSocket connected to conversation:', conversationId);
+        console.log('WebSocket connected successfully to conversation:', conversationId);
         resolve();
       };
       
       this.websocket.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('WebSocket connection error:', error);
         reject(error);
       };
       
       this.websocket.onmessage = (event) => {
+        console.log('WebSocket message received:', event.data);
         this.handleWebSocketMessage(event);
       };
       
@@ -546,8 +642,45 @@ class ModernChatInterface {
         }
         
         const data = await response.json();
+        const oldConversationId = this.currentConversationId;
         this.currentConversationId = data.conversation_id;
+        this.wsConversationId = data.conversation_id;
         console.log('Created conversation:', this.currentConversationId);
+        
+        // Create the conversation locally with the server ID
+        const conversation = {
+          id: data.conversation_id,  // Always use server-generated ID
+          title: 'New chat',
+          messages: [],
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          site: this.selectedSite || 'all',
+          mode: this.selectedMode || 'list'
+        };
+        
+        // Add the pending user message if exists
+        if (this.pendingUserMessage) {
+          conversation.messages.push(this.pendingUserMessage);
+          // Update title from the user's message
+          conversation.title = this.pendingUserMessage.content.substring(0, 50) + 
+                             (this.pendingUserMessage.content.length > 50 ? '...' : '');
+          
+          // Update UI title
+          if (this.elements.chatTitle) {
+            this.elements.chatTitle.textContent = conversation.title;
+          }
+          
+          // Clear pending message
+          this.pendingUserMessage = null;
+        }
+        
+        // Add to conversation manager
+        this.conversationManager.addConversation(conversation);
+        this.conversationManager.saveConversations();
+        
+        // Update UI
+        console.log('Updating conversations list after creating conversation:', conversation.id, 'with', conversation.messages.length, 'messages');
+        this.updateConversationsList();
       } catch (error) {
         console.error('Failed to create conversation:', error);
         // Fallback to HTTP streaming
@@ -577,7 +710,14 @@ class ModernChatInterface {
       </div>
     `;
     
-    const { messageDiv, textDiv } = this.addMessageToUI({ html: loadingHtml }, 'assistant');
+    // AI sender info with site
+    const site = this.selectedSite || 'all';
+    const aiSenderInfo = {
+      id: 'nlweb_assistant',
+      name: `NLWeb ${site}`
+    };
+    
+    const { messageDiv, textDiv } = this.addMessageToUI({ html: loadingHtml }, 'assistant', true, aiSenderInfo);
     this.currentStreamingMessage = { 
       messageDiv, 
       textDiv, 
@@ -604,8 +744,7 @@ class ModernChatInterface {
         generate_mode: this.selectedMode || 'list',
         display_mode: 'full',
         prev_queries: this.prevQueries.slice(0, 10),
-        last_answers: this.lastAnswers.slice(0, 20),
-        remembered_items: this.rememberedItems
+        last_answers: this.lastAnswers.slice(0, 20)
       }
     };
     
@@ -636,7 +775,14 @@ class ModernChatInterface {
       </div>
     `;
     
-    const { messageDiv, textDiv } = this.addMessageToUI({ html: loadingHtml }, 'assistant');
+    // AI sender info with site
+    const site = this.selectedSite || 'all';
+    const aiSenderInfo = {
+      id: 'nlweb_assistant',
+      name: `NLWeb ${site}`
+    };
+    
+    const { messageDiv, textDiv } = this.addMessageToUI({ html: loadingHtml }, 'assistant', true, aiSenderInfo);
     this.currentStreamingMessage = { 
       messageDiv, 
       textDiv, 
@@ -653,19 +799,7 @@ class ModernChatInterface {
       site: this.selectedSite || 'all'
     });
     
-    // Add context
-    if (this.prevQueries.length > 0) {
-      params.append('prev', JSON.stringify(this.prevQueries));
-    }
-    
-    this.prevQueries.push(query);
-    if (this.prevQueries.length > 10) {
-      this.prevQueries = this.prevQueries.slice(-10);
-    }
-    
-    if (this.lastAnswers.length > 0) {
-      params.append('last_ans', JSON.stringify(this.lastAnswers));
-    }
+    // Context is tracked server-side in conversation history
     
     if (this.rememberedItems.length > 0) {
       params.append('item_to_remember', this.rememberedItems.join(', '));
@@ -745,8 +879,121 @@ class ModernChatInterface {
         return;
       }
       
-      // Handle AI response messages
-      if (data.type === 'ai_response' || data.type === 'message') {
+      // Handle participant updates (both formats)
+      if (data.type === 'participant_update' || data.type === 'participant_joined' || data.type === 'participant_left') {
+        const action = data.action || (data.type === 'participant_joined' ? 'join' : 'leave');
+        let participantName = null;
+        
+        // Extract participant info from the nested participant object
+        if (data.participant) {
+          // Handle different field names
+          participantName = data.participant.displayName || data.participant.name;
+          const participantType = data.participant.type;
+          const participantId = data.participant.participantId || data.participant.id;
+          
+          // For AI participants, format the name appropriately
+          if (participantType === 'ai' || participantId?.startsWith('nlweb')) {
+            // Extract site information if available
+            const site = data.metadata?.site || data.site || 'Assistant';
+            participantName = `NLWeb ${site}`;
+          }
+        }
+        
+        // Fallback if no name provided
+        if (!participantName) {
+          // Use the participant ID to create a more specific name
+          const participantId = data.participant?.participantId || data.participant?.id || data.participant_id;
+          if (participantId && participantId.startsWith('anon_')) {
+            participantName = `Anonymous ${participantId.slice(-4)}`;
+          } else {
+            participantName = participantId || 'User';
+          }
+        }
+        
+        if (action === 'join') {
+          console.log(`Showing join message for ${participantName}`);
+          this.addSystemMessage(`${participantName} has joined the conversation`);
+        } else if (action === 'leave') {
+          console.log(`Showing leave message for ${participantName}`);
+          this.addSystemMessage(`${participantName} has left the conversation`);
+        }
+        return;
+      }
+      
+      // Handle messages (both historical and real-time from other participants)
+      if (data.type === 'message' && data.message) {
+        const msg = data.message;
+        
+        // Skip if this is our own message (should already be displayed)
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const currentUserId = userInfo.id || userInfo.email || this.getOrCreateAnonymousUserId();
+        if (msg.sender_id === currentUserId) {
+          console.log('Skipping own message from broadcast');
+          return;
+        }
+        
+        // Check if we're loading a conversation and this is a historical message we already have
+        const conversation = this.conversationManager.findConversation(this.currentConversationId);
+        if (conversation && conversation.messages) {
+          // Check if this message already exists (by checking content and timestamp)
+          const messageExists = conversation.messages.some(m => {
+            // Convert timestamps for comparison
+            const msgTimestamp = new Date(msg.timestamp).getTime();
+            const existingTimestamp = m.timestamp;
+            // Check if timestamps are within 1 second of each other and content matches
+            return Math.abs(msgTimestamp - existingTimestamp) < 1000 && 
+                   m.content === msg.content;
+          });
+          
+          if (messageExists) {
+            console.log('Skipping duplicate historical message');
+            return;
+          }
+        }
+        
+        // Extract site for AI messages
+        let displayName = msg.sender_name;
+        if (msg.sender_id.startsWith('nlweb')) {
+          const site = msg.metadata?.site || this.selectedSite || 'all';
+          displayName = `NLWeb ${site}`;
+        } else if (!displayName) {
+          displayName = 'User';
+        }
+        
+        const senderInfo = {
+          id: msg.sender_id,
+          name: displayName
+        };
+        const messageType = msg.sender_id.startsWith('nlweb') ? 'assistant' : 'user';
+        
+        // Check if this is a real-time message (has higher sequence_id than our last known)
+        const isRealTime = true; // For now, treat all incoming messages as real-time
+        
+        // For assistant messages with HTML content, pass as object
+        if (messageType === 'assistant' && msg.content && 
+            (msg.content.includes('<') || msg.content.includes('class='))) {
+          this.addMessageToUI({ html: msg.content }, messageType, isRealTime, senderInfo);
+        } else {
+          // Animate real-time messages, don't animate historical
+          this.addMessageToUI(msg.content, messageType, isRealTime, senderInfo);
+        }
+        
+        // Update conversation in memory (reuse the conversation variable from above)
+        if (conversation) {
+          conversation.messages.push({
+            content: msg.content,
+            type: messageType,
+            timestamp: new Date(msg.timestamp).getTime(),
+            senderInfo: senderInfo
+          });
+          this.conversationManager.saveConversations();
+        }
+        
+        return;
+      }
+      
+      // Handle AI response messages (real-time streaming)
+      if (data.type === 'ai_response') {
         this.handleAIResponse(data);
         return;
       }
@@ -1474,14 +1721,23 @@ class ModernChatInterface {
           lastMessage.content = finalContent;
           lastMessage.parsedAnswers = parsedAnswers;
         } else {
+          // AI sender info with site
+          const site = this.selectedSite || 'all';
+          const aiSenderInfo = {
+            id: 'nlweb_assistant',
+            name: `NLWeb ${site}`
+          };
           conversation.messages.push({ 
             content: finalContent, 
             type: 'assistant', 
             timestamp: Date.now(),
-            parsedAnswers: parsedAnswers
+            parsedAnswers: parsedAnswers,
+            senderInfo: aiSenderInfo
           });
         }
         this.conversationManager.saveConversations();
+        // Update UI to reflect the AI response
+        this.updateConversationsList();
       }
     }
     
@@ -1792,10 +2048,8 @@ class ModernChatInterface {
     
     // Hide the normal chat input area
     const chatInputContainer = document.querySelector('.chat-input-container');
-    console.log('Found chat input container:', !!chatInputContainer);
     if (chatInputContainer) {
       chatInputContainer.style.display = 'none';
-      console.log('Hidden chat input container');
     }
     
     // Create centered input container
@@ -1967,6 +2221,124 @@ class ModernChatInterface {
     this.sendMessage(message);
   }
   
+  async handleJoinLink(conversationId) {
+    try {
+      // Get user info
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const authToken = localStorage.getItem('authToken');
+      
+      // Check if user is authenticated
+      if (!authToken || !userInfo.id) {
+        // Store the conversation ID for retry after login
+        window.pendingJoinConversationId = conversationId;
+        
+        // Show login popup
+        if (window.oauthManager) {
+          window.oauthManager.showLoginPopup();
+        }
+        
+        // Listen for successful login to retry join
+        const retryJoinHandler = (event) => {
+          if (event.detail.conversationId === conversationId) {
+            window.removeEventListener('retryJoin', retryJoinHandler);
+            this.handleJoinLink(conversationId);
+          }
+        };
+        window.addEventListener('retryJoin', retryJoinHandler);
+        
+        return;
+      }
+      
+      // Prepare participant info
+      const participant = {
+        user_id: userInfo.id || userInfo.email,
+        name: userInfo.name || userInfo.email || 'User'
+      };
+      
+      // Call the join API
+      const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
+      const response = await fetch(`${baseUrl}/chat/join/${conversationId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
+        body: JSON.stringify({ participant })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Add conversation to local storage
+        const conversation = {
+          id: data.conversation.id,
+          title: data.conversation.title || 'Shared Chat',
+          messages: [],
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          site: 'all',
+          shared: true
+        };
+        
+        // Add messages if any
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(msg => {
+            // Extract site for AI messages
+            let displayName = msg.sender_name;
+            if (msg.sender_id.startsWith('nlweb')) {
+              const site = conversation.site || this.selectedSite || 'all';
+              displayName = `NLWeb ${site}`;
+            } else if (!displayName) {
+              displayName = 'User';
+            }
+            
+            const senderInfo = {
+              id: msg.sender_id,
+              name: displayName
+            };
+            conversation.messages.push({
+              content: msg.content,
+              type: msg.sender_id.startsWith('nlweb') ? 'assistant' : 'user',
+              timestamp: new Date(msg.timestamp).getTime(),
+              senderInfo: senderInfo
+            });
+          });
+        }
+        
+        this.conversationManager.addConversation(conversation);
+        this.conversationManager.saveConversations();
+        
+        // Load the conversation
+        this.conversationManager.loadConversation(conversationId, this);
+        
+        // Connect to WebSocket
+        await this.connectWebSocket(conversationId);
+        
+        // Show success message
+        this.addSystemMessage(`Successfully joined conversation: ${data.conversation.title || 'Shared Chat'}`);
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to join conversation');
+      }
+    } catch (error) {
+      console.error('Error joining conversation:', error);
+      this.addSystemMessage(`Error joining conversation: ${error.message}`);
+      // Show centered input as fallback
+      this.showCenteredInput();
+    }
+  }
+  
+  addSystemMessage(message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message system-message';
+    messageDiv.innerHTML = `
+      <div class="message-content">
+        <div class="message-text">${message}</div>
+      </div>
+    `;
+    this.elements.messagesContainer.appendChild(messageDiv);
+    this.scrollToBottom();
+  }
   
   toggleDebugInfo() {
     // Find the last assistant message
@@ -2136,23 +2508,26 @@ class ModernChatInterface {
       }
       item.textContent = site;
       item.addEventListener('click', () => {
-        this.selectedSite = site;
-        this.siteDropdown.classList.remove('show');
-        this.populateSiteDropdown(); // Update selection
-        
-        // Update icon title to show selected site
-        this.siteSelectorIcon.title = `Site: ${site}`;
-        
-        // Update the header site info
-        if (this.elements.chatSiteInfo) {
-          this.elements.chatSiteInfo.textContent = `Asking ${site}`;
-        }
-        
-        // Update the current conversation's site if it exists
-        const conversation = this.conversationManager.findConversation(this.currentConversationId);
-        if (conversation) {
-          conversation.site = site;
-          this.conversationManager.saveConversations();
+        // Only create new conversation if site actually changed
+        if (this.selectedSite !== site) {
+          this.selectedSite = site;
+          this.siteDropdown.classList.remove('show');
+          this.populateSiteDropdown(); // Update selection
+          
+          // Update icon title to show selected site
+          this.siteSelectorIcon.title = `Site: ${site}`;
+          
+          // Update the header site info
+          if (this.elements.chatSiteInfo) {
+            this.elements.chatSiteInfo.textContent = `Asking ${site}`;
+          }
+          
+          // Create a new conversation for the new site
+          // This ensures each site has its own conversation
+          this.createNewChat(null, site);
+        } else {
+          // Just close the dropdown if same site selected
+          this.siteDropdown.classList.remove('show');
         }
       });
       this.siteDropdownItems.appendChild(item);

@@ -3,6 +3,20 @@
 ## Active Branch
 `conversation-api-implementation`
 
+## Latest Updates (2025-08-04) - Session 3
+
+### Multi-Participant Chat Fixes ✅
+- Fixed AI responses not showing for other participants in multi-user chat
+- NLWebParticipant now collects streamed content and creates proper ChatMessages for storage
+- Fixed WebSocket connection removal KeyError by adding try/catch in cleanup
+- Fixed client handling of participant join messages (supports both `participant_joined` and `participant_update`)
+- Added extensive print statements throughout WebSocket flow for debugging
+- Added client-side console logging for WebSocket connection debugging
+
+### Known Issues Being Investigated
+- Second user joining via share link may not establish WebSocket connection
+- Need to verify conversation history is sent to joining participants
+
 ## Latest Updates (2025-08-04) - Session 2
 
 ### OAuth Implementation ✅

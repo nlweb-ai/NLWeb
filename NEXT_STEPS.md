@@ -2,7 +2,13 @@
 
 ## Immediate Tasks
 
-### 1. Complete Google Maps API Removal
+### 1. Debug WebSocket Connection for Second User
+- Check browser console logs when second user joins via share link
+- Verify WebSocket URL is correct
+- Check for CORS or authentication issues preventing WebSocket connection
+- Verify conversation history is being sent after connection
+
+### 2. Complete Google Maps API Removal
 - Remove all Google Maps API references from:
   - `/static/managed-event-source.js` (partially done)
   - `/static/fp-chat-interface-ws.js`

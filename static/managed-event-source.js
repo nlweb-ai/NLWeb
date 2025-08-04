@@ -786,7 +786,6 @@ export class ManagedEventSource {
     console.log('Received data:', data);
     console.log('chatInterface:', chatInterface);
     console.log('chatInterface.bubble:', chatInterface.bubble);
-    console.log('Current Google Maps API Key:', window.GOOGLE_MAPS_API_KEY || 'Not set');
     
     // Validate data
     if (!data || !data.locations || !Array.isArray(data.locations) || data.locations.length === 0) {
@@ -840,216 +839,11 @@ export class ManagedEventSource {
     console.log('mapDiv:', mapDiv);
     console.log('locations:', locations);
     
-    // Check if API key is configured
-    const apiKey = window.GOOGLE_MAPS_API_KEY || 
-                  document.body.getAttribute('data-google-maps-api-key') || 
-                  'YOUR_API_KEY';
-    
-    console.log('API Key found:', apiKey);
-    
-    if (apiKey === 'YOUR_API_KEY' || !apiKey || apiKey === 'GOOGLE_MAPS_API_KEY') {
-      console.warn('Google Maps API key not configured, showing location list instead');
-      // Show location list instead of map
-      this.showLocationList(mapDiv, locations);
-      return;
-    }
-    
-    // Check if Google Maps API is loaded
-    if (typeof google === 'undefined' || !google.maps) {
-      console.log('Google Maps API not loaded, loading now...');
-      this.loadGoogleMapsAPI().then(() => {
-        this.createMap(mapDiv, locations);
-      }).catch(error => {
-        console.error('Failed to load Google Maps API:', error);
-        // Fallback to showing location list
-        this.showLocationList(mapDiv, locations);
-      });
-    } else {
-      this.createMap(mapDiv, locations);
-    }
+    // Always show location list instead of map (Google Maps removed)
+    this.showLocationList(mapDiv, locations);
   }
   
-  /**
-   * Load Google Maps API dynamically
-   * 
-   * @returns {Promise} Promise that resolves when API is loaded
-   */
-  loadGoogleMapsAPI() {
-    return new Promise((resolve, reject) => {
-      // Check if already loading
-      if (window.googleMapsAPILoading) {
-        // Wait for existing load to complete
-        const checkInterval = setInterval(() => {
-          if (typeof google !== 'undefined' && google.maps) {
-            clearInterval(checkInterval);
-            resolve();
-          }
-        }, 100);
-        return;
-      }
-      
-      window.googleMapsAPILoading = true;
-      
-      // Create script element
-      const script = document.createElement('script');
-      
-      // Get API key from various sources
-      const apiKey = window.GOOGLE_MAPS_API_KEY || 
-                    document.body.getAttribute('data-google-maps-api-key') || 
-                    'YOUR_API_KEY';
-      
-      // Validate API key format (alphanumeric and dashes, 39-40 characters typical for Google Maps API keys)
-      const apiKeyPattern = /^[A-Za-z0-9\-_]{39,40}$/;
-      if (!apiKeyPattern.test(apiKey) || apiKey === 'YOUR_API_KEY' || apiKey === 'GOOGLE_MAPS_API_KEY') {
-        console.error('Invalid or missing Google Maps API key. Please set GOOGLE_MAPS_API_KEY environment variable or configure it in config_nlweb.yaml');
-        mapDiv.innerHTML = `
-          <div style="text-align: center; padding: 20px; color: #666;">
-            <p><strong>Map unavailable</strong></p>
-            <p style="font-size: 0.9em;">Invalid or missing Google Maps API key.</p>
-          </div>
-        `;
-        reject(new Error('Invalid or missing API key'));
-        return;
-      }
-      
-      console.log('Loading Google Maps API with key:', apiKey.substring(0, 10) + '...');
-      
-      // Validate and encode the API key for security
-      if (!/^[a-zA-Z0-9_-]+$/.test(apiKey)) {
-        console.error('Invalid API key format');
-        reject(new Error('Invalid API key format'));
-        return;
-      }
-      
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        window.googleMapsAPILoading = false;
-        resolve();
-      };
-      
-      script.onerror = () => {
-        window.googleMapsAPILoading = false;
-        reject(new Error('Failed to load Google Maps API'));
-      };
-      
-      document.head.appendChild(script);
-    });
-  }
   
-  /**
-   * Create the Google Map with markers
-   * 
-   * @param {HTMLElement} mapDiv - The map container element
-   * @param {Array} locations - Array of location objects
-   */
-  createMap(mapDiv, locations) {
-    // Initialize the map
-    const map = new google.maps.Map(mapDiv, {
-      zoom: 10,
-      center: { lat: 0, lng: 0 }, // Will be updated based on markers
-      mapTypeId: 'roadmap'
-    });
-    
-    // Geocoding service to convert addresses to coordinates
-    const geocoder = new google.maps.Geocoder();
-    const bounds = new google.maps.LatLngBounds();
-    const markers = [];
-    let geocodedCount = 0;
-    
-    // Process each location
-    locations.forEach((location, index) => {
-      // Use setTimeout to avoid rate limiting
-      setTimeout(() => {
-        geocoder.geocode({ address: location.address }, (results, status) => {
-          if (status === 'OK' && results[0]) {
-            const position = results[0].geometry.location;
-            
-            // Create marker
-            const marker = new google.maps.Marker({
-              position: position,
-              map: map,
-              title: location.title,
-              label: {
-                text: (index + 1).toString(),
-                color: 'white',
-                fontWeight: 'bold'
-              }
-            });
-            
-            // Create info window
-            const infoWindow = new google.maps.InfoWindow({
-              content: `
-                <div style="padding: 5px;">
-                  <h4 style="margin: 0 0 5px 0; color: #333;">${location.title}</h4>
-                  <p style="margin: 0; color: #666; font-size: 0.9em;">${location.address}</p>
-                </div>
-              `
-            });
-            
-            // Add click listener to marker
-            marker.addListener('click', () => {
-              infoWindow.open(map, marker);
-            });
-            
-            markers.push(marker);
-            bounds.extend(position);
-            
-            geocodedCount++;
-            
-            // If all locations are geocoded, fit the map to show all markers
-            if (geocodedCount === locations.length) {
-              map.fitBounds(bounds);
-              
-              // Adjust zoom if only one marker
-              if (locations.length === 1) {
-                map.setZoom(15);
-              }
-            }
-          } else {
-            console.error('Geocode failed for location:', location.address, 'Status:', status);
-            geocodedCount++;
-          }
-        });
-      }, index * 200); // 200ms delay between requests
-    });
-    
-    // Add a legend showing numbered locations
-    const legendDiv = document.createElement('div');
-    legendDiv.style.cssText = `
-      background: white;
-      padding: 10px;
-      margin: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      font-size: 14px;
-      max-height: 200px;
-      overflow-y: auto;
-    `;
-    
-    const legendTitle = document.createElement('div');
-    legendTitle.innerHTML = ''; // Clear content
-    const titleStrong = document.createElement('strong');
-    titleStrong.textContent = 'Locations:';
-    legendTitle.appendChild(titleStrong);
-    legendTitle.style.marginBottom = '5px';
-    legendDiv.appendChild(legendTitle);
-    
-    locations.forEach((location, index) => {
-      const legendItem = document.createElement('div');
-      legendItem.style.cssText = 'padding: 2px 0;';
-      legendItem.innerHTML = ''; // Clear content
-      const indexStrong = document.createElement('strong');
-      indexStrong.textContent = `${index + 1}.`;
-      legendItem.appendChild(indexStrong);
-      legendItem.appendChild(document.createTextNode(` ${location.title}`));
-      legendDiv.appendChild(legendItem);
-    });
-    
-    map.controls[google.maps.ControlPosition.RIGHT_TOP].push(legendDiv);
-  }
   
   /**
    * Show location list as a fallback when map cannot be displayed
@@ -1142,11 +936,6 @@ export class ManagedEventSource {
     
     listContainer.appendChild(list);
     
-    // Add a note about the map
-    const note = document.createElement('p');
-    note.textContent = 'Map view requires a Google Maps API key to be configured.';
-    note.style.cssText = 'margin: 15px 0 0 0; font-size: 0.85em; color: #888; font-style: italic;';
-    listContainer.appendChild(note);
     
     mapDiv.appendChild(listContainer);
     

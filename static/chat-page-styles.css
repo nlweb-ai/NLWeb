@@ -44,6 +44,15 @@ body {
   border-color: var(--primary-color);
 }
 
+.system-message {
+  background-color: #f0f7ff;
+  border-left: 4px solid #2196F3;
+  padding: 12px;
+  margin: 10px 0;
+  font-style: italic;
+  color: #1565C0;
+}
+
 .login-button, .logout-button {
   padding: 6px 16px;
   border-radius: 6px;
@@ -206,6 +215,100 @@ body {
 
 .oauth-provider-button.microsoft:hover {
   border-color: #F25022;
+}
+
+.oauth-provider-button.github:hover {
+  border-color: #333;
+}
+
+/* Email Login Section */
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+}
+
+.oauth-divider span {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.oauth-divider::before {
+  margin-right: 15px;
+}
+
+.oauth-divider::after {
+  margin-left: 15px;
+}
+
+.email-login-section {
+  margin-top: 20px;
+}
+
+.email-login-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+}
+
+.email-login-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  margin-bottom: 12px;
+  transition: var(--transition);
+}
+
+.email-login-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(94, 94, 255, 0.1);
+}
+
+.email-login-button {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.email-login-button:hover {
+  background-color: #4a4aff;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.email-login-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.email-login-note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 12px;
 }
 
 /* Site selector dropdown */
@@ -633,6 +736,23 @@ body {
 .centered-send-button svg {
   width: 18px;
   height: 18px;
+}
+
+/* Message sender name styling */
+.message-sender {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+.user-message .message-sender {
+  color: var(--primary-color);
+}
+
+.assistant-message .message-sender {
+  color: var(--accent-color, #6B46C1);
 }
 
 /* Responsive overrides */

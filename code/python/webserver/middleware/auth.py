@@ -41,6 +41,12 @@ async def auth_middleware(request: web.Request, handler):
         path == '/favicon.ico'
     )
     
+    # Special handling for WebSocket paths - they need auth but handle it differently
+    if path.startswith('/chat/ws/'):
+        # For WebSocket upgrade requests, we'll let them through to the handler
+        # which will check auth separately since WebSocket can't use standard HTTP auth
+        return await handler(request)
+    
     if is_public:
         # Public endpoint, no auth required
         return await handler(request)

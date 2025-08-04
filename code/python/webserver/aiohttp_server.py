@@ -307,7 +307,7 @@ async def main():
     """Main entry point"""
     # Setup logging
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.WARNING,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
@@ -319,6 +319,18 @@ async def main():
     # Suppress Azure SDK HTTP logging
     logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
     logging.getLogger("azure").setLevel(logging.WARNING)
+    
+    # Suppress aiohttp access logs
+    logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
+    
+    # Suppress webserver middleware logging
+    logging.getLogger("webserver.middleware.logging_middleware").setLevel(logging.WARNING)
+    
+    # Suppress chat system logging
+    logging.getLogger("webserver.routes.chat").setLevel(logging.WARNING)
+    logging.getLogger("chat.conversation").setLevel(logging.WARNING)
+    logging.getLogger("chat.participants").setLevel(logging.WARNING)
+    logging.getLogger("chat.websocket").setLevel(logging.WARNING)
     
     # Create and start server
     server = AioHTTPServer()

@@ -122,12 +122,18 @@ class NLWebContextBuilder:
             if current_message and msg.message_id == current_message.message_id:
                 continue
                 
+            # Log message details for debugging
+            logger.info(f"Context message: type={msg.message_type}, sender_id={msg.sender_id}, content_preview={msg.content[:50] if msg.content else 'None'}")
+            
             if msg.message_type == MessageType.TEXT:
                 # Human message
                 human_messages.append(msg)
             elif msg.message_type == MessageType.NLWEB_RESPONSE:
                 # NLWeb response
                 nlweb_messages.append(msg)
+        
+        # Log what we found
+        logger.info(f"Found {len(human_messages)} human messages and {len(nlweb_messages)} NLWeb messages in context")
         
         # Take last N human messages
         recent_human_messages = human_messages[-self.human_messages_limit:]
@@ -206,15 +212,18 @@ class NLWebParticipant(BaseParticipant):
         """
         try:
             logger.info(f"NLWebParticipant processing message: {message.content[:100]}")
+            logger.info(f"NLWebParticipant received context with {len(context)} messages")
             
             # Build context from chat history  
             nlweb_context = self.context_builder.build_context(context, message)
+            logger.info(f"NLWebParticipant built context: prev_queries={len(nlweb_context.get('prev_queries', []))}, last_answers={len(nlweb_context.get('last_answers', []))}")
             
             # Prepare query parameters for NLWebHandler
             query_params = {
                 "query": [message.content],
                 "user_id": [message.sender_id],
                 "generate_mode": ["list"],  # Default mode
+                "streaming": ["true"],  # Enable streaming
             }
             
             # Check if message has metadata with sites
@@ -228,19 +237,45 @@ class NLWebParticipant(BaseParticipant):
                 # Also check for generate_mode in metadata
                 if 'generate_mode' in message.metadata:
                     query_params["generate_mode"] = [message.metadata['generate_mode']]
-            logger.info(f"NLWebParticipant query_params: {query_params}")
+            logger.info(f"NLWebParticipant initial query_params: {query_params}")
             
-            # Add context to query params
-            if nlweb_context["prev_queries"]:
-                query_params["prev_queries"] = [json.dumps(nlweb_context["prev_queries"])]
+            # Check for context in message metadata first (from client)
+            if hasattr(message, 'metadata') and message.metadata:
+                if 'prev_queries' in message.metadata and message.metadata['prev_queries']:
+                    # Use client-provided context - use correct param name "prev"
+                    query_params["prev"] = [json.dumps(message.metadata['prev_queries'])]
+                    logger.info(f"NLWebParticipant using client prev_queries: {message.metadata['prev_queries']}")
+                elif nlweb_context["prev_queries"]:
+                    # Fall back to server-built context
+                    query_params["prev"] = [json.dumps(nlweb_context["prev_queries"])]
+                    logger.info(f"NLWebParticipant using server prev_queries: {nlweb_context['prev_queries']}")
+                
+                if 'last_answers' in message.metadata and message.metadata['last_answers']:
+                    # Use client-provided context - use correct param name "last_ans"
+                    query_params["last_ans"] = [json.dumps(message.metadata['last_answers'])]
+                    logger.info(f"NLWebParticipant using client last_answers: {len(message.metadata['last_answers'])} answers")
+                elif nlweb_context["last_answers"]:
+                    # Fall back to server-built context
+                    query_params["last_ans"] = [json.dumps(nlweb_context["last_answers"])]
+                    logger.info(f"NLWebParticipant using server last_answers: {nlweb_context['last_answers']}")
+            else:
+                # No metadata, use server-built context
+                if nlweb_context["prev_queries"]:
+                    query_params["prev"] = [json.dumps(nlweb_context["prev_queries"])]
+                    logger.info(f"NLWebParticipant adding prev_queries: {nlweb_context['prev_queries']}")
+                
+                if nlweb_context["last_answers"]:
+                    query_params["last_ans"] = [json.dumps(nlweb_context["last_answers"])]
+                    logger.info(f"NLWebParticipant adding last_answers: {nlweb_context['last_answers']}")
             
-            if nlweb_context["last_answers"]:
-                query_params["last_answers"] = [json.dumps(nlweb_context["last_answers"])]
+            logger.info(f"NLWebParticipant final query_params being sent to NLWebHandler: {query_params}")
             
-            # Track if we've sent any response
+            # Track if we've sent any response and collect content
             response_sent = False
             conversation_id = message.conversation_id
             websocket_manager = stream_callback  # stream_callback is the websocket manager
+            collected_content = []  # Collect all streamed content
+            collected_results = []  # Collect all results
             
             class ChunkCapture:
                 async def write_stream(self, data, end_response=False):
@@ -249,8 +284,19 @@ class NLWebParticipant(BaseParticipant):
                     # Stream directly to WebSocket if we have a manager
                     if websocket_manager:
                         response_sent = True
-                        # Send the raw data exactly like HTTP streaming does
+                        
+                        # Send the streaming data exactly as the client expects it
+                        # The client expects data with message_type at the top level
                         await websocket_manager.broadcast_message(conversation_id, data)
+                    
+                    # Collect content for creating a ChatMessage later
+                    if isinstance(data, dict):
+                        if data.get('message_type') == 'summary' and data.get('message'):
+                            collected_content.append(data['message'])
+                        elif data.get('message_type') == 'result_batch' and data.get('results'):
+                            collected_results.extend(data['results'])
+                        elif data.get('message_type') == 'asking_sites' and data.get('message'):
+                            collected_content.append(f"Searching: {data['message']}")
                     
                     # Also keep the chunk for fallback
                     if isinstance(data, dict):
@@ -284,7 +330,7 @@ class NLWebParticipant(BaseParticipant):
                     timeout=self.config.timeout
                 )
             
-            # If we streamed the response, we're done
+            # If we streamed the response, create a ChatMessage for storage
             if response_sent:
                 # Send a completion message just like HTTP streaming
                 if websocket_manager:
@@ -292,7 +338,49 @@ class NLWebParticipant(BaseParticipant):
                         'message_type': 'complete'
                     }
                     await websocket_manager.broadcast_message(conversation_id, completion_message)
-                return None  # No need to return a ChatMessage since we streamed
+                
+                # Create a ChatMessage from collected content
+                if collected_content or collected_results:
+                    # Format the content
+                    content_parts = []
+                    
+                    # Add text content
+                    if collected_content:
+                        content_parts.append('\n'.join(collected_content))
+                    
+                    # Add results as formatted text
+                    if collected_results:
+                        content_parts.append('\n\nResults:')
+                        for i, result in enumerate(collected_results[:10], 1):  # Limit to first 10
+                            if isinstance(result, dict):
+                                name = result.get('name', 'Untitled')
+                                url = result.get('url', '')
+                                if url:
+                                    content_parts.append(f"{i}. [{name}]({url})")
+                                else:
+                                    content_parts.append(f"{i}. {name}")
+                    
+                    # Create the response message
+                    response_message = ChatMessage(
+                        message_id=f"msg_{message.message_id}_response",
+                        conversation_id=conversation_id,
+                        sequence_id=0,  # Will be assigned by process_message
+                        sender_id=self.participant_id,
+                        sender_name="NLWeb Assistant",
+                        content='\n'.join(content_parts),
+                        message_type=MessageType.NLWEB_RESPONSE,
+                        timestamp=datetime.utcnow(),
+                        metadata={
+                            'sites': query_params.get('site', ['all']),
+                            'mode': query_params.get('generate_mode', ['list'])[0],
+                            'results_count': len(collected_results)
+                        }
+                    )
+                    
+                    logger.info(f"NLWebParticipant returning ChatMessage with {len(collected_content)} content parts and {len(collected_results)} results")
+                    return response_message
+                
+                return None  # No content collected
             
             # If no streaming happened, return None (NLWeb didn't respond)
             return None

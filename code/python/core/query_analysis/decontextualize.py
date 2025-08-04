@@ -91,8 +91,14 @@ class PrevQueryDecontextualizer(NoOpDecontextualizer):
             await self.handler.send_message(message)
         else:
             logger.info("No decontextualization required despite previous query")
+            message = {
+                "message_type": "decontextualized_query",
+                "decontextualized_query": self.handler.decontextualized_query,
+                "original_query": self.handler.query
+            }
             self.handler.decontextualized_query = self.handler.query
             await self.handler.state.precheck_step_done(self.STEP_NAME)
+            await self.handler.send_message(message)
         return
 
 class ContextUrlDecontextualizer(PrevQueryDecontextualizer):

@@ -66,6 +66,13 @@ class ConversationManager:
     """
     Orchestrates conversations between multiple participants.
     Handles message routing, sequencing, and delivery.
+    
+    This provides a clean interface for both HTTP and WebSocket implementations:
+    - process_message(): Main entry point for all messages
+    - add_participant(): Add participants to conversations
+    - remove_participant(): Remove participants from conversations
+    - get_conversation_mode(): Get current conversation mode
+    - get_input_timeout(): Get timeout based on mode
     """
     
     def __init__(self, config: Dict[str, Any]):
@@ -90,6 +97,9 @@ class ConversationManager:
         
         # Broadcast callback for mode changes
         self.broadcast_callback: Optional[Callable] = None
+        
+        # WebSocket manager (set by server)
+        self.websocket_manager = None
         
         # Lock for thread safety
         self._lock = asyncio.Lock()
@@ -188,6 +198,7 @@ class ConversationManager:
                 raise ValueError(f"Unknown conversation: {message.conversation_id}")
             
             conv_state = self._conversations[message.conversation_id]
+            logger.info(f"Processing message for conversation {message.conversation_id} with {conv_state.message_count} existing messages")
             
             # Check queue limit
             if conv_state.message_count >= self.queue_size_limit:
@@ -257,14 +268,15 @@ class ConversationManager:
             # Track metrics
             self.metrics.update_queue_depth(message.conversation_id, conv_state.message_count)
             
-            # Broadcast to WebSocket connections
+            # Broadcast to WebSocket connections (exclude sender to avoid echo)
             if self.websocket_manager:
                 await self.websocket_manager.broadcast_message(
                     message.conversation_id,
                     {
                         'type': 'message',
                         'message': sequenced_message.to_dict()
-                    }
+                    },
+                    exclude_user_id=message.sender_id
                 )
             
             return sequenced_message
@@ -298,13 +310,14 @@ class ConversationManager:
                     message.conversation_id,
                     limit=20
                 )
+                logger.info(f"ConversationManager retrieved {len(context)} messages from storage for context")
             except Exception as e:
                 logger.error(f"Failed to get context: {e}")
         
         # Deliver to all participants except sender
         for participant_id, participant in conv_state.participants.items():
             if participant_id != message.sender_id:
-                # Create delivery task
+                # Create delivery task for all non-sender participants
                 task = self._deliver_to_participant(
                     message,
                     participant,
@@ -313,6 +326,9 @@ class ConversationManager:
                     conv_state
                 )
                 delivery_tasks.append((participant_id, task))
+            elif require_ack:
+                # For sender, assume successful delivery
+                delivery_acks[participant_id] = True
         
         # Execute all deliveries concurrently
         if delivery_tasks:
@@ -362,20 +378,21 @@ class ConversationManager:
             if participant_info.participant_type == ParticipantType.AI:
                 conv_state.active_nlweb_jobs.add(f"{message.message_id}_{participant_id}")
                 logger.info(f"ConversationManager calling AI participant {participant_id} for message {message.message_id}")
-            else:
-                logger.info(f"ConversationManager calling human participant {participant_id} for message {message.message_id}")
-            
-            # Process message - pass websocket manager for streaming
-            response = await participant.process_message(message, context, self.websocket_manager)
-            
-            # If participant generated a response, process it
-            if response:
-                # Process the response as a new message
-                await self.process_message(response)
-            
-            # Remove from active jobs if AI
-            if participant_info.participant_type == ParticipantType.AI:
+                
+                # Process message - pass websocket manager for streaming
+                response = await participant.process_message(message, context, self.websocket_manager)
+                
+                # If participant generated a response, process it
+                if response:
+                    # Process the response as a new message
+                    await self.process_message(response)
+                
+                # Remove from active jobs
                 conv_state.active_nlweb_jobs.discard(f"{message.message_id}_{participant_id}")
+            else:
+                # For human participants, process_message returns None
+                # This is kept for consistency but does nothing
+                await participant.process_message(message, context, self.websocket_manager)
                 
         except Exception as e:
             logger.error(f"Failed to deliver to {participant_id}: {e}")
@@ -480,3 +497,56 @@ class ConversationManager:
         """Shutdown the conversation manager"""
         self._running = False
         # Clean up any resources if needed
+    
+    @staticmethod
+    def create_message(
+        conversation_id: str,
+        sender_id: str,
+        sender_name: str,
+        content: str,
+        sites: Optional[List[str]] = None,
+        mode: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> ChatMessage:
+        """
+        Create a chat message with consistent structure.
+        
+        This is the clean interface that both HTTP and WebSocket handlers should use
+        to create messages with proper metadata including sites and mode.
+        
+        Args:
+            conversation_id: The conversation ID
+            sender_id: ID of the sender
+            sender_name: Display name of the sender
+            content: Message content
+            sites: Optional list of sites for this message
+            mode: Optional mode (list, summarize, generate)
+            metadata: Optional additional metadata
+            
+        Returns:
+            ChatMessage with proper structure and metadata
+        """
+        import uuid
+        
+        # Build metadata
+        msg_metadata = metadata.copy() if metadata else {}
+        
+        # Add sites if provided
+        if sites:
+            msg_metadata['sites'] = sites
+            
+        # Add mode/generate_mode if provided
+        if mode:
+            msg_metadata['generate_mode'] = mode
+            
+        return ChatMessage(
+            message_id=f"msg_{uuid.uuid4().hex[:12]}",
+            conversation_id=conversation_id,
+            sequence_id=0,  # Will be assigned by process_message
+            sender_id=sender_id,
+            sender_name=sender_name,
+            content=content,
+            message_type=MessageType.TEXT,
+            timestamp=datetime.utcnow(),
+            metadata=msg_metadata
+        )
