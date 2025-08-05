@@ -89,7 +89,7 @@ storage_endpoints:
   elasticsearch:
     enabled: false
     type: elasticsearch
-     # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
+    # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
     url_env: ELASTICSEARCH_URL
     # Authentication credentials
     api_key_env: ELASTICSEARCH_API_KEY
