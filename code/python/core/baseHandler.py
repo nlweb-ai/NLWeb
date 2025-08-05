@@ -408,7 +408,8 @@ class NLWebHandler:
                 items = await search(
                     self.decontextualized_query, 
                     self.site,
-                    query_params=self.query_params
+                    query_params=self.query_params,
+                    handler=self
                 )
                 self.final_retrieved_items = items
                 logger.debug(f"Retrieved {len(items)} items from database")
