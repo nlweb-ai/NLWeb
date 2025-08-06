@@ -216,7 +216,7 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
         return web.json_response({
             'conversation_id': conversation_id,
             'title': title,
-            'created_at': conversation.created_at.isoformat(),
+            'created_at': conversation.created_at,  # Already in milliseconds
             'participants': [
                 {
                     'id': p.participant_id,
@@ -290,8 +290,8 @@ async def list_conversations_handler(request: web.Request) -> web.Response:
             formatted_conversations.append({
                 'conversation_id': conv.conversation_id,
                 'title': conv.metadata.get('title', 'Untitled Chat') if conv.metadata else 'Untitled Chat',
-                'created_at': conv.created_at.isoformat(),
-                'last_message_at': conv.updated_at.isoformat() if hasattr(conv, 'updated_at') and conv.updated_at else None,
+                'created_at': conv.created_at,  # Already in milliseconds
+                'last_message_at': conv.updated_at if hasattr(conv, 'updated_at') and conv.updated_at else None,
                 'participant_count': len(conv.active_participants),
                 'unread_count': 0  # TODO: Implement unread tracking
             })
@@ -402,7 +402,7 @@ async def get_conversation_handler(request: web.Request) -> web.Response:
                 'sequence_id': msg.sequence_id,
                 'sender_id': msg.sender_id,
                 'content': msg.content,
-                'timestamp': msg.timestamp.isoformat(),
+                'timestamp': msg.timestamp,  # Already in milliseconds
                 'type': msg.message_type.value,
                 'status': msg.status.value
             })
@@ -415,8 +415,8 @@ async def get_conversation_handler(request: web.Request) -> web.Response:
             'mode': conversation.metadata.get('mode', 'list') if conversation.metadata else 'list',
             'participants': participants,
             'messages': formatted_messages,
-            'created_at': conversation.created_at.isoformat(),
-            'updated_at': conversation.updated_at.isoformat() if hasattr(conversation, 'updated_at') else conversation.created_at.isoformat()
+            'created_at': conversation.created_at,  # Already in milliseconds
+            'updated_at': conversation.updated_at if hasattr(conversation, 'updated_at') else conversation.created_at
         }
         
         # Add additional metadata if present
@@ -615,14 +615,14 @@ async def join_conversation_handler(request: web.Request) -> web.Response:
                         'sequence_id': msg.sequence_id,
                         'sender_id': msg.sender_id,
                         'content': msg.content,
-                        'timestamp': msg.timestamp.isoformat(),
+                        'timestamp': msg.timestamp,  # Already in milliseconds
                         'type': msg.message_type.value,
                         'status': msg.status.value
                     }
                     for msg in messages
                 ],
-                'created_at': conversation.created_at.isoformat(),
-                'updated_at': conversation.updated_at.isoformat() if hasattr(conversation, 'updated_at') else None,
+                'created_at': conversation.created_at,  # Already in milliseconds
+                'updated_at': conversation.updated_at if hasattr(conversation, 'updated_at') else None,
                 'participant_count': len(conversation.active_participants),
                 'message_count': conversation.message_count
             }
@@ -754,7 +754,7 @@ async def leave_conversation_handler(request: web.Request) -> web.Response:
             # Optionally: Mark conversation as inactive in storage
             conversation.metadata = conversation.metadata or {}
             conversation.metadata['status'] = 'inactive'
-            conversation.metadata['ended_at'] = datetime.utcnow().isoformat()
+            conversation.metadata['ended_at'] = int(time.time() * 1000)  # Milliseconds
             await storage_client.update_conversation(conversation)
         
         # Return success response
@@ -915,7 +915,7 @@ async def join_via_share_link_handler(request: web.Request) -> web.Response:
                         'participantId': p.participant_id,
                         'displayName': p.name,
                         'type': p.participant_type.value,
-                        'joinedAt': p.joined_at.isoformat()
+                        'joinedAt': p.joined_at  # Already in milliseconds
                     }
                     for p in conversation.active_participants
                 ],
@@ -924,12 +924,12 @@ async def join_via_share_link_handler(request: web.Request) -> web.Response:
                         'id': msg.message_id,
                         'sender_id': msg.sender_id,
                         'content': msg.content,
-                        'timestamp': msg.timestamp.isoformat(),
+                        'timestamp': msg.timestamp,  # Already in milliseconds
                         'type': msg.message_type.value
                     }
                     for msg in messages
                 ],
-                'created_at': conversation.created_at.isoformat(),
+                'created_at': conversation.created_at,  # Already in milliseconds
                 'participant_count': len(conversation.active_participants),
                 'message_count': conversation.message_count
             }
