@@ -6,8 +6,8 @@ import asyncio
 import json
 import logging
 import time
+import uuid
 from abc import ABC, abstractmethod
-import time
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass
@@ -271,13 +271,6 @@ class NLWebParticipant(BaseParticipant):
                         logger.info(f"Storage client available: {storage_client is not None}")
                         
                         if storage_client:
-                            # Import required modules
-                            from chat.schemas import ChatMessage
-                            import json
-                            import time
-                            import uuid
-                            import asyncio
-                            
                             # Generate a unique message ID
                             message_id = f"msg_{uuid.uuid4().hex[:12]}"
                             
