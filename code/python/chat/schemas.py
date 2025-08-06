@@ -79,7 +79,7 @@ class ParticipantInfo:
     participant_id: str
     name: str
     participant_type: ParticipantType
-    joined_at: datetime
+    joined_at: int  # Unix timestamp in milliseconds
     
     def is_human(self) -> bool:
         """Check if participant is human"""
@@ -105,7 +105,7 @@ class ParticipantInfo:
             "participant_id": self.participant_id,
             "name": self.name,
             "participant_type": self.participant_type.value,
-            "joined_at": self.joined_at.isoformat()
+            "joined_at": self.joined_at  # Already in milliseconds
         }
 
 

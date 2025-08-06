@@ -5,6 +5,7 @@ import asyncio
 import logging
 import json
 import uuid
+import time
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
@@ -389,7 +390,7 @@ async def get_conversation_handler(request: web.Request) -> web.Response:
                 'participantId': p.participant_id,
                 'displayName': p.name,
                 'type': p.participant_type.value,
-                'joinedAt': p.joined_at.isoformat(),
+                'joinedAt': p.joined_at,  # Already in milliseconds
                 'isOnline': p.participant_id in online_participant_ids
             })
         
@@ -574,10 +575,10 @@ async def join_conversation_handler(request: web.Request) -> web.Response:
                 'id': participant_info.participant_id,
                 'name': participant_info.name,
                 'type': participant_info.participant_type.value,
-                'joined_at': participant_info.joined_at.isoformat()
+                'joined_at': participant_info.joined_at  # Already in milliseconds
             },
             'participant_count': len(conversation.active_participants),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': int(time.time() * 1000)
         }
         
         # Broadcast to all connections in the conversation
@@ -602,7 +603,7 @@ async def join_conversation_handler(request: web.Request) -> web.Response:
                         'participantId': p.participant_id,
                         'displayName': p.name,
                         'type': p.participant_type.value,
-                        'joinedAt': p.joined_at.isoformat(),
+                        'joinedAt': p.joined_at,  # Already in milliseconds
                         'isOnline': p.participant_id in [c.participant_id 
                                                         for c in ws_manager._connections.get(conversation_id, {}).values()]
                     }
@@ -742,7 +743,7 @@ async def leave_conversation_handler(request: web.Request) -> web.Response:
                     'type': leaving_participant.participant_type.value
                 },
                 'participant_count': remaining_participants,
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': int(time.time() * 1000)
             }
             
             # Broadcast to all remaining connections
@@ -887,10 +888,10 @@ async def join_via_share_link_handler(request: web.Request) -> web.Response:
                 'id': participant_info.participant_id,
                 'name': participant_info.name,
                 'type': participant_info.participant_type.value,
-                'joined_at': participant_info.joined_at.isoformat()
+                'joined_at': participant_info.joined_at  # Already in milliseconds
             },
             'participant_count': len(conversation.active_participants),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': int(time.time() * 1000)
         }
         
         await ws_manager.broadcast_to_conversation(conversation_id, participant_update)
@@ -1399,7 +1400,7 @@ async def chat_health_handler(request: web.Request) -> web.Response:
         # Collect health data
         health_data = {
             'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': int(time.time() * 1000),
             'connections': 0,
             'conversations': 0,
             'participants_by_conversation': {},
@@ -1466,5 +1467,5 @@ async def chat_health_handler(request: web.Request) -> web.Response:
         return web.json_response({
             'status': 'error',
             'error': str(e),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': int(time.time() * 1000)
         }, status=500)

@@ -7,6 +7,7 @@ import json
 import logging
 import time
 from abc import ABC, abstractmethod
+import time
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass
@@ -66,7 +67,7 @@ class HumanParticipant(BaseParticipant):
     def __init__(self, user_id: str, user_name: str):
         self.user_id = user_id
         self.user_name = user_name
-        self.joined_at = datetime.utcnow()
+        self.joined_at = int(time.time() * 1000)
     
     async def process_message(
         self, 
@@ -83,7 +84,7 @@ class HumanParticipant(BaseParticipant):
             participant_id=self.user_id,
             name=self.user_name,
             participant_type=ParticipantType.HUMAN,
-            joined_at=self.joined_at
+            joined_at=self.joined_at  # Already in milliseconds
         )
 
 
@@ -176,7 +177,7 @@ class NLWebParticipant(BaseParticipant):
         self.config = config
         self.storage_client = storage_client
         self.participant_id = "nlweb_1"
-        self.joined_at = datetime.utcnow()
+        self.joined_at = int(time.time() * 1000)
         
         print(f"[NLWebParticipant.__init__] Created with storage_client type: {type(storage_client)}")
         
@@ -367,5 +368,5 @@ class NLWebParticipant(BaseParticipant):
             participant_id=self.participant_id,
             name="NLWeb Assistant",
             participant_type=ParticipantType.AI,
-            joined_at=self.joined_at
+            joined_at=self.joined_at  # Already in milliseconds
         )

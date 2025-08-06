@@ -507,7 +507,7 @@ class ConversationManager:
                 "conversation_id": conversation_id,
                 "mode": new_mode.value,
                 "input_timeout": timeout,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": int(time.time() * 1000)
             }
             
             self.broadcast_callback(conversation_id, mode_change_msg)

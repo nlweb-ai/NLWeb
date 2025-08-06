@@ -512,7 +512,7 @@ class WebSocketManager:
             "participants": participants,
             "participant_count": participant_count,
             "conversation_id": conversation_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": int(time.time() * 1000)
         }
         
         # Broadcast to all connections
@@ -538,7 +538,7 @@ class WebSocketManager:
                 "participants": participants_data.get("participants", []),
                 "participant_count": participants_data.get("count", 0),
                 "conversation_id": conversation_id,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": int(time.time() * 1000)
             }
             
             print(f"Sending participant list with {len(participants_data.get('participants', []))} participants")
