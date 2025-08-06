@@ -995,6 +995,12 @@ export class UnifiedChatInterface {
     if (conversation) {
       if (conversation.site) {
         this.state.selectedSite = conversation.site;
+        
+        // Update the "Asking..." text in the header
+        const siteInfo = document.getElementById('chat-site-info');
+        if (siteInfo) {
+          siteInfo.textContent = `Asking ${conversation.site}`;
+        }
       }
       if (conversation.mode) {
         this.state.selectedMode = conversation.mode;
