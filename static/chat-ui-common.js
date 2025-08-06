@@ -272,6 +272,16 @@ export class ChatUICommon {
         }
         break;
         
+      case 'decontextualized_query':
+        // Display the decontextualized query if different from original
+        if (data.decontextualized_query && data.original_query && 
+            data.decontextualized_query !== data.original_query) {
+          const decontextMsg = `<div style="font-style: italic; color: #666; margin-bottom: 10px;">Query interpreted as: "${data.decontextualized_query}"</div>`;
+          messageContent = decontextMsg + messageContent;
+          bubble.innerHTML = messageContent + this.renderItems(allResults);
+        }
+        break;
+        
       case 'result_batch':
         if (data.results && Array.isArray(data.results)) {
           allResults = allResults.concat(data.results);
