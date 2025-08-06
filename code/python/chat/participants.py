@@ -258,56 +258,58 @@ class NLWebParticipant(BaseParticipant):
                 async def write_stream(self, data, end_response=False):
                     nonlocal response_sent
                     
-                    # Stream directly to WebSocket if we have a manager
+                    # Stream directly to WebSocket if we have a manager (async)
                     if websocket_manager:
                         response_sent = True
                         
-                        # Send the streaming data exactly as the client expects it
+                        # Send the streaming data asynchronously (non-blocking)
                         # The client expects data with message_type at the top level
-                        await websocket_manager.broadcast_message(conversation_id, data)
+                        asyncio.create_task(websocket_manager.broadcast_message(conversation_id, data))
                         
-                        # ALWAYS store every message to storage for persistence
+                        # ALWAYS store every message to storage for persistence (async)
                         logger.info(f"Attempting to store message with type: {data.get('message_type')}")
                         logger.info(f"Storage client available: {storage_client is not None}")
                         
                         if storage_client:
-                            try:
-                                # Import required modules
-                                from chat.schemas import ChatMessage
-                                import json
-                                import time
-                                import uuid
-                                
-                                # Generate a unique message ID
-                                message_id = f"msg_{uuid.uuid4().hex[:12]}"
-                                
-                                # Create a ChatMessage for storage
-                                storage_message = ChatMessage(
-                                    message_id=message_id,
-                                    conversation_id=conversation_id,
-                                    content=json.dumps(data),  # Store the full streaming data
-                                    message_type='assistant_stream',  # Mark as streaming data
-                                    timestamp=int(time.time() * 1000),
-                                    senderInfo={
-                                        'id': 'nlweb_assistant',
-                                        'name': 'NLWeb Assistant'
-                                    },
-                                    metadata={
-                                        'stream_type': data.get('message_type', 'unknown'),
-                                        'sites': query_params.get('sites', []),
-                                        'mode': query_params.get('mode', 'unknown')
-                                    }
-                                )
-                                
-                                # Store the message
-                                await storage_client.store_message(storage_message)
-                                logger.info(f"Successfully stored assistant_stream message of type: {data.get('message_type')}")
-                                print(f"[STORAGE] Stored assistant message: type={data.get('message_type')}, conversation={conversation_id}")
-                                
-                            except Exception as e:
-                                logger.error(f"Failed to store streaming message: {e}")
-                                import traceback
-                                logger.error(f"Traceback: {traceback.format_exc()}")
+                            # Import required modules
+                            from chat.schemas import ChatMessage
+                            import json
+                            import time
+                            import uuid
+                            import asyncio
+                            
+                            # Generate a unique message ID
+                            message_id = f"msg_{uuid.uuid4().hex[:12]}"
+                            
+                            # Create a ChatMessage for storage
+                            storage_message = ChatMessage(
+                                message_id=message_id,
+                                conversation_id=conversation_id,
+                                content=json.dumps(data),  # Store the full streaming data
+                                message_type='assistant_stream',  # Mark as streaming data
+                                timestamp=int(time.time() * 1000),
+                                senderInfo={
+                                    'id': 'nlweb_assistant',
+                                    'name': 'NLWeb Assistant'
+                                },
+                                metadata={
+                                    'stream_type': data.get('message_type', 'unknown'),
+                                    'sites': query_params.get('sites', []),
+                                    'mode': query_params.get('mode', 'unknown')
+                                }
+                            )
+                            
+                            # Store the message asynchronously (fire and forget)
+                            async def store_async():
+                                try:
+                                    await storage_client.store_message(storage_message)
+                                    logger.info(f"Successfully stored assistant_stream message of type: {data.get('message_type')}")
+                                    print(f"[STORAGE] Stored assistant message: type={data.get('message_type')}, conversation={conversation_id}")
+                                except Exception as e:
+                                    logger.error(f"Failed to store streaming message: {e}")
+                            
+                            # Create async task for storage (non-blocking)
+                            asyncio.create_task(store_async())
                         else:
                             logger.warning("Storage client is None - cannot store message!")
                             print(f"[STORAGE ERROR] Storage client is None for conversation {conversation_id}!")

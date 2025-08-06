@@ -267,29 +267,28 @@ class ConversationManager:
         # Message is already in unified format
         sequenced_message = message
         
-        print(f"[ConvMgr] Step 9: Message created, now delivering to participants...")
-        # Deliver to all participants immediately
-        delivery_acks = await self._deliver_to_participants(
+        print(f"[ConvMgr] Step 9: Immediately queue message for storage (async)...")
+        # Queue message for storage IMMEDIATELY (async, non-blocking)
+        # This ensures user message gets stored with its original timestamp
+        if self.storage:
+            print(f"[ConvMgr] Step 9a: Creating async persist task for user message...")
+            persist_task = asyncio.create_task(self._persist_message(sequenced_message))
+            self._persistence_tasks.add(persist_task)
+            persist_task.add_done_callback(lambda t: self._persistence_tasks.discard(t))
+            print(f"[ConvMgr] Step 9b: User message queued for storage (non-blocking)")
+        
+        print(f"[ConvMgr] Step 10: Creating async task for participant delivery...")
+        # Deliver to participants asynchronously (non-blocking)
+        delivery_task = asyncio.create_task(self._deliver_to_participants(
             sequenced_message,
             conv_state,
             require_ack
-        )
+        ))
         
-        print(f"[ConvMgr] Step 10: Delivery complete")
-        # Note: We're not tracking delivery acks in the simple message format
+        print(f"[ConvMgr] Step 11: Delivery task created (running async)")
+        # Note: We're not awaiting delivery - it happens asynchronously
         
-        print(f"[ConvMgr] Step 11: Message processed successfully")
-        
-        print(f"[ConvMgr] Step 12: Final message created, checking storage...")
-        # Trigger async persistence
-        if self.storage:
-            print(f"[ConvMgr] Step 13: Storage available, creating async persist task...")
-            task = asyncio.create_task(self._persist_message(sequenced_message))
-            self._persistence_tasks.add(task)
-            task.add_done_callback(lambda t: self._persistence_tasks.discard(t))
-            print(f"[ConvMgr] Step 13a: Persistence task created, currently {len(self._persistence_tasks)} tasks in flight")
-        else:
-            print(f"[ConvMgr] Step 13: WARNING: No storage backend available!")
+        print(f"[ConvMgr] Step 12: Message processing initiated successfully")
         
         print(f"[ConvMgr] Step 14: Updating conversation state...")
         # Update conversation state
@@ -299,17 +298,20 @@ class ConversationManager:
         # Track metrics
         self.metrics.update_queue_depth(message.conversation_id, conv_state.message_count)
         
-        print(f"[ConvMgr] Step 16: Checking WebSocket manager for broadcast...")
-        # Broadcast to WebSocket connections (exclude sender to avoid echo)
+        print(f"[ConvMgr] Step 16: Creating async task for WebSocket broadcast...")
+        # Broadcast to WebSocket connections asynchronously (non-blocking)
         if self.websocket_manager:
-            await self.websocket_manager.broadcast_message(
-                message.conversation_id,
-                {
-                    'type': 'message',
-                    'message': sequenced_message.to_dict()
-                },
-                exclude_user_id=message.senderInfo.get('id')
+            broadcast_task = asyncio.create_task(
+                self.websocket_manager.broadcast_message(
+                    message.conversation_id,
+                    {
+                        'type': 'message',
+                        'message': sequenced_message.to_dict()
+                    },
+                    exclude_user_id=message.senderInfo.get('id')
+                )
             )
+            print(f"[ConvMgr] Step 16a: WebSocket broadcast task created (running async)")
         
         print(f"[ConvMgr] Step 17: DONE! Returning sequenced message")
         return sequenced_message
