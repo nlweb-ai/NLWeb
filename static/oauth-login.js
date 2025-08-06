@@ -42,7 +42,6 @@ class OAuthManager {
                 this.config = {};
             }
         } catch (error) {
-            console.error('Error loading OAuth config:', error);
             this.config = {};
         }
     }
@@ -109,12 +108,10 @@ class OAuthManager {
         const authToken = localStorage.getItem('authToken');
         const userInfo = localStorage.getItem('userInfo');
         
-        console.log('Checking existing session:', { authToken: !!authToken, userInfo: !!userInfo });
         
         if (authToken && userInfo) {
             try {
                 const user = JSON.parse(userInfo);
-                console.log('Existing user session found:', user);
                 this.updateUIForLoggedInUser(user);
             } catch (error) {
                 console.error('Error parsing user info:', error);
@@ -271,7 +268,6 @@ class OAuthManager {
     }
     
     updateUIForLoggedInUser(user) {
-        console.log('Updating UI for logged in user:', user);
         
         // Update UI elements
         const loginBtn = document.getElementById('loginBtn');
@@ -279,12 +275,6 @@ class OAuthManager {
         const userName = document.getElementById('userName');
         const providerIcon = document.getElementById('providerIcon');
         
-        console.log('UI elements found:', {
-            loginBtn: !!loginBtn,
-            userInfo: !!userInfo,
-            userName: !!userName,
-            providerIcon: !!providerIcon
-        });
         
         if (loginBtn) loginBtn.style.display = 'none';
         if (userInfo) userInfo.style.display = 'flex';
@@ -293,7 +283,6 @@ class OAuthManager {
         // Set provider icon
         if (providerIcon && user.provider) {
             providerIcon.className = `provider-icon ${user.provider}`;
-            console.log('Set provider icon class:', providerIcon.className);
         }
         
         // Also set data-provider attribute on user-info for CSS

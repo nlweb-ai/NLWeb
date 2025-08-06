@@ -258,10 +258,6 @@ class WebSocketManager:
             message: Message to broadcast
             exclude_user_id: Optional user to exclude (usually the sender)
         """
-        print(f"\n=== BROADCAST MESSAGE ===")
-        print(f"Conversation ID: {conversation_id}")
-        print(f"Message type: {message.get('type', message.get('message_type', 'unknown'))}")
-        print(f"Exclude user: {exclude_user_id}")
         
         if conversation_id not in self._connections:
             print(f"WARNING: No connections found for conversation {conversation_id}")
@@ -269,24 +265,16 @@ class WebSocketManager:
         
         # Get all connections for conversation
         connections = self._connections[conversation_id]
-        print(f"Broadcasting to participants: {list(connections.keys())}")
         
         # Send to all participants except excluded
         tasks = []
         for user_id, connection in connections.items():
             if user_id != exclude_user_id:
-                print(f"  - Sending to {user_id}")
                 tasks.append(connection.send_message(message))
-            else:
-                print(f"  - Skipping {user_id} (excluded)")
         
         # Send all messages concurrently
         if tasks:
-            print(f"Sending message to {len(tasks)} participants...")
             await asyncio.gather(*tasks, return_exceptions=True)
-            print(f"Broadcast complete")
-        else:
-            print(f"No participants to send to")
     
     def get_connection_count(self, conversation_id: str) -> int:
         """Get number of active connections for a conversation"""

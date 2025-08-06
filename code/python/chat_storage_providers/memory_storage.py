@@ -3,19 +3,19 @@ In-memory storage implementation for chat system.
 Used for development and testing.
 """
 
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 import asyncio
-from datetime import datetime
-from collections import defaultdict
+import json
+from pathlib import Path
 
-from chat.schemas import ChatMessage, Conversation, QueueFullError, ParticipantInfo
-from chat.storage import ChatStorageInterface
+from chat.schemas import ChatMessage
+from chat.storage import SimpleChatStorageInterface
 
 
-class MemoryStorage(ChatStorageInterface):
+class MemoryStorage(SimpleChatStorageInterface):
     """
-    In-memory implementation of chat storage.
-    Thread-safe using asyncio locks.
+    Simple in-memory implementation of chat storage.
+    Stores messages in a list and persists to JSONL file.
     """
     
     def __init__(self, config: Dict):
@@ -25,60 +25,42 @@ class MemoryStorage(ChatStorageInterface):
         Args:
             config: Storage configuration
         """
+        print(f"\n=== MEMORY STORAGE INIT ===")
+        print(f"Config: {config}")
         self.config = config
-        self.queue_size_limit = config.get("queue_size_limit", 1000)
+        # Note: queue_size_limit not used in simple storage
+        
+        # Persistence configuration
+        self.persist_to_disk = config.get('persist_to_disk', True)
+        self.storage_path = Path(config.get('storage_path', 'data/chat_storage'))
         
         # Storage structures
-        self._messages: Dict[str, List[ChatMessage]] = defaultdict(list)
-        self._conversations: Dict[str, Conversation] = {}
-        self._sequence_counters: Dict[str, int] = defaultdict(int)
-        self._message_ids: Set[str] = set()  # For deduplication
+        self._messages: List[ChatMessage] = []
         
-        # Locks for thread safety
-        self._sequence_lock = asyncio.Lock()
-        self._storage_lock = asyncio.Lock()
+        # Load existing data from disk if available
+        if self.persist_to_disk:
+            # Create storage directory if it doesn't exist
+            print(f"Creating storage directory: {self.storage_path}")
+            self.storage_path.mkdir(parents=True, exist_ok=True)
+            print(f"Storage directory exists: {self.storage_path.exists()}")
+            # Load data synchronously during init
+            asyncio.create_task(self._load_from_disk())
     
     async def store_message(self, message: ChatMessage) -> None:
         """
-        Store a message with deduplication and queue limit checking.
+        Store a message - simply append to list and file.
         
         Args:
             message: The message to store
-            
-        Raises:
-            QueueFullError: If conversation queue is full
         """
-        async with self._storage_lock:
-            # Check for duplicate message ID
-            if message.message_id in self._message_ids:
-                return  # Already stored, skip
-            
-            # Check queue limit
-            conv_id = message.conversation_id
-            current_size = len(self._messages[conv_id])
-            
-            # Get conversation to check queue limit
-            conversation = self._conversations.get(conv_id)
-            if conversation:
-                limit = conversation.queue_size_limit
-            else:
-                limit = self.queue_size_limit
-            
-            if current_size >= limit:
-                raise QueueFullError(
-                    conversation_id=conv_id,
-                    queue_size=current_size,
-                    limit=limit
-                )
-            
-            # Store the message
-            self._messages[conv_id].append(message)
-            self._message_ids.add(message.message_id)
-            
-            # Update conversation message count
-            if conversation:
-                conversation.message_count = len(self._messages[conv_id])
-                conversation.updated_at = datetime.utcnow()
+        print(f"[STORAGE] Storing message {message.message_id}")
+        
+        # Append message
+        self._messages.append(message)
+        
+        # Append to disk immediately
+        if self.persist_to_disk:
+            await self._append_message_to_disk(message)
     
     async def get_conversation_messages(
         self, 
@@ -87,178 +69,94 @@ class MemoryStorage(ChatStorageInterface):
         after_sequence_id: Optional[int] = None
     ) -> List[ChatMessage]:
         """
-        Get messages for a conversation.
+        Get messages for a conversation - filter from the list.
         
         Args:
             conversation_id: The conversation ID
             limit: Maximum number of messages to return
-            after_sequence_id: Only return messages after this sequence ID
+            after_sequence_id: Ignored in simple implementation
             
         Returns:
-            List of messages ordered by sequence_id
+            List of messages in order they were added
         """
-        async with self._storage_lock:
-            messages = self._messages.get(conversation_id, [])
-            
-            # Filter by sequence ID if specified
-            if after_sequence_id is not None:
-                messages = [m for m in messages if m.sequence_id > after_sequence_id]
-            
-            # Sort by sequence ID
-            messages = sorted(messages, key=lambda m: m.sequence_id)
-            
-            # Apply limit
-            if len(messages) > limit:
-                messages = messages[-limit:]
-            
-            return messages
-    
-    async def get_next_sequence_id(self, conversation_id: str) -> int:
-        """
-        Get the next sequence ID for a conversation.
-        Atomic operation to handle concurrent requests.
+        # Filter messages for this conversation
+        conv_messages = [m for m in self._messages if m.conversation_id == conversation_id]
         
-        Args:
-            conversation_id: The conversation ID
-            
-        Returns:
-            The next sequence ID
-        """
-        async with self._sequence_lock:
-            # Increment and return
-            self._sequence_counters[conversation_id] += 1
-            return self._sequence_counters[conversation_id]
-    
-    async def update_conversation(self, conversation: Conversation) -> None:
-        """
-        Update conversation metadata.
+        # Apply limit (return most recent messages)
+        if len(conv_messages) > limit:
+            conv_messages = conv_messages[-limit:]
         
-        Args:
-            conversation: The conversation to update
-        """
-        async with self._storage_lock:
-            self._conversations[conversation.conversation_id] = conversation
-    
-    async def get_conversation(self, conversation_id: str) -> Optional[Conversation]:
-        """
-        Get conversation metadata.
-        
-        Args:
-            conversation_id: The conversation ID
-            
-        Returns:
-            The conversation or None if not found
-        """
-        async with self._storage_lock:
-            return self._conversations.get(conversation_id)
-    
-    async def create_conversation(self, conversation: Conversation) -> None:
-        """
-        Create a new conversation.
-        
-        Args:
-            conversation: The conversation to create
-        """
-        async with self._storage_lock:
-            self._conversations[conversation.conversation_id] = conversation
-    
-    async def is_participant(self, conversation_id: str, user_id: str) -> bool:
-        """
-        Check if user is participant in conversation.
-        
-        Args:
-            conversation_id: The conversation ID
-            user_id: The user ID to check
-            
-        Returns:
-            True if user is a participant, False otherwise
-        """
-        async with self._storage_lock:
-            conversation = self._conversations.get(conversation_id)
-            if not conversation:
-                return False
-            
-            return any(p.participant_id == user_id for p in conversation.active_participants)
-    
-    async def get_participant_count(self, conversation_id: str) -> int:
-        """
-        Get current participant count for a conversation.
-        
-        Args:
-            conversation_id: The conversation ID
-            
-        Returns:
-            Number of active participants
-        """
-        async with self._storage_lock:
-            conversation = self._conversations.get(conversation_id)
-            if not conversation:
-                return 0
-            
-            return len(conversation.active_participants)
-    
-    async def update_participants(
-        self, 
-        conversation_id: str, 
-        participants: Set['ParticipantInfo']
-    ) -> None:
-        """
-        Update participant list atomically.
-        
-        Args:
-            conversation_id: The conversation ID
-            participants: New set of participants
-        """
-        async with self._storage_lock:
-            conversation = self._conversations.get(conversation_id)
-            if conversation:
-                conversation.active_participants = participants
-                conversation.updated_at = datetime.utcnow()
-    
-    async def get_user_conversations(
-        self,
-        user_id: str,
-        limit: int = 20,
-        offset: int = 0
-    ) -> List[Conversation]:
-        """
-        Get conversations for a specific user.
-        
-        Args:
-            user_id: The user ID
-            limit: Maximum number of conversations to return
-            offset: Number of conversations to skip
-            
-        Returns:
-            List of conversations where user is a participant
-        """
-        async with self._storage_lock:
-            user_conversations = []
-            
-            for conversation in self._conversations.values():
-                # Check if user is a participant
-                if any(p.participant_id == user_id for p in conversation.active_participants):
-                    user_conversations.append(conversation)
-            
-            # Sort by updated_at or created_at (most recent first)
-            user_conversations.sort(
-                key=lambda c: getattr(c, 'updated_at', c.created_at),
-                reverse=True
-            )
-            
-            # Apply pagination
-            start = offset
-            end = offset + limit
-            
-            return user_conversations[start:end]
+        return conv_messages
     
     async def clear_all(self) -> None:
         """
         Clear all data from memory storage.
         Used for test cleanup.
         """
-        async with self._storage_lock:
-            self._messages.clear()
-            self._conversations.clear()
-            self._sequence_counters.clear()
-            self._message_ids.clear()
+        self._messages.clear()
+        
+        # Clear persisted data
+        if self.persist_to_disk:
+            msg_file = self.storage_path / 'messages.jsonl'
+            if msg_file.exists():
+                # Clear the file by opening in write mode
+                with open(msg_file, 'w') as f:
+                    pass  # Empty file
+    
+    async def _append_message_to_disk(self, message: ChatMessage) -> None:
+        """Append message to messages.jsonl file"""
+        try:
+            msg_file = self.storage_path / 'messages.jsonl'
+            
+            # Create message in browser format
+            browser_msg = {
+                "message_id": message.message_id,
+                "conversation_id": message.conversation_id,
+                "content": message.content,
+                "message_type": message.message_type,
+                "timestamp": message.timestamp,
+                "senderInfo": message.senderInfo
+            }
+            
+            # Append as a single line to JSONL file
+            with open(msg_file, 'a') as f:
+                f.write(json.dumps(browser_msg) + '\n')
+                
+        except Exception as e:
+            print(f"ERROR appending message to disk: {e}")
+    
+    async def _load_from_disk(self) -> None:
+        """Load persisted state from disk"""
+        if not self.persist_to_disk:
+            return
+            
+        print(f"\n=== LOADING FROM DISK ===")
+        print(f"Storage path: {self.storage_path}")
+        
+        try:
+            # Load messages from JSONL file
+            msg_file = self.storage_path / 'messages.jsonl'
+            if msg_file.exists():
+                self._messages = []
+                with open(msg_file, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line:  # Skip empty lines
+                            msg_data = json.loads(line)
+                            message = ChatMessage(
+                                message_id=msg_data.get('message_id'),
+                                conversation_id=msg_data.get('conversation_id'),
+                                content=msg_data['content'],
+                                message_type=msg_data.get('message_type', msg_data.get('type', 'user')),
+                                timestamp=msg_data['timestamp'],
+                                senderInfo=msg_data['senderInfo']
+                            )
+                            self._messages.append(message)
+                
+                print(f"Loaded {len(self._messages)} messages")
+            
+            print("Load complete")
+            
+        except Exception as e:
+            print(f"ERROR loading from disk: {e}")
+            # Don't fail if loading fails, just start fresh

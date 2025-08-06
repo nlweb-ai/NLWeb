@@ -8,15 +8,17 @@ import { TypeRendererFactory } from './type-renderers.js';
 import { RecipeRenderer } from './recipe-renderer.js';
 import { MapDisplay } from './display_map.js';
 import { ConversationManager } from './conversation-manager.js';
+import { ManagedEventSource } from './managed-event-source.js';
+import { ChatUICommon } from './chat-ui-common.js';
 
 class ModernChatInterface {
   constructor(options = {}) {
-    console.log('ModernChatInterface constructor called with options:', options);
     
     // Initialize properties
     this.conversationManager = new ConversationManager();
     this.currentConversationId = null;
-    this.eventSource = null;
+    this.websocket = null;
+    this.wsConversationId = null;
     this.isStreaming = false;
     this.currentStreamingMessage = null;
     this.prevQueries = [];  // Track previous queries
@@ -25,6 +27,9 @@ class ModernChatInterface {
     
     // Store options
     this.options = options;
+    
+    // Initialize UI common library
+    this.uiCommon = new ChatUICommon();
     
     // Initialize JSON renderer
     this.jsonRenderer = new JsonRenderer();
@@ -43,7 +48,8 @@ class ModernChatInterface {
       messagesContainer: document.getElementById('messages-container'),
       chatMessages: document.getElementById('chat-messages'),
       chatInput: document.getElementById('chat-input'),
-      sendButton: document.getElementById('send-button')
+      sendButton: document.getElementById('send-button'),
+      shareButton: document.getElementById('shareBtn')
     };
     
     // Debug mode state
@@ -59,18 +65,28 @@ class ModernChatInterface {
     this.selectedSite = this.options.site || 'all';
     this.selectedMode = this.options.mode || 'list'; // Default generate_mode
     
+    // Check for join parameter in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinConvId = urlParams.get('join');
+    
     // Load saved conversations from localStorage only
     this.conversationManager.loadLocalConversations(this.selectedSite);
     this.updateConversationsList();
     
     // After loading conversations, decide what to show
     if (!this.options.skipAutoInit) {
-      const conversations = this.conversationManager.getConversations();
-      console.log('Loaded conversations:', conversations.length);
-      
-      // Always show centered input for new page loads to match user expectation
-      console.log('Showing centered input for new page load');
-      this.showCenteredInput();
+      if (joinConvId) {
+        // Handle join link
+        this.handleJoinLink(joinConvId);
+      } else {
+        const conversations = this.conversationManager.getConversations();
+        console.log('Loaded conversations:', conversations.length);
+        console.log('Conversations:', conversations);
+        
+        // Always show centered input for new page loads to match user expectation
+        console.log('Showing centered input for new page load');
+        this.showCenteredInput();
+      }
     }
     
     // Load remembered items
@@ -135,6 +151,12 @@ class ModernChatInterface {
       }
     });
     
+    // Share button
+    const shareBtn = document.getElementById('shareBtn');
+    if (shareBtn) {
+      shareBtn.addEventListener('click', () => this.shareConversation());
+    }
+    
     // Auto-resize textarea
     this.elements.chatInput.addEventListener('input', () => {
       this.elements.chatInput.style.height = 'auto';
@@ -184,16 +206,76 @@ class ModernChatInterface {
     });
   }
   
-  createNewChat(existingInputElementId = null, site = null) {
-    // Create new conversation
-    // Create new conversation ID but don't add to conversations array yet
-    this.currentConversationId = Date.now().toString();
+  shareConversation() {
+    if (!this.currentConversationId) return;
+    
+    const shareUrl = `${window.location.origin}/chat/join/${this.currentConversationId}`;
+    
+    // Show the share link container
+    const shareLinkContainer = document.getElementById('shareLinkContainer');
+    const shareLinkInput = document.getElementById('shareLinkInput');
+    const copyShareLink = document.getElementById('copyShareLink');
+    
+    if (shareLinkContainer && shareLinkInput) {
+      shareLinkInput.value = shareUrl;
+      shareLinkContainer.style.display = 'block';
+      
+      // Add copy button functionality
+      if (copyShareLink) {
+        copyShareLink.onclick = () => {
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            const originalText = copyShareLink.textContent;
+            copyShareLink.textContent = 'Copied!';
+            setTimeout(() => {
+              copyShareLink.textContent = originalText;
+            }, 2000);
+          });
+        };
+      }
+      
+      // Also copy immediately on share button click
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        // Show success feedback
+        const shareBtn = document.getElementById('shareBtn');
+        if (shareBtn) {
+          const originalHTML = shareBtn.innerHTML;
+          shareBtn.innerHTML = '✓ Copied!';
+          shareBtn.style.color = 'var(--success-color)';
+          
+          setTimeout(() => {
+            shareBtn.innerHTML = originalHTML;
+            shareBtn.style.color = '';
+          }, 2000);
+        }
+      }).catch(err => {
+        console.error('Failed to copy share link:', err);
+      });
+    } else {
+      // Fallback if container not found
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        alert(`Share link copied: ${shareUrl}`);
+      }).catch(err => {
+        alert(`Share link: ${shareUrl}`);
+      });
+    }
+  }
+  
+  async createNewChat(existingInputElementId = null, site = null) {
+    // Clear current conversation IDs to force creation of new one
+    this.currentConversationId = null;
+    this.wsConversationId = null;
     
     // Clear UI
     this.elements.messagesContainer.innerHTML = '';
     this.elements.chatTitle.textContent = 'New chat';
     this.elements.chatInput.value = '';
     this.elements.chatInput.style.height = 'auto';
+    
+    // Hide share link container
+    const shareLinkContainer = document.getElementById('shareLinkContainer');
+    if (shareLinkContainer) {
+      shareLinkContainer.style.display = 'none';
+    }
     
     // Clear context arrays for new chat
     this.prevQueries = [];
@@ -255,61 +337,78 @@ class ModernChatInterface {
   }
   
   
-  sendMessage(messageText = null) {
+  async sendMessage(messageText = null) {
     const message = messageText || this.elements.chatInput.value.trim();
     if (!message || this.isStreaming) return;
     
-    // Add user message
-    this.addMessage(message, 'user');
+    // Get user info for sender attribution
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userId = userInfo.id || userInfo.email || this.getOrCreateAnonymousUserId();
+    const senderInfo = {
+      id: userId,
+      name: userInfo.name || userInfo.email || `Anonymous ${userId.slice(-4)}`
+    };
+    
+    // Store the pending message to add to conversation once created
+    this.pendingUserMessage = {
+      content: message,
+      message_type: 'user',
+      timestamp: Date.now(),
+      senderInfo: senderInfo
+    };
+    
+    // Add user message with sender info
+    this.addMessage(message, 'user', senderInfo);
     
     // Clear input
     this.elements.chatInput.value = '';
     this.elements.chatInput.style.height = 'auto';
     
-    // Get response
-    this.getStreamingResponse(message);
+    
+    // Get response via WebSocket
+    await this.sendViaWebSocket(message);
   }
   
-  addMessage(content, type) {
+  addMessage(content, type, senderInfo = null) {
     // Add to UI
-    this.addMessageToUI(content, type, true);
+    this.addMessageToUI(content, type, true, senderInfo);
     
-    // Find or create conversation
+    // Find conversation - don't create here, should be created by server
     let conversation = this.conversationManager.findConversation(this.currentConversationId);
     
-    // If conversation doesn't exist, create it now (this happens on first message)
-    if (!conversation) {
-      conversation = {
-        id: this.currentConversationId,
-        title: 'New chat',
-        messages: [],
+    // Only add to conversation if it exists
+    if (conversation) {
+      // Add message to conversation with sender info
+      conversation.messages.push({ 
+        message_id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        conversation_id: this.currentConversationId,
+        content, 
+        message_type: type, 
         timestamp: Date.now(),
-        site: this.selectedSite || 'all'
-      };
-      this.conversationManager.addConversation(conversation);
-    }
-    
-    // Add message to conversation
-    conversation.messages.push({ content, type, timestamp: Date.now() });
-    
-    // Update title from first user message
-    if (type === 'user' && (!conversation.title || conversation.title === 'New chat')) {
-      conversation.title = content.substring(0, 30) + (content.length > 30 ? '...' : '');
+        senderInfo: senderInfo 
+      });
       
-      // Only update UI element if it exists
-      if (this.elements.chatTitle) {
-        this.elements.chatTitle.textContent = conversation.title;
+      // Update conversation title from first user message
+      if (type === 'user' && (conversation.messages.length === 1 || conversation.title === 'New chat')) {
+        conversation.title = content.substring(0, 50) + (content.length > 50 ? '...' : '');
+        
+        // Update UI element if it exists
+        if (this.elements.chatTitle) {
+          this.elements.chatTitle.textContent = conversation.title;
+        }
+        
+        console.log('Set conversation title:', conversation.title, 'for conversation:', conversation.id);
       }
       
-      console.log('Set conversation title:', conversation.title, 'for conversation:', conversation.id);
+      // Update timestamp
+      conversation.timestamp = Date.now();
       
-      // Also update in conversationManager to ensure it's saved
-      this.conversationManager.updateConversation(conversation.id, { title: conversation.title });
+      // Save updated conversations
+      this.conversationManager.saveConversations();
+      
+      // Update UI to show the new conversation
+      this.updateConversationsList();
     }
-    
-    conversation.timestamp = Date.now();
-    this.conversationManager.saveConversations();
-    this.updateConversationsList();
     
     // When user sends a message, we'll add debug icon to the next assistant message
     if (type === 'user') {
@@ -317,7 +416,7 @@ class ModernChatInterface {
     }
   }
   
-  addMessageToUI(content, type, animate = true) {
+  addMessageToUI(content, type, animate = true, senderInfo = null) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}-message`;
     if (animate) {
@@ -348,6 +447,21 @@ class ModernChatInterface {
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
     
+    // Add sender name if provided (but not for current user)
+    if (senderInfo && senderInfo.name) {
+      // Check if this is the current user
+      const currentUserInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const currentUserId = currentUserInfo.id || currentUserInfo.email || this.getOrCreateAnonymousUserId();
+      
+      // Only show sender name for other users, not the current user
+      if (senderInfo.id !== currentUserId || type !== 'user') {
+        const senderDiv = document.createElement('div');
+        senderDiv.className = 'message-sender';
+        senderDiv.textContent = senderInfo.name;
+        contentDiv.appendChild(senderDiv);
+      }
+    }
+    
     const textDiv = document.createElement('div');
     textDiv.className = 'message-text';
     
@@ -371,7 +485,11 @@ class ModernChatInterface {
     messageLayout.appendChild(contentDiv);
     messageDiv.appendChild(messageLayout);
     
+    console.log('Appending message to container:', this.elements.messagesContainer);
+    console.log('Container ID:', this.elements.messagesContainer?.id);
+    console.log('Message being appended:', messageDiv);
     this.elements.messagesContainer.appendChild(messageDiv);
+    console.log('Container children count after append:', this.elements.messagesContainer?.children.length);
     
     if (animate) {
       // Trigger animation
@@ -394,6 +512,237 @@ class ModernChatInterface {
     return { messageDiv, textDiv };
   }
   
+  getOrCreateAnonymousUserId() {
+    // Check if user is authenticated
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const authToken = localStorage.getItem('authToken');
+    
+    if (authToken && userInfo.id) {
+      // User is authenticated, return their ID
+      return null;
+    }
+    
+    // Check for existing anonymous user ID
+    let anonUserId = sessionStorage.getItem('anonymousUserId');
+    if (!anonUserId) {
+      // Create new anonymous user ID
+      const randomId = Math.floor(Math.random() * 9000) + 1000;
+      anonUserId = `anon_${randomId}`;
+      sessionStorage.setItem('anonymousUserId', anonUserId);
+    }
+    
+    return anonUserId;
+  }
+  
+  async connectWebSocket(conversationId) {
+    console.log(`connectWebSocket called for conversation: ${conversationId}`);
+    
+    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+      if (this.wsConversationId === conversationId) {
+        console.log('Already connected to this conversation');
+        return; // Already connected to this conversation
+      }
+      console.log('Closing existing WebSocket connection');
+      this.websocket.close();
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    console.log(`WebSocket protocol: ${protocol}, host: ${host}`);
+    
+    // Build WebSocket URL with auth token or anonymous user ID
+    let wsUrl = `${protocol}//${host}/chat/ws/${conversationId}`;
+    const authToken = localStorage.getItem('authToken');
+    
+    if (authToken) {
+      // User is authenticated, pass auth token and user info
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      wsUrl += `?auth_token=${encodeURIComponent(authToken)}`;
+      
+      // Also pass user info for OAuth tokens that can't be decoded
+      if (userInfo.id) {
+        wsUrl += `&user_id=${encodeURIComponent(userInfo.id)}`;
+        wsUrl += `&user_name=${encodeURIComponent(userInfo.name || userInfo.email || 'User')}`;
+        wsUrl += `&provider=${encodeURIComponent(userInfo.provider || 'oauth')}`;
+      }
+    } else {
+      // Add anonymous user ID if not authenticated
+      const anonUserId = this.getOrCreateAnonymousUserId();
+      if (anonUserId) {
+        wsUrl += `?anon_user_id=${encodeURIComponent(anonUserId)}`;
+      }
+    }
+    
+    console.log(`Creating WebSocket connection to: ${wsUrl}`);
+    
+    this.websocket = new WebSocket(wsUrl);
+    this.wsConversationId = conversationId;
+    
+    return new Promise((resolve, reject) => {
+      this.websocket.onopen = () => {
+        console.log('WebSocket connected successfully to conversation:', conversationId);
+        resolve();
+      };
+      
+      this.websocket.onerror = (error) => {
+        console.error('WebSocket connection error:', error);
+        reject(error);
+      };
+      
+      this.websocket.onmessage = (event) => {
+        // Only log message type, not full data
+        try {
+          const msgData = JSON.parse(event.data);
+          console.log('WebSocket message received:', msgData.type || msgData.message_type || 'unknown type');
+        } catch (e) {
+          console.log('WebSocket message received: unparseable');
+        }
+        this.handleWebSocketMessage(event);
+      };
+      
+      this.websocket.onclose = () => {
+        console.log('WebSocket disconnected');
+        this.websocket = null;
+        this.wsConversationId = null;
+      };
+    });
+  }
+
+  async sendViaWebSocket(query) {
+    // Show loading state
+    this.isStreaming = true;
+    this.elements.sendButton.disabled = true;
+    
+    // Create conversation locally if we don't have one
+    if (!this.currentConversationId) {
+      // Get user info for conversation ID
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const userId = userInfo.id || userInfo.email || this.getOrCreateAnonymousUserId();
+      const userName = userInfo.name || userInfo.email || `Anonymous${userId.slice(-4)}`;
+      
+      // Create conversation ID with username and timestamp
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substr(2, 4);
+      this.currentConversationId = `conv_${userName.replace(/[^a-zA-Z0-9]/g, '')}_${timestamp}_${randomStr}`;
+      this.wsConversationId = this.currentConversationId;
+      console.log('Created conversation:', this.currentConversationId);
+        
+      // Create the conversation locally
+      const conversation = {
+        id: this.currentConversationId,
+        title: 'New chat',
+        messages: [],
+        timestamp: Date.now(),
+        created_at: new Date().toISOString(),
+        site: this.selectedSite || 'all',
+        mode: this.selectedMode || 'list'
+      };
+        
+      // Add the pending user message if exists
+      if (this.pendingUserMessage) {
+        // Add conversation_id to the message
+        this.pendingUserMessage.conversation_id = this.currentConversationId;
+        conversation.messages.push(this.pendingUserMessage);
+        // Update title from the user's message
+        conversation.title = this.pendingUserMessage.content.substring(0, 50) + 
+                           (this.pendingUserMessage.content.length > 50 ? '...' : '');
+        
+        // Update UI title
+        if (this.elements.chatTitle) {
+          this.elements.chatTitle.textContent = conversation.title;
+        }
+        
+        // Clear pending message
+        this.pendingUserMessage = null;
+      }
+      
+      // Add to conversation manager
+      this.conversationManager.addConversation(conversation);
+      this.conversationManager.saveConversations();
+      
+      // Update UI
+      console.log('Updating conversations list after creating conversation:', conversation.id, 'with', conversation.messages.length, 'messages');
+      this.updateConversationsList();
+    }
+    
+    // Connect to WebSocket if not connected
+    if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN || this.wsConversationId !== this.currentConversationId) {
+      try {
+        await this.connectWebSocket(this.currentConversationId);
+      } catch (error) {
+        console.error('Failed to connect WebSocket:', error);
+        // Fallback to HTTP streaming
+        console.log('Falling back to HTTP streaming');
+        this.getStreamingResponse(query);
+        return;
+      }
+    }
+    
+    // Add assistant message with loading dots
+    const loadingHtml = `
+      <div class="loading-dots">
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+      </div>
+    `;
+    
+    // AI sender info with site
+    const site = this.selectedSite || 'all';
+    const aiSenderInfo = {
+      id: 'nlweb_assistant',
+      name: `NLWeb ${site}`
+    };
+    
+    const { messageDiv, textDiv } = this.addMessageToUI({ html: loadingHtml }, 'assistant', true, aiSenderInfo);
+    
+    // Find the actual message-text div (not the loading dots container)
+    const actualTextDiv = messageDiv.querySelector('.message-text');
+    console.log('Created streaming message - textDiv:', textDiv, 'actualTextDiv:', actualTextDiv);
+    
+    this.currentStreamingMessage = { 
+      messageDiv, 
+      textDiv: actualTextDiv || textDiv, 
+      content: '', 
+      allResults: [],
+      resultElements: new Map()
+    };
+    
+    // Build message object
+    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+    const userId = userInfo.id || userInfo.email || 'anonymous';
+    
+    const message = {
+      type: 'message',
+      content: query,
+      participant: {
+        participant_id: userId,
+        display_name: userInfo.name || userInfo.email || 'Anonymous',
+        type: 'human'
+      },
+      sites: [this.selectedSite || 'all'],
+      mode: this.selectedMode || 'list',
+      metadata: {
+        generate_mode: this.selectedMode || 'list',
+        display_mode: 'full',
+        prev_queries: this.prevQueries.slice(0, 10),
+        last_answers: this.lastAnswers.slice(0, 20)
+      }
+    };
+    
+    // Add current query to prevQueries for next request
+    this.prevQueries.push(query);
+    if (this.prevQueries.length > 10) {
+      this.prevQueries = this.prevQueries.slice(-10);
+    }
+    
+    // Clear debug messages for new request
+    this.debugMessages = [];
+    
+    // Send message via WebSocket
+    this.websocket.send(JSON.stringify(message));
+  }
+  
   getStreamingResponse(query) {
     // Show loading state
     this.isStreaming = true;
@@ -408,46 +757,42 @@ class ModernChatInterface {
       </div>
     `;
     
-    const { messageDiv, textDiv } = this.addMessageToUI({ html: loadingHtml }, 'assistant');
-    this.currentStreamingMessage = { 
-      messageDiv, 
-      textDiv, 
-      content: '', 
-      allResults: [],
-      resultElements: new Map() // Map to store result element by item
+    // AI sender info with site
+    const site = this.selectedSite || 'all';
+    const aiSenderInfo = {
+      id: 'nlweb_assistant',
+      name: `NLWeb ${site}`
     };
     
-    // Build URL with parameters - using 'query' instead of 'question'
+    const { messageDiv, textDiv } = this.addMessageToUI({ html: loadingHtml }, 'assistant', true, aiSenderInfo);
+    
+    // Find the actual message-text div (not the loading dots container)
+    const actualTextDiv = messageDiv.querySelector('.message-text');
+    console.log('Created streaming message - textDiv:', textDiv, 'actualTextDiv:', actualTextDiv);
+    
+    this.currentStreamingMessage = { 
+      messageDiv, 
+      textDiv: actualTextDiv || textDiv, 
+      content: '', 
+      allResults: [],
+      resultElements: new Map()
+    };
+    
+    // Build URL with parameters
     const params = new URLSearchParams({
-      query: query,  // Changed from 'question' to 'query'
+      query: query,
       generate_mode: this.selectedMode || 'list',
       display_mode: 'full',
       site: this.selectedSite || 'all'
     });
     
-    // Add previous queries (not including current query)
-    if (this.prevQueries.length > 0) {
-      params.append('prev', JSON.stringify(this.prevQueries));
-    }
+    // Context is tracked server-side in conversation history
     
-    // Add current query to prevQueries NOW (before sending) for next request
-    // This ensures follow-up queries have the previous query
-    this.prevQueries.push(query);
-    if (this.prevQueries.length > 10) {
-      this.prevQueries = this.prevQueries.slice(-10);
-    }
-    
-    // Add last answers for context
-    if (this.lastAnswers.length > 0) {
-      params.append('last_ans', JSON.stringify(this.lastAnswers));
-    }
-    
-    // Add remembered items
     if (this.rememberedItems.length > 0) {
       params.append('item_to_remember', this.rememberedItems.join(', '));
     }
     
-    // Add authentication token and user ID if available
+    // Add auth info if available
     const authToken = localStorage.getItem('authToken');
     const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
     if (authToken) {
@@ -457,56 +802,456 @@ class ModernChatInterface {
       params.append('oauth_id', userInfo.id);
       params.append('user_id', userInfo.id);
     } else if (userInfo && userInfo.email) {
-      // Use email as user_id if id is not available
       params.append('oauth_id', userInfo.email);
       params.append('user_id', userInfo.email);
     }
     
-    // Add thread_id (current conversation ID)
     if (this.currentConversationId) {
       params.append('thread_id', this.currentConversationId);
     }
     
-    // Create event source with full URL
+    // Create event source using ManagedEventSource
     const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
     const url = `${baseUrl}/ask?${params.toString()}`;
     
+    // Use ManagedEventSource for proper message handling
+    this.eventSource = new ManagedEventSource(url);
     
-    // Use native EventSource directly
-    this.eventSource = new EventSource(url);
-    
-    let firstChunk = true;
-    let firstResultShown = false;
-    let messageContent = '';
-    let allResults = [];
-    
-    // Clear debug messages for new request
+    // Set up the chat interface context for ManagedEventSource
+    // ManagedEventSource expects certain properties and methods
+    this.dotsStillThere = true;
+    this.bubble = textDiv;
+    this.messagesArea = this.elements.messagesContainer;
+    this.currentItems = [];
+    this.thisRoundRemembered = null;
+    this.thisRoundDecontextQuery = null;
     this.debugMessages = [];
+    this.pendingResultBatches = [];
+    this.noResponse = true;
+    this.scrollDiv = messageDiv;
+    this.lastAnswers = this.lastAnswers || [];
+    this.num_results_sent = 0;
+    this.itemToRemember = [];
+    this.decontextualizedQuery = null;
     
-    this.eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
+    // Methods required by ManagedEventSource
+    this.handleFirstMessage = () => {
+      textDiv.innerHTML = '';
+      this.dotsStillThere = false;
+      this.currentStreamingMessage.started = true;
+    };
+    
+    this.createIntermediateMessageHtml = (message) => {
+      const div = document.createElement('div');
+      div.className = 'intermediate-message';
+      div.textContent = message;
+      return div;
+    };
+    
+    this.memoryMessage = (message, chatInterface) => {
+      const memDiv = this.createIntermediateMessageHtml(`Remembering: ${message}`);
+      memDiv.style.fontStyle = 'italic';
+      memDiv.style.color = '#666';
+      this.bubble.appendChild(memDiv);
+    };
+    
+    this.siteIsIrrelevantToQuery = (message, chatInterface) => {
+      const div = this.createIntermediateMessageHtml(message);
+      div.style.color = '#888';
+      this.bubble.appendChild(div);
+    };
+    
+    this.askUserMessage = (message, chatInterface) => {
+      const div = this.createIntermediateMessageHtml(message);
+      div.style.fontWeight = 'bold';
+      this.bubble.appendChild(div);
+    };
+    
+    this.itemDetailsMessage = (message, chatInterface) => {
+      const div = document.createElement('div');
+      div.className = 'item-details';
+      div.innerHTML = message;
+      this.bubble.appendChild(div);
+    };
+    
+    this.possiblyAnnotateUserQuery = (decontextQuery) => {
+      // Optional - can be implemented if needed
+    };
+    
+    this.createJsonItemHtml = (item) => {
+      return this.renderSingleResult(item);
+    };
+    
+    this.renderItems = (results) => {
+      const html = results.map(item => {
+        const elem = this.renderSingleResult(item);
+        return elem.outerHTML;
+      }).join('');
+      return html;
+    };
+    
+    this.resortResults = () => {
+      // Optional - can be implemented if needed for result sorting
+    };
+    
+    // Connect ManagedEventSource with this as the chat interface
+    this.eventSource.connect(this);
+  }
+  
+  handleWebSocketMessage(event) {
+    try {
+      const data = JSON.parse(event.data);
+      
+      // Handle different message types
+      if (data.type === 'connected') {
+        return;
+      }
+      
+      if (data.type === 'error') {
+        console.error('WebSocket error:', data.error);
+        this.endStreaming();
+        return;
+      }
+      
+      // Handle replay messages for new users
+      if (data.type === 'replay_start') {
+        console.log('[REPLAY] Starting replay for message:', data.message_id);
+        // Find the AI message div that was just created
+        const messages = this.elements.chatMessages.querySelectorAll('.assistant-message');
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          const textDiv = lastMessage.querySelector('.message-bubble');
+          if (textDiv) {
+            // Store original content and prepare for replay
+            const originalContent = textDiv.innerHTML;
+            textDiv.innerHTML = '';
+            
+            // Create a replay context similar to streaming
+            this.replayContext = {
+              messageDiv: lastMessage,
+              textDiv: textDiv,
+              content: '',
+              allResults: [],
+              resultElements: new Map(),
+              originalContent: originalContent,
+              messageId: data.message_id
+            };
+          }
+        }
+        return;
+      }
+      
+      if (data.type === 'replay_end') {
+        console.log('[REPLAY] Ending replay for message:', data.message_id);
+        // Clean up replay context
+        if (this.replayContext && this.replayContext.messageId === data.message_id) {
+          this.replayContext = null;
+        }
+        return;
+      }
+      
+      // Handle participant updates (both formats)
+      if (data.type === 'participant_update' || data.type === 'participant_joined' || data.type === 'participant_left') {
+        const action = data.action || (data.type === 'participant_joined' ? 'join' : 'leave');
+        let participantName = null;
         
-        // Always store debug messages for the current request
-        this.debugMessages.push({
-          type: data.message_type || 'unknown',
-          data: data,
-          timestamp: new Date().toISOString()
+        // Extract participant info from the nested participant object
+        if (data.participant) {
+          // Handle different field names
+          participantName = data.participant.displayName || data.participant.name;
+          const participantType = data.participant.type;
+          const participantId = data.participant.participantId || data.participant.id;
+          
+          // For AI participants, format the name appropriately
+          if (participantType === 'ai' || participantId?.startsWith('nlweb')) {
+            // Extract site information if available
+            const site = data.metadata?.site || data.site || 'Assistant';
+            participantName = `NLWeb ${site}`;
+          }
+        }
+        
+        // Fallback if no name provided
+        if (!participantName) {
+          // Use the participant ID to create a more specific name
+          const participantId = data.participant?.participantId || data.participant?.id || data.participant_id;
+          if (participantId && participantId.startsWith('anon_')) {
+            participantName = `Anonymous ${participantId.slice(-4)}`;
+          } else {
+            participantName = participantId || 'User';
+          }
+        }
+        
+        // Check if this is the current user
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const currentUserId = userInfo.id || userInfo.email || this.getOrCreateAnonymousUserId();
+        const participantId = data.participant?.participantId || data.participant?.id || data.participant_id;
+        
+        // Skip join/leave messages for the current user
+        if (participantId === currentUserId) {
+          console.log(`Skipping ${action} message for current user ${participantName}`);
+          return;
+        }
+        
+        if (action === 'join') {
+          console.log(`Showing join message for ${participantName}`);
+          this.addSystemMessage(`${participantName} has joined the conversation`);
+        } else if (action === 'leave') {
+          console.log(`Showing leave message for ${participantName}`);
+          this.addSystemMessage(`${participantName} has left the conversation`);
+        }
+        return;
+      }
+      
+      // Handle conversation history (new format for joining users)
+      if (data.type === 'conversation_history' && data.messages) {
+        console.log(`Received conversation history with ${data.messages.length} messages`);
+        
+        // Clear existing messages first
+        this.elements.chatMessages.innerHTML = '';
+        
+        // Process each message in order
+        data.messages.forEach((msg, index) => {
+          const senderInfo = msg.senderInfo || {
+            id: msg.type === 'user' ? 'user' : 'nlweb_1',
+            name: msg.type === 'user' ? 'User' : 'NLWeb Assistant'
+          };
+          
+          // Add message to UI without animation
+          if (msg.type === 'assistant' && msg.content && 
+              (msg.content.includes('<') || msg.content.includes('class='))) {
+            this.addMessageToUI({ html: msg.content }, msg.type, false, senderInfo);
+          } else {
+            this.addMessageToUI(msg.content, msg.type, false, senderInfo);
+          }
+          
+          // Update context for assistant messages
+          if (msg.type === 'assistant' && msg.parsedAnswers) {
+            this.lastAnswers.push(...msg.parsedAnswers);
+            // Keep only last 20 answers
+            if (this.lastAnswers.length > 20) {
+              this.lastAnswers = this.lastAnswers.slice(-20);
+            }
+          }
         });
         
-        if (firstChunk) {
-          // Clear loading dots
-          textDiv.innerHTML = '';
-          firstChunk = false;
+        // Scroll to bottom after loading history
+        setTimeout(() => this.scrollToBottom(), 100);
+        
+        return;
+      }
+      
+      // Handle messages (both historical and real-time from other participants)
+      if (data.type === 'message' && data.message) {
+        const msg = data.message;
+        console.log('Received message broadcast:', msg.message_id, msg.message_type);
+        
+        // Skip if this is our own message (should already be displayed)
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const currentUserId = userInfo.id || userInfo.email || this.getOrCreateAnonymousUserId();
+        if (msg.sender_id === currentUserId) {
+          console.log('Skipping own message from broadcast');
+          return;
         }
         
-        // Scroll to user message when first actual result appears
-        if (!firstResultShown && (data.message_type === 'fast_track' || 
-            (data.message_type === 'content' && data.content) || 
-            (data.items && data.items.length > 0))) {
-          firstResultShown = true;
-          this.scrollToUserMessage();
+        // Check if we're loading a conversation and this is a historical message we already have
+        const conversation = this.conversationManager.findConversation(this.currentConversationId);
+        if (conversation && conversation.messages) {
+          // Check if this message already exists (by checking content and timestamp)
+          const messageExists = conversation.messages.some(m => {
+            // Convert timestamps for comparison
+            const msgTimestamp = new Date(msg.timestamp).getTime();
+            const existingTimestamp = m.timestamp;
+            // Check if timestamps are within 1 second of each other and content matches
+            return Math.abs(msgTimestamp - existingTimestamp) < 1000 && 
+                   m.content === msg.content;
+          });
+          
+          if (messageExists) {
+            console.log('Skipping duplicate historical message');
+            return;
+          }
         }
+        
+        // Extract site for AI messages - handle both old and new message formats
+        const msgSenderId = msg.senderInfo?.id || msg.sender_id;
+        const msgSenderName = msg.senderInfo?.name || msg.sender_name;
+        
+        let displayName = msgSenderName;
+        if (msgSenderId && msgSenderId.startsWith('nlweb')) {
+          const site = msg.metadata?.site || this.selectedSite || 'all';
+          displayName = `NLWeb ${site}`;
+        } else if (!displayName) {
+          displayName = 'User';
+        }
+        
+        const senderInfo = {
+          id: msgSenderId || 'unknown',
+          name: displayName
+        };
+        const messageType = msg.message_type || (msgSenderId && msgSenderId.startsWith('nlweb') ? 'assistant' : 'user');
+        
+        // Check if this is a real-time message (has higher sequence_id than our last known)
+        const isRealTime = true; // For now, treat all incoming messages as real-time
+        
+        // For assistant messages with HTML content, pass as object
+        if (messageType === 'assistant' && msg.content && 
+            (msg.content.includes('<') || msg.content.includes('class='))) {
+          this.addMessageToUI({ html: msg.content }, messageType, isRealTime, senderInfo);
+        } else {
+          // Animate real-time messages, don't animate historical
+          this.addMessageToUI(msg.content, messageType, isRealTime, senderInfo);
+        }
+        
+        // Update conversation in memory (reuse the conversation variable from above)
+        if (conversation) {
+          conversation.messages.push({
+            message_id: msg.message_id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            conversation_id: this.currentConversationId,
+            content: msg.content,
+            message_type: messageType,
+            timestamp: new Date(msg.timestamp).getTime(),
+            senderInfo: senderInfo
+          });
+          this.conversationManager.saveConversations();
+        }
+        
+        return;
+      }
+      
+      // Handle streaming data (from both EventSource and WebSocket)
+      if (data.message_type) {
+        // Check if this is a replay message
+        if (data.is_replay && this.replayContext) {
+          console.log('[REPLAY] Processing streaming message:', data.message_type);
+          // Use replay context instead of current streaming context
+          const savedContext = this.currentStreamingMessage;
+          this.currentStreamingMessage = this.replayContext;
+          
+          // Process the streaming data
+          this.handleStreamingData(data);
+          
+          // Restore original context
+          this.currentStreamingMessage = savedContext;
+        } else if (!data.is_replay) {
+          // Regular live streaming
+          console.log('Processing live streaming message:', data.message_type, 'currentStreamingMessage exists:', !!this.currentStreamingMessage);
+          
+          // If no currentStreamingMessage exists, this is an AI response from another participant
+          // Create the UI elements for it
+          if (!this.currentStreamingMessage && data.message_type !== 'complete') {
+            console.log('Creating UI for AI response from WebSocket');
+            
+            // Create AI message UI
+            const loadingHtml = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+            const aiSenderInfo = {
+              id: 'nlweb_assistant',
+              name: 'NLWeb Assistant'
+            };
+            
+            const { messageDiv, textDiv } = this.addMessageToUI({ html: loadingHtml }, 'assistant', true, aiSenderInfo);
+            
+            // Find the actual message-text div (not the loading dots container)
+            const actualTextDiv = messageDiv.querySelector('.message-text');
+            
+            this.currentStreamingMessage = { 
+              messageDiv, 
+              textDiv: actualTextDiv || textDiv, 
+              content: '', 
+              allResults: [],
+              resultElements: new Map(),
+              fromWebSocket: true  // Mark as WebSocket origin
+            };
+          }
+          
+          if (data.message_type === 'result_batch' || data.message_type === 'item_details') {
+            console.log('Result data:', JSON.stringify(data).substring(0, 200));
+          }
+          
+          // Only process if we have a streaming context
+          if (this.currentStreamingMessage) {
+            this.handleStreamingData(data);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error);
+    }
+  }
+  
+  handleStreamingData(data) {
+    // Shared handler for both EventSource and WebSocket streaming data
+    if (!this.currentStreamingMessage) {
+      console.warn('handleStreamingData called but no currentStreamingMessage context!', data);
+      // Special case: handle 'complete' message even without context
+      if (data.message_type === 'complete') {
+        this.endStreaming();
+      }
+      return;
+    }
+    
+    const { textDiv } = this.currentStreamingMessage;
+    
+    // Clear loading dots on first real content
+    if (!this.currentStreamingMessage.started) {
+      console.log('Clearing loading dots - textDiv before:', textDiv.innerHTML);
+      textDiv.innerHTML = '';
+      this.currentStreamingMessage.started = true;
+      console.log('Loading dots cleared - textDiv after:', textDiv.innerHTML);
+    }
+    
+    // Store debug messages
+    this.debugMessages.push({
+      type: data.message_type || 'unknown',
+      data: data,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Use the common UI library to process the message
+    const context = {
+      messageContent: this.currentStreamingMessage.content || '',
+      allResults: this.currentStreamingMessage.allResults || []
+    };
+    
+    const result = this.uiCommon.processMessageByType(data, textDiv, context);
+    
+    // Update current streaming message
+    if (this.currentStreamingMessage) {
+      this.currentStreamingMessage.content = result.messageContent;
+      this.currentStreamingMessage.allResults = result.allResults;
+    }
+    
+    // Check if this is a completion message
+    if (data.message_type === 'complete') {
+      this.endStreaming();
+    }
+  }
+
+  
+  handleStreamingMessageWithResult(data, textDiv, messageContent, allResults) {
+    // Create a context object to pass by reference
+    const context = {
+      messageContent: messageContent,
+      allResults: allResults
+    };
+    
+    this.handleStreamingMessage(data, textDiv, context);
+    
+    return {
+      messageContent: context.messageContent,
+      allResults: context.allResults
+    };
+  }
+  
+  handleStreamingMessage(data, textDiv, context) {
+    let { messageContent, allResults } = context;
+    // Handle different message types
+        
+    // Scroll to user message when first actual result appears
+    if (data.message_type === 'fast_track' || 
+        (data.message_type === 'content' && data.content) || 
+        (data.items && data.items.length > 0)) {
+      this.scrollToUserMessage();
+    }
         
         // Always clear temp_intermediate divs when ANY new message arrives
         if (textDiv) {
@@ -517,11 +1262,41 @@ class ModernChatInterface {
         // Handle different message types
         if (data.message_type === 'summary' && data.message) {
           messageContent += data.message + '\n\n';
+          context.messageContent = messageContent;
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
         } else if (data.message_type === 'result_batch' && data.results) {
           // Accumulate all results instead of replacing
           allResults = allResults.concat(data.results);
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
+          context.allResults = allResults;
+          console.log(`Processing result_batch: ${data.results.length} new results, total: ${allResults.length}`);
+          const renderedHtml = this.renderItems(allResults);
+          console.log('Rendered HTML length:', renderedHtml.length);
+          console.log('textDiv exists:', !!textDiv);
+          console.log('messageContent:', messageContent);
+          textDiv.innerHTML = messageContent + renderedHtml;
+          console.log('After setting innerHTML, textDiv.innerHTML length:', textDiv.innerHTML.length);
+          console.log('textDiv parent:', textDiv.parentElement);
+          console.log('textDiv display style:', window.getComputedStyle(textDiv).display);
+          console.log('textDiv visibility:', window.getComputedStyle(textDiv).visibility);
+          console.log('textDiv opacity:', window.getComputedStyle(textDiv).opacity);
+          console.log('textDiv height:', textDiv.offsetHeight);
+          console.log('messageDiv classes:', this.currentStreamingMessage.messageDiv.className);
+          console.log('First 200 chars of innerHTML:', textDiv.innerHTML.substring(0, 200));
+          // Force display the element
+          textDiv.style.display = 'block';
+          textDiv.style.visibility = 'visible';
+          textDiv.style.opacity = '1';
+          console.log('After forcing display - height:', textDiv.offsetHeight);
+          // Check parent elements
+          const messageBubble = textDiv.closest('.message-bubble');
+          if (messageBubble) {
+            console.log('Message bubble found - display:', window.getComputedStyle(messageBubble).display);
+            messageBubble.style.display = 'block';
+          }
+          const messageDiv = textDiv.closest('.message');
+          if (messageDiv) {
+            console.log('Message div found - display:', window.getComputedStyle(messageDiv).display);
+          }
         } else if (data.message_type === 'intermediate_message') {
           // Handle intermediate messages with temp_intermediate class
           const tempContainer = document.createElement('div');
@@ -543,9 +1318,11 @@ class ModernChatInterface {
           textDiv.appendChild(tempContainer);
         } else if (data.message_type === 'ask_user' && data.message) {
           messageContent += data.message + '\n';
+          context.messageContent = messageContent;
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
         } else if (data.message_type === 'asking_sites' && data.message) {
           messageContent += `Searching: ${data.message}\n\n`;
+          context.messageContent = messageContent;
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
         } else if (data.message_type === 'decontextualized_query') {
           // Display the decontextualized query if different from original
@@ -553,10 +1330,12 @@ class ModernChatInterface {
               data.decontextualized_query !== data.original_query) {
             const decontextMsg = `<div style="font-style: italic; color: #666; margin-bottom: 10px;">Query interpreted as: "${data.decontextualized_query}"</div>`;
             messageContent = decontextMsg + messageContent;
+            context.messageContent = messageContent;
             textDiv.innerHTML = messageContent + this.renderItems(allResults);
           }
         } else if (data.message_type === 'item_details') {
           // Handle item_details message type
+          console.log('Processing item_details:', data);
           // Map details to description for proper rendering
           let description = data.details;
           
@@ -574,6 +1353,7 @@ class ModernChatInterface {
           
           // Add to results array
           allResults.push(mappedData);
+          context.allResults = allResults;
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
         } else if (data.message_type === 'ensemble_result') {
           // Handle ensemble result message type
@@ -585,6 +1365,7 @@ class ModernChatInterface {
           // Handle remember message
           const rememberMsg = `<div style="background-color: #e8f4f8; padding: 10px; border-radius: 6px; margin-bottom: 10px; color: #0066cc;">I will remember that</div>`;
           messageContent = rememberMsg + messageContent;
+          context.messageContent = messageContent;
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
           
           // Add to remembered items
@@ -595,6 +1376,7 @@ class ModernChatInterface {
               data.decontextualized_query !== query) {
             const decontextMsg = `<div style="font-style: italic; color: #666; margin-bottom: 10px;">Query interpreted as: "${data.decontextualized_query}"</div>`;
             messageContent = decontextMsg + messageContent;
+            context.messageContent = messageContent;
             textDiv.innerHTML = messageContent + this.renderItems(allResults);
           }
           
@@ -602,6 +1384,7 @@ class ModernChatInterface {
           if (data.item_to_remember) {
             const rememberMsg = `<div style="background-color: #e8f4f8; padding: 10px; border-radius: 6px; margin-bottom: 10px; color: #0066cc;">I will remember that: "${data.item_to_remember}"</div>`;
             messageContent = rememberMsg + messageContent;
+            context.messageContent = messageContent;
             textDiv.innerHTML = messageContent + this.renderItems(allResults);
             
             // Add to remembered items
@@ -609,7 +1392,22 @@ class ModernChatInterface {
           }
 
         } else if (data.message_type === 'api_key') {
-          // API key handling removed (Google Maps no longer used)
+          // Handle API key configuration EARLY to ensure it's available for maps
+          console.log('=== API KEY MESSAGE RECEIVED ===');
+          console.log('API key message:', data);
+          console.log('Before setting - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY);
+          if (data.key_name === 'google_maps' && data.key_value) {
+            // Store the Google Maps API key globally
+            window.GOOGLE_MAPS_API_KEY = data.key_value;
+            console.log('Google Maps API key set from server:', data.key_value.substring(0, 10) + '...');
+            console.log('After setting - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY.substring(0, 10) + '...');
+            // Verify it's actually set
+            console.log('Verification - window.GOOGLE_MAPS_API_KEY exists?', !!window.GOOGLE_MAPS_API_KEY);
+            console.log('Verification - typeof window.GOOGLE_MAPS_API_KEY:', typeof window.GOOGLE_MAPS_API_KEY);
+          } else {
+            console.log('API key message not for google_maps or no value');
+            console.log('key_name:', data.key_name, 'has value?', !!data.key_value);
+          }
           
         } else if (data.message_type === 'nlws') {
           // Handle NLWS message type (Natural Language Web Search synthesized response)
@@ -617,11 +1415,13 @@ class ModernChatInterface {
           // Update the answer if provided
           if (data.answer && typeof data.answer === 'string') {
             messageContent = data.answer + '\n\n';
+            context.messageContent = messageContent;
           }
           
           // Update the items if provided
           if (data.items && Array.isArray(data.items)) {
             allResults = data.items;
+            context.allResults = allResults;
           }
           
           // Always update the display with current answer and items
@@ -729,321 +1529,33 @@ class ModernChatInterface {
           this.currentStreamingMessage.content = messageContent;
           this.currentStreamingMessage.allResults = allResults;
         }
-      } catch (e) {
-        console.error('Error parsing streaming data:', e);
-      }
-    };
-    
-    this.eventSource.onerror = (error) => {
-      console.error('Streaming error:', error);
-      this.endStreaming();
-      
-      if (firstChunk) {
-        textDiv.innerHTML = 'Sorry, an error occurred while processing your request.';
-      }
-    };
-    
-    this.eventSource.onopen = () => {
-      console.log('EventSource connection opened');
-    };
-    
-    // prevQueries already updated above before sending the request
   }
   
-  handleStreamingData(data) {
-    const textDiv = this.currentStreamingMessage.textDiv;
-    
-    if (data.type === 'content') {
-      // Append content
-      this.currentStreamingMessage.content += data.text || '';
-      textDiv.textContent = this.currentStreamingMessage.content;
-    } else if (data.type === 'items') {
-      // Handle search results
-      if (data.items && data.items.length > 0) {
-        const itemsHtml = this.renderItems(data.items);
-        textDiv.innerHTML = this.currentStreamingMessage.content + itemsHtml;
-      }
-    } else if (data.type === 'complete') {
-      // Stream complete
-      this.endStreaming();
+  handleNLWSMessage(nlwsData, textDiv, messageContent, allResults) {
+    // Handle NLWS formatted messages
+    if (nlwsData.answer && typeof nlwsData.answer === 'string') {
+      messageContent = nlwsData.answer + '\n\n';
     }
+    
+    if (nlwsData.items && Array.isArray(nlwsData.items)) {
+      allResults = nlwsData.items;
+    }
+    
+    textDiv.innerHTML = messageContent + this.renderItems(allResults);
+    
+    // Update streaming message state
+    this.currentStreamingMessage.content = messageContent;
+    this.currentStreamingMessage.allResults = allResults;
   }
   
   renderItems(items) {
-    if (!items || items.length === 0) return '';
-    
-    // Sort items by score in descending order
-    const sortedItems = [...items].sort((a, b) => {
-      const scoreA = a.score || 0;
-      const scoreB = b.score || 0;
-      return scoreB - scoreA;
-    });
-    
-    // Create a container for all results
-    const resultsContainer = document.createElement('div');
-    resultsContainer.className = 'search-results';
-    
-    sortedItems.forEach(item => {
-      // Use JsonRenderer to create the item HTML
-      const itemElement = this.jsonRenderer.createJsonItemHtml(item);
-      
-      // No inline styles - let CSS handle all styling
-      
-      resultsContainer.appendChild(itemElement);
-    });
-    
-    // Return the outer HTML of the container
-    return resultsContainer.outerHTML;
+    // Delegate to the common UI library
+    return this.uiCommon.renderItems(items);
   }
   
   renderEnsembleResult(result) {
-    const recommendations = result.recommendations;
-    if (!recommendations) return '';
-    
-    // Create ensemble result container
-    const container = document.createElement('div');
-    container.className = 'ensemble-result-container';
-    container.style.cssText = 'background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 10px 0;';
-    
-    // Add theme header
-    if (recommendations.theme) {
-      const themeHeader = document.createElement('h3');
-      themeHeader.textContent = recommendations.theme;
-      themeHeader.style.cssText = 'color: #333; margin-bottom: 20px; font-size: 1.2em;';
-      container.appendChild(themeHeader);
-    }
-    
-    // Add items
-    if (recommendations.items && Array.isArray(recommendations.items)) {
-      const itemsContainer = document.createElement('div');
-      itemsContainer.style.cssText = 'display: grid; gap: 15px;';
-      
-      recommendations.items.forEach(item => {
-        const itemCard = this.createEnsembleItemCard(item);
-        itemsContainer.appendChild(itemCard);
-      });
-      
-      container.appendChild(itemsContainer);
-    }
-    
-    // Add overall tips
-    if (recommendations.overall_tips && Array.isArray(recommendations.overall_tips)) {
-      const tipsSection = document.createElement('div');
-      tipsSection.style.cssText = 'margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;';
-      
-      const tipsHeader = document.createElement('h4');
-      tipsHeader.textContent = 'Planning Tips';
-      tipsHeader.style.cssText = 'color: #555; margin-bottom: 10px; font-size: 1.1em;';
-      tipsSection.appendChild(tipsHeader);
-      
-      const tipsList = document.createElement('ul');
-      tipsList.style.cssText = 'margin: 0; padding-left: 20px;';
-      
-      recommendations.overall_tips.forEach(tip => {
-        const tipItem = document.createElement('li');
-        tipItem.textContent = tip;
-        tipItem.style.cssText = 'color: #666; margin-bottom: 5px;';
-        tipsList.appendChild(tipItem);
-      });
-      
-      tipsSection.appendChild(tipsList);
-      container.appendChild(tipsSection);
-    }
-    
-    return container.outerHTML;
-  }
-  
-  createEnsembleItemCard(item) {
-    const card = document.createElement('div');
-    card.style.cssText = 'background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
-    
-    // Create a flex container for content and image
-    const flexContainer = document.createElement('div');
-    flexContainer.style.cssText = 'display: flex; gap: 15px; align-items: center;';
-    
-    // Content container (goes first, on the left)
-    const contentContainer = document.createElement('div');
-    contentContainer.style.cssText = 'flex-grow: 1;';
-    
-    // Category badge
-    const categoryBadge = document.createElement('span');
-    categoryBadge.textContent = item.category;
-    categoryBadge.style.cssText = `
-      display: inline-block;
-      padding: 4px 12px;
-      background-color: ${item.category === 'Garden' ? '#28a745' : '#007bff'};
-      color: white;
-      border-radius: 20px;
-      font-size: 0.85em;
-      margin-bottom: 10px;
-    `;
-    contentContainer.appendChild(categoryBadge);
-    
-    // Name with hyperlink
-    const nameContainer = document.createElement('h4');
-    nameContainer.style.cssText = 'margin: 10px 0;';
-    
-    // Get URL from item or schema_object
-    const itemUrl = item.url || (item.schema_object && item.schema_object.url);
-    
-    if (itemUrl) {
-      const nameLink = document.createElement('a');
-      nameLink.href = itemUrl;
-      nameLink.textContent = item.name;
-      nameLink.target = '_blank';
-      nameLink.style.cssText = 'color: #0066cc; text-decoration: none; font-weight: bold;';
-      nameLink.onmouseover = function() { this.style.textDecoration = 'underline'; };
-      nameLink.onmouseout = function() { this.style.textDecoration = 'none'; };
-      nameContainer.appendChild(nameLink);
-    } else {
-      nameContainer.textContent = item.name;
-      nameContainer.style.color = '#333';
-    }
-    
-    contentContainer.appendChild(nameContainer);
-    
-    // Description
-    const description = document.createElement('p');
-    description.textContent = item.description;
-    description.style.cssText = 'color: #666; margin: 10px 0; line-height: 1.5;';
-    contentContainer.appendChild(description);
-    
-    // Why recommended
-    const whySection = document.createElement('div');
-    whySection.style.cssText = 'background-color: #e8f4f8; padding: 10px; border-radius: 4px; margin: 10px 0;';
-    
-    const whyLabel = document.createElement('strong');
-    whyLabel.textContent = 'Why recommended: ';
-    whyLabel.style.cssText = 'color: #0066cc;';
-    
-    const whyText = document.createElement('span');
-    whyText.textContent = item.why_recommended;
-    whyText.style.cssText = 'color: #555;';
-    
-    whySection.appendChild(whyLabel);
-    whySection.appendChild(whyText);
-    contentContainer.appendChild(whySection);
-    
-    // Details
-    if (item.details && Object.keys(item.details).length > 0) {
-      const detailsSection = document.createElement('div');
-      detailsSection.style.cssText = 'margin-top: 10px; font-size: 0.9em;';
-      
-      Object.entries(item.details).forEach(([key, value]) => {
-        const detailLine = document.createElement('div');
-        detailLine.style.cssText = 'color: #777; margin: 3px 0;';
-        
-        const detailKey = document.createElement('strong');
-        detailKey.textContent = `${key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}: `;
-        detailKey.style.cssText = 'color: #555;';
-        
-        const detailValue = document.createElement('span');
-        detailValue.textContent = value;
-        
-        detailLine.appendChild(detailKey);
-        detailLine.appendChild(detailValue);
-        detailsSection.appendChild(detailLine);
-      });
-      
-      contentContainer.appendChild(detailsSection);
-    }
-    
-    // Additional info from schema_object
-    if (item.schema_object) {
-      // Price
-      if (item.schema_object.price || (item.schema_object.offers && item.schema_object.offers.price)) {
-        const priceDiv = document.createElement('div');
-        priceDiv.style.cssText = 'margin-top: 10px; font-weight: bold; color: #28a745;';
-        const price = item.schema_object.price || item.schema_object.offers.price;
-        priceDiv.textContent = `Price: ${typeof price === 'object' ? price.value : price}`;
-        contentContainer.appendChild(priceDiv);
-      }
-      
-      // Rating
-      if (item.schema_object.aggregateRating) {
-        const rating = item.schema_object.aggregateRating;
-        const ratingValue = rating.ratingValue || rating.value;
-        const reviewCount = rating.reviewCount || rating.ratingCount || rating.count;
-        
-        if (ratingValue) {
-          const ratingDiv = document.createElement('div');
-          ratingDiv.style.cssText = 'margin-top: 5px; color: #f39c12;';
-          const stars = '★'.repeat(Math.round(ratingValue));
-          const reviewText = reviewCount ? ` (${reviewCount} reviews)` : '';
-          ratingDiv.innerHTML = `Rating: ${stars} ${ratingValue}/5${reviewText}`;
-          contentContainer.appendChild(ratingDiv);
-        }
-      }
-    }
-    
-    // Append content container to flex container
-    flexContainer.appendChild(contentContainer);
-    
-    // Add image from schema_object if available (on the right side)
-    if (item.schema_object) {
-      const imageUrl = this.extractImageUrl(item.schema_object);
-      
-      if (imageUrl) {
-        const imageContainer = document.createElement('div');
-        imageContainer.style.cssText = 'flex-shrink: 0; display: flex; align-items: center;';
-        
-        const image = document.createElement('img');
-        image.src = imageUrl;
-        image.alt = item.name;
-        image.style.cssText = 'width: 120px; height: 120px; object-fit: cover; border-radius: 6px;';
-        imageContainer.appendChild(image);
-        flexContainer.appendChild(imageContainer);
-      }
-    }
-    
-    // Append flex container to card
-    card.appendChild(flexContainer);
-    
-    return card;
-  }
-  
-  extractImageUrl(schema_object) {
-    if (!schema_object) return null;
-    
-    // Check various possible image fields
-    if (schema_object.image) {
-      return this.extractImageUrlFromField(schema_object.image);
-    } else if (schema_object.images && Array.isArray(schema_object.images) && schema_object.images.length > 0) {
-      return this.extractImageUrlFromField(schema_object.images[0]);
-    } else if (schema_object.thumbnailUrl) {
-      return this.extractImageUrlFromField(schema_object.thumbnailUrl);
-    } else if (schema_object.thumbnail) {
-      return this.extractImageUrlFromField(schema_object.thumbnail);
-    }
-    
-    return null;
-  }
-  
-  extractImageUrlFromField(imageField) {
-    // Handle string URLs
-    if (typeof imageField === 'string') {
-      return imageField;
-    }
-    
-    // Handle object with url property
-    if (typeof imageField === 'object' && imageField !== null) {
-      if (imageField.url) {
-        return imageField.url;
-      }
-      if (imageField.contentUrl) {
-        return imageField.contentUrl;
-      }
-      if (imageField['@id']) {
-        return imageField['@id'];
-      }
-    }
-    
-    // Handle array of images
-    if (Array.isArray(imageField) && imageField.length > 0) {
-      return this.extractImageUrlFromField(imageField[0]);
-    }
-    
-    return null;
+    // Delegate to the common UI library
+    return this.uiCommon.renderEnsembleResult(result);
   }
   
   endStreaming() {
@@ -1084,112 +1596,89 @@ class ModernChatInterface {
           lastMessage.content = finalContent;
           lastMessage.parsedAnswers = parsedAnswers;
         } else {
+          // AI sender info with site
+          const site = this.selectedSite || 'all';
+          const aiSenderInfo = {
+            id: 'nlweb_assistant',
+            name: `NLWeb ${site}`
+          };
           conversation.messages.push({ 
+            message_id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            conversation_id: this.currentConversationId,
             content: finalContent, 
-            type: 'assistant', 
+            message_type: 'assistant', 
             timestamp: Date.now(),
-            parsedAnswers: parsedAnswers
+            parsedAnswers: parsedAnswers,
+            senderInfo: aiSenderInfo
           });
         }
         this.conversationManager.saveConversations();
+        // Update UI to reflect the AI response
+        this.updateConversationsList();
       }
     }
     
     this.currentStreamingMessage = null;
   }
-  
-  renderEnsembleResult(result) {
-    if (!result || !result.recommendations) return '';
-    
-    const recommendations = result.recommendations;
-    
-    // Create ensemble result container
-    const container = document.createElement('div');
-    container.className = 'ensemble-result-container';
-    container.style.cssText = 'background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 16px 0;';
-    
-    // Add theme header
-    if (recommendations.theme) {
-      const themeHeader = document.createElement('h3');
-      themeHeader.textContent = recommendations.theme;
-      themeHeader.style.cssText = 'color: #333; margin-bottom: 20px; font-size: 1.2em;';
-      container.appendChild(themeHeader);
-    }
-    
-    // Add items
-    if (recommendations.items && Array.isArray(recommendations.items)) {
-      const itemsContainer = document.createElement('div');
-      itemsContainer.style.cssText = 'display: grid; gap: 15px;';
-      
-      recommendations.items.forEach(item => {
-        const itemCard = this.createEnsembleItemCard(item);
-        itemsContainer.appendChild(itemCard);
-      });
-      
-      container.appendChild(itemsContainer);
-    }
-    
-    // Add overall tips
-    if (recommendations.overall_tips && Array.isArray(recommendations.overall_tips)) {
-      const tipsSection = document.createElement('div');
-      tipsSection.style.cssText = 'margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;';
-      
-      const tipsHeader = document.createElement('h4');
-      tipsHeader.textContent = 'Planning Tips';
-      tipsHeader.style.cssText = 'color: #555; margin-bottom: 10px; font-size: 1.1em;';
-      tipsSection.appendChild(tipsHeader);
-      
-      const tipsList = document.createElement('ul');
-      tipsList.style.cssText = 'margin: 0; padding-left: 20px;';
-      
-      recommendations.overall_tips.forEach(tip => {
-        const tipItem = document.createElement('li');
-        tipItem.textContent = tip;
-        tipItem.style.cssText = 'color: #666; margin-bottom: 5px;';
-        tipsList.appendChild(tipItem);
-      });
-      
-      tipsSection.appendChild(tipsList);
-      container.appendChild(tipsSection);
-    }
-    
-    return container.outerHTML;
+
+  /**
+   * Updates the list of conversations displayed in the UI.
+   * 
+   * @param {HTMLElement|null} container - The container element where the conversations list will be rendered.
+   *                                       If null, defaults to `this.elements.conversationsList`.
+   */
+  updateConversationsList(container = null) {
+    this.conversationManager.updateConversationsList(this, container);
+  }
+
+  deleteConversation(conversationId) {
+    this.conversationManager.deleteConversation(conversationId, this);
   }
   
-  createEnsembleItemCard(item) {
-    const card = document.createElement('div');
-    card.style.cssText = 'background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
-    
-    // Create a flex container for content and image
-    const flexContainer = document.createElement('div');
-    flexContainer.style.cssText = 'display: flex; gap: 15px; align-items: center;';
-    
-    // Content container (goes first, on the left)
-    const contentContainer = document.createElement('div');
-    contentContainer.style.cssText = 'flex-grow: 1;';
-    
-    // Category badge
-    if (item.category) {
-      const categoryBadge = document.createElement('span');
-      categoryBadge.textContent = item.category;
-      categoryBadge.style.cssText = `
-        display: inline-block;
-        padding: 4px 12px;
-        background-color: ${item.category === 'Garden' ? '#28a745' : '#007bff'};
-        color: white;
-        border-radius: 20px;
-        font-size: 0.85em;
-        margin-bottom: 10px;
-      `;
-      contentContainer.appendChild(categoryBadge);
+  scrollToBottom() {
+    this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+  }
+
+  scrollToUserMessage() {
+    // Find the last user message
+    const userMessages = this.elements.messagesContainer.querySelectorAll('.user-message');
+    if (userMessages.length > 0) {
+      const lastUserMessage = userMessages[userMessages.length - 1];
+      
+      // Always scroll to put the user message at the top of the viewport
+      // This ensures consistent positioning for follow-up queries
+      lastUserMessage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // Add a small offset from the top (e.g., 20px padding)
+      setTimeout(() => {
+        this.elements.chatMessages.scrollTop -= 20;
+      }, 100);
     }
-    
-    // Name with hyperlink
-    const nameContainer = document.createElement('h4');
-    nameContainer.style.cssText = 'margin: 10px 0;';
-    
-    // Get URL from item or schema_object
-    const itemUrl = item.url || (item.schema_object && item.schema_object.url);
+  }
+  
+  showCenteredInput() {
+    // This method should delegate to UI common library
+    // TODO: Move DOM manipulation to chat-ui-common.js
+    console.log('showCenteredInput - should be handled by UI common library');
+  }
+  
+  hideCenteredInput() {
+    // This method should delegate to UI common library
+    // TODO: Move DOM manipulation to chat-ui-common.js
+    console.log('hideCenteredInput - should be handled by UI common library');
+  }
+  
+  sendFromCenteredInput() {
+    // This method should delegate to UI common library  
+    // TODO: Move DOM manipulation to chat-ui-common.js
+    console.log('sendFromCenteredInput - should be handled by UI common library');
+  }
+  
+  async handleJoinLink(conversationId) {
+    try {
+      // Get user info
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const authToken = localStorage.getItem('authToken');
     
     if (itemUrl) {
       const nameLink = document.createElement('a');
@@ -1311,8 +1800,6 @@ class ModernChatInterface {
     return card;
   }
   
-  extractImageUrl(schema_object) {
-    if (!schema_object) return null;
     
     // Check various possible image fields
     if (schema_object.image) {
@@ -1328,11 +1815,6 @@ class ModernChatInterface {
     return null;
   }
   
-  extractImageUrlFromField(imageField) {
-    // Handle string URLs
-    if (typeof imageField === 'string') {
-      return imageField;
-    }
     
     // Handle object with url property
     if (typeof imageField === 'object' && imageField !== null) {
@@ -1354,24 +1836,6 @@ class ModernChatInterface {
     
     return null;
   }
-  
-  
-  /**
-   * Updates the list of conversations displayed in the UI.
-   * 
-   * @param {HTMLElement|null} container - The container element where the conversations list will be rendered.
-   *                                       If null, defaults to `this.elements.conversationsList`.
-   */
-  updateConversationsList(container = null) {
-    this.conversationManager.updateConversationsList(this, container);
-  }
-
-  deleteConversation(conversationId) {
-    this.conversationManager.deleteConversation(conversationId, this);
-  }
-  
-  
-  scrollToBottom() {
     this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
   }
   
@@ -1402,10 +1866,8 @@ class ModernChatInterface {
     
     // Hide the normal chat input area
     const chatInputContainer = document.querySelector('.chat-input-container');
-    console.log('Found chat input container:', !!chatInputContainer);
     if (chatInputContainer) {
       chatInputContainer.style.display = 'none';
-      console.log('Hidden chat input container');
     }
     
     // Create centered input container
@@ -1577,6 +2039,126 @@ class ModernChatInterface {
     this.sendMessage(message);
   }
   
+  async handleJoinLink(conversationId) {
+    try {
+      // Get user info
+      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+      const authToken = localStorage.getItem('authToken');
+      
+      // Check if user is authenticated
+      if (!authToken || !userInfo.id) {
+        // Store the conversation ID for retry after login
+        window.pendingJoinConversationId = conversationId;
+        
+        // Show login popup
+        if (window.oauthManager) {
+          window.oauthManager.showLoginPopup();
+        }
+        
+        // Listen for successful login to retry join
+        const retryJoinHandler = (event) => {
+          if (event.detail.conversationId === conversationId) {
+            window.removeEventListener('retryJoin', retryJoinHandler);
+            this.handleJoinLink(conversationId);
+          }
+        };
+        window.addEventListener('retryJoin', retryJoinHandler);
+        
+        return;
+      }
+      
+      // Prepare participant info
+      const participant = {
+        user_id: userInfo.id || userInfo.email,
+        name: userInfo.name || userInfo.email || 'User'
+      };
+      
+      // Call the join API
+      const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
+      const response = await fetch(`${baseUrl}/chat/join/${conversationId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+        },
+        body: JSON.stringify({ participant })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Add conversation to local storage
+        const conversation = {
+          id: data.conversation.id,
+          title: data.conversation.title || 'Shared Chat',
+          messages: [],
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          site: 'all',
+          shared: true
+        };
+        
+        // Add messages if any
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(msg => {
+            // Extract site for AI messages
+            let displayName = msg.sender_name;
+            if (msg.sender_id.startsWith('nlweb')) {
+              const site = conversation.site || this.selectedSite || 'all';
+              displayName = `NLWeb ${site}`;
+            } else if (!displayName) {
+              displayName = 'User';
+            }
+            
+            const senderInfo = {
+              id: msg.sender_id,
+              name: displayName
+            };
+            conversation.messages.push({
+              message_id: msg.message_id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              conversation_id: conversation.id,
+              content: msg.content,
+              message_type: msg.sender_id.startsWith('nlweb') ? 'assistant' : 'user',
+              timestamp: new Date(msg.timestamp).getTime(),
+              senderInfo: senderInfo
+            });
+          });
+        }
+        
+        this.conversationManager.addConversation(conversation);
+        this.conversationManager.saveConversations();
+        
+        // Load the conversation
+        this.conversationManager.loadConversation(conversationId, this);
+        
+        // Connect to WebSocket
+        await this.connectWebSocket(conversationId);
+        
+        // Show success message
+        this.addSystemMessage(`Successfully joined conversation: ${data.conversation.title || 'Shared Chat'}`);
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to join conversation');
+      }
+    } catch (error) {
+      console.error('Error joining conversation:', error);
+      this.addSystemMessage(`Error joining conversation: ${error.message}`);
+      // Show centered input as fallback
+      this.showCenteredInput();
+    }
+  }
+  
+  addSystemMessage(message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message system-message';
+    messageDiv.innerHTML = `
+      <div class="message-content">
+        <div class="message-text">${message}</div>
+      </div>
+    `;
+    this.elements.messagesContainer.appendChild(messageDiv);
+    this.scrollToBottom();
+  }
   
   toggleDebugInfo() {
     // Find the last assistant message
@@ -1746,23 +2328,26 @@ class ModernChatInterface {
       }
       item.textContent = site;
       item.addEventListener('click', () => {
-        this.selectedSite = site;
-        this.siteDropdown.classList.remove('show');
-        this.populateSiteDropdown(); // Update selection
-        
-        // Update icon title to show selected site
-        this.siteSelectorIcon.title = `Site: ${site}`;
-        
-        // Update the header site info
-        if (this.elements.chatSiteInfo) {
-          this.elements.chatSiteInfo.textContent = `Asking ${site}`;
-        }
-        
-        // Update the current conversation's site if it exists
-        const conversation = this.conversationManager.findConversation(this.currentConversationId);
-        if (conversation) {
-          conversation.site = site;
-          this.conversationManager.saveConversations();
+        // Only create new conversation if site actually changed
+        if (this.selectedSite !== site) {
+          this.selectedSite = site;
+          this.siteDropdown.classList.remove('show');
+          this.populateSiteDropdown(); // Update selection
+          
+          // Update icon title to show selected site
+          this.siteSelectorIcon.title = `Site: ${site}`;
+          
+          // Update the header site info
+          if (this.elements.chatSiteInfo) {
+            this.elements.chatSiteInfo.textContent = `Asking ${site}`;
+          }
+          
+          // Create a new conversation for the new site
+          // This ensures each site has its own conversation
+          this.createNewChat(null, site);
+        } else {
+          // Just close the dropdown if same site selected
+          this.siteDropdown.classList.remove('show');
         }
       });
       this.siteDropdownItems.appendChild(item);

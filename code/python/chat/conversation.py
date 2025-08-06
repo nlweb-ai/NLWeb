@@ -4,12 +4,12 @@ Conversation orchestration and management.
 
 import asyncio
 import logging
+import time
 from datetime import datetime
 from typing import Dict, List, Set, Optional, Any, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from collections import defaultdict
-import time
 
 from chat.schemas import (
     ChatMessage,
@@ -19,7 +19,7 @@ from chat.schemas import (
     QueueFullError
 )
 from chat.participants import BaseParticipant
-from chat.storage import ChatStorageInterface
+from chat.storage import SimpleChatStorageInterface
 from chat.metrics import ChatMetrics
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ class ConversationManager:
         self._conversations: Dict[str, ConversationState] = {}
         
         # Storage and metrics
-        self.storage: Optional[ChatStorageInterface] = None
+        self.storage: Optional[SimpleChatStorageInterface] = None
         self.metrics = ChatMetrics()
         
         # Broadcast callback for mode changes
@@ -106,6 +106,12 @@ class ConversationManager:
         
         # Running state
         self._running = True
+        
+        # Track persistence tasks
+        self._persistence_tasks: Set[asyncio.Task] = set()
+        
+        # Track which conversations are being processed (to prevent deadlock)
+        self._processing_messages: Set[str] = set()
     
     def add_participant(self, conversation_id: str, participant: BaseParticipant) -> None:
         """
@@ -115,11 +121,15 @@ class ConversationManager:
             conversation_id: The conversation ID
             participant: The participant to add
         """
+        print(f"[ConvMgr] add_participant called for {conversation_id}, participant: {participant.get_participant_info().name}")
         # Get or create conversation state
         if conversation_id not in self._conversations:
+            print(f"[ConvMgr] Creating new conversation state for {conversation_id}")
             self._conversations[conversation_id] = ConversationState(
                 conversation_id=conversation_id
             )
+        else:
+            print(f"[ConvMgr] Conversation {conversation_id} already exists")
         
         conv_state = self._conversations[conversation_id]
         participant_info = participant.get_participant_info()
@@ -192,94 +202,117 @@ class ConversationManager:
         Raises:
             QueueFullError: If conversation queue is full
         """
-        async with self._lock:
-            # Check conversation exists
-            if message.conversation_id not in self._conversations:
-                raise ValueError(f"Unknown conversation: {message.conversation_id}")
+        print(f"[ConvMgr] ===== ENTERING process_message =====")
+        print(f"[ConvMgr] Message ID: {message.message_id}")
+        print(f"[ConvMgr] Sender: {message.senderInfo.get('name')} (ID: {message.senderInfo.get('id')})")
+        print(f"[ConvMgr] Type: {message.message_type}")
+        print(f"[ConvMgr] Conversation: {message.conversation_id}")
+        print(f"[ConvMgr] Known conversations: {list(self._conversations.keys())}")
+        
+        # Check if conversation exists BEFORE entering try block
+        if message.conversation_id not in self._conversations:
+            print(f"[ConvMgr] WARNING: Conversation {message.conversation_id} not in self._conversations!")
+            print(f"[ConvMgr] Message type: {message.message_type}")
             
-            conv_state = self._conversations[message.conversation_id]
-            logger.info(f"Processing message for conversation {message.conversation_id} with {conv_state.message_count} existing messages")
-            
-            # Check queue limit
-            if conv_state.message_count >= self.queue_size_limit:
-                # Try to drop oldest NLWeb jobs first
-                if not self._try_drop_nlweb_jobs(conv_state):
-                    raise QueueFullError(
-                        conversation_id=message.conversation_id,
-                        queue_size=conv_state.message_count,
-                        limit=self.queue_size_limit
-                    )
-            
-            # Assign sequence ID
-            if self.storage:
-                sequence_id = await self.storage.get_next_sequence_id(message.conversation_id)
-                conv_state.message_count = sequence_id
-            else:
-                # For testing without storage
-                conv_state.message_count += 1
-                sequence_id = conv_state.message_count
-            
-            # Create message with sequence ID
-            sequenced_message = ChatMessage(
-                message_id=message.message_id,
-                conversation_id=message.conversation_id,
-                sequence_id=sequence_id,
-                sender_id=message.sender_id,
-                sender_name=message.sender_name,
-                content=message.content,
-                message_type=message.message_type,
-                timestamp=message.timestamp,
-                status=MessageStatus.PENDING,
-                metadata=message.metadata
-            )
-            
-            # Deliver to all participants immediately
-            delivery_acks = await self._deliver_to_participants(
-                sequenced_message,
-                conv_state,
-                require_ack
-            )
-            
-            # Update message status
-            final_metadata = sequenced_message.metadata.copy() if sequenced_message.metadata else {}
-            if require_ack:
-                final_metadata['delivery_acks'] = delivery_acks
-                
-            sequenced_message = ChatMessage(
-                message_id=sequenced_message.message_id,
-                conversation_id=sequenced_message.conversation_id,
-                sequence_id=sequenced_message.sequence_id,
-                sender_id=sequenced_message.sender_id,
-                sender_name=sequenced_message.sender_name,
-                content=sequenced_message.content,
-                message_type=sequenced_message.message_type,
-                timestamp=sequenced_message.timestamp,
-                status=MessageStatus.DELIVERED,
-                metadata=final_metadata
-            )
-            
-            # Trigger async persistence
-            if self.storage:
-                asyncio.create_task(self._persist_message(sequenced_message))
-            
-            # Update conversation state
-            conv_state.updated_at = datetime.utcnow()
-            
-            # Track metrics
-            self.metrics.update_queue_depth(message.conversation_id, conv_state.message_count)
-            
-            # Broadcast to WebSocket connections (exclude sender to avoid echo)
-            if self.websocket_manager:
-                await self.websocket_manager.broadcast_message(
-                    message.conversation_id,
-                    {
-                        'type': 'message',
-                        'message': sequenced_message.to_dict()
-                    },
-                    exclude_user_id=message.sender_id
+            # Conversation must exist before processing messages
+            raise ValueError(f"Conversation {message.conversation_id} not found in ConversationManager state")
+        
+        try:
+            # No locking for now - just process the message
+            print(f"[ConvMgr] Processing message without lock")
+            return await self._process_message_internal(message, require_ack)
+        except Exception as e:
+            print(f"[ConvMgr] ERROR in process_message: {e}")
+            print(f"[ConvMgr] Exception type: {type(e)}")
+            import traceback
+            print(f"[ConvMgr] Traceback: {traceback.format_exc()}")
+            raise
+    
+    async def _process_message_internal(
+        self, 
+        message: ChatMessage,
+        require_ack: bool = False
+    ) -> ChatMessage:
+        """
+        Internal message processing logic (can be called with or without lock).
+        """
+        # Check conversation exists
+        print(f"[ConvMgr] Step 3: Checking if conversation_id '{message.conversation_id}' exists...")
+        if message.conversation_id not in self._conversations:
+            print(f"[ConvMgr] ERROR: Unknown conversation: {message.conversation_id}")
+            print(f"[ConvMgr] Known conversations: {list(self._conversations.keys())}")
+            raise ValueError(f"Unknown conversation: {message.conversation_id}")
+        
+        print(f"[ConvMgr] Step 4: Conversation exists! Getting state...")
+        conv_state = self._conversations[message.conversation_id]
+        print(f"[ConvMgr] Step 5: Got conversation state with {conv_state.message_count} messages")
+        logger.info(f"Processing message for conversation {message.conversation_id} with {conv_state.message_count} existing messages")
+        
+        # Check queue limit
+        print(f"[ConvMgr] Step 6: Checking queue limit ({conv_state.message_count} >= {self.queue_size_limit}?)")
+        if conv_state.message_count >= self.queue_size_limit:
+            # Try to drop oldest NLWeb jobs first
+            if not self._try_drop_nlweb_jobs(conv_state):
+                raise QueueFullError(
+                    conversation_id=message.conversation_id,
+                    queue_size=conv_state.message_count,
+                    limit=self.queue_size_limit
                 )
-            
-            return sequenced_message
+        
+        # Update message count (no longer using sequence_id)
+        print(f"[ConvMgr] Step 7: Updating message count...")
+        conv_state.message_count += 1
+        
+        print(f"[ConvMgr] Step 8: Message already in correct format")
+        # Message is already in unified format
+        sequenced_message = message
+        
+        print(f"[ConvMgr] Step 9: Message created, now delivering to participants...")
+        # Deliver to all participants immediately
+        delivery_acks = await self._deliver_to_participants(
+            sequenced_message,
+            conv_state,
+            require_ack
+        )
+        
+        print(f"[ConvMgr] Step 10: Delivery complete")
+        # Note: We're not tracking delivery acks in the simple message format
+        
+        print(f"[ConvMgr] Step 11: Message processed successfully")
+        
+        print(f"[ConvMgr] Step 12: Final message created, checking storage...")
+        # Trigger async persistence
+        if self.storage:
+            print(f"[ConvMgr] Step 13: Storage available, creating async persist task...")
+            task = asyncio.create_task(self._persist_message(sequenced_message))
+            self._persistence_tasks.add(task)
+            task.add_done_callback(lambda t: self._persistence_tasks.discard(t))
+            print(f"[ConvMgr] Step 13a: Persistence task created, currently {len(self._persistence_tasks)} tasks in flight")
+        else:
+            print(f"[ConvMgr] Step 13: WARNING: No storage backend available!")
+        
+        print(f"[ConvMgr] Step 14: Updating conversation state...")
+        # Update conversation state
+        conv_state.updated_at = datetime.utcnow()
+        
+        print(f"[ConvMgr] Step 15: Tracking metrics...")
+        # Track metrics
+        self.metrics.update_queue_depth(message.conversation_id, conv_state.message_count)
+        
+        print(f"[ConvMgr] Step 16: Checking WebSocket manager for broadcast...")
+        # Broadcast to WebSocket connections (exclude sender to avoid echo)
+        if self.websocket_manager:
+            await self.websocket_manager.broadcast_message(
+                message.conversation_id,
+                {
+                    'type': 'message',
+                    'message': sequenced_message.to_dict()
+                },
+                exclude_user_id=message.senderInfo.get('id')
+            )
+        
+        print(f"[ConvMgr] Step 17: DONE! Returning sequenced message")
+        return sequenced_message
     
     async def _deliver_to_participants(
         self,
@@ -316,7 +349,7 @@ class ConversationManager:
         
         # Deliver to all participants except sender
         for participant_id, participant in conv_state.participants.items():
-            if participant_id != message.sender_id:
+            if participant_id != message.senderInfo.get('id'):
                 # Create delivery task for all non-sender participants
                 task = self._deliver_to_participant(
                     message,
@@ -378,14 +411,25 @@ class ConversationManager:
             if participant_info.participant_type == ParticipantType.AI:
                 conv_state.active_nlweb_jobs.add(f"{message.message_id}_{participant_id}")
                 logger.info(f"ConversationManager calling AI participant {participant_id} for message {message.message_id}")
+                print(f"[ConvMgr] Calling AI participant.process_message...")
                 
                 # Process message - pass websocket manager for streaming
                 response = await participant.process_message(message, context, self.websocket_manager)
+                print(f"[ConvMgr] AI participant.process_message returned: {response}")
                 
                 # If participant generated a response, process it
                 if response:
-                    # Process the response as a new message
-                    await self.process_message(response)
+                    print(f"[ConvMgr] AI participant returned response: {response}")
+                    print(f"[ConvMgr] Response type: {type(response)}")
+                    print(f"[ConvMgr] Response message_id: {response.message_id}")
+                    print(f"[ConvMgr] About to call process_message...")
+                    try:
+                        # Process the response as a new message
+                        result = await self.process_message(response)
+                        print(f"[ConvMgr] process_message returned: {result}")
+                    except Exception as e:
+                        print(f"[ConvMgr] ERROR processing AI response: {e}")
+                        logger.error(f"Failed to process AI response: {e}", exc_info=True)
                 
                 # Remove from active jobs
                 conv_state.active_nlweb_jobs.discard(f"{message.message_id}_{participant_id}")
@@ -407,10 +451,17 @@ class ConversationManager:
         Args:
             message: The message to persist
         """
+        print(f"[ConvMgr] _persist_message called for {message.message_id} from {message.senderInfo.get('name')}")
+        print(f"[ConvMgr] Storage backend type: {type(self.storage)}")
+        print(f"[ConvMgr] Message details: type={message.message_type}")
         try:
             await self.storage.store_message(message)
+            print(f"[ConvMgr] _persist_message completed for {message.message_id}")
         except Exception as e:
-            logger.error(f"Failed to persist message {message.message_id}: {e}")
+            print(f"[ConvMgr] _persist_message FAILED for {message.message_id}: {e}")
+            import traceback
+            print(f"[ConvMgr] Traceback: {traceback.format_exc()}")
+            logger.error(f"Failed to persist message {message.message_id}: {e}", exc_info=True)
     
     def _calculate_mode(self, conv_state: ConversationState) -> ConversationMode:
         """
@@ -496,7 +547,15 @@ class ConversationManager:
     async def shutdown(self) -> None:
         """Shutdown the conversation manager"""
         self._running = False
-        # Clean up any resources if needed
+        
+        # Wait for all persistence tasks to complete
+        if self._persistence_tasks:
+            print(f"[ConvMgr] Waiting for {len(self._persistence_tasks)} persistence tasks to complete...")
+            try:
+                await asyncio.gather(*self._persistence_tasks, return_exceptions=True)
+                print(f"[ConvMgr] All persistence tasks completed")
+            except Exception as e:
+                print(f"[ConvMgr] Error waiting for persistence tasks: {e}")
     
     @staticmethod
     def create_message(
@@ -538,15 +597,18 @@ class ConversationManager:
         # Add mode/generate_mode if provided
         if mode:
             msg_metadata['generate_mode'] = mode
+        
+        logger.info(f"ConversationManager.create_message: sites={sites}, mode={mode}, metadata={msg_metadata}")
             
         return ChatMessage(
             message_id=f"msg_{uuid.uuid4().hex[:12]}",
             conversation_id=conversation_id,
-            sequence_id=0,  # Will be assigned by process_message
-            sender_id=sender_id,
-            sender_name=sender_name,
             content=content,
-            message_type=MessageType.TEXT,
-            timestamp=datetime.utcnow(),
+            message_type="user",
+            timestamp=int(time.time() * 1000),  # milliseconds
+            senderInfo={
+                "id": sender_id,
+                "name": sender_name
+            },
             metadata=msg_metadata
         )

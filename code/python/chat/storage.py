@@ -13,8 +13,42 @@ from chat.metrics import ChatMetrics
 from core.config import CONFIG
 
 
-class ChatStorageInterface(ABC):
-    """Abstract interface for chat storage backends"""
+class SimpleChatStorageInterface(ABC):
+    """Simple abstract interface for chat storage - just store and retrieve messages"""
+    
+    @abstractmethod
+    async def store_message(self, message: ChatMessage) -> None:
+        """
+        Store a chat message.
+        
+        Args:
+            message: The message to store
+        """
+        pass
+    
+    @abstractmethod
+    async def get_conversation_messages(
+        self, 
+        conversation_id: str, 
+        limit: int = 100,
+        after_sequence_id: Optional[int] = None
+    ) -> List[ChatMessage]:
+        """
+        Get messages for a conversation.
+        
+        Args:
+            conversation_id: The conversation ID
+            limit: Maximum number of messages to return
+            after_sequence_id: Ignored in simple implementation
+            
+        Returns:
+            List of messages in order they were added
+        """
+        pass
+
+
+class OldChatStorageInterface(ABC):
+    """Abstract interface for chat storage backends (OLD - DO NOT USE)"""
     
     @abstractmethod
     async def store_message(self, message: ChatMessage) -> None:
@@ -161,6 +195,36 @@ class ChatStorageInterface(ABC):
         pass
 
 
+class SimpleChatStorageClient:
+    """
+    Simple client for chat storage - just wraps the storage backend.
+    """
+    
+    def __init__(self, backend: SimpleChatStorageInterface):
+        """
+        Initialize storage client.
+        
+        Args:
+            backend: The storage backend to use
+        """
+        self.backend = backend
+    
+    async def store_message(self, message: ChatMessage) -> None:
+        """Store a message"""
+        await self.backend.store_message(message)
+    
+    async def get_conversation_messages(
+        self, 
+        conversation_id: str, 
+        limit: int = 100,
+        after_sequence_id: Optional[int] = None
+    ) -> List[ChatMessage]:
+        """Get messages for a conversation"""
+        return await self.backend.get_conversation_messages(
+            conversation_id, limit, after_sequence_id
+        )
+
+
 class ChatStorageClient:
     """
     Client that routes to appropriate storage backend based on configuration.
@@ -188,7 +252,7 @@ class ChatStorageClient:
         # Initialize the backend
         self.backend = self._create_backend(storage_config)
     
-    def _create_backend(self, storage_config: Dict[str, Any]) -> ChatStorageInterface:
+    def _create_backend(self, storage_config: Dict[str, Any]) -> OldChatStorageInterface:
         """
         Create the appropriate storage backend.
         

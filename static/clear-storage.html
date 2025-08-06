@@ -175,7 +175,7 @@
         }
         
         function loadSites() {
-            const data = localStorage.getItem('nlweb-modern-conversations');
+            const data = localStorage.getItem('nlweb_conversations');
             const container = document.getElementById('sitesList');
             
             if (!data) {
@@ -250,13 +250,13 @@
         function clearSite(site) {
             if (!confirm(`Clear all conversations for "${site}"?`)) return;
             
-            const data = localStorage.getItem('nlweb-modern-conversations');
+            const data = localStorage.getItem('nlweb_conversations');
             if (!data) return;
             
             try {
                 const conversations = JSON.parse(data);
                 const filtered = conversations.filter(conv => (conv.site || 'all') !== site);
-                localStorage.setItem('nlweb-modern-conversations', JSON.stringify(filtered));
+                localStorage.setItem('nlweb_conversations', JSON.stringify(filtered));
                 loadSites();
             } catch (e) {
                 alert('Error clearing site conversations');
@@ -267,7 +267,7 @@
             if (!confirm('Clear ALL conversations?')) return;
             if (!confirm('This cannot be undone. Are you sure?')) return;
             
-            localStorage.removeItem('nlweb-modern-conversations');
+            localStorage.removeItem('nlweb_conversations');
             loadSites();
         }
         

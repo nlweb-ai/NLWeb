@@ -193,7 +193,11 @@
     </div>
   </div>
 
-  <script type="module" src="/static/fp-chat-interface-ws.js"></script>
+  <script type="module">
+    import { UnifiedChatInterface } from '/static/chat-interface-unified.js';
+    // Use WebSocket for multi-participant chat
+    new UnifiedChatInterface({ connectionType: 'websocket' });
+  </script>
   <script src="/static/oauth-login.js"></script>
 </body>
 </html>

@@ -78,14 +78,9 @@ export class ModernChatInterface {
   }
   
   initializeWebSocket() {
-    // Generate a conversation ID if we don't have one
-    if (!this.conversationId) {
-      this.conversationId = 'conv_' + Math.random().toString(36).substr(2, 9);
-    }
-    
     const wsUrl = window.location.origin === 'file://' 
-      ? `ws://localhost:8000/chat/ws/${this.conversationId}`
-      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/chat/ws/${this.conversationId}`;
+      ? 'ws://localhost:8000/ws'
+      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
     
     try {
       this.ws = new WebSocket(wsUrl);

@@ -1,6 +1,7 @@
 """Chat API routes for multi-participant conversations"""
 
 from aiohttp import web
+import asyncio
 import logging
 import json
 import uuid
@@ -36,8 +37,8 @@ def setup_chat_routes(app: web.Application):
     app.router.add_post('/chat/join/{conv_id}', join_via_share_link_handler)
     app.router.add_get('/chat/join/{conv_id}', join_via_share_link_get_handler)
     
-    # WebSocket endpoint
-    app.router.add_get('/chat/ws/{conv_id}', websocket_handler)
+    # WebSocket endpoint - general connection, not tied to specific conversation
+    app.router.add_get('/chat/ws', websocket_handler)
     
     # Health check
     app.router.add_get('/health/chat', chat_health_handler)
@@ -69,23 +70,7 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
         429: Too many conversations
     """
     try:
-        # Get authenticated user or create anonymous user
-        user = request.get('user')
-        logger.info(f"Create conversation - user from request: {user}")
-        
-        if not user or not user.get('authenticated'):
-            # Create anonymous user
-            import random
-            anon_id = f"anon_{random.randint(1000, 9999)}"
-            user = {
-                'id': anon_id,
-                'name': f'Anonymous {anon_id[-4:]}',
-                'authenticated': False,
-                'is_anonymous': True
-            }
-            logger.info(f"Created anonymous user: {user['id']}")
-        
-        # Parse request body
+        # Parse request body first
         try:
             data = await request.json()
         except json.JSONDecodeError:
@@ -93,6 +78,26 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
                 {'error': 'Invalid JSON in request body'},
                 status=400
             )
+        
+        # Get authenticated user or create anonymous user
+        user = request.get('user')
+        logger.info(f"Create conversation - user from request: {user}")
+        
+        if not user or not user.get('authenticated'):
+            # Check if anonymous user ID was provided in request
+            anon_id = data.get('anonymous_user_id')
+            if not anon_id:
+                # Create anonymous user if not provided
+                import random
+                anon_id = f"anon_{random.randint(1000, 9999)}"
+            
+            user = {
+                'id': anon_id,
+                'name': f'Anonymous {anon_id[-4:]}',
+                'authenticated': False,
+                'is_anonymous': True
+            }
+            logger.info(f"Using anonymous user: {user['id']}")
         
         # Get title or use default
         title = data.get('title', 'New Conversation')
@@ -193,7 +198,7 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
                     human_messages_context=5,
                     nlweb_messages_context=1
                 )
-                nlweb = NLWebParticipant(nlweb_handler, config)
+                nlweb = NLWebParticipant(nlweb_handler, config, storage_client)
                 conv_manager.add_participant(conversation_id, nlweb)
                 
                 # Add to conversation
@@ -203,8 +208,8 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
             else:
                 logger.warning("NLWeb handler not found in app - AI responses disabled")
         
-        # Store conversation
-        await storage_client.create_conversation(conversation)
+        # Store conversation - not needed with simple storage
+        # await storage_client.create_conversation(conversation)
         
         # Return response
         return web.json_response({
@@ -959,16 +964,14 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     """
     WebSocket endpoint for real-time chat.
     
-    GET /chat/ws/{conv_id}
+    GET /chat/ws
     
-    Each human participant gets their own WebSocket connection.
-    Messages are routed to all participants in the conversation.
+    Single WebSocket connection per client that can handle multiple conversations.
+    Messages include conversation_id to route to appropriate conversation.
     """
-    conversation_id = request.match_info['conv_id']
     print(f"\n{'='*80}")
     print(f"WEBSOCKET CONNECTION REQUEST")
     print(f"{'='*80}")
-    print(f"Conversation ID: {conversation_id}")
     
     # Get authenticated user or create anonymous user
     user = request.get('user')
@@ -980,7 +983,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
             # Validate the auth token using same logic as auth middleware
             try:
                 import base64
-                import json
                 
                 # First try email-based base64 token
                 try:
@@ -1060,146 +1062,239 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     conv_manager: ConversationManager = request.app['conversation_manager']
     storage_client: ChatStorageClient = request.app['chat_storage']
     
-    # Verify conversation exists
-    conversation = await storage_client.get_conversation(conversation_id)
-    if not conversation:
-        print(f"ERROR: Conversation {conversation_id} not found")
-        return web.Response(text='Conversation not found', status=404)
-    
-    print(f"Conversation found: {conversation.conversation_id}")
-    
-    # Verify user is a participant or add them if they're not
-    participant_ids = {p.participant_id for p in conversation.active_participants}
-    is_new_participant = user_id not in participant_ids
-    
-    print(f"Current participants: {participant_ids}")
-    print(f"Is new participant: {is_new_participant}")
-    
-    logger.info(f"WebSocket connection - user_id: {user_id}, participant_ids: {participant_ids}, is_new: {is_new_participant}")
-    
-    if is_new_participant:
-        # Add user as participant if not already one
-        logger.info(f"Adding user {user_id} to conversation {conversation_id}")
-        
-        # Create participant info
-        participant_info = ParticipantInfo(
-            participant_id=user_id,
-            name=user_name,
-            participant_type=ParticipantType.HUMAN,
-            joined_at=datetime.utcnow()
-        )
-        
-        # Add to conversation
-        conversation.add_participant(participant_info)
-        
-        # Create participant instance
-        human = HumanParticipant(
-            user_id=user_id,
-            user_name=user_name
-        )
-        
-        # Add participant through conversation manager
-        conv_manager.add_participant(conversation_id, human)
-        
-        # Update conversation in storage
-        await storage_client.update_conversation(conversation)
-        
-        # Check if AI participant exists, if not add it
-        ai_participant_exists = any(
-            p.participant_type != ParticipantType.HUMAN 
-            for p in conversation.active_participants
-        )
-        
-        if not ai_participant_exists:
-            logger.info(f"No AI participant found in conversation {conversation_id}, adding NLWeb participant")
-            nlweb_handler = request.app.get('nlweb_handler')
-            if nlweb_handler:
-                config = ParticipantConfig(
-                    timeout=20,
-                    human_messages_context=5,
-                    nlweb_messages_context=1
-                )
-                nlweb = NLWebParticipant(nlweb_handler, config)
-                conv_manager.add_participant(conversation_id, nlweb)
-                
-                # Add to conversation
-                ai_info = nlweb.get_participant_info()
-                conversation.add_participant(ai_info)
-                await storage_client.update_conversation(conversation)
-                logger.info(f"Added NLWeb participant to existing conversation {conversation_id}")
-            else:
-                logger.warning("NLWeb handler not available - AI responses will not work")
+    # Create a general WebSocket connection not tied to any conversation
+    print(f"Accepting WebSocket connection for user: {user_id}")
     
     # Create WebSocket response
     ws = web.WebSocketResponse(heartbeat=30)
     await ws.prepare(request)
     
-    # Create connection with participant name
+    # Create connection without conversation_id (will be set when joining conversations)
     connection = WebSocketConnection(
         websocket=ws,
         participant_id=user_id,
-        conversation_id=conversation_id,
+        conversation_id=None,  # Not tied to any conversation yet
         participant_name=user_name
     )
     
+    # Track active conversations for this connection
+    active_conversations = set()
+    
     try:
         print(f"\n=== WEBSOCKET CONNECTION SETUP ===")
-        # Add connection to manager (this just stores the connection now)
-        await ws_manager.add_connection(conversation_id, connection)
         
-        # Send connection confirmation FIRST (proper WebSocket handshake)
+        # Send connection confirmation
         print(f"Sending connection confirmation to {user_id}")
         await ws.send_json({
             'type': 'connected',
-            'conversation_id': conversation_id,
-            'participant_id': user_id,
-            'mode': conv_manager.get_conversation_mode(conversation_id).value,
-            'input_timeout': conv_manager.get_input_timeout(conversation_id)
+            'participant_id': user_id
         })
-        
-        # Send current participant list
-        print(f"Sending participant list to {user_id}")
-        await ws_manager._send_participant_list(conversation_id, connection)
-        
-        # Only broadcast participant join if they're truly new to the conversation
-        if is_new_participant:
-            print(f"Broadcasting join event for new participant {user_name}")
-            await ws_manager.broadcast_participant_update(
-                conversation_id=conversation_id,
-                action="join",
-                participant_id=user_id,
-                participant_name=user_name,
-                participant_type="human"
-            )
-        else:
-            print(f"Not broadcasting join - {user_name} is already a participant")
-        
-        # Send recent message history
-        print(f"Fetching message history for {user_id}")
-        recent_messages = await storage_client.get_conversation_messages(
-            conversation_id=conversation_id,
-            limit=50
-        )
-        
-        print(f"Sending {len(recent_messages)} historical messages to {user_id}")
-        for msg in reversed(recent_messages):  # Send in chronological order
-            await ws.send_json({
-                'type': 'message',
-                'message': msg.to_dict()
-            })
         
         # Handle incoming messages
         async for msg in ws:
             if msg.type == web.WSMsgType.TEXT:
+                print(f"\n=== RAW WEBSOCKET MESSAGE ===")
+                print(f"Raw data: {msg.data[:200]}")
                 try:
                     data = json.loads(msg.data)
+                    print(f"Parsed type: {data.get('type')}")
                     
-                    if data.get('type') == 'message':
+                    msg_type = data.get('type')
+                    
+                    # Handle join conversation request
+                    if msg_type == 'join':
+                        conversation_id = data.get('conversation_id')
+                        if not conversation_id:
+                            await ws.send_json({'type': 'error', 'message': 'conversation_id required'})
+                            continue
+                            
+                        print(f"User {user_id} joining conversation {conversation_id}")
+                        
+                        # Create participant instance
+                        human = HumanParticipant(
+                            user_id=user_id,
+                            user_name=user_name
+                        )
+                        
+                        # Add participant through conversation manager
+                        conv_manager.add_participant(conversation_id, human)
+                        
+                        # Add to WebSocket manager
+                        connection.conversation_id = conversation_id  # Update connection's conversation
+                        await ws_manager.add_connection(conversation_id, connection)
+                        active_conversations.add(conversation_id)
+                        
+                        # Add AI participant if not already present
+                        conv_state = conv_manager._conversations.get(conversation_id)
+                        has_ai_participant = False
+                        if conv_state:
+                            for participant in conv_state.participants.values():
+                                if isinstance(participant, NLWebParticipant):
+                                    has_ai_participant = True
+                                    break
+                        
+                        if not has_ai_participant:
+                            nlweb_handler = request.app.get('nlweb_handler')
+                            if nlweb_handler:
+                                config = ParticipantConfig(
+                                    timeout=20,
+                                    human_messages_context=5,
+                                    nlweb_messages_context=1
+                                )
+                                nlweb = NLWebParticipant(nlweb_handler, config, storage_client)
+                                conv_manager.add_participant(conversation_id, nlweb)
+                        
+                        # Send participant list
+                        await ws_manager._send_participant_list(conversation_id, connection)
+                        
+                        # Broadcast participant join
+                        await ws_manager.broadcast_participant_update(
+                            conversation_id=conversation_id,
+                            action="join",
+                            participant_id=user_id,
+                            participant_name=user_name,
+                            participant_type="human"
+                        )
+                        
+                        # Send conversation history by replaying individual events
+                        recent_messages = await storage_client.get_conversation_messages(
+                            conversation_id=conversation_id,
+                            limit=50
+                        )
+                        
+                        # Sort messages by timestamp to ensure correct order
+                        recent_messages.sort(key=lambda m: m.timestamp)
+                        
+                        print(f"\n=== CONVERSATION HISTORY FOR {conversation_id} ===")
+                        print(f"Found {len(recent_messages)} messages")
+                        print(f"Messages will be replayed in timestamp order")
+                        
+                        # Replay each message as individual events in timestamp order
+                        for i, msg in enumerate(recent_messages):
+                            print(f"\nMessage {i+1}:")
+                            print(f"  Type: {msg.message_type}")
+                            print(f"  Content: {msg.content[:200] if msg.content else 'None'}...")
+                            print(f"  SenderInfo: {msg.senderInfo}")
+                            print(f"  Timestamp: {msg.timestamp}")
+                            
+                            if msg.message_type == 'user':
+                                # Send user message as a message from another user
+                                # This new user joining will see it as someone else's message
+                                user_msg = {
+                                    'type': 'message',
+                                    'conversation_id': conversation_id,
+                                    'sender_id': msg.senderInfo.get('id', 'unknown_user'),
+                                    'content': msg.content,
+                                    'timestamp': msg.timestamp,
+                                    'sender_info': msg.senderInfo
+                                }
+                                print(f"  Sending user message to client: {user_msg}")
+                                await ws.send_json(user_msg)
+                                
+                            elif msg.message_type == 'assistant_stream':
+                                # This is a stored streaming message, replay it as-is
+                                try:
+                                    stream_data = json.loads(msg.content)
+                                    print(f"  Parsed assistant_stream data: {stream_data}")
+                                    print(f"  Sending assistant_stream to client")
+                                    await ws.send_json(stream_data)
+                                except json.JSONDecodeError as e:
+                                    print(f"  ERROR: Failed to parse assistant_stream message: {e}")
+                                    print(f"  Raw content: {msg.content[:500]}...")
+                                    
+                            else:
+                                # Other message types (if any)
+                                other_msg = {
+                                    'type': 'message',
+                                    'conversation_id': conversation_id,
+                                    'sender_id': msg.senderInfo.get('id', 'unknown_user'),
+                                    'content': msg.content,
+                                    'timestamp': msg.timestamp,
+                                    'sender_info': msg.senderInfo,
+                                    'message_type': msg.message_type
+                                }
+                                print(f"  Sending {msg.message_type} message to client: {other_msg}")
+                                await ws.send_json(other_msg)
+                        
+                        print(f"=== END CONVERSATION HISTORY ===\n")
+                        
+                        continue
+                    
+                    # Handle leave conversation request
+                    if msg_type == 'leave':
+                        conversation_id = data.get('conversation_id')
+                        if conversation_id in active_conversations:
+                            conv_manager.remove_participant(conversation_id, user_id)
+                            await ws_manager.remove_connection(conversation_id, user_id)
+                            active_conversations.remove(conversation_id)
+                            
+                            await ws_manager.broadcast_participant_update(
+                                conversation_id=conversation_id,
+                                action="leave",
+                                participant_id=user_id,
+                                participant_name=user_name,
+                                participant_type="human"
+                            )
+                        continue
+                    
+                    # Handle message
+                    if msg_type == 'message':
+                        conversation_id = data.get('conversation_id')
+                        if not conversation_id:
+                            await ws.send_json({'type': 'error', 'message': 'conversation_id required for messages'})
+                            continue
+                            
+                        # Auto-join conversation if not already joined
+                        if conversation_id not in active_conversations:
+                            print(f"Auto-joining user {user_id} to conversation {conversation_id}")
+                            
+                            # Create participant instance
+                            human = HumanParticipant(
+                                user_id=user_id,
+                                user_name=user_name
+                            )
+                            
+                            # Add participant through conversation manager
+                            conv_manager.add_participant(conversation_id, human)
+                            
+                            # Add to WebSocket manager
+                            connection.conversation_id = conversation_id
+                            await ws_manager.add_connection(conversation_id, connection)
+                            active_conversations.add(conversation_id)
+                            
+                            # Add AI participant if not already present
+                            conv_state = conv_manager._conversations.get(conversation_id)
+                            has_ai_participant = False
+                            if conv_state:
+                                for participant in conv_state.participants.values():
+                                    if isinstance(participant, NLWebParticipant):
+                                        has_ai_participant = True
+                                        break
+                            
+                            if not has_ai_participant:
+                                nlweb_handler = request.app.get('nlweb_handler')
+                                if nlweb_handler:
+                                    config = ParticipantConfig(
+                                        timeout=20,
+                                        human_messages_context=5,
+                                        nlweb_messages_context=1
+                                    )
+                                    print(f"[AUTO-JOIN] Creating NLWebParticipant with storage_client: {storage_client is not None}")
+                                    nlweb = NLWebParticipant(nlweb_handler, config, storage_client)
+                                    conv_manager.add_participant(conversation_id, nlweb)
+                        print(f"\n=== WEBSOCKET MESSAGE RECEIVED ===")
+                        print(f"User ID: {user_id}")
+                        print(f"Content: {data.get('content', '')[:100]}")
+                        print(f"Type: {data.get('type')}")
                         logger.info(f"WebSocket received message from {user_id}: {data.get('content', '')[:100]}")
                         
-                        # Extract sites and mode from the WebSocket message
-                        sites = data.get('sites', [])
+                        # Extract site and mode from the WebSocket message
+                        # Client sends 'site' (singular), convert to list for compatibility
+                        site = data.get('site', 'all')
+                        sites = [site] if isinstance(site, str) else site
                         mode = data.get('mode', 'list')
+                        
+                        logger.info(f"WebSocket extracted: site={site}, sites={sites}, mode={mode}")
                         
                         # Extract any additional metadata
                         additional_metadata = data.get('metadata', {})
@@ -1220,13 +1315,12 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         # Process through conversation manager
                         try:
                             processed_msg = await conv_manager.process_message(message)
-                            logger.info(f"Message processed successfully, got response with sequence_id: {processed_msg.sequence_id}")
+                            logger.info(f"Message processed successfully")
                             
                             # Send acknowledgment
                             await ws.send_json({
                                 'type': 'message_ack',
-                                'message_id': processed_msg.message_id,
-                                'sequence_id': processed_msg.sequence_id
+                                'message_id': processed_msg.message_id
                             })
                             
                         except QueueFullError as e:
@@ -1262,14 +1356,26 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         logger.error(f"WebSocket handler error: {e}", exc_info=True)
     finally:
         print(f"\n=== WEBSOCKET CLEANUP ===")
-        print(f"Removing connection for {user_id} from conversation {conversation_id}")
+        print(f"Cleaning up {len(active_conversations)} active conversations for {user_id}")
         
-        # Only remove connection if it was added
-        try:
-            await ws_manager.remove_connection(conversation_id, user_id)
-        except Exception as e:
-            print(f"Error removing connection: {e}")
-            
+        # Clean up all active conversations on disconnect
+        for conversation_id in active_conversations:
+            try:
+                print(f"Removing {user_id} from conversation {conversation_id}")
+                conv_manager.remove_participant(conversation_id, user_id)
+                await ws_manager.remove_connection(conversation_id, user_id)
+                
+                # Broadcast leave to remaining participants
+                await ws_manager.broadcast_participant_update(
+                    conversation_id=conversation_id,
+                    action="leave",
+                    participant_id=user_id,
+                    participant_name=user_name,
+                    participant_type="human"
+                )
+            except Exception as e:
+                logger.error(f"Error cleaning up conversation {conversation_id}: {e}")
+        
         await ws.close()
         print(f"WebSocket closed for {user_id}")
     

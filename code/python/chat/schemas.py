@@ -11,10 +11,11 @@ import uuid
 
 class MessageType(Enum):
     """Types of messages in the chat system"""
-    TEXT = "text"
-    SYSTEM = "system"
-    NLWEB_RESPONSE = "nlweb_response"
-    ERROR = "error"
+    CONVERSATION_START = "conversation_start"
+    USER_INPUT = "user_input"
+    NLW_RESPONSE = "nlw_response"
+    USER_JOINING = "user_joining"
+    USER_LEAVING = "user_leaving"
 
 
 class MessageStatus(Enum):
@@ -31,36 +32,43 @@ class ParticipantType(Enum):
     AI = "ai"
 
 
-@dataclass(frozen=True)
+@dataclass
 class ChatMessage:
     """
-    Immutable chat message with server-assigned sequence ID for ordering.
+    Unified chat message format matching browser localStorage.
     """
     message_id: str
     conversation_id: str
-    sequence_id: int  # Server-assigned for strict ordering
-    sender_id: str  # Unique identifier for sender (user_123, nlweb_1, etc.)
-    sender_name: str  # Display name
     content: str
-    message_type: MessageType
-    timestamp: datetime
-    status: MessageStatus = MessageStatus.DELIVERED
-    metadata: Optional[Dict[str, Any]] = None
+    message_type: str  # "user", "assistant", "system", "join", "leave"
+    timestamp: int  # milliseconds since epoch
+    senderInfo: Dict[str, str]  # {id: str, name: str}
+    metadata: Dict[str, Any] = field(default_factory=dict)  # Additional metadata (sites, mode, etc.)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert message to dictionary for serialization"""
         return {
             "message_id": self.message_id,
             "conversation_id": self.conversation_id,
-            "sequence_id": self.sequence_id,
-            "sender_id": self.sender_id,
-            "sender_name": self.sender_name,
             "content": self.content,
-            "message_type": self.message_type.value,
-            "timestamp": self.timestamp.isoformat(),
-            "status": self.status.value,
-            "metadata": self.metadata or {}
+            "message_type": self.message_type,
+            "timestamp": self.timestamp,
+            "senderInfo": self.senderInfo,
+            "metadata": self.metadata
         }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ChatMessage':
+        """Create ChatMessage from dictionary"""
+        return cls(
+            message_id=data.get("message_id", f"msg_{uuid.uuid4().hex[:12]}"),
+            conversation_id=data["conversation_id"],
+            content=data["content"],
+            message_type=data["message_type"],
+            timestamp=data["timestamp"],
+            senderInfo=data["senderInfo"],
+            metadata=data.get("metadata", {})
+        )
 
 
 @dataclass
@@ -111,6 +119,7 @@ class Conversation:
     created_at: datetime
     active_participants: Set[ParticipantInfo]
     queue_size_limit: int
+    messages: List[ChatMessage] = field(default_factory=list)  # Sequential list of all messages
     message_count: int = 0
     updated_at: Optional[datetime] = None
     metadata: Optional[Dict[str, Any]] = None
@@ -192,35 +201,27 @@ class Conversation:
         """
         Create a system message for participant join/leave events.
         """
+        import time
+        
         if event_type == "join":
             content = f"{participant.name} has joined the conversation"
-            metadata = {
-                "event_type": "participant_join",
-                "participant_id": participant.participant_id,
-                "participant_name": participant.name,
-                "participant_type": participant.participant_type.value
-            }
+            msg_type = "join"
         elif event_type == "leave":
             content = f"{participant.name} has left the conversation"
-            metadata = {
-                "event_type": "participant_leave",
-                "participant_id": participant.participant_id,
-                "participant_name": participant.name,
-                "participant_type": participant.participant_type.value
-            }
+            msg_type = "leave"
         else:
             raise ValueError(f"Unknown event type: {event_type}")
         
         return ChatMessage(
             message_id=f"msg_{uuid.uuid4().hex[:12]}",
             conversation_id=self.conversation_id,
-            sequence_id=0,  # Will be assigned by server
-            sender_id="system",
-            sender_name="System",
             content=content,
-            message_type=MessageType.SYSTEM,
-            timestamp=datetime.utcnow(),
-            metadata=metadata
+            message_type=msg_type,
+            timestamp=int(time.time() * 1000),  # milliseconds
+            senderInfo={
+                "id": "system",
+                "name": "System"
+            }
         )
     
 

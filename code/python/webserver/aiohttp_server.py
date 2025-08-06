@@ -151,7 +151,7 @@ class AioHTTPServer:
         try:
             from chat.websocket import WebSocketManager
             from chat.conversation import ConversationManager
-            from chat.storage import ChatStorageClient
+            from chat.storage import SimpleChatStorageClient
             
             # Initialize WebSocket manager
             app['websocket_manager'] = WebSocketManager(max_connections_per_participant=1)
@@ -202,35 +202,38 @@ class AioHTTPServer:
             
             # Participant verification callback
             async def verify_participant(conversation_id: str, participant_id: str) -> bool:
-                """Verify if user is a participant in the conversation"""
-                conversation = await storage.get_conversation(conversation_id)
-                if not conversation:
-                    return False
-                participant_ids = {p.participant_id for p in conversation.active_participants}
-                return participant_id in participant_ids
+                """With simple storage, allow all participants"""
+                # In simple storage mode, we don't track participants
+                # Just allow the connection
+                return True
             
             ws_manager.verify_participant_callback = verify_participant
             
             # Get participants callback
             async def get_participants(conversation_id: str) -> Dict[str, Any]:
                 """Get current participants for a conversation"""
-                conversation = await storage.get_conversation(conversation_id)
-                if not conversation:
+                # With simple storage, get participants from ConversationManager
+                if conversation_id not in conv_manager._conversations:
                     return {"participants": [], "count": 0}
+                
+                conv_state = conv_manager._conversations[conversation_id]
                 
                 # Check online status
                 online_ids = set()
                 if conversation_id in ws_manager._connections:
                     online_ids = set(ws_manager._connections[conversation_id].keys())
                 
+                # Build participant list from conversation state
                 participants = []
-                for p in conversation.active_participants:
+                for participant_id, participant in conv_state.participants.items():
+                    # Get participant info
+                    p_info = participant.get_participant_info()
                     participants.append({
-                        "participantId": p.participant_id,
-                        "displayName": p.name,
-                        "type": p.participant_type.value,
-                        "joinedAt": p.joined_at.isoformat(),
-                        "isOnline": p.participant_id in online_ids
+                        "participantId": p_info.participant_id,
+                        "displayName": p_info.name,
+                        "type": p_info.participant_type.value,
+                        "joinedAt": p_info.joined_at.isoformat() if p_info.joined_at else datetime.utcnow().isoformat(),
+                        "isOnline": p_info.participant_id in online_ids
                     })
                 
                 return {
