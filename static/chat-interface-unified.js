@@ -54,10 +54,14 @@ export class UnifiedChatInterface {
       this.bindEvents();
       
       // Load sites from API (non-blocking - fire and forget)
-      this.loadSites().catch(err => {
-        console.error('Failed to load sites:', err);
-        // Continue with default sites
-      });
+      // For WebSocket, sites will be loaded when connection opens
+      // For SSE, we still need to load them separately
+      if (this.connectionType !== 'websocket') {
+        this.loadSites().catch(err => {
+          console.error('Failed to load sites:', err);
+          // Continue with default sites
+        });
+      }
       
       // Check URL parameters BEFORE initializing connection
       const urlParams = new URLSearchParams(window.location.search);
@@ -195,6 +199,11 @@ export class UnifiedChatInterface {
         
         this.ws.connection.onopen = () => {
           this.ws.reconnectAttempts = 0;
+          
+          // Request sites when connection opens
+          this.ws.connection.send(JSON.stringify({
+            type: 'sites_request'
+          }));
           
           // Send any queued messages
           this.flushMessageQueue();
@@ -390,6 +399,20 @@ export class UnifiedChatInterface {
     if (data.type === 'conversation_created') {
       this.state.conversationId = data.conversation_id;
       this.updateURL();
+      return;
+    }
+    
+    // Handle sites response
+    if (data.type === 'sites_response' && data.sites) {
+      this.processSitesData(data.sites);
+      
+      // Resolve the promise if waiting for sites
+      if (this.sitesResponseResolver) {
+        clearTimeout(this.sitesResponseTimeout);
+        this.sitesResponseResolver();
+        delete this.sitesResponseResolver;
+        delete this.sitesResponseTimeout;
+      }
       return;
     }
     
@@ -802,6 +825,49 @@ export class UnifiedChatInterface {
 
   async loadSites() {
     try {
+      // Use WebSocket if available and open
+      if (this.connectionType === 'websocket') {
+        // Set up a promise to wait for sites response
+        return new Promise((resolve, reject) => {
+          // Store the resolver for when we receive the sites response
+          this.sitesResponseResolver = resolve;
+          
+          // Set a timeout in case we don't get a response
+          const timeout = setTimeout(() => {
+            delete this.sitesResponseResolver;
+            reject(new Error('Timeout waiting for sites response'));
+          }, 5000);
+          
+          // Store timeout to clear it when we get response
+          this.sitesResponseTimeout = timeout;
+          
+          // If WebSocket is already open, send the request
+          if (this.ws.connection?.readyState === WebSocket.OPEN) {
+            this.ws.connection.send(JSON.stringify({
+              type: 'sites_request'
+            }));
+          } else {
+            // WebSocket not ready, fall back to HTTP
+            delete this.sitesResponseResolver;
+            clearTimeout(timeout);
+            this.loadSitesViaHttp();
+          }
+        });
+      } else {
+        // Use HTTP for SSE connection type
+        return this.loadSitesViaHttp();
+      }
+    } catch (error) {
+      console.error('Error loading sites:', error);
+      
+      // Fallback sites
+      this.state.sites = ['all'];
+      this.state.selectedSite = 'all';
+    }
+  }
+  
+  async loadSitesViaHttp() {
+    try {
       const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
       const response = await fetch(`${baseUrl}/sites?streaming=false`);
       
@@ -812,33 +878,35 @@ export class UnifiedChatInterface {
       const data = await response.json();
       
       if (data && data['message-type'] === 'sites' && Array.isArray(data.sites)) {
-        let sites = data.sites;
-        
-        // Sort sites alphabetically
-        sites.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
-        
-        // Add 'all' to the beginning if not present
-        if (!sites.includes('all')) {
-          sites.unshift('all');
-        } else {
-          sites = sites.filter(site => site !== 'all');
-          sites.unshift('all');
-        }
-        
-        // Store sites
-        this.state.sites = sites;
-        this.state.selectedSite = 'all';
-        
-        // Update any existing site dropdowns
-        this.updateSiteDropdowns();
+        this.processSitesData(data.sites);
       }
     } catch (error) {
-      console.error('Error loading sites:', error);
+      console.error('Error loading sites via HTTP:', error);
       
       // Fallback sites
       this.state.sites = ['all'];
       this.state.selectedSite = 'all';
     }
+  }
+  
+  processSitesData(sites) {
+    // Sort sites alphabetically
+    sites.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    
+    // Add 'all' to the beginning if not present
+    if (!sites.includes('all')) {
+      sites.unshift('all');
+    } else {
+      sites = sites.filter(site => site !== 'all');
+      sites.unshift('all');
+    }
+    
+    // Store sites
+    this.state.sites = sites;
+    this.state.selectedSite = 'all';
+    
+    // Update any existing site dropdowns
+    this.updateSiteDropdowns();
   }
   
   getOrCreateUserId() {

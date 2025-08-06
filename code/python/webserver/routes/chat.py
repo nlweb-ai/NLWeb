@@ -1238,6 +1238,40 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             )
                         continue
                     
+                    # Handle sites request
+                    if msg_type == 'sites_request':
+                        print(f"Sites request received from {user_id}")
+                        
+                        # Get sites from vector DB
+                        try:
+                            from retrieval_pipelines.retriever_clients.retriever_factory import get_vector_db_client
+                            
+                            # Create a retriever client
+                            retriever = get_vector_db_client(query_params={})
+                            
+                            # Get the list of sites
+                            sites = await retriever.get_sites()
+                            
+                            # Send sites response
+                            await ws.send_json({
+                                'type': 'sites_response',
+                                'sites': sites
+                            })
+                            
+                            print(f"Sent {len(sites)} sites to {user_id}")
+                            
+                        except Exception as e:
+                            print(f"Error getting sites: {e}")
+                            import traceback
+                            traceback.print_exc()
+                            
+                            # Fallback to default sites
+                            await ws.send_json({
+                                'type': 'sites_response',
+                                'sites': ['all']
+                            })
+                        continue
+                    
                     # Handle message
                     if msg_type == 'message':
                         conversation_id = data.get('conversation_id')
