@@ -204,7 +204,8 @@ class NLWebHandler:
                         "message_type": "header",
                         "header_name": "time-to-first-result",
                         "header_value": f"{time_to_first_result:.3f}s",
-                        "query_id": self.query_id
+                        "query_id": self.query_id,
+                        "timestamp": int(time.time() * 1000)  # Milliseconds
                     }
                     try:
                         await self.http_handler.write_stream(ttfr_message)
@@ -220,7 +221,7 @@ class NLWebHandler:
                     # Send version number first
                     if not self.versionNumberSent:
                         self.versionNumberSent = True
-                        version_number_message = {"message_type": "api_version", "api_version": API_VERSION, "query_id": self.query_id}
+                        version_number_message = {"message_type": "api_version", "api_version": API_VERSION, "query_id": self.query_id, "timestamp": int(time.time() * 1000)}
                         try:
                             await self.http_handler.write_stream(version_number_message)
                             logger.info(f"Sent API version: {API_VERSION}")
@@ -234,7 +235,8 @@ class NLWebHandler:
                             header_message = {
                                 "message_type": header_key,
                                 "content": header_value,
-                                "query_id": self.query_id
+                                "query_id": self.query_id,
+                                "timestamp": int(time.time() * 1000)  # Milliseconds
                             }
                             try:
                                 await self.http_handler.write_stream(header_message)
@@ -256,7 +258,8 @@ class NLWebHandler:
                                     "message_type": "api_key",
                                     "key_name": key_name,
                                     "key_value": key_value,
-                                    "query_id": self.query_id
+                                    "query_id": self.query_id,
+                                    "timestamp": int(time.time() * 1000)  # Milliseconds
                                 }
                                 try:
                                     await self.http_handler.write_stream(api_key_message)
@@ -269,6 +272,9 @@ class NLWebHandler:
                                 logger.warning(f"API key '{key_name}' has no value, skipping")
                     else:
                         logger.info("No API keys configured in CONFIG.nlweb")
+                
+                # Add timestamp to message
+                message["timestamp"] = int(time.time() * 1000)  # Milliseconds
                 
                 try:
                     await self.http_handler.write_stream(message)
