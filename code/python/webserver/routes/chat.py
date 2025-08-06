@@ -1244,7 +1244,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         
                         # Get sites from vector DB
                         try:
-                            from retrieval_pipelines.retriever_clients.retriever_factory import get_vector_db_client
+                            from core.retriever import get_vector_db_client
                             
                             # Create a retriever client
                             retriever = get_vector_db_client(query_params={})
