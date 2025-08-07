@@ -350,7 +350,11 @@ export class UnifiedChatInterface {
           container.innerHTML = '';
           data.messages.forEach(msg => {
             const role = msg.sender_type === 'HUMAN' || msg.sender_type === 'user' ? 'user' : 'assistant';
-            this.addMessageBubble(msg.content, role, msg.sender_info);
+            const bubble = this.addMessageBubble(msg.content, role, msg.sender_info);
+            // Store timestamp for later sorting
+            if (msg.timestamp) {
+              bubble.dataset.timestamp = msg.timestamp;
+            }
           });
         }
       }
@@ -525,14 +529,7 @@ export class UnifiedChatInterface {
     
     // Handle conversation history when joining
     if (data.type === 'conversation_history') {
-      // Buffer messages for later sorting
-      if (data.messages) {
-        data.messages.forEach(msg => {
-          this.state.messageBuffer.push(msg);
-        });
-      }
-      
-      // Display messages immediately AND update conversation metadata
+      // Just display messages immediately - no buffering
       this.handleConversationHistory(data);
       return;
     }
@@ -552,7 +549,7 @@ export class UnifiedChatInterface {
         query: data.query,
         messages: []
       };
-      this.state.messageBuffer.push(data);
+      // Don't buffer - we'll get messages from DOM
       return;
     }
     
@@ -569,14 +566,13 @@ export class UnifiedChatInterface {
           this.sortAndDisplayMessages();
         }
       }
-      this.state.messageBuffer.push(data);
+      // Don't buffer - we'll get messages from DOM
       return;
     }
     
     // Track messages within NLWeb blocks
     if (this.state.currentNlwebBlock && data.message_type === 'result_batch') {
       this.state.currentNlwebBlock.messages.push(data);
-      this.state.messageBuffer.push(data);
       // Continue to display immediately - will re-sort at the end
     }
     
@@ -605,14 +601,10 @@ export class UnifiedChatInterface {
       return;
     }
     
-    // Buffer streaming messages if we're in an NLWeb block (for later sorting)
-    if (this.state.currentNlwebBlock && data.timestamp) {
-      if (!this.state.messageBuffer.includes(data)) {
-        this.state.messageBuffer.push(data);
-      }
-      if (data.message_type === 'result_batch') {
-        this.state.currentNlwebBlock.messages.push(data);
-      }
+    // Only buffer NLWeb result_batch messages for score-based sorting within blocks
+    if (this.state.currentNlwebBlock && data.message_type === 'result_batch') {
+      this.state.currentNlwebBlock.messages.push(data);
+      // Don't buffer in general messageBuffer - we'll get them from DOM
     }
     
     // Store each streaming message to conversation
@@ -639,157 +631,42 @@ export class UnifiedChatInterface {
   
   sortAndDisplayMessages() {
     console.log('[sortAndDisplayMessages] Starting sort process');
-    console.log(`[sortAndDisplayMessages] Buffer has ${this.state.messageBuffer?.length || 0} messages`);
-    console.log(`[sortAndDisplayMessages] Found ${this.state.nlwebBlocks?.length || 0} NLWeb blocks`);
     
-    if (!this.state.messageBuffer || this.state.messageBuffer.length === 0) {
+    const container = this.dom.messages();
+    if (!container) {
+      console.log('[sortAndDisplayMessages] No container found');
+      return;
+    }
+    
+    // Get ALL existing message elements from the DOM
+    const allBubbles = Array.from(container.querySelectorAll('.message'));
+    
+    if (allBubbles.length === 0) {
       console.log('[sortAndDisplayMessages] No messages to sort');
       return;
     }
     
-    // Get all existing user messages from the DOM (they won't be in the buffer)
-    const existingUserMessages = [];
-    const existingBubbles = this.dom.messages()?.querySelectorAll('.user-message');
-    existingBubbles?.forEach(bubble => {
-      const textContent = bubble.querySelector('.message-text')?.textContent;
-      if (textContent) {
-        existingUserMessages.push({
-          type: 'user_message',
-          content: textContent,
-          timestamp: parseInt(bubble.dataset.timestamp) || Date.now()
-        });
-      }
+    // Extract messages with their timestamps
+    const messagesWithTimestamps = allBubbles.map(bubble => ({
+      element: bubble,
+      timestamp: parseInt(bubble.dataset.timestamp) || Date.now()
+    }));
+    
+    // Sort by timestamp
+    messagesWithTimestamps.sort((a, b) => a.timestamp - b.timestamp);
+    
+    console.log(`[sortAndDisplayMessages] Sorted ${messagesWithTimestamps.length} messages by timestamp`);
+    
+    // Clear and re-append in sorted order
+    container.innerHTML = '';
+    messagesWithTimestamps.forEach(item => {
+      container.appendChild(item.element);
     });
     
-    // Combine user messages with buffered messages
-    const allMessages = [...existingUserMessages, ...this.state.messageBuffer];
+    this.scrollToBottom();
     
-    // Sort all messages by timestamp
-    const sortedMessages = allMessages.sort((a, b) => {
-      const timestampA = a.timestamp || 0;
-      const timestampB = b.timestamp || 0;
-      return timestampA - timestampB;
-    });
-    
-    console.log(`[sortAndDisplayMessages] Sorted ${sortedMessages.length} messages by timestamp`);
-    
-    // Now process NLWeb blocks - sort result_batch messages within each block by score
-    if (this.state.nlwebBlocks && this.state.nlwebBlocks.length > 0) {
-      this.state.nlwebBlocks.forEach((block, index) => {
-        console.log(`[sortAndDisplayMessages] Processing NLWeb block ${index + 1} with ${block.messages.length} messages`);
-        
-        if (block.messages && block.messages.length > 0) {
-          // Sort messages within this block by score (highest first)
-          const sortedBlockMessages = [...block.messages].sort((a, b) => {
-            // Extract scores from result_batch messages
-            const scoreA = this.extractScoreFromMessage(a);
-            const scoreB = this.extractScoreFromMessage(b);
-            return scoreB - scoreA; // Higher scores first
-          });
-          
-          console.log(`[sortAndDisplayMessages] Sorted ${sortedBlockMessages.length} messages by score in block ${index + 1}`);
-          
-          // Find the position of begin and end markers in sorted messages
-          const beginIndex = sortedMessages.findIndex(msg => 
-            msg.message_type === 'begin-nlweb-response' && 
-            msg.timestamp === block.beginTimestamp
-          );
-          
-          const endIndex = sortedMessages.findIndex(msg => 
-            msg.message_type === 'end-nlweb-response' && 
-            msg.timestamp === block.endTimestamp
-          );
-          
-          if (beginIndex !== -1 && endIndex !== -1) {
-            console.log(`[sortAndDisplayMessages] Replacing messages between index ${beginIndex} and ${endIndex}`);
-            // Remove the original messages between begin and end
-            const messagesBeforeBlock = sortedMessages.slice(0, beginIndex + 1);
-            const messagesAfterBlock = sortedMessages.slice(endIndex);
-            
-            // Reconstruct with sorted block messages
-            sortedMessages.length = 0;
-            sortedMessages.push(...messagesBeforeBlock, ...sortedBlockMessages, ...messagesAfterBlock);
-          }
-        }
-      });
-    }
-    
-    // Clear the display and re-render all messages
-    const container = this.dom.messages();
-    if (container) {
-      console.log('[sortAndDisplayMessages] Clearing container and re-rendering messages');
-      
-      // Keep track of current streaming bubble if any
-      const currentStreamingBubble = container.querySelector('.streaming-message');
-      const wasStreaming = !!currentStreamingBubble;
-      
-      container.innerHTML = '';
-      
-      let lastStreamingBubble = null;
-      let streamingContext = { messageContent: '', allResults: [] };
-      
-      // Re-render all messages in sorted order
-      sortedMessages.forEach(msg => {
-        // Skip delimiter messages
-        if (msg.message_type === 'begin-nlweb-response' || 
-            msg.message_type === 'end-nlweb-response') {
-          return;
-        }
-        
-        // Handle user messages (from DOM extraction)
-        if (msg.type === 'user_message') {
-          const bubble = this.addMessageBubble(msg.content, 'user');
-          if (msg.timestamp) {
-            bubble.dataset.timestamp = msg.timestamp;
-          }
-        }
-        // Handle conversation history messages
-        else if (msg.sender_type) {
-          const role = msg.sender_type === 'HUMAN' || msg.sender_type === 'user' ? 'user' : 'assistant';
-          if (msg.content) {  // Only add if there's content
-            this.addMessageBubble(msg.content, role, msg.sender_info);
-          }
-        } 
-        // Handle streaming messages
-        else if (msg.message_type && msg.message_type !== 'api_version' && msg.message_type !== 'header') {
-          // Only process visible message types
-          const visibleTypes = ['asking_sites', 'result_batch', 'nlws', 'summary', 'ensemble_result'];
-          
-          if (visibleTypes.includes(msg.message_type)) {
-            // Create or reuse streaming bubble
-            if (!lastStreamingBubble) {
-              lastStreamingBubble = document.createElement('div');
-              lastStreamingBubble.className = 'message assistant-message';
-              const textDiv = document.createElement('div');
-              textDiv.className = 'message-text';
-              lastStreamingBubble.appendChild(textDiv);
-              container.appendChild(lastStreamingBubble);
-            }
-            
-            const textDiv = lastStreamingBubble.querySelector('.message-text');
-            
-            // Process the message
-            streamingContext = this.uiCommon.processMessageByType(msg, textDiv, streamingContext);
-          }
-        }
-      });
-      
-      // If we were streaming, mark the last bubble as streaming
-      if (wasStreaming && lastStreamingBubble) {
-        lastStreamingBubble.classList.add('streaming-message');
-        this.state.currentStreaming = {
-          bubble: lastStreamingBubble,
-          textDiv: lastStreamingBubble.querySelector('.message-text'),
-          context: streamingContext
-        };
-      }
-      
-      this.scrollToBottom();
-    }
-    
-    // Clear the buffer after sorting and displaying
-    console.log('[sortAndDisplayMessages] Clearing message buffer');
-    this.state.messageBuffer = [];
+    // Clear NLWeb tracking
+    console.log('[sortAndDisplayMessages] Done sorting');
     this.state.nlwebBlocks = [];
     this.state.currentNlwebBlock = null;
   }
