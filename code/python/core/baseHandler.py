@@ -11,6 +11,7 @@ Backwards compatibility is not guaranteed at this time.
 from core.retriever import search
 import asyncio
 import importlib
+import time
 import core.query_analysis.decontextualize as decontextualize
 import core.query_analysis.analyze_query as analyze_query
 import core.query_analysis.memory as memory   
@@ -322,6 +323,20 @@ class NLWebHandler:
     async def runQuery(self):
         logger.info(f"Starting query execution for query_id: {self.query_id}")
         try:
+            # Send begin-nlweb-response message at the start
+            if self.streaming and self.http_handler is not None:
+                begin_message = {
+                    "message_type": "begin-nlweb-response",
+                    "query_id": self.query_id,
+                    "query": self.query,
+                    "timestamp": int(time.time() * 1000)
+                }
+                try:
+                    await self.http_handler.write_stream(begin_message)
+                    logger.info(f"Sent begin-nlweb-response for query_id: {self.query_id}")
+                except Exception as e:
+                    logger.error(f"Error sending begin-nlweb-response: {e}")
+            
             await self.prepare()
             if (self.query_done):
                 print(f"=== Query done prematurely ===")
@@ -373,12 +388,41 @@ class NLWebHandler:
                     # Don't fail the request if storage fails
             
             self.return_value["query_id"] = self.query_id
+            
+            # Send end-nlweb-response message at the end
+            if self.streaming and self.http_handler is not None:
+                end_message = {
+                    "message_type": "end-nlweb-response",
+                    "query_id": self.query_id,
+                    "timestamp": int(time.time() * 1000)
+                }
+                try:
+                    await self.http_handler.write_stream(end_message)
+                    logger.info(f"Sent end-nlweb-response for query_id: {self.query_id}")
+                except Exception as e:
+                    logger.error(f"Error sending end-nlweb-response: {e}")
+            
             logger.info(f"Query execution completed for query_id: {self.query_id}")
             return self.return_value
         except Exception as e:
             logger.exception(f"Error in runQuery: {e}")
             log(f"Error in runQuery: {e}")
             traceback.print_exc()
+            
+            # Send end-nlweb-response even on error
+            if self.streaming and self.http_handler is not None:
+                error_end_message = {
+                    "message_type": "end-nlweb-response",
+                    "query_id": self.query_id,
+                    "error": True,
+                    "timestamp": int(time.time() * 1000)
+                }
+                try:
+                    await self.http_handler.write_stream(error_end_message)
+                    logger.info(f"Sent end-nlweb-response (error) for query_id: {self.query_id}")
+                except Exception as send_error:
+                    logger.error(f"Error sending end-nlweb-response on error: {send_error}")
+            
             raise
     
     async def prepare(self):

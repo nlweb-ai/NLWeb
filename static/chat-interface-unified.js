@@ -89,7 +89,7 @@ export class UnifiedChatInterface {
       }
       
       // Load conversation list
-      this.conversationManager.loadConversations();
+      this.conversationManager.loadConversations(this.state.selectedSite);
       this.updateConversationsList();
       
     } catch (error) {
@@ -255,6 +255,105 @@ export class UnifiedChatInterface {
         type: 'join',
         conversation_id: conversationId
       }));
+      
+      // Add the conversation to the conversation manager if not already there
+      if (!this.conversationManager.findConversation(conversationId)) {
+        const newConversation = {
+          id: conversationId,
+          title: 'Joined Conversation',
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          site: this.state.selectedSite || 'all',
+          siteInfo: {
+            site: this.state.selectedSite || 'all',
+            mode: this.state.selectedMode || 'list'
+          },
+          messages: []
+        };
+        this.conversationManager.addConversation(newConversation);
+        this.conversationManager.saveConversations();
+        
+        // Update the chat title immediately
+        const chatTitle = document.querySelector('.chat-title');
+        if (chatTitle) {
+          chatTitle.textContent = 'Joined Conversation';
+        }
+      }
+      
+      // Update the conversations list in the UI
+      this.updateConversationsList();
+      
+      // Remove the join parameter from the URL
+      const url = new URL(window.location);
+      url.searchParams.delete('join');
+      url.searchParams.delete('conversation'); // Also remove conversation param if it was set from join
+      window.history.replaceState({}, '', url.toString());
+    }
+  }
+  
+  handleConversationHistory(data) {
+    console.log('Handling conversation history for:', data.conversation_id, 'with', data.messages?.length, 'messages');
+    
+    // Update conversation with the actual title and messages
+    if (data.conversation_id && data.messages) {
+      let conversation = this.conversationManager.findConversation(data.conversation_id);
+      
+      // If conversation doesn't exist yet (e.g., timing issue), create it
+      if (!conversation) {
+        console.log('Conversation not found in manager, creating new one');
+        conversation = {
+          id: data.conversation_id,
+          title: 'Joined Conversation',
+          timestamp: Date.now(),
+          created_at: new Date().toISOString(),
+          site: this.state.selectedSite || 'all',
+          siteInfo: {
+            site: this.state.selectedSite || 'all',
+            mode: this.state.selectedMode || 'list'
+          },
+          messages: []
+        };
+        this.conversationManager.addConversation(conversation);
+      }
+      
+      if (conversation) {
+        // Update title if we have messages
+        if (data.messages.length > 0) {
+          const firstUserMessage = data.messages.find(m => m.sender_type === 'HUMAN' || m.sender_type === 'user');
+          if (firstUserMessage && firstUserMessage.content) {
+            // Use first 50 chars of first user message as title
+            conversation.title = firstUserMessage.content.slice(0, 50) + 
+                               (firstUserMessage.content.length > 50 ? '...' : '');
+          }
+        }
+        
+        // Store the messages
+        conversation.messages = data.messages.map(msg => ({
+          role: msg.sender_type === 'HUMAN' || msg.sender_type === 'user' ? 'user' : 'assistant',
+          content: msg.content,
+          timestamp: msg.timestamp || Date.now()
+        }));
+        
+        // Save and update UI
+        this.conversationManager.saveConversations();
+        this.updateConversationsList();
+        
+        // Update the chat title at the top
+        const chatTitle = document.querySelector('.chat-title');
+        if (chatTitle) {
+          chatTitle.textContent = conversation.title || 'Chat';
+        }
+        
+        // Display the messages in the chat area
+        const container = this.dom.messages();
+        if (container) {
+          container.innerHTML = '';
+          data.messages.forEach(msg => {
+            const role = msg.sender_type === 'HUMAN' || msg.sender_type === 'user' ? 'user' : 'assistant';
+            this.addMessageBubble(msg.content, role, msg.sender_info);
+          });
+        }
+      }
     }
   }
   
@@ -395,6 +494,13 @@ export class UnifiedChatInterface {
   }
   
   handleStreamData(data) {
+    // Track messages for sorting
+    if (!this.state.messageBuffer) {
+      this.state.messageBuffer = [];
+      this.state.nlwebBlocks = [];
+      this.state.currentNlwebBlock = null;
+    }
+    
     // Handle different message types uniformly
     if (data.type === 'conversation_created') {
       this.state.conversationId = data.conversation_id;
@@ -416,12 +522,68 @@ export class UnifiedChatInterface {
       return;
     }
     
+    // Handle conversation history when joining
+    if (data.type === 'conversation_history') {
+      // Buffer messages for later sorting
+      if (data.messages) {
+        data.messages.forEach(msg => {
+          this.state.messageBuffer.push(msg);
+        });
+      }
+      
+      // Display messages immediately AND update conversation metadata
+      this.handleConversationHistory(data);
+      return;
+    }
+    
+    // Handle end of conversation history - trigger sorting
+    if (data.type === 'end-conversation-history') {
+      console.log('[Conversation History End] Sorting messages by timestamp');
+      this.sortAndDisplayMessages();
+      return;
+    }
+    
+    // Handle NLWeb response delimiters
+    if (data.message_type === 'begin-nlweb-response') {
+      console.log('[NLWeb Begin] Starting new NLWeb response block');
+      this.state.currentNlwebBlock = {
+        beginTimestamp: data.timestamp,
+        query: data.query,
+        messages: []
+      };
+      this.state.messageBuffer.push(data);
+      return;
+    }
+    
+    if (data.message_type === 'end-nlweb-response') {
+      console.log('[NLWeb End] Ending NLWeb response block');
+      if (this.state.currentNlwebBlock) {
+        this.state.currentNlwebBlock.endTimestamp = data.timestamp;
+        this.state.nlwebBlocks.push(this.state.currentNlwebBlock);
+        this.state.currentNlwebBlock = null;
+        
+        // For single-user chat, sort and display immediately when NLWeb response ends
+        if (!data.conversation_id || data.conversation_id === this.state.conversationId) {
+          console.log('[NLWeb End] Sorting messages for single-user chat');
+          this.sortAndDisplayMessages();
+        }
+      }
+      this.state.messageBuffer.push(data);
+      return;
+    }
+    
+    // Track messages within NLWeb blocks
+    if (this.state.currentNlwebBlock && data.message_type === 'result_batch') {
+      this.state.currentNlwebBlock.messages.push(data);
+      this.state.messageBuffer.push(data);
+      // Continue to display immediately - will re-sort at the end
+    }
+    
     // Ignore system messages that don't need UI updates
     if (data.type === 'connected' || 
         data.type === 'participants' || 
         data.type === 'participant_list' ||
         data.type === 'participant_update' ||
-        data.type === 'conversation_history' ||
         data.type === 'message_ack') {
       return;
     }
@@ -442,10 +604,20 @@ export class UnifiedChatInterface {
       return;
     }
     
+    // Buffer streaming messages if we're in an NLWeb block (for later sorting)
+    if (this.state.currentNlwebBlock && data.timestamp) {
+      if (!this.state.messageBuffer.includes(data)) {
+        this.state.messageBuffer.push(data);
+      }
+      if (data.message_type === 'result_batch') {
+        this.state.currentNlwebBlock.messages.push(data);
+      }
+    }
+    
     // Store each streaming message to conversation
     this.storeStreamingMessage(data);
     
-    // Handle streaming data
+    // Handle streaming data - display immediately
     if (!this.state.currentStreaming) {
       this.startStreaming();
     }
@@ -462,6 +634,131 @@ export class UnifiedChatInterface {
     }
     
     this.scrollToBottom();
+  }
+  
+  sortAndDisplayMessages() {
+    console.log('[sortAndDisplayMessages] Starting sort process');
+    console.log(`[sortAndDisplayMessages] Buffer has ${this.state.messageBuffer?.length || 0} messages`);
+    console.log(`[sortAndDisplayMessages] Found ${this.state.nlwebBlocks?.length || 0} NLWeb blocks`);
+    
+    if (!this.state.messageBuffer || this.state.messageBuffer.length === 0) {
+      console.log('[sortAndDisplayMessages] No messages to sort');
+      return;
+    }
+    
+    // First, sort all messages by timestamp
+    const sortedMessages = [...this.state.messageBuffer].sort((a, b) => {
+      const timestampA = a.timestamp || 0;
+      const timestampB = b.timestamp || 0;
+      return timestampA - timestampB;
+    });
+    
+    console.log(`[sortAndDisplayMessages] Sorted ${sortedMessages.length} messages by timestamp`);
+    
+    // Now process NLWeb blocks - sort result_batch messages within each block by score
+    if (this.state.nlwebBlocks && this.state.nlwebBlocks.length > 0) {
+      this.state.nlwebBlocks.forEach((block, index) => {
+        console.log(`[sortAndDisplayMessages] Processing NLWeb block ${index + 1} with ${block.messages.length} messages`);
+        
+        if (block.messages && block.messages.length > 0) {
+          // Sort messages within this block by score (highest first)
+          const sortedBlockMessages = [...block.messages].sort((a, b) => {
+            // Extract scores from result_batch messages
+            const scoreA = this.extractScoreFromMessage(a);
+            const scoreB = this.extractScoreFromMessage(b);
+            return scoreB - scoreA; // Higher scores first
+          });
+          
+          console.log(`[sortAndDisplayMessages] Sorted ${sortedBlockMessages.length} messages by score in block ${index + 1}`);
+          
+          // Find the position of begin and end markers in sorted messages
+          const beginIndex = sortedMessages.findIndex(msg => 
+            msg.message_type === 'begin-nlweb-response' && 
+            msg.timestamp === block.beginTimestamp
+          );
+          
+          const endIndex = sortedMessages.findIndex(msg => 
+            msg.message_type === 'end-nlweb-response' && 
+            msg.timestamp === block.endTimestamp
+          );
+          
+          if (beginIndex !== -1 && endIndex !== -1) {
+            console.log(`[sortAndDisplayMessages] Replacing messages between index ${beginIndex} and ${endIndex}`);
+            // Remove the original messages between begin and end
+            const messagesBeforeBlock = sortedMessages.slice(0, beginIndex + 1);
+            const messagesAfterBlock = sortedMessages.slice(endIndex);
+            
+            // Reconstruct with sorted block messages
+            sortedMessages.length = 0;
+            sortedMessages.push(...messagesBeforeBlock, ...sortedBlockMessages, ...messagesAfterBlock);
+          }
+        }
+      });
+    }
+    
+    // Clear the display and re-render all messages
+    const container = this.dom.messages();
+    if (container) {
+      console.log('[sortAndDisplayMessages] Clearing container and re-rendering messages');
+      container.innerHTML = '';
+      
+      // Re-render all messages in sorted order
+      sortedMessages.forEach(msg => {
+        // Skip delimiter messages
+        if (msg.message_type === 'begin-nlweb-response' || 
+            msg.message_type === 'end-nlweb-response') {
+          return;
+        }
+        
+        // Handle conversation history messages
+        if (msg.sender_type) {
+          const role = msg.sender_type === 'HUMAN' || msg.sender_type === 'user' ? 'user' : 'assistant';
+          this.addMessageBubble(msg.content, role, msg.sender_info);
+        } 
+        // Handle streaming messages
+        else if (msg.message_type) {
+          // Create a temporary streaming context to render the message
+          const tempBubble = document.createElement('div');
+          tempBubble.className = 'message assistant-message';
+          const textDiv = document.createElement('div');
+          textDiv.className = 'message-text';
+          tempBubble.appendChild(textDiv);
+          
+          // Use UICommon to process the message
+          this.uiCommon.processMessageByType(msg, textDiv, {
+            messageContent: '',
+            allResults: []
+          });
+          
+          // Add the processed bubble to the container
+          container.appendChild(tempBubble);
+        }
+      });
+      
+      this.scrollToBottom();
+    }
+    
+    // Clear the buffer after sorting and displaying
+    console.log('[sortAndDisplayMessages] Clearing message buffer');
+    this.state.messageBuffer = [];
+    this.state.nlwebBlocks = [];
+    this.state.currentNlwebBlock = null;
+  }
+  
+  extractScoreFromMessage(message) {
+    // Extract score from result_batch message
+    if (message.message_type === 'result_batch' && message.results) {
+      // Get the highest score from results in this batch
+      let maxScore = 0;
+      message.results.forEach(result => {
+        const score = parseFloat(result.score || result.ranking_score || 0);
+        if (score > maxScore) {
+          maxScore = score;
+        }
+      });
+      return maxScore;
+    }
+    return 0;
   }
   
   storeStreamingMessage(data) {
@@ -1012,7 +1309,13 @@ export class UnifiedChatInterface {
   }
   
   updateConversationsList() {
-    this.conversationManager.updateConversationsList(this, this.dom.conversations());
+    const container = this.dom.conversations();
+    console.log('Updating conversations list, container:', container);
+    if (!container) {
+      console.warn('Conversations list container not found!');
+      return;
+    }
+    this.conversationManager.updateConversationsList(this, container);
   }
   
   updateURL() {

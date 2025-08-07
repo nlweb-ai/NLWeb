@@ -200,8 +200,8 @@ body {
 
 /* Conversation Items */
 .conversation-item {
-  padding: 12px 16px;
-  margin-bottom: 2px;
+  padding: 1px 12px;
+  margin-bottom: 1px;
   border-radius: 6px;
   cursor: pointer;
   transition: var(--transition);
@@ -258,12 +258,21 @@ body {
   opacity: 1;
 }
 
+/* Site Groups */
+.site-group {
+  margin-bottom: 20px;
+}
+
+.site-group:last-child {
+  margin-bottom: 0;
+}
+
 /* Site Group Headers */
 .site-group-header {
   font-size: 12px;
   color: var(--text-secondary);
   font-weight: 600;
-  padding: 8px 16px 4px 16px;
+  padding: 6px 12px 2px 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   cursor: pointer;
@@ -299,7 +308,12 @@ body {
 }
 
 .site-conversations .conversation-item {
-  padding-left: 32px;
+  padding-left: 24px;
+  margin-bottom: 0;
+}
+
+.site-conversations .conversation-item:not(:last-child) {
+  margin-bottom: 1px;
 }
 
 /* Remembered Items Section */

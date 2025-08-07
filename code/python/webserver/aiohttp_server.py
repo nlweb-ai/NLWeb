@@ -10,6 +10,7 @@ import asyncio
 import ssl
 import sys
 import os
+from datetime import datetime
 from pathlib import Path
 from aiohttp import web
 import yaml
@@ -242,7 +243,7 @@ class AioHTTPServer:
                         "participantId": p_info.participant_id,
                         "displayName": p_info.name,
                         "type": p_info.participant_type.value,
-                        "joinedAt": p_info.joined_at.isoformat() if p_info.joined_at else datetime.utcnow().isoformat(),
+                        "joinedAt": datetime.utcfromtimestamp(p_info.joined_at / 1000).isoformat() + 'Z' if p_info.joined_at else datetime.utcnow().isoformat() + 'Z',
                         "isOnline": p_info.participant_id in online_ids
                     })
                 

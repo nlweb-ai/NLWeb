@@ -23,12 +23,15 @@ class ConversationManager {
 
   loadLocalConversations(selectedSite) {
     const saved = localStorage.getItem('nlweb_conversations');
+    console.log('Loading conversations from localStorage, selectedSite:', selectedSite);
     if (saved) {
       try {
         const allConversations = JSON.parse(saved);
+        console.log('Found', allConversations.length, 'total conversations in localStorage');
         
         // Filter out empty conversations
         let filteredConversations = allConversations.filter(conv => conv.messages && conv.messages.length > 0);
+        console.log('After filtering empty conversations:', filteredConversations.length);
         
         // If a specific site is selected, filter by site
         if (selectedSite && selectedSite !== 'all') {
@@ -36,6 +39,7 @@ class ConversationManager {
             conv.site === selectedSite || 
             (conv.siteInfo && conv.siteInfo.site === selectedSite)
           );
+          console.log('After site filtering for', selectedSite + ':', filteredConversations.length);
         }
         
         this.conversations = filteredConversations;
@@ -46,6 +50,7 @@ class ConversationManager {
         this.conversations = [];
       }
     } else {
+      console.log('No conversations found in localStorage');
       this.conversations = [];
     }
   }
@@ -338,9 +343,13 @@ class ConversationManager {
   }
 
   updateConversationsList(chatInterface, container = null) {
-    // Use provided container or default to the sidebar conversations list
-    const targetContainer = container || chatInterface.elements.conversationsList;
+    // Use provided container or try to find the conversations list element
+    const targetContainer = container || document.getElementById('conversations-list');
+    console.log('updateConversationsList called, container:', targetContainer);
+    console.log('Total conversations to display:', this.conversations.length);
+    
     if (!targetContainer) {
+      console.warn('Conversations list container not found');
       return;
     }
     
@@ -363,6 +372,7 @@ class ConversationManager {
       return hasMessages;
     });
     
+    console.log('Conversations with content after filtering:', conversationsWithContent.length);
     
     // Group conversations by site
     const conversationsBySite = {};
@@ -385,6 +395,10 @@ class ConversationManager {
     sites.forEach(site => {
       const conversations = conversationsBySite[site];
       
+      // Create site group wrapper
+      const siteGroup = document.createElement('div');
+      siteGroup.className = 'site-group';
+      
       // Create site header
       const siteHeader = document.createElement('div');
       siteHeader.className = 'site-group-header';
@@ -404,11 +418,11 @@ class ConversationManager {
       chevron.innerHTML = '<polyline points="6 9 12 15 18 9"></polyline>';
       siteHeader.appendChild(chevron);
       
-      targetContainer.appendChild(siteHeader);
+      siteGroup.appendChild(siteHeader);
       
       // Create conversations container for this site
       const conversationsContainer = document.createElement('div');
-      conversationsContainer.className = 'conversations-container';
+      conversationsContainer.className = 'site-conversations';
       
       // Sort conversations by timestamp (most recent first)
       conversations.sort((a, b) => b.timestamp - a.timestamp);
@@ -448,14 +462,13 @@ class ConversationManager {
         conversationsContainer.appendChild(convItem);
       });
       
-      targetContainer.appendChild(conversationsContainer);
+      siteGroup.appendChild(conversationsContainer);
+      targetContainer.appendChild(siteGroup);
       
       // Add click handler to toggle conversations visibility
       siteHeader.addEventListener('click', () => {
-        conversationsContainer.style.display = 
-          conversationsContainer.style.display === 'none' ? 'block' : 'none';
-        chevron.style.transform = 
-          conversationsContainer.style.display === 'none' ? 'rotate(-90deg)' : '';
+        conversationsContainer.classList.toggle('collapsed');
+        siteHeader.classList.toggle('collapsed');
       });
     });
   }

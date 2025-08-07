@@ -1219,6 +1219,16 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         
                         print(f"=== END CONVERSATION HISTORY ===\n")
                         
+                        # Send end-conversation-history message to mark the end of replayed messages
+                        end_history_msg = {
+                            'type': 'end-conversation-history',
+                            'conversation_id': conversation_id,
+                            'message_count': len(recent_messages),
+                            'timestamp': int(time.time() * 1000)
+                        }
+                        print(f"Sending end-conversation-history marker: {end_history_msg}")
+                        await ws.send_json(end_history_msg)
+                        
                         continue
                     
                     # Handle leave conversation request
