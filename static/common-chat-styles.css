@@ -394,6 +394,10 @@ body {
   color: white;
 }
 
+.user-message .message-text {
+  font-weight: bold;
+}
+
 .assistant-message .message-avatar {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
