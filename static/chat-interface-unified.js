@@ -76,9 +76,18 @@ export class UnifiedChatInterface {
       // Initialize connection (will use the conversation ID if set)
       await this.initConnection();
       
-      // If we have a join parameter, join the conversation on the server
+      // If we have a join parameter, check authentication first
       if (joinId && this.connectionType === 'websocket') {
-        await this.joinServerConversation(joinId);
+        // Check if user is logged in
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken || authToken === 'anonymous') {
+          // User is not logged in, show login popup
+          console.log('User not logged in, showing login popup for join');
+          this.showLoginForJoin(joinId);
+        } else {
+          // User is logged in, proceed with join
+          await this.joinServerConversation(joinId);
+        }
       }
       
       // Load conversation from URL or show new
@@ -245,6 +254,30 @@ export class UnifiedChatInterface {
     }
   }
   
+  showLoginForJoin(conversationId) {
+    // Show the OAuth login popup
+    const overlay = document.getElementById('oauthPopupOverlay');
+    if (overlay) {
+      overlay.style.display = 'flex';
+      
+      // Store the conversation ID to join after login
+      sessionStorage.setItem('pendingJoinConversation', conversationId);
+      
+      // Add a message explaining why login is required
+      const popupContent = overlay.querySelector('.oauth-popup-content');
+      if (popupContent && !popupContent.querySelector('.join-login-message')) {
+        const message = document.createElement('div');
+        message.className = 'join-login-message';
+        message.style.padding = '10px';
+        message.style.background = '#f0f0f0';
+        message.style.borderRadius = '4px';
+        message.style.marginBottom = '15px';
+        message.innerHTML = '<strong>Login required to join conversation</strong><br>Please login to participate in this conversation.';
+        popupContent.insertBefore(message, popupContent.firstChild);
+      }
+    }
+  }
+  
   async joinServerConversation(conversationId) {
     // Send join message to WebSocket
     if (this.ws.connection?.readyState === WebSocket.OPEN) {
@@ -288,6 +321,9 @@ export class UnifiedChatInterface {
       url.searchParams.delete('join');
       url.searchParams.delete('conversation'); // Also remove conversation param if it was set from join
       window.history.replaceState({}, '', url.toString());
+      
+      // Clear any pending join from session storage
+      sessionStorage.removeItem('pendingJoinConversation');
     }
   }
   

@@ -264,6 +264,15 @@ class OAuthManager {
                     user: event.data.authData ? event.data.authData.user_info : null
                 }
             }));
+            
+            // If there's a pending join operation, retry it
+            const pendingJoin = sessionStorage.getItem('pendingJoinConversation');
+            if (pendingJoin) {
+                sessionStorage.removeItem('pendingJoinConversation');
+                
+                // Reload the page with the join parameter to trigger the join
+                window.location.href = `${window.location.pathname}?join=${pendingJoin}`;
+            }
         }
     }
     
@@ -384,14 +393,12 @@ class OAuthManager {
             }));
             
             // If there's a pending join operation, retry it
-            if (window.pendingJoinConversationId) {
-                const joinConvId = window.pendingJoinConversationId;
-                delete window.pendingJoinConversationId;
+            const pendingJoin = sessionStorage.getItem('pendingJoinConversation');
+            if (pendingJoin) {
+                sessionStorage.removeItem('pendingJoinConversation');
                 
-                // Dispatch event to retry join
-                window.dispatchEvent(new CustomEvent('retryJoin', {
-                    detail: { conversationId: joinConvId }
-                }));
+                // Reload the page with the join parameter to trigger the join
+                window.location.href = `${window.location.pathname}?join=${pendingJoin}`;
             }
         } catch (error) {
             console.error('Email login error:', error);
