@@ -373,8 +373,9 @@ export class UnifiedChatInterface {
     // Hide centered input if visible
     this.hideCenteredInput();
     
-    // Add user message to UI
-    this.addMessageBubble(message, 'user');
+    // Add user message to UI with timestamp
+    const bubble = this.addMessageBubble(message, 'user');
+    bubble.dataset.timestamp = Date.now();
     
     // Save to conversation
     this.saveMessageToConversation(message, 'user');
@@ -646,8 +647,25 @@ export class UnifiedChatInterface {
       return;
     }
     
-    // First, sort all messages by timestamp
-    const sortedMessages = [...this.state.messageBuffer].sort((a, b) => {
+    // Get all existing user messages from the DOM (they won't be in the buffer)
+    const existingUserMessages = [];
+    const existingBubbles = this.dom.messages()?.querySelectorAll('.user-message');
+    existingBubbles?.forEach(bubble => {
+      const textContent = bubble.querySelector('.message-text')?.textContent;
+      if (textContent) {
+        existingUserMessages.push({
+          type: 'user_message',
+          content: textContent,
+          timestamp: parseInt(bubble.dataset.timestamp) || Date.now()
+        });
+      }
+    });
+    
+    // Combine user messages with buffered messages
+    const allMessages = [...existingUserMessages, ...this.state.messageBuffer];
+    
+    // Sort all messages by timestamp
+    const sortedMessages = allMessages.sort((a, b) => {
       const timestampA = a.timestamp || 0;
       const timestampB = b.timestamp || 0;
       return timestampA - timestampB;
@@ -700,7 +718,15 @@ export class UnifiedChatInterface {
     const container = this.dom.messages();
     if (container) {
       console.log('[sortAndDisplayMessages] Clearing container and re-rendering messages');
+      
+      // Keep track of current streaming bubble if any
+      const currentStreamingBubble = container.querySelector('.streaming-message');
+      const wasStreaming = !!currentStreamingBubble;
+      
       container.innerHTML = '';
+      
+      let lastStreamingBubble = null;
+      let streamingContext = { messageContent: '', allResults: [] };
       
       // Re-render all messages in sorted order
       sortedMessages.forEach(msg => {
@@ -710,30 +736,53 @@ export class UnifiedChatInterface {
           return;
         }
         
+        // Handle user messages (from DOM extraction)
+        if (msg.type === 'user_message') {
+          const bubble = this.addMessageBubble(msg.content, 'user');
+          if (msg.timestamp) {
+            bubble.dataset.timestamp = msg.timestamp;
+          }
+        }
         // Handle conversation history messages
-        if (msg.sender_type) {
+        else if (msg.sender_type) {
           const role = msg.sender_type === 'HUMAN' || msg.sender_type === 'user' ? 'user' : 'assistant';
-          this.addMessageBubble(msg.content, role, msg.sender_info);
+          if (msg.content) {  // Only add if there's content
+            this.addMessageBubble(msg.content, role, msg.sender_info);
+          }
         } 
         // Handle streaming messages
-        else if (msg.message_type) {
-          // Create a temporary streaming context to render the message
-          const tempBubble = document.createElement('div');
-          tempBubble.className = 'message assistant-message';
-          const textDiv = document.createElement('div');
-          textDiv.className = 'message-text';
-          tempBubble.appendChild(textDiv);
+        else if (msg.message_type && msg.message_type !== 'api_version' && msg.message_type !== 'header') {
+          // Only process visible message types
+          const visibleTypes = ['asking_sites', 'result_batch', 'nlws', 'summary', 'ensemble_result'];
           
-          // Use UICommon to process the message
-          this.uiCommon.processMessageByType(msg, textDiv, {
-            messageContent: '',
-            allResults: []
-          });
-          
-          // Add the processed bubble to the container
-          container.appendChild(tempBubble);
+          if (visibleTypes.includes(msg.message_type)) {
+            // Create or reuse streaming bubble
+            if (!lastStreamingBubble) {
+              lastStreamingBubble = document.createElement('div');
+              lastStreamingBubble.className = 'message assistant-message';
+              const textDiv = document.createElement('div');
+              textDiv.className = 'message-text';
+              lastStreamingBubble.appendChild(textDiv);
+              container.appendChild(lastStreamingBubble);
+            }
+            
+            const textDiv = lastStreamingBubble.querySelector('.message-text');
+            
+            // Process the message
+            streamingContext = this.uiCommon.processMessageByType(msg, textDiv, streamingContext);
+          }
         }
       });
+      
+      // If we were streaming, mark the last bubble as streaming
+      if (wasStreaming && lastStreamingBubble) {
+        lastStreamingBubble.classList.add('streaming-message');
+        this.state.currentStreaming = {
+          bubble: lastStreamingBubble,
+          textDiv: lastStreamingBubble.querySelector('.message-text'),
+          context: streamingContext
+        };
+      }
       
       this.scrollToBottom();
     }
