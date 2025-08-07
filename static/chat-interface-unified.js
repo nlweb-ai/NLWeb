@@ -50,18 +50,31 @@ export class UnifiedChatInterface {
   
   async init() {
     try {
+      // Update user ID from auth info if available (before any connections)
+      // This ensures we use the OAuth user ID if logged in
+      this.state.userId = this.getOrCreateUserId();
+      console.log('[init] Current user ID:', this.state.userId);
+      
       // Set up event listeners
       this.bindEvents();
       
+      // Listen for auth state changes to update user ID
+      window.addEventListener('authStateChanged', () => {
+        const previousUserId = this.state.userId;
+        this.state.userId = this.getOrCreateUserId();
+        console.log('[authStateChanged] User ID changed from', previousUserId, 'to', this.state.userId);
+        
+        // If WebSocket is connected and user ID changed, might need to reconnect
+        if (this.ws.connection && previousUserId !== this.state.userId) {
+          console.log('[authStateChanged] User ID changed, reconnecting WebSocket');
+          this.ws.connection.close();
+          this.connectWebSocket();
+        }
+      });
+      
       // Load sites from API (non-blocking - fire and forget)
-      // For WebSocket, sites will be loaded when connection opens
-      // For SSE, we still need to load them separately
-      if (this.connectionType !== 'websocket') {
-        this.loadSites().catch(err => {
-          console.error('Failed to load sites:', err);
-          // Continue with default sites
-        });
-      }
+      // Always load sites asynchronously without blocking
+      this.loadSitesNonBlocking();
       
       // Check URL parameters BEFORE initializing connection
       const urlParams = new URLSearchParams(window.location.search);
@@ -182,7 +195,45 @@ export class UnifiedChatInterface {
     return Promise.resolve();
   }
   
+  async getWebSocketConnection(createIfNeeded = true) {
+    // Check if already connected
+    if (this.ws.connection && this.ws.connection.readyState === WebSocket.OPEN) {
+      return this.ws.connection;
+    }
+    
+    // Check if connecting
+    if (this.ws.connection && this.ws.connection.readyState === WebSocket.CONNECTING) {
+      // Wait for connection to complete
+      await new Promise((resolve, reject) => {
+        const checkInterval = setInterval(() => {
+          if (this.ws.connection.readyState === WebSocket.OPEN) {
+            clearInterval(checkInterval);
+            resolve();
+          } else if (this.ws.connection.readyState === WebSocket.CLOSED) {
+            clearInterval(checkInterval);
+            reject(new Error('Connection closed while waiting'));
+          }
+        }, 100);
+      });
+      return this.ws.connection;
+    }
+    
+    // If not connected and should create
+    if (createIfNeeded) {
+      await this.connectWebSocket();
+      return this.ws.connection;
+    }
+    
+    return null;
+  }
+  
   async connectWebSocket() {
+    // Prevent multiple connection attempts
+    if (this.ws.connectingPromise) {
+      console.log('[connectWebSocket] Connection already in progress, returning existing promise');
+      return this.ws.connectingPromise;
+    }
+    
     // Create a general WebSocket connection (not tied to a specific conversation)
     let wsUrl = window.location.origin === 'file://' 
       ? `ws://localhost:8000/chat/ws`
@@ -202,12 +253,13 @@ export class UnifiedChatInterface {
       wsUrl += '?' + params.toString();
     }
     
-    return new Promise((resolve, reject) => {
+    this.ws.connectingPromise = new Promise((resolve, reject) => {
       try {
         this.ws.connection = new WebSocket(wsUrl);
         
         this.ws.connection.onopen = () => {
           this.ws.reconnectAttempts = 0;
+          delete this.ws.connectingPromise; // Clear the connecting promise
           
           // Request sites when connection opens
           this.ws.connection.send(JSON.stringify({
@@ -226,17 +278,22 @@ export class UnifiedChatInterface {
         
         this.ws.connection.onerror = (error) => {
           console.error('WebSocket error:', error);
+          delete this.ws.connectingPromise; // Clear the connecting promise
           reject(error);
         };
         
         this.ws.connection.onclose = () => {
+          delete this.ws.connectingPromise; // Clear the connecting promise
           this.handleDisconnection();
         };
         
       } catch (error) {
+        delete this.ws.connectingPromise; // Clear the connecting promise
         reject(error);
       }
     });
+    
+    return this.ws.connectingPromise;
   }
   
   handleDisconnection() {
@@ -279,18 +336,25 @@ export class UnifiedChatInterface {
   }
   
   async joinServerConversation(conversationId) {
+    console.log('[joinServerConversation] Joining conversation:', conversationId);
+    
+    // Get or create WebSocket connection
+    const ws = await this.getWebSocketConnection(true);
+    
+    if (!ws) {
+      console.error('[joinServerConversation] Failed to get WebSocket connection');
+      return;
+    }
+    
     // Send join message to WebSocket
-    if (this.ws.connection?.readyState === WebSocket.OPEN) {
-      // Just send the join message
-      // The server will replay events which will be handled by handleStreamData
-      // just like normal messages
-      this.ws.connection.send(JSON.stringify({
-        type: 'join',
-        conversation_id: conversationId
-      }));
-      
-      // Add the conversation to the conversation manager if not already there
-      if (!this.conversationManager.findConversation(conversationId)) {
+    console.log('[joinServerConversation] Sending join message');
+    ws.send(JSON.stringify({
+      type: 'join',
+      conversation_id: conversationId
+    }));
+    
+    // Add the conversation to the conversation manager if not already there
+    if (!this.conversationManager.findConversation(conversationId)) {
         const newConversation = {
           id: conversationId,
           title: 'Joined Conversation',
@@ -311,20 +375,19 @@ export class UnifiedChatInterface {
         if (chatTitle) {
           chatTitle.textContent = 'Joined Conversation';
         }
-      }
-      
-      // Update the conversations list in the UI
-      this.updateConversationsList();
-      
-      // Remove the join parameter from the URL
-      const url = new URL(window.location);
-      url.searchParams.delete('join');
-      url.searchParams.delete('conversation'); // Also remove conversation param if it was set from join
-      window.history.replaceState({}, '', url.toString());
-      
-      // Clear any pending join from session storage
-      sessionStorage.removeItem('pendingJoinConversation');
     }
+    
+    // Update the conversations list in the UI
+    this.updateConversationsList();
+    
+    // Remove the join parameter from the URL
+    const url = new URL(window.location);
+    url.searchParams.delete('join');
+    url.searchParams.delete('conversation'); // Also remove conversation param if it was set from join
+    window.history.replaceState({}, '', url.toString());
+    
+    // Clear any pending join from session storage
+    sessionStorage.removeItem('pendingJoinConversation');
   }
   
   // Removed handleConversationHistory - messages now go through normal flow
@@ -367,10 +430,10 @@ export class UnifiedChatInterface {
     }, 0);
   }
   
-  sendThroughConnection(message) {
+  async sendThroughConnection(message) {
     // Generate conversation ID if needed (for new conversations)
     if (!this.state.conversationId) {
-      this.state.conversationId = 'conv_' + Math.random().toString(36).substr(2, 9);
+      this.state.conversationId = 'conv_' + Math.random().toString(36).substring(2, 11);
       this.updateURL();
     }
     
@@ -381,6 +444,9 @@ export class UnifiedChatInterface {
       site: this.state.selectedSite
     };
     
+    console.log('[sendThroughConnection] connectionType:', this.connectionType);
+    console.log('[sendThroughConnection] WebSocket state:', this.ws.connection?.readyState);
+    
     if (this.connectionType === 'websocket') {
       const data = {
         type: 'message',
@@ -388,14 +454,19 @@ export class UnifiedChatInterface {
         ...params
       };
       
-      if (this.ws.connection?.readyState === WebSocket.OPEN) {
-        this.ws.connection.send(JSON.stringify(data));
+      // Get or create WebSocket connection
+      const ws = await this.getWebSocketConnection(true);
+      
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log('[sendThroughConnection] Sending via WebSocket');
+        ws.send(JSON.stringify(data));
       } else {
-        // Queue message and try to reconnect
+        console.log('[sendThroughConnection] Failed to get open WebSocket, queueing message');
+        // Queue message for later
         this.state.messageQueue.push(data);
-        this.connectWebSocket();
       }
     } else {
+      console.log('[sendThroughConnection] Using SSE');
       // Use SSE for responses
       this.connectSSE(message, params);
     }
@@ -408,7 +479,7 @@ export class UnifiedChatInterface {
       ...params
     });
     
-    const url = `${baseUrl}/stream?${urlParams}`;
+    const url = `${baseUrl}/ask?${urlParams}`;
     const eventSource = new ManagedEventSource(url, {
       maxRetries: 3,
       retryDelay: 1000
@@ -485,13 +556,7 @@ export class UnifiedChatInterface {
     if (data.type === 'sites_response' && data.sites) {
       this.processSitesData(data.sites);
       
-      // Resolve the promise if waiting for sites
-      if (this.sitesResponseResolver) {
-        clearTimeout(this.sitesResponseTimeout);
-        this.sitesResponseResolver();
-        delete this.sitesResponseResolver;
-        delete this.sitesResponseTimeout;
-      }
+      // Sites loaded successfully
       return;
     }
     
@@ -505,11 +570,11 @@ export class UnifiedChatInterface {
         this.updateURL();
       }
       
-      // Process each message through the normal flow
+      // Process each message through the SAME handleStreamData flow
       if (data.messages && data.messages.length > 0) {
         data.messages.forEach(msg => {
-          // Convert to standard message format and process through normal flow
-          const standardMessage = {
+          // Convert to the exact format that normal messages use
+          const messageData = {
             type: 'message',
             content: msg.content,
             sender_id: msg.sender_id,
@@ -517,18 +582,9 @@ export class UnifiedChatInterface {
             timestamp: msg.timestamp
           };
           
-          // Determine the role
-          const isUser = msg.sender_type === 'HUMAN' || msg.sender_type === 'user';
-          const role = isUser ? 'user' : 'assistant';
-          
-          // Add message bubble
-          const bubble = this.addMessageBubble(standardMessage.content, role, standardMessage.sender_info);
-          if (standardMessage.timestamp) {
-            bubble.dataset.timestamp = standardMessage.timestamp;
-          }
-          
-          // Save to conversation
-          this.saveMessageToConversation(standardMessage.content, role);
+          // Recursively call handleStreamData with the proper message format
+          // This ensures it goes through the exact same processing path
+          this.handleStreamData(messageData);
         });
       }
       return;
@@ -1063,47 +1119,21 @@ export class UnifiedChatInterface {
     }
   }
 
-  async loadSites() {
-    try {
-      // Use WebSocket if available and open
-      if (this.connectionType === 'websocket') {
-        // Set up a promise to wait for sites response
-        return new Promise((resolve, reject) => {
-          // Store the resolver for when we receive the sites response
-          this.sitesResponseResolver = resolve;
-          
-          // Set a timeout in case we don't get a response
-          const timeout = setTimeout(() => {
-            delete this.sitesResponseResolver;
-            reject(new Error('Timeout waiting for sites response'));
-          }, 5000);
-          
-          // Store timeout to clear it when we get response
-          this.sitesResponseTimeout = timeout;
-          
-          // If WebSocket is already open, send the request
-          if (this.ws.connection?.readyState === WebSocket.OPEN) {
-            this.ws.connection.send(JSON.stringify({
-              type: 'sites_request'
-            }));
-          } else {
-            // WebSocket not ready, fall back to HTTP
-            delete this.sitesResponseResolver;
-            clearTimeout(timeout);
-            this.loadSitesViaHttp();
-          }
-        });
-      } else {
-        // Use HTTP for SSE connection type
-        return this.loadSitesViaHttp();
-      }
-    } catch (error) {
+  loadSitesNonBlocking() {
+    // Always use HTTP for sites loading to avoid blocking
+    // This runs completely asynchronously without any waiting
+    this.loadSitesViaHttp().catch(error => {
       console.error('Error loading sites:', error);
-      
-      // Fallback sites
+      // Continue with default sites
       this.state.sites = ['all'];
       this.state.selectedSite = 'all';
-    }
+    });
+  }
+  
+  async loadSites() {
+    // Deprecated - use loadSitesNonBlocking instead
+    // This method is kept for backwards compatibility
+    return this.loadSitesViaHttp();
   }
   
   async loadSitesViaHttp() {
@@ -1150,9 +1180,39 @@ export class UnifiedChatInterface {
   }
   
   getOrCreateUserId() {
+    // First check if user is logged in via OAuth
+    const userInfo = localStorage.getItem('userInfo');
+    if (userInfo) {
+      try {
+        const user = JSON.parse(userInfo);
+        
+        // For GitHub users, prefer the login/username over numeric ID
+        if (user.provider === 'github') {
+          // Try these fields in order of preference for GitHub
+          if (user.login) return user.login;  // GitHub username
+          if (user.username) return user.username;  // Alternative field name
+          if (user.name) return user.name;  // Display name
+        }
+        
+        // For other providers or if GitHub fields not found
+        // Prefer human-readable identifiers over numeric IDs
+        if (user.email) return user.email;
+        if (user.name) return user.name;
+        if (user.username) return user.username;
+        if (user.login) return user.login;
+        
+        // Last resort - use the ID (might be numeric for GitHub)
+        if (user.id) return user.id;
+        
+      } catch (e) {
+        console.error('Error parsing userInfo:', e);
+      }
+    }
+    
+    // If not logged in, use or create anonymous user ID
     let userId = localStorage.getItem('userId');
     if (!userId) {
-      userId = 'user_' + Math.random().toString(36).substr(2, 9);
+      userId = 'user_' + Math.random().toString(36).substring(2, 11);
       localStorage.setItem('userId', userId);
     }
     return userId;
