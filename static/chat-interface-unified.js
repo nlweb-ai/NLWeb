@@ -327,80 +327,7 @@ export class UnifiedChatInterface {
     }
   }
   
-  handleConversationHistory(data) {
-    console.log('Handling conversation history for:', data.conversation_id, 'with', data.messages?.length, 'messages');
-    
-    // Update conversation with the actual title and messages
-    if (data.conversation_id && data.messages) {
-      let conversation = this.conversationManager.findConversation(data.conversation_id);
-      
-      // If conversation doesn't exist yet (e.g., timing issue), create it
-      if (!conversation) {
-        console.log('Conversation not found in manager, creating new one');
-        conversation = {
-          id: data.conversation_id,
-          title: 'Joined Conversation',
-          timestamp: Date.now(),
-          created_at: new Date().toISOString(),
-          site: this.state.selectedSite || 'all',
-          siteInfo: {
-            site: this.state.selectedSite || 'all',
-            mode: this.state.selectedMode || 'list'
-          },
-          messages: []
-        };
-        this.conversationManager.addConversation(conversation);
-        // Re-fetch to ensure we have the reference from the manager
-        conversation = this.conversationManager.findConversation(data.conversation_id);
-      }
-      
-      if (conversation) {
-        // Update title if we have messages
-        if (data.messages.length > 0) {
-          const firstUserMessage = data.messages.find(m => m.sender_type === 'HUMAN' || m.sender_type === 'user');
-          if (firstUserMessage && firstUserMessage.content) {
-            // Use first 50 chars of first user message as title
-            conversation.title = firstUserMessage.content.slice(0, 50) + 
-                               (firstUserMessage.content.length > 50 ? '...' : '');
-          }
-        }
-        
-        // Store the messages directly on the conversation object
-        conversation.messages = data.messages.map(msg => ({
-          role: msg.sender_type === 'HUMAN' || msg.sender_type === 'user' ? 'user' : 'assistant',
-          content: msg.content,
-          timestamp: msg.timestamp || Date.now()
-        }));
-        
-        console.log('Conversation now has', conversation.messages.length, 'messages');
-        console.log('Conversations in manager:', this.conversationManager.conversations.length);
-        
-        // Save and update UI
-        this.conversationManager.saveConversations();
-        this.updateConversationsList();
-        
-        // Update the chat title at the top
-        const chatTitle = document.querySelector('.chat-title');
-        if (chatTitle) {
-          chatTitle.textContent = conversation.title || 'Chat';
-        }
-        
-        // Display the messages in the chat area
-        const container = this.dom.messages();
-        if (container) {
-          container.innerHTML = '';
-          data.messages.forEach(msg => {
-            const role = msg.sender_type === 'HUMAN' || msg.sender_type === 'user' ? 'user' : 'assistant';
-            const bubble = this.addMessageBubble(msg.content, role, msg.sender_info);
-            // Store timestamp for later sorting
-            if (msg.timestamp) {
-              bubble.dataset.timestamp = msg.timestamp;
-            }
-          });
-        }
-      }
-    }
-  }
+  // Removed handleConversationHistory - messages now go through normal flow
   
   // ========== Unified Message Sending ==========
   
@@ -570,8 +497,40 @@ export class UnifiedChatInterface {
     
     // Handle conversation history when joining
     if (data.type === 'conversation_history') {
-      // Just display messages immediately - no buffering
-      this.handleConversationHistory(data);
+      console.log('Processing conversation history with', data.messages?.length, 'messages');
+      
+      // Set the conversation ID if we have one
+      if (data.conversation_id) {
+        this.state.conversationId = data.conversation_id;
+        this.updateURL();
+      }
+      
+      // Process each message through the normal flow
+      if (data.messages && data.messages.length > 0) {
+        data.messages.forEach(msg => {
+          // Convert to standard message format and process through normal flow
+          const standardMessage = {
+            type: 'message',
+            content: msg.content,
+            sender_id: msg.sender_id,
+            sender_info: msg.sender_info,
+            timestamp: msg.timestamp
+          };
+          
+          // Determine the role
+          const isUser = msg.sender_type === 'HUMAN' || msg.sender_type === 'user';
+          const role = isUser ? 'user' : 'assistant';
+          
+          // Add message bubble
+          const bubble = this.addMessageBubble(standardMessage.content, role, standardMessage.sender_info);
+          if (standardMessage.timestamp) {
+            bubble.dataset.timestamp = standardMessage.timestamp;
+          }
+          
+          // Save to conversation
+          this.saveMessageToConversation(standardMessage.content, role);
+        });
+      }
       return;
     }
     
