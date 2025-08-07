@@ -314,6 +314,8 @@ export class UnifiedChatInterface {
           messages: []
         };
         this.conversationManager.addConversation(conversation);
+        // Re-fetch to ensure we have the reference from the manager
+        conversation = this.conversationManager.findConversation(data.conversation_id);
       }
       
       if (conversation) {
@@ -327,12 +329,15 @@ export class UnifiedChatInterface {
           }
         }
         
-        // Store the messages
+        // Store the messages directly on the conversation object
         conversation.messages = data.messages.map(msg => ({
           role: msg.sender_type === 'HUMAN' || msg.sender_type === 'user' ? 'user' : 'assistant',
           content: msg.content,
           timestamp: msg.timestamp || Date.now()
         }));
+        
+        console.log('Conversation now has', conversation.messages.length, 'messages');
+        console.log('Conversations in manager:', this.conversationManager.conversations.length);
         
         // Save and update UI
         this.conversationManager.saveConversations();
