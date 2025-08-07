@@ -1596,7 +1596,7 @@ class ModernChatInterface {
       // Restore original HTML content
       const originalContent = messageText.getAttribute('data-original-content');
       if (originalContent) {
-        messageText.textContent = originalContent;
+        messageText.innerHTML = originalContent;
         messageText.classList.remove('showing-debug');
         messageText.style.cssText = ''; // Reset inline styles
       }
