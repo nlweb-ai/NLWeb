@@ -1,18 +1,17 @@
-write_endpoint: elasticsearch
+default_storage: elasticsearch
 
-endpoints:
+storage_endpoints:
+  # Elasticsearch storage
   elasticsearch:
     enabled: true
+    type: elasticsearch
     # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
-    api_endpoint_env: ELASTICSEARCH_URL
+    url_env: ELASTICSEARCH_URL
     # Authentication credentials
     api_key_env: ELASTICSEARCH_API_KEY
-    # Index name to search in
-    index_name: nlweb_test_retrieval
-    # Database type
-    db_type: elasticsearch
-    # Vector properties
+    # Collection name (index name) for conversations
+    collection_name: nlweb_test_conversations
     vector_type:
-      type: dense_vector      
+      type: dense_vector
       index_options:
         type: int8_hnsw # byte quantization for efficient storage

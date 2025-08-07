@@ -128,6 +128,23 @@ class StorageProvider(ABC):
         """
         pass
 
+    @abstractmethod
+    async def search_conversations(self, query: str, user_id: Optional[str] = None, 
+                                 site: Optional[str] = None, limit: int = 10) -> List[ConversationEntry]:
+        """
+        Search conversations using a query string.
+
+        Args:
+            query: The search query string
+            user_id: Optional user ID to filter results
+            site: Optional site to filter results
+            limit: Maximum number of results to return
+
+        Returns:
+            List[ConversationEntry]: The search results
+        """
+        pass
+
 # Global storage client instance
 _storage_client = None
 _storage_lock = asyncio.Lock()

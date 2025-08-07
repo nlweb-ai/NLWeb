@@ -37,6 +37,8 @@ endpoints:
     # Vector properties
     vector_type:
       type: dense_vector
+      index_options:
+        type: int8_hnsw # byte quantization for efficient storage
 
   clinical_trials_search:
     enabled: false
