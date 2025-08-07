@@ -591,7 +591,9 @@ export class UnifiedChatInterface {
     }
     
     if (data.type === 'message' && data.sender_id !== this.state.userId) {
-      this.addMessageBubble(data.content, 'assistant', data.sender_info);
+      // Determine if sender is human or AI based on sender_info
+      const role = data.sender_info?.type === 'ai' ? 'assistant' : 'user';
+      this.addMessageBubble(data.content, role, data.sender_info);
       return;
     }
     
@@ -921,11 +923,26 @@ export class UnifiedChatInterface {
     const bubble = document.createElement('div');
     bubble.className = `message ${type}-message message-appear`;
     
-    // Add sender info for multi-participant
-    if (senderInfo && type === 'assistant') {
+    // Add sender info for both user and assistant messages
+    if (type === 'user' || type === 'assistant') {
       const senderDiv = document.createElement('div');
       senderDiv.className = 'message-sender';
-      senderDiv.textContent = senderInfo.name || 'Anonymous';
+      
+      if (type === 'user') {
+        // For user messages, check if it's the current user
+        if (senderInfo && senderInfo.participant_id === this.state.userId) {
+          senderDiv.textContent = 'You';
+        } else if (senderInfo && senderInfo.name) {
+          senderDiv.textContent = senderInfo.name;
+        } else {
+          // If no sender info, assume it's the current user (for messages they just sent)
+          senderDiv.textContent = 'You';
+        }
+      } else {
+        // Assistant messages
+        senderDiv.textContent = senderInfo?.name || 'Assistant';
+      }
+      
       bubble.appendChild(senderDiv);
     }
     
