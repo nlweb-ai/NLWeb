@@ -13,7 +13,7 @@ providers:
   azure_openai:
     api_key_env: AZURE_OPENAI_API_KEY
     api_endpoint_env: AZURE_OPENAI_ENDPOINT
-    api_version_env: "2024-10-21"  # Specific API version for embeddings
+    api_version_env: "2024-10-21" # Specific API version for embeddings
     model: text-embedding-3-small
 
   snowflake:
@@ -34,9 +34,14 @@ providers:
     # Model name (inference endpoint)
     model: .multilingual-e5-small-elasticsearch
     # Service configuration
-    config: 
+    config:
       service: elasticsearch
       service_settings:
         num_allocations: 1
         num_threads: 1
         model_id: .multilingual-e5-small_linux-x86_64
+
+  aws_bedrock:
+    api_key_env: AWS_BEDROCK_API_KEY
+    api_version_env: AWS_BEDROCK_REGION
+    model: amazon.titan-embed-text-v2:0

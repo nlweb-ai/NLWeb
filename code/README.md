@@ -29,6 +29,7 @@ code/
 |   └── whoHandler.py             #
 ├── embedding/
 |   ├── anthropic_embedding.py    #
+|   ├── aws_bedrock_embedding.py  #
 |   ├── azure_oai_embedding.py    #
 |   ├── embedding.py              #
 |   ├── gemini_embedding.py       #
@@ -37,6 +38,7 @@ code/
 |   ├── snowflake_embedding.py    #
 ├── llm/
 |   ├── anthropic.py              #
+|   ├── aws_bedrock.py            #
 |   ├── azure_deepseek.py         #
 |   ├── azure_llama.py            #
 |   ├── azure_oai.py              #
