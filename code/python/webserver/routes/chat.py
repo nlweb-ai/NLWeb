@@ -1166,9 +1166,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         # Sort messages by timestamp to ensure correct order
                         recent_messages.sort(key=lambda m: m.timestamp)
                         
-                        print(f"\n=== CONVERSATION HISTORY FOR {conversation_id} ===")
-                        print(f"Found {len(recent_messages)} messages")
-                        print(f"Messages will be replayed in timestamp order")
+                        # Replay conversation history for joining user
                         
                         # Replay each message as individual events in timestamp order
                         for i, msg in enumerate(recent_messages):
@@ -1189,15 +1187,12 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                                     'timestamp': msg.timestamp,
                                     'sender_info': msg.senderInfo
                                 }
-                                print(f"  Sending user message to client: {user_msg}")
                                 await ws.send_json(user_msg)
                                 
                             elif msg.message_type == 'assistant_stream':
                                 # This is a stored streaming message, replay it as-is
                                 try:
                                     stream_data = json.loads(msg.content)
-                                    print(f"  Parsed assistant_stream data: {stream_data}")
-                                    print(f"  Sending assistant_stream to client")
                                     await ws.send_json(stream_data)
                                 except json.JSONDecodeError as e:
                                     print(f"  ERROR: Failed to parse assistant_stream message: {e}")
@@ -1214,10 +1209,8 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                                     'sender_info': msg.senderInfo,
                                     'message_type': msg.message_type
                                 }
-                                print(f"  Sending {msg.message_type} message to client: {other_msg}")
                                 await ws.send_json(other_msg)
                         
-                        print(f"=== END CONVERSATION HISTORY ===\n")
                         
                         # Send end-conversation-history message to mark the end of replayed messages
                         end_history_msg = {
@@ -1226,7 +1219,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             'message_count': len(recent_messages),
                             'timestamp': int(time.time() * 1000)
                         }
-                        print(f"Sending end-conversation-history marker: {end_history_msg}")
                         await ws.send_json(end_history_msg)
                         
                         continue
@@ -1345,9 +1337,11 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         additional_metadata = data.get('metadata', {})
                         
                         # Create chat message using the clean interface
+                        # Use the user_id from the message data if provided, otherwise fall back to authenticated user
+                        message_sender_id = data.get('user_id', user_id)
                         message = ConversationManager.create_message(
                             conversation_id=conversation_id,
-                            sender_id=user_id,
+                            sender_id=message_sender_id,
                             sender_name=user.get('name', 'User'),
                             content=data.get('content', ''),
                             sites=sites,

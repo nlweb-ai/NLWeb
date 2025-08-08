@@ -645,6 +645,11 @@ export class UnifiedChatInterface {
       // Determine if sender is human or AI based on sender_info
       const role = data.sender_info?.type === 'ai' ? 'assistant' : 'user';
       this.addMessageBubble(data.content, role, data.sender_info);
+      
+      // Save the message to conversation during replay so joined users have complete history
+      if (role === 'user') {
+        this.saveMessageToConversation(data.content, 'user');
+      }
       return;
     }
     
