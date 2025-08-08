@@ -42,6 +42,7 @@ def main():
     # Load environment variables from .env file
     load_dotenv()
     token = os.environ.get("GITHUB_TOKEN")
+    github_username = os.environ.get("GITHUB_USERNAME")
     if not token:
         print("Error: GITHUB_TOKEN environment variable not set")
         return
@@ -66,7 +67,7 @@ def main():
         
         if demo:
             # Skip repos that are not owned by the user
-            if owner != "jennifermarsman":
+            if owner != github_username:
                 continue
             # Skip repos that are not public
             if repo["visibility"] != "public":
