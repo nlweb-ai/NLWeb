@@ -35,6 +35,7 @@ class LLMProviderConfig:
     models: Optional[ModelConfig] = None
     endpoint: Optional[str] = None
     api_version: Optional[str] = None
+    auth_method: Optional[str] = None
 
 @dataclass
 class EmbeddingProviderConfig:
@@ -43,6 +44,7 @@ class EmbeddingProviderConfig:
     api_version: Optional[str] = None
     model: Optional[str] = None
     config: Optional[Dict[str, Any]] = None
+    auth_method: Optional[str] = None
 
 @dataclass
 class RetrievalProviderConfig:
@@ -294,13 +296,16 @@ class AppConfig:
                 api_endpoint = self._get_config_value(cfg.get("api_endpoint_env"))
                 api_version = self._get_config_value(cfg.get("api_version_env"))
                 llm_type = self._get_config_value(cfg.get("llm_type"))
+                auth_method = self._get_config_value(cfg.get("auth_method"), "api_key")
+
                 # Create the LLM provider config - no longer include embedding model
                 self.llm_endpoints[name] = LLMProviderConfig(
                     llm_type=llm_type,
                     api_key=api_key,
                     models=models,
                     endpoint=api_endpoint,
-                    api_version=api_version
+                    api_version=api_version,
+                    auth_method=auth_method
                 )
 
     def load_embedding_config(self, path: str = "config_embedding.yaml"):
@@ -329,6 +334,7 @@ class AppConfig:
             api_version = self._get_config_value(cfg.get("api_version_env"))
             model = self._get_config_value(cfg.get("model"))
             config = self._get_config_value(cfg.get("config"))
+            auth_method = self._get_config_value(cfg.get("auth_method"), "api_key")
 
             # Create the embedding provider config
             self.embedding_providers[name] = EmbeddingProviderConfig(
@@ -336,7 +342,8 @@ class AppConfig:
                 endpoint=api_endpoint,
                 api_version=api_version,
                 model=model,
-                config=config
+                config=config,
+                auth_method=auth_method
             )
 
     def load_retrieval_config(self, path: str = "config_retrieval.yaml"):

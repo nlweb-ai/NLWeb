@@ -11,6 +11,7 @@ Backwards compatibility is not guaranteed at this time.
 import json
 import asyncio
 import threading
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from typing import List, Optional
 from openai import AsyncAzureOpenAI
 from core.config import CONFIG
@@ -42,6 +43,14 @@ def get_azure_openai_api_key():
             return api_key
     return None
 
+def get_auth_method():
+    """Get the authentication method from configuration."""
+    provider_config = CONFIG.get_embedding_provider("azure_openai")
+    if provider_config and provider_config.auth_method:
+        return provider_config.auth_method
+    # Default to api_key
+    return "api_key"
+
 def get_azure_openai_api_version():
     """Get the Azure OpenAI API version from configuration."""
     provider_config = CONFIG.get_embedding_provider("azure_openai")
@@ -58,26 +67,53 @@ def get_azure_openai_client():
     with _client_lock:  # Thread-safe client initialization
         if azure_openai_client is None:
             endpoint = get_azure_openai_endpoint()
-            api_key = get_azure_openai_api_key()
             api_version = get_azure_openai_api_version()
-            
-            if not all([endpoint, api_key, api_version]):
-                error_msg = "Missing required Azure OpenAI configuration"
+            auth_method = get_auth_method()
+
+            if not endpoint or not api_version:
+                error_msg = "Missing required Azure OpenAI configuration (endpoint or api_version)"
                 logger.error(error_msg)
                 raise ValueError(error_msg)
-                
+
             try:
-                azure_openai_client = AsyncAzureOpenAI(
-                    azure_endpoint=endpoint,
-                    api_key=api_key,
-                    api_version=api_version,
-                    timeout=30.0  # Set timeout explicitly
-                )
-                logger.debug("Azure OpenAI client initialized successfully")
+                if auth_method == "azure_ad":
+                    logger.debug("Initializing Azure OpenAI embedding client with Azure AD authentication")
+                    token_provider = get_bearer_token_provider(
+                        DefaultAzureCredential(),
+                        "https://cognitiveservices.azure.com/.default"
+                    )
+
+                    azure_openai_client = AsyncAzureOpenAI(
+                        azure_endpoint=endpoint,
+                        azure_ad_token_provider=token_provider,
+                        api_version=api_version,
+                        timeout=30.0
+                    )
+                elif auth_method == "api_key":
+                    logger.debug("Initializing Azure OpenAI embedding client with API key authentication")
+                    api_key = get_azure_openai_api_key()
+                    if not api_key:
+                        error_msg = "Missing required Azure OpenAI API key for api_key authentication"
+                        logger.error(error_msg)
+                        raise ValueError(error_msg)
+
+                    azure_openai_client = AsyncAzureOpenAI(
+                        azure_endpoint=endpoint,
+                        api_key=api_key,
+                        api_version=api_version,
+                        timeout=30.0
+                    )
+                else:
+                    error_msg = f"Unsupported authentication method: {auth_method}"
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+
             except Exception as e:
-                logger.exception("Failed to initialize Azure OpenAI client")
+                logger.error(f"Failed to initialize Azure OpenAI embedding client: {e}")
                 raise
-           
+
+            logger.debug(f"Azure OpenAI embedding client initialized successfully.")
+
     return azure_openai_client
 
 async def get_azure_embedding(

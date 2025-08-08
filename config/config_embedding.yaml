@@ -14,6 +14,7 @@ providers:
     api_key_env: AZURE_OPENAI_API_KEY
     api_endpoint_env: AZURE_OPENAI_ENDPOINT
     api_version_env: "2024-10-21"  # Specific API version for embeddings
+    auth_method: AZURE_OPENAI_AUTH_METHOD
     model: text-embedding-3-small
 
   snowflake:
