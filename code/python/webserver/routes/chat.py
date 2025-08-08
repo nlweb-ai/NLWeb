@@ -1080,6 +1080,8 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     
     # Track active conversations for this connection
     active_conversations = set()
+    # Track the actual user ID (may be updated from message data)
+    actual_user_id = user_id
     
     try:
         print(f"\n=== WEBSOCKET CONNECTION SETUP ===")
@@ -1227,14 +1229,15 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                     if msg_type == 'leave':
                         conversation_id = data.get('conversation_id')
                         if conversation_id in active_conversations:
-                            conv_manager.remove_participant(conversation_id, user_id)
-                            await ws_manager.remove_connection(conversation_id, user_id)
+                            # Use the actual user ID that was registered with the connection
+                            conv_manager.remove_participant(conversation_id, connection.participant_id)
+                            await ws_manager.remove_connection(conversation_id, connection.participant_id)
                             active_conversations.remove(conversation_id)
                             
                             await ws_manager.broadcast_participant_update(
                                 conversation_id=conversation_id,
                                 action="leave",
-                                participant_id=user_id,
+                                participant_id=connection.participant_id,
                                 participant_name=user_name,
                                 participant_type="human"
                             )
@@ -1283,11 +1286,16 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             
                         # Auto-join conversation if not already joined
                         if conversation_id not in active_conversations:
-                            print(f"Auto-joining user {user_id} to conversation {conversation_id}")
+                            # Use the user_id from the message if provided (this is the real user ID from client)
+                            actual_user_id = data.get('user_id', user_id)
+                            print(f"Auto-joining user {actual_user_id} to conversation {conversation_id}")
                             
-                            # Create participant instance
+                            # Update the connection's participant_id to match the actual user
+                            connection.participant_id = actual_user_id
+                            
+                            # Create participant instance with the actual user ID
                             human = HumanParticipant(
-                                user_id=user_id,
+                                user_id=actual_user_id,
                                 user_name=user_name
                             )
                             
@@ -1339,10 +1347,12 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         # Create chat message using the clean interface
                         # Use the user_id from the message data if provided, otherwise fall back to authenticated user
                         message_sender_id = data.get('user_id', user_id)
+                        # Use user ID as the name if no specific name is available
+                        message_sender_name = user.get('name') or message_sender_id
                         message = ConversationManager.create_message(
                             conversation_id=conversation_id,
                             sender_id=message_sender_id,
-                            sender_name=user.get('name', 'User'),
+                            sender_name=message_sender_name,
                             content=data.get('content', ''),
                             sites=sites,
                             mode=mode,
@@ -1400,15 +1410,15 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         # Clean up all active conversations on disconnect
         for conversation_id in active_conversations:
             try:
-                print(f"Removing {user_id} from conversation {conversation_id}")
-                conv_manager.remove_participant(conversation_id, user_id)
-                await ws_manager.remove_connection(conversation_id, user_id)
+                print(f"Removing {connection.participant_id} from conversation {conversation_id}")
+                conv_manager.remove_participant(conversation_id, connection.participant_id)
+                await ws_manager.remove_connection(conversation_id, connection.participant_id)
                 
                 # Broadcast leave to remaining participants
                 await ws_manager.broadcast_participant_update(
                     conversation_id=conversation_id,
                     action="leave",
-                    participant_id=user_id,
+                    participant_id=connection.participant_id,
                     participant_name=user_name,
                     participant_type="human"
                 )

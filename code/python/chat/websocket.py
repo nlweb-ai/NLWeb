@@ -266,11 +266,19 @@ class WebSocketManager:
         # Get all connections for conversation
         connections = self._connections[conversation_id]
         
+        # Debug: log what we're doing
+        print(f"[WebSocket] Broadcasting to conversation {conversation_id}")
+        print(f"[WebSocket] Exclude user: {exclude_user_id}")
+        print(f"[WebSocket] Active connections: {list(connections.keys())}")
+        
         # Send to all participants except excluded
         tasks = []
         for user_id, connection in connections.items():
             if user_id != exclude_user_id:
+                print(f"[WebSocket] Sending to {user_id}")
                 tasks.append(connection.send_message(message))
+            else:
+                print(f"[WebSocket] Excluding {user_id} from broadcast")
         
         # Send all messages concurrently
         if tasks:

@@ -1,0 +1,20 @@
+<\!DOCTYPE html>
+<html>
+<head><title>Check OAuth Info</title></head>
+<body>
+<script>
+console.log('userInfo:', localStorage.getItem('userInfo'));
+const userInfo = localStorage.getItem('userInfo');
+if (userInfo) {
+  const parsed = JSON.parse(userInfo);
+  console.log('Parsed userInfo:', parsed);
+  console.log('User ID:', parsed.id);
+  console.log('User email:', parsed.email);
+  console.log('User name:', parsed.name);
+}
+console.log('userId:', localStorage.getItem('userId'));
+console.log('authToken:', localStorage.getItem('authToken'));
+</script>
+Check console for OAuth info
+</body>
+</html>
