@@ -74,7 +74,8 @@ export class UnifiedChatInterface {
       
       // Load sites from API (non-blocking - fire and forget)
       // Always load sites asynchronously without blocking
-      this.loadSitesNonBlocking();
+      // Commented out to reduce unnecessary sites requests
+      // this.loadSitesNonBlocking();
       
       // Check URL parameters BEFORE initializing connection
       const urlParams = new URLSearchParams(window.location.search);
@@ -262,9 +263,10 @@ export class UnifiedChatInterface {
           delete this.ws.connectingPromise; // Clear the connecting promise
           
           // Request sites when connection opens
-          this.ws.connection.send(JSON.stringify({
-            type: 'sites_request'
-          }));
+          // Commented out to reduce unnecessary sites requests
+          // this.ws.connection.send(JSON.stringify({
+          //   type: 'sites_request'
+          // }));
           
           // Send any queued messages
           this.flushMessageQueue();
@@ -346,11 +348,21 @@ export class UnifiedChatInterface {
       return;
     }
     
-    // Send join message to WebSocket
-    console.log('[joinServerConversation] Sending join message');
+    // Get user details to send with join message
+    const userId = this.getOrCreateUserId();
+    const userName = userId.split('@')[0] || 'User';
+    
+    // Send join message to WebSocket with user details
+    console.log('[joinServerConversation] Sending join message with user details');
     ws.send(JSON.stringify({
       type: 'join',
-      conversation_id: conversationId
+      conversation_id: conversationId,
+      user_id: userId,
+      user_name: userName,
+      user_info: {
+        id: userId,
+        name: userName
+      }
     }));
     
     // Add the conversation to the conversation manager if not already there
@@ -408,12 +420,23 @@ export class UnifiedChatInterface {
     // Hide centered input if visible
     this.hideCenteredInput();
     
-    // Add user message to UI with timestamp
-    const bubble = this.addMessageBubble(message, 'user');
-    bubble.dataset.timestamp = Date.now();
+    // Get user info for sender attribution
+    const userId = this.getOrCreateUserId();
+    const userName = userId.split('@')[0] || 'User';
     
-    // Save to conversation
-    this.saveMessageToConversation(message, 'user');
+    // Create user message object and process through handleStreamData
+    const userMessageData = {
+      message_type: 'user_message',
+      content: message,
+      timestamp: Date.now(),
+      senderInfo: {
+        id: userId,
+        name: userName
+      }
+    };
+    
+    // Process through handleStreamData with shouldStore = true
+    this.handleStreamData(userMessageData, true);
     
     // Update title if it's still "New chat"
     const chatTitle = document.querySelector('.chat-title');
@@ -437,9 +460,18 @@ export class UnifiedChatInterface {
       this.updateURL();
     }
     
+    // Get user details for the message
+    const userId = this.getOrCreateUserId();
+    const userName = userId.split('@')[0] || 'User';
+    
     const params = {
       conversation_id: this.state.conversationId,
-      user_id: this.state.userId,
+      user_id: userId,
+      user_name: userName,
+      sender_info: {
+        id: userId,
+        name: userName
+      },
       mode: this.state.selectedMode,
       site: this.state.selectedSite
     };
@@ -537,12 +569,37 @@ export class UnifiedChatInterface {
     }
   }
   
-  handleStreamData(data) {
+  handleStreamData(data, shouldStore = true) {
     // Track messages for sorting
     if (!this.state.messageBuffer) {
       this.state.messageBuffer = [];
       this.state.nlwebBlocks = [];
       this.state.currentNlwebBlock = null;
+    }
+    
+    // Handle user messages (from replay)
+    if (data.message_type === 'user_message') {
+      // Extract actual message text from nested structure if needed
+      let messageText = data.content;
+      let senderInfo = data.senderInfo;
+      if (typeof data.content === 'object' && data.content !== null && data.content.content) {
+        // Content is nested - extract the actual text
+        messageText = data.content.content;
+        // Also extract senderInfo from nested structure if present
+        if (data.content.senderInfo) {
+          senderInfo = data.content.senderInfo;
+        }
+      }
+      
+      // Display user message with sender info
+      const bubble = this.addMessageBubble(messageText, 'user', senderInfo);
+      bubble.dataset.timestamp = data.timestamp || Date.now();
+      
+      // Store the message in conversation if shouldStore is true
+      if (shouldStore) {
+        this.storeStreamingMessage(data);
+      }
+      return;
     }
     
     // Handle different message types uniformly
@@ -568,6 +625,23 @@ export class UnifiedChatInterface {
       if (data.conversation_id) {
         this.state.conversationId = data.conversation_id;
         this.updateURL();
+        
+        // Ensure conversation exists in manager
+        if (!this.conversationManager.findConversation(data.conversation_id)) {
+          const newConversation = {
+            id: data.conversation_id,
+            title: 'Joined Conversation', // Will be updated when first user message is received
+            timestamp: Date.now(),
+            created_at: new Date().toISOString(),
+            site: this.state.selectedSite || 'all',
+            siteInfo: {
+              site: this.state.selectedSite || 'all',
+              mode: this.state.selectedMode || 'list'
+            },
+            messages: []
+          };
+          this.conversationManager.addConversation(newConversation);
+        }
       }
       
       // Process each message through the SAME handleStreamData flow
@@ -584,7 +658,8 @@ export class UnifiedChatInterface {
           
           // Recursively call handleStreamData with the proper message format
           // This ensures it goes through the exact same processing path
-          this.handleStreamData(messageData);
+          // Pass shouldStore through to maintain the same storage behavior
+          this.handleStreamData(messageData, shouldStore);
         });
       }
       return;
@@ -594,6 +669,10 @@ export class UnifiedChatInterface {
     if (data.type === 'end-conversation-history') {
       console.log('[Conversation History End] Sorting messages by timestamp');
       this.sortAndDisplayMessages();
+      
+      // Save the conversation with all messages
+      this.conversationManager.saveConversations();
+      this.updateConversationsList();
       return;
     }
     
@@ -632,11 +711,50 @@ export class UnifiedChatInterface {
       // Continue to display immediately - will re-sort at the end
     }
     
-    // Ignore system messages that don't need UI updates
+    // Handle participant updates (join/leave notifications) as messages
+    if (data.type === 'participant_update') {
+      const action = data.action; // 'join' or 'leave'
+      const participant = data.participant;
+      
+      // Don't show join/leave messages for the current user
+      if (participant.participantId === this.state.userId) {
+        return;
+      }
+      
+      // Create a system message for join/leave
+      const message = action === 'join' 
+        ? `${participant.displayName} has joined the conversation`
+        : `${participant.displayName} has left the conversation`;
+      
+      // Add message bubble through the standard flow
+      const bubble = this.addMessageBubble(message, 'system');
+      bubble.dataset.timestamp = data.timestamp || Date.now();
+      
+      // Store the participant update message
+      if (shouldStore) {
+        this.storeStreamingMessage({
+          message_type: 'system',
+          content: message,
+          timestamp: data.timestamp || Date.now(),
+          senderInfo: {
+            id: 'system',
+            name: 'System'
+          },
+          metadata: {
+            action: action,
+            participant_id: participant.participantId,
+            participant_name: participant.displayName
+          }
+        });
+      }
+      
+      return;
+    }
+    
+    // Ignore other system messages that don't need UI updates
     if (data.type === 'connected' || 
         data.type === 'participants' || 
         data.type === 'participant_list' ||
-        data.type === 'participant_update' ||
         data.type === 'message_ack') {
       return;
     }
@@ -670,8 +788,10 @@ export class UnifiedChatInterface {
       // Don't buffer in general messageBuffer - we'll get them from DOM
     }
     
-    // Store each streaming message to conversation
-    this.storeStreamingMessage(data);
+    // Store each streaming message to conversation if shouldStore is true
+    if (shouldStore) {
+      this.storeStreamingMessage(data);
+    }
     
     // Handle streaming data - display immediately
     if (!this.state.currentStreaming) {
@@ -764,26 +884,69 @@ export class UnifiedChatInterface {
         id: this.state.conversationId,
         title: 'New chat',
         messages: [],
-        streamingMessages: [],
         timestamp: Date.now(),
         site: this.state.selectedSite
       };
       this.conversationManager.conversations.push(conversation);
     }
     
-    // Initialize streaming messages array if needed
-    if (!conversation.streamingMessages) {
-      conversation.streamingMessages = [];
+    // Store the raw message exactly as received from server
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    
+    // Use the senderInfo from the data if available, otherwise determine based on message type
+    let senderInfo;
+    if (data.senderInfo) {
+      // Use the existing senderInfo from the message
+      senderInfo = data.senderInfo;
+    } else if (data.message_type === 'user_message' || data.type === 'user') {
+      // This is a user message without senderInfo - shouldn't happen but handle gracefully
+      const userId = this.getOrCreateUserId();
+      senderInfo = {
+        id: userId,
+        name: userId.split('@')[0] || 'User'
+      };
+    } else {
+      // Default to NLWeb Assistant for other message types
+      senderInfo = {
+        id: 'nlweb_assistant',
+        name: 'NLWeb Assistant'
+      };
     }
     
-    // Store the raw streaming message
-    conversation.streamingMessages.push({
-      ...data,
-      timestamp: Date.now()
+    conversation.messages.push({
+      message_id: messageId,
+      conversation_id: this.state.conversationId,
+      content: data,  // Store exact server message object
+      message_type: data.message_type || data.type || 'stream_data',
+      timestamp: Date.now(),
+      senderInfo: senderInfo
     });
+    
+    // Update title if it's the first user message and title is still generic
+    if (data.message_type === 'user_message' && 
+        (conversation.title === 'New chat' || conversation.title === 'Joined Conversation')) {
+      // Extract the actual message text for the title
+      let messageText = data.content;
+      if (typeof data.content === 'object' && data.content !== null && data.content.content) {
+        messageText = data.content.content;
+      }
+      if (typeof messageText === 'string') {
+        conversation.title = messageText.substring(0, 50);
+        // Update the UI title as well
+        const chatTitle = document.querySelector('.chat-title');
+        if (chatTitle) {
+          chatTitle.textContent = conversation.title;
+        }
+      }
+    }
     
     // Save to localStorage
     this.conversationManager.saveConversations();
+    
+    // Update conversation list UI if this is a user message (start of a new conversation)
+    if (data.message_type === 'user_message') {
+      this.updateConversationsList();
+    }
   }
   
   endStreaming() {
@@ -791,16 +954,8 @@ export class UnifiedChatInterface {
       // Remove streaming class
       this.state.currentStreaming.bubble.classList.remove('streaming-message');
       
-      // Mark streaming as complete in conversation
-      const conversation = this.conversationManager.findConversation(this.state.conversationId);
-      if (conversation && conversation.streamingMessages) {
-        // Add a marker that streaming is complete
-        conversation.streamingMessages.push({
-          message_type: 'stream_complete',
-          timestamp: Date.now()
-        });
-        this.conversationManager.saveConversations();
-      }
+      // Just clean up the UI state
+      // Messages are already stored by storeStreamingMessage()
       
       this.state.currentStreaming = null;
     }
@@ -888,8 +1043,8 @@ export class UnifiedChatInterface {
     const siteDropdown = container.querySelector('#site-dropdown');
     const siteDropdownItems = container.querySelector('#site-dropdown-items');
     
-    // Populate sites dropdown
-    if (siteDropdownItems && this.state.sites.length > 0) {
+    // Populate sites dropdown immediately if we have cached sites
+    if (this.state.sites && this.state.sites.length > 0 && siteDropdownItems) {
       siteDropdownItems.innerHTML = '';
       this.state.sites.forEach(site => {
         const item = document.createElement('div');
@@ -918,8 +1073,45 @@ export class UnifiedChatInterface {
       });
     }
     
-    siteSelector?.addEventListener('click', (e) => {
+    siteSelector?.addEventListener('click', async (e) => {
       e.stopPropagation();
+      
+      // Load sites if not already loaded
+      if (!this.state.sites || this.state.sites.length === 0) {
+        console.log('Loading sites on demand...');
+        await this.loadSitesViaHttp();
+        
+        // Populate the dropdown after loading
+        if (siteDropdownItems && this.state.sites.length > 0) {
+          siteDropdownItems.innerHTML = '';
+          this.state.sites.forEach(site => {
+            const item = document.createElement('div');
+            item.className = 'site-dropdown-item';
+            item.dataset.site = site;
+            if (site === this.state.selectedSite) {
+              item.classList.add('selected');
+            }
+            item.textContent = site;
+            item.addEventListener('click', () => {
+              this.state.selectedSite = site;
+              // Update selection visually
+              siteDropdownItems.querySelectorAll('.site-dropdown-item').forEach(i => {
+                i.classList.toggle('selected', i.dataset.site === site);
+              });
+              siteDropdown?.classList.remove('show');
+              siteSelector.title = `Site: ${site}`;
+              
+              // Update the "Asking..." text in the header
+              const siteInfo = document.getElementById('chat-site-info');
+              if (siteInfo) {
+                siteInfo.textContent = `Asking ${site}`;
+              }
+            });
+            siteDropdownItems.appendChild(item);
+          });
+        }
+      }
+      
       siteDropdown?.classList.toggle('show');
     });
     
@@ -986,7 +1178,7 @@ export class UnifiedChatInterface {
       
       if (type === 'user') {
         // For user messages, check if it's the current user
-        if (senderInfo && senderInfo.participant_id === this.state.userId) {
+        if (senderInfo && senderInfo.id === this.state.userId) {
           senderDiv.textContent = 'You';
         } else if (senderInfo && senderInfo.name) {
           senderDiv.textContent = senderInfo.name;
@@ -1050,7 +1242,6 @@ export class UnifiedChatInterface {
         id: this.state.conversationId,
         title: message.substring(0, 50),
         messages: [],
-        streamingMessages: [],
         timestamp: Date.now(),
         site: this.state.selectedSite,
         mode: this.state.selectedMode
@@ -1058,29 +1249,32 @@ export class UnifiedChatInterface {
       this.conversationManager.conversations.push(conversation);
     }
     
-    // Initialize streamingMessages if not present
-    if (!conversation.streamingMessages) {
-      conversation.streamingMessages = [];
-    }
+    // Create server-format message object
+    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    const userId = this.getOrCreateUserId();
     
-    // Add message to messages array
-    conversation.messages.push({
+    // Store user message in same format as streaming messages
+    // The content field should be the message object that would be replayed
+    const userMessageData = {
+      message_type: 'user_message',
       content: message,
-      message_type: type,
       timestamp: Date.now()
+    };
+    
+    conversation.messages.push({
+      message_id: messageId,
+      conversation_id: this.state.conversationId,
+      content: userMessageData,  // Store the message data object
+      message_type: 'user_message',
+      timestamp: Date.now(),
+      senderInfo: {
+        id: userId,
+        name: userId.split('@')[0] || 'User'
+      }
     });
     
-    // Also add to streaming messages for proper replay
-    if (type === 'user') {
-      conversation.streamingMessages.push({
-        message_type: 'user_message',
-        content: message,
-        timestamp: Date.now()
-      });
-    }
-    
     // Update title if it's the first user message
-    if (type === 'user' && conversation.messages.filter(m => m.message_type === 'user').length === 1) {
+    if (type === 'user' && conversation.messages.filter(m => m.message_type === 'user_message').length === 1) {
       conversation.title = message.substring(0, 50);
     }
     
@@ -1142,6 +1336,22 @@ export class UnifiedChatInterface {
   }
   
   async loadSitesViaHttp() {
+    // First check if we have cached sites data
+    const cachedSites = localStorage.getItem('nlweb_sites');
+    if (cachedSites) {
+      try {
+        const sitesData = JSON.parse(cachedSites);
+        if (sitesData && Array.isArray(sitesData) && sitesData.length > 0) {
+          console.log('Using cached sites data:', sitesData);
+          this.processSitesData(sitesData);
+          return;
+        }
+      } catch (e) {
+        console.error('Error parsing cached sites:', e);
+      }
+    }
+    
+    // If no cached data, fetch from server
     try {
       const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
       const response = await fetch(`${baseUrl}/sites?streaming=false`);
@@ -1153,6 +1363,9 @@ export class UnifiedChatInterface {
       const data = await response.json();
       
       if (data && data['message-type'] === 'sites' && Array.isArray(data.sites)) {
+        // Cache the sites data
+        localStorage.setItem('nlweb_sites', JSON.stringify(data.sites));
+        console.log('Cached sites data for future use');
         this.processSitesData(data.sites);
       }
     } catch (error) {
@@ -1180,8 +1393,15 @@ export class UnifiedChatInterface {
     this.state.sites = sites;
     this.state.selectedSite = 'all';
     
-    // Update any existing site dropdowns
-    this.updateSiteDropdowns();
+    // Don't automatically update dropdowns - they will be populated on-demand when clicked
+    // this.updateSiteDropdowns();
+  }
+  
+  clearCachedSites() {
+    // Clear cached sites data (useful for forcing refresh)
+    localStorage.removeItem('nlweb_sites');
+    this.state.sites = [];
+    console.log('Cleared cached sites data');
   }
   
   getOrCreateUserId() {
@@ -1239,54 +1459,14 @@ export class UnifiedChatInterface {
     // Check if we have local messages for this conversation
     const conversation = this.conversationManager.findConversation(conversationId);
     
-    if (conversation && conversation.streamingMessages && conversation.streamingMessages.length > 0) {
-      // Replay streaming messages to rebuild the conversation
-      let currentStreamingBubble = null;
-      let streamingContext = { messageContent: '', allResults: [] };
-      
-      conversation.streamingMessages.forEach(msg => {
-        if (msg.message_type === 'user_message') {
-          // Add user message bubble
-          this.addMessageBubble(msg.content, 'user');
-          // Reset streaming state for new response
-          if (currentStreamingBubble) {
-            currentStreamingBubble.classList.remove('streaming-message');
-          }
-          currentStreamingBubble = null;
-          streamingContext = { messageContent: '', allResults: [] };
-        } else if (msg.message_type === 'stream_complete') {
-          // Mark streaming as complete
-          if (currentStreamingBubble) {
-            currentStreamingBubble.classList.remove('streaming-message');
-          }
-          currentStreamingBubble = null;
-        } else if (msg.message_type) {
-          // Only create bubble for message types that produce visible content
-          const visibleTypes = ['asking_sites', 'result_batch', 'nlws', 'summary', 'ensemble_result'];
-          
-          if (visibleTypes.includes(msg.message_type)) {
-            // Create assistant bubble if needed
-            if (!currentStreamingBubble) {
-              currentStreamingBubble = document.createElement('div');
-              currentStreamingBubble.className = 'message assistant-message';
-              
-              const textDiv = document.createElement('div');
-              textDiv.className = 'message-text';
-              currentStreamingBubble.appendChild(textDiv);
-              
-              container.appendChild(currentStreamingBubble);
-            }
-            
-            // Process the message through UI common
-            const textDiv = currentStreamingBubble.querySelector('.message-text');
-            streamingContext = this.uiCommon.processMessageByType(msg, textDiv, streamingContext);
-          }
-        }
-      });
-    } else if (conversation?.messages) {
-      // Fallback to old message format if no streaming messages
+    if (conversation && conversation.messages && conversation.messages.length > 0) {
+      // Replay all messages through handleStreamData with shouldStore = false
+      // This uses the exact same code path as live messages, but without re-saving to localStorage
       conversation.messages.forEach(msg => {
-        this.addMessageBubble(msg.content, msg.message_type || msg.type);
+        if (msg.content) {
+          // Pass false for shouldStore to avoid duplicating messages in localStorage
+          this.handleStreamData(msg.content, false);
+        }
       });
     }
     
@@ -1369,10 +1549,94 @@ export class UnifiedChatInterface {
     }
   }
   
-  shareConversation() {
+  async shareConversation() {
+    console.log('=== SHARE CONVERSATION STARTED ===');
+    console.log('Current conversationId:', this.state.conversationId);
+    
     if (!this.state.conversationId) {
       this.showError('No conversation to share');
       return;
+    }
+    
+    // Get the current conversation with all messages
+    const conversation = this.conversationManager.findConversation(this.state.conversationId);
+    console.log('Found conversation:', conversation);
+    
+    if (!conversation) {
+      this.showError('No conversation found');
+      return;
+    }
+    
+    // Use messages array directly - it now contains all messages in proper format
+    const allMessages = conversation.messages || [];
+    
+    if (allMessages.length === 0) {
+      this.showError('No messages to share');
+      return;
+    }
+    
+    console.log(`=== UPLOADING ${allMessages.length} MESSAGES ===`);
+    
+    // Log summary of messages being uploaded
+    const summary = {
+      total: allMessages.length,
+      userMessages: allMessages.filter(m => m.message_type === 'user_message').length,
+      streamData: allMessages.filter(m => m.message_type === 'stream_data').length
+    };
+    console.log('Message summary:', summary);
+    
+    // Log first few messages for debugging
+    allMessages.slice(0, 5).forEach((msg, index) => {
+      // Handle content as either string or object
+      let contentPreview = msg.content;
+      if (typeof msg.content === 'string') {
+        contentPreview = msg.content.substring(0, 100) + '...';
+      } else if (typeof msg.content === 'object') {
+        contentPreview = JSON.stringify(msg.content).substring(0, 100) + '...';
+      }
+      
+      console.log(`Message ${index + 1}:`, {
+        message_id: msg.message_id,
+        conversation_id: msg.conversation_id,
+        message_type: msg.message_type,
+        content: contentPreview,
+        timestamp: msg.timestamp,
+        senderInfo: msg.senderInfo
+      });
+    });
+    
+    // Upload all messages to server
+    try {
+      // Convert messages to JSONL format (one JSON per line)
+      const jsonlData = allMessages
+        .map(msg => JSON.stringify(msg))
+        .join('\n');
+      
+      console.log('Sending to /chat/upload, body length:', jsonlData.length);
+      
+      // Upload to server
+      const response = await fetch('/chat/upload', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain'
+        },
+        body: jsonlData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('=== UPLOAD COMPLETE ===');
+      console.log(`Server response: ${result.messages_stored} messages stored`);
+      if (result.errors) {
+        console.log('Upload errors:', result.errors);
+      }
+      
+    } catch (error) {
+      console.error('Failed to upload conversation:', error);
+      // Continue with share even if upload fails
     }
     
     // Generate share URL
