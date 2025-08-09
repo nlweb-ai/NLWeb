@@ -43,6 +43,9 @@ def setup_chat_routes(app: web.Application):
     
     # Health check
     app.router.add_get('/health/chat', chat_health_handler)
+    
+    # Upload endpoint for bulk message storage
+    app.router.add_post('/chat/upload', upload_conversation_handler)
 
 
 async def create_conversation_handler(request: web.Request) -> web.Response:
@@ -1110,13 +1113,18 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         if not conversation_id:
                             await ws.send_json({'type': 'error', 'message': 'conversation_id required'})
                             continue
-                            
-                        print(f"User {user_id} joining conversation {conversation_id}")
                         
-                        # Create participant instance
+                        # Get user details from join message if provided, otherwise use connection details
+                        join_user_id = data.get('user_id', user_id)
+                        join_user_name = data.get('user_name', user_name)
+                        join_user_info = data.get('user_info', {})
+                        
+                        print(f"User {join_user_id} (name: {join_user_name}) joining conversation {conversation_id}")
+                        
+                        # Create participant instance with join details
                         human = HumanParticipant(
-                            user_id=user_id,
-                            user_name=user_name
+                            user_id=join_user_id,
+                            user_name=join_user_name
                         )
                         
                         # Add participant through conversation manager
@@ -1150,13 +1158,14 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         # Send participant list
                         await ws_manager._send_participant_list(conversation_id, connection)
                         
-                        # Broadcast participant join
+                        # Broadcast participant join with user details to all except the joining user
                         await ws_manager.broadcast_participant_update(
                             conversation_id=conversation_id,
                             action="join",
-                            participant_id=user_id,
-                            participant_name=user_name,
-                            participant_type="human"
+                            participant_id=join_user_id,
+                            participant_name=join_user_name,
+                            participant_type="human",
+                            exclude_participant=join_user_id  # Don't send to the user who just joined
                         )
                         
                         # Send conversation history by replaying individual events
@@ -1174,44 +1183,40 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         for i, msg in enumerate(recent_messages):
                             print(f"\nMessage {i+1}:")
                             print(f"  Type: {msg.message_type}")
-                            print(f"  Content: {msg.content[:200] if msg.content else 'None'}...")
+                            # Handle content as either string or object
+                            if isinstance(msg.content, str):
+                                print(f"  Content: {msg.content[:200] if msg.content else 'None'}...")
+                            else:
+                                print(f"  Content: {str(msg.content)[:200]}...")
                             print(f"  SenderInfo: {msg.senderInfo}")
                             print(f"  Timestamp: {msg.timestamp}")
                             
-                            if msg.message_type == 'user':
-                                # Send user message as a message from another user
-                                # This new user joining will see it as someone else's message
-                                user_msg = {
-                                    'type': 'message',
-                                    'conversation_id': conversation_id,
-                                    'sender_id': msg.senderInfo.get('id', 'unknown_user'),
-                                    'content': msg.content,
-                                    'timestamp': msg.timestamp,
-                                    'sender_info': msg.senderInfo
-                                }
-                                await ws.send_json(user_msg)
-                                
-                            elif msg.message_type == 'assistant_stream':
-                                # This is a stored streaming message, replay it as-is
+                            # Send the content with message_id to prevent duplicates
+                            # The frontend will process it through handleStreamData
+                            if isinstance(msg.content, dict):
+                                # Content is already an object, add message_id if not present
+                                content_with_id = msg.content.copy()
+                                if 'message_id' not in content_with_id:
+                                    content_with_id['message_id'] = msg.message_id
+                                await ws.send_json(content_with_id)
+                            elif isinstance(msg.content, str):
+                                # Try to parse as JSON if it's a string
                                 try:
-                                    stream_data = json.loads(msg.content)
-                                    await ws.send_json(stream_data)
-                                except json.JSONDecodeError as e:
-                                    print(f"  ERROR: Failed to parse assistant_stream message: {e}")
-                                    print(f"  Raw content: {msg.content[:500]}...")
-                                    
-                            else:
-                                # Other message types (if any)
-                                other_msg = {
-                                    'type': 'message',
-                                    'conversation_id': conversation_id,
-                                    'sender_id': msg.senderInfo.get('id', 'unknown_user'),
-                                    'content': msg.content,
-                                    'timestamp': msg.timestamp,
-                                    'sender_info': msg.senderInfo,
-                                    'message_type': msg.message_type
-                                }
-                                await ws.send_json(other_msg)
+                                    content_obj = json.loads(msg.content)
+                                    # Add message_id if not present
+                                    if 'message_id' not in content_obj:
+                                        content_obj['message_id'] = msg.message_id
+                                    await ws.send_json(content_obj)
+                                except json.JSONDecodeError:
+                                    # If not JSON, send as plain message
+                                    plain_msg = {
+                                        'type': 'message',
+                                        'message_type': msg.message_type,
+                                        'content': msg.content,
+                                        'timestamp': msg.timestamp,
+                                        'sender_info': msg.senderInfo
+                                    }
+                                    await ws.send_json(plain_msg)
                         
                         
                         # Send end-conversation-history message to mark the end of replayed messages
@@ -1517,3 +1522,88 @@ async def chat_health_handler(request: web.Request) -> web.Response:
             'error': str(e),
             'timestamp': int(time.time() * 1000)
         }, status=500)
+
+
+async def upload_conversation_handler(request: web.Request) -> web.Response:
+    """
+    Upload conversation messages directly to storage.
+    
+    POST /chat/upload
+    Body: JSONL format (newline-delimited JSON)
+    Each line should be a complete message object with conversation_id
+    
+    Returns:
+        200: {"messages_stored": count}
+        400: Bad request (invalid JSON)
+        500: Internal server error
+    """
+    print("\n=== UPLOAD CONVERSATION ENDPOINT CALLED ===")
+    try:
+        # Get storage backend
+        storage = request.app.get('chat_storage')
+        if not storage:
+            print("ERROR: Storage backend not available")
+            return web.json_response(
+                {'error': 'Storage backend not available'},
+                status=500
+            )
+        
+        # Read body as text (JSONL format)
+        body = await request.text()
+        print(f"Received body with {len(body)} characters")
+        
+        lines = body.strip().split('\n')
+        print(f"Processing {len(lines)} lines")
+        
+        count = 0
+        errors = []
+        
+        # Process each line
+        for line_num, line in enumerate(lines, 1):
+            if not line:
+                continue
+                
+            try:
+                # Parse JSON
+                data = json.loads(line)
+                
+                print(f"Message {line_num}: {data.get('message_id', 'NO_ID')} - "
+                      f"Type: {data.get('message_type', 'NO_TYPE')} - "
+                      f"Conv: {data.get('conversation_id', 'NO_CONV')} - "
+                      f"Content: {str(data.get('content', ''))[:50]}...")
+                
+                # Create ChatMessage object
+                message = ChatMessage(**data)
+                
+                # Store directly
+                await storage.store_message(message)
+                count += 1
+                
+            except json.JSONDecodeError as e:
+                error_msg = f"Line {line_num}: Invalid JSON - {str(e)}"
+                print(f"ERROR: {error_msg}")
+                errors.append(error_msg)
+            except TypeError as e:
+                error_msg = f"Line {line_num}: Invalid message format - {str(e)}"
+                print(f"ERROR: {error_msg}")
+                errors.append(error_msg)
+            except Exception as e:
+                error_msg = f"Line {line_num}: {str(e)}"
+                print(f"ERROR: {error_msg}")
+                errors.append(error_msg)
+        
+        print(f"=== UPLOAD COMPLETE: {count} messages stored ===")
+        
+        # Return response
+        response = {'messages_stored': count}
+        if errors:
+            response['errors'] = errors[:10]  # Limit to first 10 errors
+            
+        return web.json_response(response)
+        
+    except Exception as e:
+        logger.error(f"Upload conversation error: {e}", exc_info=True)
+        return web.json_response(
+            {'error': f'Internal server error: {str(e)}'},
+            status=500
+        )

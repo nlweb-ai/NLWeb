@@ -890,8 +890,25 @@ export class UnifiedChatInterface {
       this.conversationManager.conversations.push(conversation);
     }
     
-    // Store the raw message exactly as received from server
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    // Extract message ID from data if it exists, otherwise generate new one
+    let messageId;
+    if (data.message_id) {
+      // Use existing message ID (e.g., when replaying messages during join)
+      messageId = data.message_id;
+    } else if (data.content && typeof data.content === 'object' && data.content.message_id) {
+      // Message ID might be nested in content
+      messageId = data.content.message_id;
+    } else {
+      // Generate new message ID for fresh messages
+      messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    }
+    
+    // Check for duplicate - don't store if message with this ID already exists
+    const existingMessage = conversation.messages.find(m => m.message_id === messageId);
+    if (existingMessage) {
+      console.log(`[storeStreamingMessage] Skipping duplicate message: ${messageId}`);
+      return; // Skip storing duplicate
+    }
     
     // Use the senderInfo from the data if available, otherwise determine based on message type
     let senderInfo;
