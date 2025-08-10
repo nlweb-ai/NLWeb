@@ -79,4 +79,4 @@ class AccompanimentHandler():
             "message": f"Could not find any {self.search_query} that would pair well with {self.main_item}."
         }
         
-        await self.handler.send_message(message)
+        asyncio.create_task(self.handler.send_message(message))

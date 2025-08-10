@@ -114,7 +114,6 @@ export function handleCompareItems(data, chatInterface) {
         return parsed[0].image;
       }
     } catch (e) {
-      console.error('Error extracting image:', e);
     }
     return null;
   };
@@ -155,7 +154,6 @@ export function handleCompareItems(data, chatInterface) {
       try {
         item1Data = JSON.parse(item1Data);
       } catch (e) {
-        console.error('Error parsing item1 schema:', e);
       }
     }
     
@@ -220,7 +218,6 @@ export function handleCompareItems(data, chatInterface) {
       try {
         item2Data = JSON.parse(item2Data);
       } catch (e) {
-        console.error('Error parsing item2 schema:', e);
       }
     }
     

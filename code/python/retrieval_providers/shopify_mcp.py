@@ -42,7 +42,7 @@ class ShopifyMCPClient:
             query: The search query string
             site: Site identifier or list of sites
             num_results: Maximum number of results to return
-            **kwargs: Additional parameters
+            **kwargs: Additional parameters (including optional 'handler')
             
         Returns:
             List of search results formatted as [url, schema_json, name, site]
@@ -55,6 +55,73 @@ class ShopifyMCPClient:
             logger.error("No site specified for Shopify MCP search")
             return []
         
+        # Check if we have pre-computed rewritten queries from the handler
+        handler = kwargs.get('handler')
+        
+        # Wait for rewritten_queries to be available if handler exists
+        if handler:
+            max_wait = 10  # Maximum wait time in seconds
+            wait_interval = 0.1  # Check every 100ms
+            waited = 0
+            
+            while not hasattr(handler, 'rewritten_queries') and waited < max_wait:
+                await asyncio.sleep(wait_interval)
+                waited += wait_interval
+            
+            if waited >= max_wait:
+                logger.warning(f"Timeout waiting for rewritten_queries after {max_wait}s")
+        
+        rewritten_queries = getattr(handler, 'rewritten_queries', None) if handler else None
+        
+        # Use rewritten queries if available and multiple queries exist
+        if rewritten_queries and len(rewritten_queries) > 1:
+            logger.info(f"Using {len(rewritten_queries)} rewritten queries for Shopify search: {rewritten_queries}")
+            
+            # Calculate results per query to maintain total count
+            results_per_query = max(1, num_results // len(rewritten_queries))
+            remainder = num_results % len(rewritten_queries)
+            
+            # Execute searches for each rewritten query in parallel
+            tasks = []
+            for i, rewritten_query in enumerate(rewritten_queries):
+                # Add remainder to first queries
+                query_results = results_per_query + (1 if i < remainder else 0)
+                # Create a task for each rewritten query
+                task = asyncio.create_task(
+                    self._search_single_query(rewritten_query, site, query_results)
+                )
+                tasks.append(task)
+            
+            # Execute all searches in parallel
+            all_results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Combine results, filtering out errors
+            combined_results = []
+            for i, result in enumerate(all_results):
+                if isinstance(result, Exception):
+                    logger.warning(f"Search failed for rewritten query '{rewritten_queries[i]}': {result}")
+                elif result:
+                    combined_results.extend(result)
+            
+            # Limit to requested number of results
+            return combined_results[:num_results]
+        
+        # No rewritten queries - use original query
+        result = await self._search_single_query(query, site, num_results)
+        return result
+    
+    async def _search_single_query(self, query: str, site: str, num_results: int) -> List[List[str]]:
+        """
+        Internal method to search with a single query.
+        
+        Args:
+            query: The search query string
+            site: Site identifier
+            num_results: Maximum number of results to return
+            
+        Returns:
+            List of search results formatted as [url, schema_json, name, site]
+        """
         # Construct the MCP endpoint URL based on the site
         endpoint = f"https://{site}/api/mcp"
         
@@ -131,12 +198,14 @@ class ShopifyMCPClient:
                                 try:
                                     # Parse the text as JSON
                                     search_data = json.loads(content_item['text'])
-                                    return self._format_results(search_data, site)
+                                    formatted = self._format_results(search_data, site)
+                                    return formatted
                                 except json.JSONDecodeError:
                                     logger.error(f"Failed to parse search results from content text")
                     
                     # Otherwise try direct format
-                    return self._format_results(mcp_result, site)
+                    formatted = self._format_results(mcp_result, site)
+                    return formatted
                     
         except asyncio.TimeoutError:
             logger.error("Shopify MCP request timed out")

@@ -47,7 +47,6 @@ class MultiChatApp {
     
     async initialize() {
         try {
-            console.log('Initializing Multi-Chat Application...');
             
             // 1. Load configuration
             await this.configService.initialize();
@@ -55,7 +54,6 @@ class MultiChatApp {
             // 2. Initialize identity (will prompt if needed)
             this.currentIdentity = await this.identityService.ensureIdentity();
             if (!this.currentIdentity) {
-                console.error('Failed to establish identity');
                 this.showError('Please provide an identity to use the chat');
                 return;
             }
@@ -69,7 +67,6 @@ class MultiChatApp {
                 const conversations = await apiService.getConversations();
                 conversations.forEach(conv => stateManager.addConversation(conv));
             } catch (error) {
-                console.error('Failed to load conversations:', error);
             }
             
             // 4. Load sites
@@ -96,10 +93,8 @@ class MultiChatApp {
             }, 30000); // Every 30 seconds
             
             this.isInitialized = true;
-            console.log('Multi-Chat Application initialized successfully');
             
         } catch (error) {
-            console.error('Failed to initialize application:', error);
             this.showError('Failed to initialize chat application');
         }
     }
@@ -175,11 +170,9 @@ class MultiChatApp {
         
         // WebSocket events → State Manager → UI updates
         this.eventBus.on('websocket:connected', () => {
-            console.log('WebSocket connected');
         });
         
         this.eventBus.on('websocket:disconnected', () => {
-            console.log('WebSocket disconnected');
         });
         
         // Message receiving flow
@@ -242,7 +235,6 @@ class MultiChatApp {
         // UI actions → WebSocket sends
         this.eventBus.on('ui:sendMessage', async (data) => {
             if (!this.currentConversationId) {
-                console.error('No active conversation');
                 return;
             }
             
@@ -291,7 +283,6 @@ class MultiChatApp {
                     mode: data.mode
                 });
                 
-                console.log('Mode changed to:', data.mode);
             }
         });
         
@@ -378,8 +369,6 @@ class MultiChatApp {
                     await this.loadConversation(conversations[0].id);
                 }
             } catch (error) {
-                console.error('Failed to load conversations:', error);
-                console.log('Starting with empty conversation list');
             }
         }
     }
@@ -403,7 +392,6 @@ class MultiChatApp {
             }
             
         } catch (error) {
-            console.error('Failed to create conversation:', error);
             this.showError('Failed to create conversation');
         }
     }
@@ -445,7 +433,6 @@ class MultiChatApp {
             this.eventBus.emit('state:currentConversation', conversation);
             
         } catch (error) {
-            console.error('Failed to load conversation:', error);
             this.showError('Failed to load conversation');
         }
     }
@@ -465,7 +452,6 @@ class MultiChatApp {
             }
             
         } catch (error) {
-            console.error('Failed to join conversation:', error);
             this.showError('Failed to join conversation');
         }
     }
@@ -591,7 +577,6 @@ class MultiChatApp {
     
     showError(message) {
         // TODO: Implement proper error UI
-        console.error(message);
         
         // Create a simple error notification
         const errorDiv = document.createElement('div');

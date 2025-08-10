@@ -11,7 +11,6 @@ import { ConversationManager } from './conversation-manager.js';
 
 class ModernChatInterface {
   constructor(options = {}) {
-    console.log('ModernChatInterface constructor called with options:', options);
     
     // Initialize properties
     this.conversationManager = new ConversationManager();
@@ -66,10 +65,8 @@ class ModernChatInterface {
     // After loading conversations, decide what to show
     if (!this.options.skipAutoInit) {
       const conversations = this.conversationManager.getConversations();
-      console.log('Loaded conversations:', conversations.length);
       
       // Always show centered input for new page loads to match user expectation
-      console.log('Showing centered input for new page load');
       this.showCenteredInput();
     }
     
@@ -229,12 +226,10 @@ class ModernChatInterface {
         // Focus the external input
         existingInput.focus();
       } else {
-        console.warn(`Element with id "${existingInputElementId}" not found. Falling back to centered input.`);
         this.showCenteredInput();
       }
     } else {
       // Show the default centered input
-      console.log('Showing centered input from createNewChat');
       this.showCenteredInput();
     }
     
@@ -301,7 +296,6 @@ class ModernChatInterface {
         this.elements.chatTitle.textContent = conversation.title;
       }
       
-      console.log('Set conversation title:', conversation.title, 'for conversation:', conversation.id);
       
       // Also update in conversationManager to ensure it's saved
       this.conversationManager.updateConversation(conversation.id, { title: conversation.title });
@@ -629,8 +623,6 @@ class ModernChatInterface {
           
         } else if (data.message_type === 'chart_result') {
           // Handle chart result (web components)
-          console.log('=== Chart Result Handler Called ===');
-          console.log('Received chart data:', data);
           
           if (data.html) {
             // Create container for the chart
@@ -650,7 +642,6 @@ class ModernChatInterface {
               // Clone the element to ensure we get all attributes
               const clonedElement = element.cloneNode(true);
               chartContainer.appendChild(clonedElement);
-              console.log('Added web component:', clonedElement.tagName, clonedElement.outerHTML);
             });
             
             // If no datacommons elements found, try to add the raw HTML (excluding scripts)
@@ -665,24 +656,19 @@ class ModernChatInterface {
             textDiv.innerHTML = messageContent + this.renderItems(allResults);
             textDiv.appendChild(chartContainer);
             
-            console.log('Chart container appended to message with', datacommonsElements.length, 'web components');
             
             // Force re-initialization of Data Commons components if available
             if (window.datacommons && window.datacommons.init) {
               setTimeout(() => {
                 window.datacommons.init();
-                console.log('Data Commons re-initialized');
               }, 100);
             }
           }
 
         } else if (data.message_type === 'results_map') {
           // Handle results map
-          console.log('=== RESULTS_MAP MESSAGE RECEIVED ===');
-          console.log('Message data:', JSON.stringify(data, null, 2));
           
           if (data.locations && Array.isArray(data.locations) && data.locations.length > 0) {
-            console.log('Creating map with locations:', data.locations);
             
             // Create container for the map
             const mapContainer = document.createElement('div');
@@ -711,12 +697,10 @@ class ModernChatInterface {
             contentDiv.innerHTML = messageContent + this.renderItems(allResults);
             textDiv.appendChild(contentDiv);
             
-            console.log('Map container appended, calling MapDisplay.initializeResultsMap');
             
             // Initialize the map using the imported MapDisplay class
             MapDisplay.initializeResultsMap(mapDiv, data.locations);
           } else {
-            console.log('No valid locations data in results_map message');
           }
 
         } else if (data.message_type === 'complete') {
@@ -730,12 +714,10 @@ class ModernChatInterface {
           this.currentStreamingMessage.allResults = allResults;
         }
       } catch (e) {
-        console.error('Error parsing streaming data:', e);
       }
     };
     
     this.eventSource.onerror = (error) => {
-      console.error('Streaming error:', error);
       this.endStreaming();
       
       if (firstChunk) {
@@ -744,7 +726,6 @@ class ModernChatInterface {
     };
     
     this.eventSource.onopen = () => {
-      console.log('EventSource connection opened');
     };
     
     // prevQueries already updated above before sending the request
@@ -1393,7 +1374,6 @@ class ModernChatInterface {
   }
   
   showCenteredInput() {
-    console.log('showCenteredInput called');
     // Remove any existing centered input first
     const existingCentered = document.querySelector('.centered-input-container');
     if (existingCentered) {
@@ -1402,10 +1382,8 @@ class ModernChatInterface {
     
     // Hide the normal chat input area
     const chatInputContainer = document.querySelector('.chat-input-container');
-    console.log('Found chat input container:', !!chatInputContainer);
     if (chatInputContainer) {
       chatInputContainer.style.display = 'none';
-      console.log('Hidden chat input container');
     }
     
     // Create centered input container
@@ -1794,7 +1772,6 @@ class ModernChatInterface {
       try {
         this.rememberedItems = JSON.parse(saved);
       } catch (e) {
-        console.error('Error loading remembered items:', e);
         this.rememberedItems = [];
       }
     }
@@ -1927,7 +1904,6 @@ class ModernChatInterface {
         }
       }
     } catch (error) {
-      console.error('Error loading sites:', error);
       
       // Fallback sites
       const fallbackSites = ['all', 'eventbrite', 'oreilly', 'scifi_movies', 'verge'];
@@ -1958,12 +1934,9 @@ export { ModernChatInterface };
 // Initialize when DOM is ready (only if not imported as module)
 if (typeof window !== 'undefined' && !window.ModernChatInterfaceExported) {
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOMContentLoaded - initializing ModernChatInterface');
     try {
       new ModernChatInterface();
-      console.log('ModernChatInterface initialized successfully');
     } catch (error) {
-      console.error('Error initializing ModernChatInterface:', error);
     }
   });
   window.ModernChatInterfaceExported = true;

@@ -10,9 +10,6 @@ export class MapDisplay {
    * @param {Array} locations - Array of location objects with title and address
    */
   static initializeResultsMap(mapDiv, locations) {
-    console.log('=== initializeResultsMap Called ===');
-    console.log('mapDiv:', mapDiv);
-    console.log('locations:', locations);
     
     // Always show location list (Google Maps removed)
     this.showLocationList(mapDiv, locations);
@@ -24,8 +21,6 @@ export class MapDisplay {
    * @param {Array} locations - Array of location objects with title and address
    */
   static showLocationList(mapDiv, locations) {
-    console.log('=== showLocationList Called ===');
-    console.log('Number of locations:', locations.length);
     
     mapDiv.style.height = 'auto';
     mapDiv.innerHTML = '';
@@ -107,6 +102,5 @@ export class MapDisplay {
     listContainer.appendChild(list);
     mapDiv.appendChild(listContainer);
     
-    console.log('Location list created and appended successfully');
   }
 }

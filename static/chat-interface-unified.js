@@ -53,7 +53,6 @@ export class UnifiedChatInterface {
       // Update user ID from auth info if available (before any connections)
       // This ensures we use the OAuth user ID if logged in
       this.state.userId = this.getOrCreateUserId();
-      console.log('[init] Current user ID:', this.state.userId);
       
       // Set up event listeners
       this.bindEvents();
@@ -62,11 +61,9 @@ export class UnifiedChatInterface {
       window.addEventListener('authStateChanged', () => {
         const previousUserId = this.state.userId;
         this.state.userId = this.getOrCreateUserId();
-        console.log('[authStateChanged] User ID changed from', previousUserId, 'to', this.state.userId);
         
         // If WebSocket is connected and user ID changed, might need to reconnect
         if (this.ws.connection && previousUserId !== this.state.userId) {
-          console.log('[authStateChanged] User ID changed, reconnecting WebSocket');
           this.ws.connection.close();
           this.connectWebSocket();
         }
@@ -96,7 +93,6 @@ export class UnifiedChatInterface {
         const authToken = localStorage.getItem('authToken');
         if (!authToken || authToken === 'anonymous') {
           // User is not logged in, show login popup
-          console.log('User not logged in, showing login popup for join');
           this.showLoginForJoin(joinId);
         } else {
           // User is logged in, proceed with join
@@ -116,7 +112,6 @@ export class UnifiedChatInterface {
       this.updateConversationsList();
       
     } catch (error) {
-      console.error('Initialization error:', error);
       this.showError('Failed to initialize chat interface');
     }
   }
@@ -231,7 +226,6 @@ export class UnifiedChatInterface {
   async connectWebSocket() {
     // Prevent multiple connection attempts
     if (this.ws.connectingPromise) {
-      console.log('[connectWebSocket] Connection already in progress, returning existing promise');
       return this.ws.connectingPromise;
     }
     
@@ -279,7 +273,6 @@ export class UnifiedChatInterface {
         };
         
         this.ws.connection.onerror = (error) => {
-          console.error('WebSocket error:', error);
           delete this.ws.connectingPromise; // Clear the connecting promise
           reject(error);
         };
@@ -305,7 +298,6 @@ export class UnifiedChatInterface {
       
       setTimeout(() => {
         this.connectWebSocket().catch(err => {
-          console.error('Reconnection failed:', err);
         });
       }, delay);
     } else {
@@ -338,13 +330,11 @@ export class UnifiedChatInterface {
   }
   
   async joinServerConversation(conversationId) {
-    console.log('[joinServerConversation] Joining conversation:', conversationId);
     
     // Get or create WebSocket connection
     const ws = await this.getWebSocketConnection(true);
     
     if (!ws) {
-      console.error('[joinServerConversation] Failed to get WebSocket connection');
       return;
     }
     
@@ -353,7 +343,6 @@ export class UnifiedChatInterface {
     const userName = userId.split('@')[0] || 'User';
     
     // Send join message to WebSocket with user details
-    console.log('[joinServerConversation] Sending join message with user details');
     ws.send(JSON.stringify({
       type: 'join',
       conversation_id: conversationId,
@@ -471,23 +460,18 @@ export class UnifiedChatInterface {
   
   async sendThroughConnection(message) {
     // Just send the message as-is - no modification
-    console.log('[sendThroughConnection] connectionType:', this.connectionType);
-    console.log('[sendThroughConnection] WebSocket state:', this.ws.connection?.readyState);
     
     if (this.connectionType === 'websocket') {
       // Get or create WebSocket connection
       const ws = await this.getWebSocketConnection(true);
       
       if (ws && ws.readyState === WebSocket.OPEN) {
-        console.log('[sendThroughConnection] Sending via WebSocket');
         ws.send(JSON.stringify(message));
       } else {
-        console.log('[sendThroughConnection] Failed to get open WebSocket, queueing message');
         // Queue message for later
         this.state.messageQueue.push(message);
       }
     } else {
-      console.log('[sendThroughConnection] Using SSE');
       // For SSE, extract just what we need from the message
       this.connectSSE(message.content, {
         conversation_id: message.conversation_id,
@@ -521,7 +505,6 @@ export class UnifiedChatInterface {
     };
     
     eventSource.onError = (error) => {
-      console.error('SSE error:', error);
       this.showError('Failed to get response. Please try again.');
       this.endStreaming();
     };
@@ -571,7 +554,6 @@ export class UnifiedChatInterface {
     // Check for duplicate messages using message_id
     if (data.message_id) {
       if (this.seenMessageIds.has(data.message_id)) {
-        console.log(`[handleStreamData] Ignoring duplicate message: ${data.message_id}`);
         return;
       }
       // Add to seen messages
@@ -629,7 +611,6 @@ export class UnifiedChatInterface {
     
     // Handle conversation history when joining
     if (data.type === 'conversation_history') {
-      console.log('Processing conversation history with', data.messages?.length, 'messages');
       
       // Create or update conversation with messages
       if (data.conversation_id) {
@@ -669,7 +650,6 @@ export class UnifiedChatInterface {
     
     // Handle end of conversation history - trigger sorting
     if (data.type === 'end-conversation-history') {
-      console.log('[Conversation History End] Sorting messages by timestamp');
       this.sortAndDisplayMessages();
       
       // Save the conversation with all messages
@@ -680,7 +660,6 @@ export class UnifiedChatInterface {
     
     // Handle NLWeb response delimiters
     if (data.message_type === 'begin-nlweb-response') {
-      console.log('[NLWeb Begin] Starting new NLWeb response block');
       this.state.currentNlwebBlock = {
         beginTimestamp: data.timestamp,
         query: data.query,
@@ -691,7 +670,6 @@ export class UnifiedChatInterface {
     }
     
     if (data.message_type === 'end-nlweb-response') {
-      console.log('[NLWeb End] Ending NLWeb response block');
       if (this.state.currentNlwebBlock) {
         this.state.currentNlwebBlock.endTimestamp = data.timestamp;
         this.state.nlwebBlocks.push(this.state.currentNlwebBlock);
@@ -699,7 +677,6 @@ export class UnifiedChatInterface {
         
         // For single-user chat, sort and display immediately when NLWeb response ends
         if (!data.conversation_id || data.conversation_id === this.state.conversationId) {
-          console.log('[NLWeb End] Sorting messages for single-user chat');
           this.sortAndDisplayMessages();
         }
       }
@@ -815,11 +792,9 @@ export class UnifiedChatInterface {
   }
   
   sortAndDisplayMessages() {
-    console.log('[sortAndDisplayMessages] Starting sort process');
     
     const container = this.dom.messages();
     if (!container) {
-      console.log('[sortAndDisplayMessages] No container found');
       return;
     }
     
@@ -827,7 +802,6 @@ export class UnifiedChatInterface {
     const allBubbles = Array.from(container.querySelectorAll('.message'));
     
     if (allBubbles.length === 0) {
-      console.log('[sortAndDisplayMessages] No messages to sort');
       return;
     }
     
@@ -840,7 +814,6 @@ export class UnifiedChatInterface {
     // Sort by timestamp
     messagesWithTimestamps.sort((a, b) => a.timestamp - b.timestamp);
     
-    console.log(`[sortAndDisplayMessages] Sorted ${messagesWithTimestamps.length} messages by timestamp`);
     
     // Clear and re-append in sorted order
     container.innerHTML = '';
@@ -851,7 +824,6 @@ export class UnifiedChatInterface {
     this.scrollToBottom();
     
     // Clear NLWeb tracking
-    console.log('[sortAndDisplayMessages] Done sorting');
     this.state.nlwebBlocks = [];
     this.state.currentNlwebBlock = null;
   }
@@ -876,7 +848,6 @@ export class UnifiedChatInterface {
     // Just store the message as-is - no wrapping, no ID generation
     const conversationId = data.conversation_id || this.state.conversationId;
     if (!conversationId) {
-      console.error('[storeStreamingMessage] No conversation ID available');
       return;
     }
     
@@ -898,14 +869,12 @@ export class UnifiedChatInterface {
     if (data.message_id) {
       const existingMessage = conversation.messages.find(m => m.message_id === data.message_id);
       if (existingMessage) {
-        console.log(`[storeStreamingMessage] Skipping duplicate message: ${data.message_id}`);
         return;
       }
     }
     
     // Store the message exactly as received - no wrapping!
     conversation.messages.push(data);
-    console.log('[storeStreamingMessage] Message stored. Total messages in conversation:', conversation.messages.length);
     
     // Update title if it's the first user message and title is still generic
     if (data.message_type === 'user' && 
@@ -1062,7 +1031,6 @@ export class UnifiedChatInterface {
       
       // Load sites if not already loaded
       if (!this.state.sites || this.state.sites.length === 0) {
-        console.log('Loading sites on demand...');
         await this.loadSitesViaHttp();
         
         // Populate the dropdown after loading
@@ -1249,7 +1217,6 @@ export class UnifiedChatInterface {
     // Always use HTTP for sites loading to avoid blocking
     // This runs completely asynchronously without any waiting
     this.loadSitesViaHttp().catch(error => {
-      console.error('Error loading sites:', error);
       // Continue with default sites
       this.state.sites = ['all'];
       this.state.selectedSite = 'all';
@@ -1265,7 +1232,6 @@ export class UnifiedChatInterface {
   async loadSitesViaHttp() {
     // Check if we already have sites in memory
     if (this.state.sites && this.state.sites.length > 0) {
-      console.log('Using in-memory cached sites:', this.state.sites);
       return;
     }
     
@@ -1284,7 +1250,6 @@ export class UnifiedChatInterface {
         this.processSitesData(data.sites);
       }
     } catch (error) {
-      console.error('Error loading sites via HTTP:', error);
       
       // Fallback sites
       this.state.sites = ['all'];
@@ -1315,7 +1280,6 @@ export class UnifiedChatInterface {
   clearCachedSites() {
     // This method is kept for backwards compatibility but no longer needed
     this.state.sites = [];
-    console.log('Sites list cleared');
   }
   
   getOrCreateUserId() {
@@ -1344,7 +1308,6 @@ export class UnifiedChatInterface {
         if (user.id) return user.id;
         
       } catch (e) {
-        console.error('Error parsing userInfo:', e);
       }
     }
     
@@ -1361,6 +1324,9 @@ export class UnifiedChatInterface {
     this.state.conversationId = conversationId;
     this.updateURL();
     
+    // Clear the seen message IDs to allow replay
+    this.seenMessageIds = new Set();
+    
     // Hide centered input
     this.hideCenteredInput();
     
@@ -1370,57 +1336,44 @@ export class UnifiedChatInterface {
       container.innerHTML = '';
     }
     
-    // Check if we have local messages for this conversation
-    const conversation = this.conversationManager.findConversation(conversationId);
+    // Get all messages from localStorage
+    const allMessages = JSON.parse(localStorage.getItem('nlweb_messages') || '[]');
     
-    if (conversation && conversation.messages && conversation.messages.length > 0) {
-      // Check if we need to extract metadata (for joined conversations)
-      let needsMetadataExtraction = !conversation.site || conversation.site === 'all';
-      
-      // Replay all messages through handleStreamData with shouldStore = false
-      // Messages are now stored directly without wrapping
-      conversation.messages.forEach(msg => {
-        // Extract metadata from first user message if needed
-        if (needsMetadataExtraction && msg.message_type === 'user') {
-          if (msg.site && msg.site !== 'all') {
-            conversation.site = msg.site;
-            conversation.siteInfo = conversation.siteInfo || {};
-            conversation.siteInfo.site = msg.site;
-          }
-          if (msg.mode) {
-            conversation.mode = msg.mode;
-            conversation.siteInfo = conversation.siteInfo || {};
-            conversation.siteInfo.mode = msg.mode;
-          }
-          needsMetadataExtraction = false;
-          // Save the updated conversation
-          this.conversationManager.saveConversations();
-        }
-        
-        // Pass false for shouldStore to avoid duplicating messages in localStorage
-        this.handleStreamData(msg, false);
-      });
-    }
+    // Filter messages for this conversation
+    const conversationMessages = allMessages.filter(msg => msg.conversation_id === conversationId);
     
-    // Update the chat title
+    // Replay each message through handleStreamData
+    conversationMessages.forEach(msg => {
+      this.handleStreamData(msg, false); // false = don't store again
+    });
+    
+    // Update the chat title from first user message if available
     const chatTitle = document.querySelector('.chat-title');
-    if (chatTitle && conversation) {
-      chatTitle.textContent = conversation.title || 'Chat';
+    if (chatTitle) {
+      const firstUserMessage = conversationMessages.find(msg => msg.message_type === 'user');
+      if (firstUserMessage && firstUserMessage.content) {
+        const content = typeof firstUserMessage.content === 'string' ? 
+          firstUserMessage.content : 'Chat';
+        chatTitle.textContent = content.substring(0, 50);
+      } else {
+        chatTitle.textContent = 'Chat';
+      }
     }
     
-    // Restore site and mode settings
-    if (conversation) {
-      if (conversation.site) {
-        this.state.selectedSite = conversation.site;
+    // Restore site and mode settings from first user message
+    const firstUserMsg = conversationMessages.find(msg => msg.message_type === 'user');
+    if (firstUserMsg) {
+      if (firstUserMsg.site) {
+        this.state.selectedSite = firstUserMsg.site;
         
         // Update the "Asking..." text in the header
         const siteInfo = document.getElementById('chat-site-info');
         if (siteInfo) {
-          siteInfo.textContent = `Asking ${conversation.site}`;
+          siteInfo.textContent = `Asking ${firstUserMsg.site}`;
         }
       }
-      if (conversation.mode) {
-        this.state.selectedMode = conversation.mode;
+      if (firstUserMsg.mode) {
+        this.state.selectedMode = firstUserMsg.mode;
       }
     }
     
@@ -1430,9 +1383,7 @@ export class UnifiedChatInterface {
   
   updateConversationsList() {
     const container = this.dom.conversations();
-    console.log('Updating conversations list, container:', container);
     if (!container) {
-      console.warn('Conversations list container not found!');
       return;
     }
     this.conversationManager.updateConversationsList(this, container);
@@ -1482,8 +1433,6 @@ export class UnifiedChatInterface {
   }
   
   async shareConversation() {
-    console.log('=== SHARE CONVERSATION STARTED ===');
-    console.log('Current conversationId:', this.state.conversationId);
     
     if (!this.state.conversationId) {
       this.showError('No conversation to share');
@@ -1492,7 +1441,6 @@ export class UnifiedChatInterface {
     
     // Get the current conversation with all messages
     const conversation = this.conversationManager.findConversation(this.state.conversationId);
-    console.log('Found conversation:', conversation);
     
     if (!conversation) {
       this.showError('No conversation found');
@@ -1507,7 +1455,6 @@ export class UnifiedChatInterface {
       return;
     }
     
-    console.log(`=== UPLOADING ${allMessages.length} MESSAGES ===`);
     
     // Log summary of messages being uploaded
     const summary = {
@@ -1515,27 +1462,8 @@ export class UnifiedChatInterface {
       userMessages: allMessages.filter(m => m.message_type === 'user').length,
       streamData: allMessages.filter(m => m.message_type === 'stream_data').length
     };
-    console.log('Message summary:', summary);
     
-    // Log first few messages for debugging
-    allMessages.slice(0, 5).forEach((msg, index) => {
-      // Handle content as either string or object
-      let contentPreview = msg.content;
-      if (typeof msg.content === 'string') {
-        contentPreview = msg.content.substring(0, 100) + '...';
-      } else if (typeof msg.content === 'object') {
-        contentPreview = JSON.stringify(msg.content).substring(0, 100) + '...';
-      }
-      
-      console.log(`Message ${index + 1}:`, {
-        message_id: msg.message_id,
-        conversation_id: msg.conversation_id,
-        message_type: msg.message_type,
-        content: contentPreview,
-        timestamp: msg.timestamp,
-        senderInfo: msg.senderInfo
-      });
-    });
+    // Removed debug logging
     
     // Upload all messages to server
     try {
@@ -1544,7 +1472,6 @@ export class UnifiedChatInterface {
         .map(msg => JSON.stringify(msg))
         .join('\n');
       
-      console.log('Sending to /chat/upload, body length:', jsonlData.length);
       
       // Upload to server
       const response = await fetch('/chat/upload', {
@@ -1560,14 +1487,10 @@ export class UnifiedChatInterface {
       }
       
       const result = await response.json();
-      console.log('=== UPLOAD COMPLETE ===');
-      console.log(`Server response: ${result.messages_stored} messages stored`);
       if (result.errors) {
-        console.log('Upload errors:', result.errors);
       }
       
     } catch (error) {
-      console.error('Failed to upload conversation:', error);
       // Continue with share even if upload fails
     }
     
@@ -1608,7 +1531,6 @@ export class UnifiedChatInterface {
         }, 3000);
       }
     }).catch(err => {
-      console.error('Failed to copy:', err);
       this.showError('Failed to copy share link');
     });
   }

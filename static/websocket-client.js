@@ -35,7 +35,6 @@ class ChatWebSocketClient {
    */
   connect() {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
       return;
     }
     
@@ -47,7 +46,6 @@ class ChatWebSocketClient {
       wsUrl.searchParams.set('token', this.token);
       wsUrl.searchParams.set('conversation_id', this.conversationId);
       
-      console.log(`Connecting to WebSocket: ${wsUrl.origin}${wsUrl.pathname}`);
       this.ws = new WebSocket(wsUrl.toString());
       
       // Set up event handlers
@@ -57,7 +55,6 @@ class ChatWebSocketClient {
       this.ws.onerror = this.handleError.bind(this);
       
     } catch (error) {
-      console.error('Failed to create WebSocket:', error);
       this.scheduleReconnect();
     }
   }
@@ -66,7 +63,6 @@ class ChatWebSocketClient {
    * Handle WebSocket open event
    */
   handleOpen(event) {
-    console.log('WebSocket connected');
     
     // Reset reconnection state
     this.reconnectAttempt = 0;
@@ -98,7 +94,6 @@ class ChatWebSocketClient {
       this.onMessage(data);
       
     } catch (error) {
-      console.error('Failed to parse WebSocket message:', error);
     }
   }
   
@@ -106,7 +101,6 @@ class ChatWebSocketClient {
    * Handle WebSocket close event
    */
   handleClose(event) {
-    console.log(`WebSocket closed: code=${event.code}, reason=${event.reason}`);
     
     // Stop heartbeat
     this.stopHeartbeat();
@@ -127,7 +121,6 @@ class ChatWebSocketClient {
    * Handle WebSocket error event
    */
   handleError(event) {
-    console.error('WebSocket error:', event);
     this.onError(event);
   }
   
@@ -136,7 +129,6 @@ class ChatWebSocketClient {
    */
   scheduleReconnect() {
     if (this.reconnectAttempt >= this.maxRetries) {
-      console.error(`Max reconnection attempts (${this.maxRetries}) reached. Giving up.`);
       this.onError(new Error('Max reconnection attempts reached. Please refresh the page.'));
       return;
     }
@@ -144,7 +136,6 @@ class ChatWebSocketClient {
     // Calculate backoff delay: 1s, 2s, 4s, 8s, 16s, max 30s
     const delay = Math.min(Math.pow(2, this.reconnectAttempt) * 1000, 30000);
     
-    console.log(`Scheduling reconnection attempt ${this.reconnectAttempt + 1}/${this.maxRetries} in ${delay}ms`);
     
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempt++;
@@ -174,7 +165,6 @@ class ChatWebSocketClient {
         if (this.lastPingTime && !this.lastPongTime) {
           const timeSinceLastPing = Date.now() - this.lastPingTime;
           if (timeSinceLastPing > this.pongTimeout) {
-            console.error('Pong timeout - closing connection');
             this.ws.close(4000, 'Pong timeout');
             return;
           }
@@ -209,7 +199,6 @@ class ChatWebSocketClient {
         this.ws.send(JSON.stringify(message));
         return true;
       } catch (error) {
-        console.error('Failed to send message:', error);
         this.messageQueue.push(message);
         return false;
       }
@@ -229,7 +218,6 @@ class ChatWebSocketClient {
       try {
         this.ws.send(JSON.stringify(message));
       } catch (error) {
-        console.error('Failed to send queued message:', error);
         // Put it back
         this.messageQueue.unshift(message);
         break;
@@ -302,7 +290,6 @@ class ChatApplication {
       
       // Handle incoming messages
       onMessage: (data) => {
-        console.log('Received message:', data);
         
         switch (data.type) {
           case 'message':
@@ -315,19 +302,16 @@ class ChatApplication {
             this.handleServerError(data);
             break;
           default:
-            console.warn('Unknown message type:', data.type);
         }
       },
       
       // Handle connection events
       onConnect: () => {
-        console.log('Chat connected');
         this.updateConnectionStatus('connected');
         this.hideReconnectionNotice();
       },
       
       onDisconnect: (event) => {
-        console.log('Chat disconnected');
         this.updateConnectionStatus('disconnected');
         
         if (!event.wasClean) {
@@ -336,7 +320,6 @@ class ChatApplication {
       },
       
       onError: (error) => {
-        console.error('Chat error:', error);
         
         // Check if max retries reached
         if (error.message && error.message.includes('Max reconnection attempts')) {
@@ -358,7 +341,6 @@ class ChatApplication {
    */
   sendMessage(content) {
     if (!this.wsClient) {
-      console.error('WebSocket not initialized');
       return;
     }
     
@@ -371,7 +353,6 @@ class ChatApplication {
     
     const sent = this.wsClient.sendMessage(message);
     if (!sent) {
-      console.log('Message queued for sending');
       this.showMessageQueuedNotice();
     }
   }

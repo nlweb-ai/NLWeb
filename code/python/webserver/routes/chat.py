@@ -1089,7 +1089,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     actual_user_id = user_id
     
     try:
-        print(f"\n=== WEBSOCKET CONNECTION SETUP ===")
         
         # Send connection confirmation
         print(f"Sending connection confirmation to {user_id}")
@@ -1101,7 +1100,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         # Handle incoming messages
         async for msg in ws:
             if msg.type == web.WSMsgType.TEXT:
-                print(f"\n=== RAW WEBSOCKET MESSAGE ===")
                 print(f"Raw data: {msg.data[:200]}")
                 try:
                     data = json.loads(msg.data)
@@ -1319,7 +1317,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                                     print(f"[AUTO-JOIN] Creating NLWebParticipant with storage_client: {storage_client is not None}")
                                     nlweb = NLWebParticipant(nlweb_handler, config, storage_client)
                                     conv_manager.add_participant(conversation_id, nlweb)
-                        print(f"\n=== WEBSOCKET MESSAGE RECEIVED ===")
                         print(f"User ID: {user_id}")
                         print(f"Content: {data.get('content', '')[:100]}")
                         print(f"Type: {data.get('type')}")
@@ -1375,7 +1372,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         print(f"\nERROR in WebSocket handler: {e}")
         logger.error(f"WebSocket handler error: {e}", exc_info=True)
     finally:
-        print(f"\n=== WEBSOCKET CLEANUP ===")
         print(f"Cleaning up {len(active_conversations)} active conversations for {user_id}")
         
         # Clean up all active conversations on disconnect
@@ -1503,7 +1499,6 @@ async def upload_conversation_handler(request: web.Request) -> web.Response:
         400: Bad request (invalid JSON)
         500: Internal server error
     """
-    print("\n=== UPLOAD CONVERSATION ENDPOINT CALLED ===")
     try:
         # Get storage backend
         storage = request.app.get('chat_storage')
@@ -1557,7 +1552,6 @@ async def upload_conversation_handler(request: web.Request) -> web.Response:
                 print(f"ERROR: {error_msg}")
                 errors.append(error_msg)
         
-        print(f"=== UPLOAD COMPLETE: {count} messages stored ===")
         
         # Return response
         response = {'messages_stored': count}

@@ -155,7 +155,6 @@ export class ChatUI {
                     this.copyShareLinkButton.classList.remove('btn-success');
                 }, 2000);
             }).catch(err => {
-                console.error('Failed to copy share link:', err);
             });
         });
     }

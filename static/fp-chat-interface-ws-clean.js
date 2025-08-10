@@ -86,7 +86,6 @@ export class ModernChatInterface {
       this.ws = new WebSocket(wsUrl);
       
       this.ws.onopen = () => {
-        console.log('WebSocket connected');
         this.wsReconnectAttempts = 0;
         
         // Send queued messages
@@ -106,16 +105,13 @@ export class ModernChatInterface {
       };
       
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
       };
       
       this.ws.onclose = () => {
-        console.log('WebSocket disconnected');
         this.reconnectWebSocket();
       };
       
     } catch (error) {
-      console.error('Failed to initialize WebSocket:', error);
     }
   }
   
@@ -123,20 +119,17 @@ export class ModernChatInterface {
     if (this.wsReconnectAttempts < this.wsMaxReconnectAttempts) {
       this.wsReconnectAttempts++;
       const delay = this.wsReconnectDelay * Math.pow(2, this.wsReconnectAttempts - 1);
-      console.log(`Reconnecting WebSocket in ${delay}ms (attempt ${this.wsReconnectAttempts})`);
       
       setTimeout(() => {
         this.initializeWebSocket();
       }, delay);
     } else {
-      console.error('Max WebSocket reconnection attempts reached');
     }
   }
   
   handleWebSocketMessage(event) {
     try {
       const data = JSON.parse(event.data);
-      console.log('WebSocket message received:', data);
       
       // Handle different message types
       switch (data.type) {
@@ -165,11 +158,9 @@ export class ModernChatInterface {
           break;
           
         case 'participant_joined':
-          console.log('Participant joined:', data.participant);
           break;
           
         case 'participant_left':
-          console.log('Participant left:', data.participant);
           break;
           
         default:
@@ -179,7 +170,6 @@ export class ModernChatInterface {
           }
       }
     } catch (error) {
-      console.error('Error handling WebSocket message:', error);
     }
   }
   

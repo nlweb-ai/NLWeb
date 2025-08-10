@@ -90,18 +90,15 @@ class NLWebSearchResults {
                         this.processResults(accumulatedResults);
                     }
                 } catch (e) {
-                    console.error('Error parsing streaming data:', e);
                 }
             };
             
             eventSource.onerror = (error) => {
-                console.error('Streaming error:', error);
                 eventSource.close();
                 this.showErrorState();
             };
             
         } catch (error) {
-            console.error('Search error:', error);
             this.showErrorState();
         }
     }

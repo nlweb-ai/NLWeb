@@ -25,8 +25,6 @@ class MemoryStorage(SimpleChatStorageInterface):
         Args:
             config: Storage configuration
         """
-        print(f"\n=== MEMORY STORAGE INIT ===")
-        print(f"Config: {config}")
         self.config = config
         # Note: queue_size_limit not used in simple storage
         
@@ -41,9 +39,7 @@ class MemoryStorage(SimpleChatStorageInterface):
         # Load existing data from disk if available
         if self.persist_to_disk:
             # Create storage directory if it doesn't exist
-            print(f"Creating storage directory: {self.storage_path}")
             self.storage_path.mkdir(parents=True, exist_ok=True)
-            print(f"Storage directory exists: {self.storage_path.exists()}")
             # Load data synchronously during init
             asyncio.create_task(self._load_from_disk())
     
@@ -54,8 +50,6 @@ class MemoryStorage(SimpleChatStorageInterface):
         Args:
             message: The message to store
         """
-        print(f"[STORAGE] Storage called for message {message.message_id}, enabled={self.enable_storage}")
-        
         if not self.enable_storage:
             return  # Skip storage if disabled
         
@@ -117,16 +111,14 @@ class MemoryStorage(SimpleChatStorageInterface):
                 f.write(json.dumps(message.to_dict()) + '\n')
                 
         except Exception as e:
-            print(f"ERROR appending message to disk: {e}")
+            # Log error silently
+            pass
     
     async def _load_from_disk(self) -> None:
         """Load persisted state from disk"""
         if not self.persist_to_disk:
             return
             
-        print(f"\n=== LOADING FROM DISK ===")
-        print(f"Storage path: {self.storage_path}")
-        
         try:
             # Load messages from JSONL file
             msg_file = self.storage_path / 'messages.jsonl'
@@ -139,11 +131,8 @@ class MemoryStorage(SimpleChatStorageInterface):
                             msg_data = json.loads(line)
                             message = ChatMessage.from_dict(msg_data)
                             self._messages.append(message)
-                
-                print(f"Loaded {len(self._messages)} messages")
-            
-            print("Load complete")
             
         except Exception as e:
-            print(f"ERROR loading from disk: {e}")
+            # Don't fail if loading fails, just start fresh
+            pass
             # Don't fail if loading fails, just start fresh

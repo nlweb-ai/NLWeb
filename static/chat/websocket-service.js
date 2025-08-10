@@ -30,7 +30,6 @@ class WebSocketService {
         try {
             await this._establishConnection();
         } catch (error) {
-            console.error('WebSocket connection failed:', error);
             this.isConnecting = false;
             this._scheduleReconnection();
         }
@@ -43,7 +42,6 @@ class WebSocketService {
             this.ws = new WebSocket(wsUrl);
             
             this.ws.onopen = () => {
-                console.log('WebSocket connected');
                 this.isConnected = true;
                 this.isConnecting = false;
                 this.reconnectDelay = 1000; // Reset delay on successful connection
@@ -62,7 +60,6 @@ class WebSocketService {
             };
 
             this.ws.onclose = (event) => {
-                console.log('WebSocket closed:', event.code, event.reason);
                 this.isConnected = false;
                 this.isConnecting = false;
                 this._stopHeartbeat();
@@ -78,7 +75,6 @@ class WebSocketService {
             };
 
             this.ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
                 this.isConnected = false;
                 this.isConnecting = false;
                 reject(error);
@@ -155,7 +151,6 @@ class WebSocketService {
                     break;
                     
                 case 'error':
-                    console.error('WebSocket server error:', message);
                     eventBus.emit('websocket:error', message);
                     break;
                     
@@ -164,12 +159,10 @@ class WebSocketService {
                     break;
                     
                 default:
-                    console.warn('Unknown message type:', message.type);
                     eventBus.emit('websocket:unknown', message);
             }
             
         } catch (error) {
-            console.error('Failed to parse WebSocket message:', error, data);
         }
     }
 
@@ -249,7 +242,6 @@ class WebSocketService {
             clearTimeout(this.reconnectTimer);
         }
         
-        console.log(`Reconnecting in ${this.reconnectDelay}ms...`);
         
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;

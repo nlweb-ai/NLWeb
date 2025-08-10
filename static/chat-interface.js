@@ -64,7 +64,6 @@ export class ChatInterface {
     try {
       this.prevMessages = prevMessagesStr ? JSON.parse(decodeURIComponent(prevMessagesStr)) : [];
     } catch (e) {
-      console.error('Error parsing previous messages:', e);
       this.prevMessages = [];
     }
   }
@@ -309,7 +308,6 @@ export class ChatInterface {
       this.eventSource.connect(this);
       this.prevMessages.push(message);
     } catch (error) {
-      console.error('Error fetching response:', error);
     }
   }
   
@@ -350,7 +348,6 @@ export class ChatInterface {
         titleLink.href = sanitizedUrl;
       } else {
         titleLink.href = '#'; // Default to # for invalid URLs
-        console.warn('Blocked potentially unsafe URL:', sanitizedUrl);
       }
     } else {
       titleLink.href = '#';
@@ -386,11 +383,9 @@ export class ChatInterface {
           visibleUrlLink.href = sanitizedUrl;
         } else {
           visibleUrlLink.href = '#'; // Default to # for untrusted domains
-          console.warn('Blocked untrusted domain URL:', sanitizedUrl);
         }
       } else {
         visibleUrlLink.href = '#'; // Default to # for invalid protocols
-        console.warn('Blocked potentially unsafe URL protocol:', sanitizedUrl);
       }
     } else {
       visibleUrlLink.href = '#';
@@ -427,7 +422,6 @@ export class ChatInterface {
           imageDiv.appendChild(img);
           container.appendChild(imageDiv);
         } else {
-          console.warn('Blocked potentially unsafe image URL:', sanitizedUrl);
         }
       }
     }

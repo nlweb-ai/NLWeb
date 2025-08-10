@@ -248,7 +248,6 @@ class ChatInterface {
     const schema = jsonItem.schema_object || jsonItem;
     
     if (!schema || typeof schema !== 'object') {
-      console.warn('Invalid item data:', jsonItem);
       return itemDiv;
     }
     

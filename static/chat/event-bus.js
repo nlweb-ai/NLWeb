@@ -11,7 +11,6 @@ class EventBus {
         this.events.get(event).add(callback);
         
         if (this.debug) {
-            console.log(`EventBus: Subscribed to '${event}'`);
         }
 
         // Return unsubscribe function
@@ -26,14 +25,12 @@ class EventBus {
             }
             
             if (this.debug) {
-                console.log(`EventBus: Unsubscribed from '${event}'`);
             }
         }
     }
 
     emit(event, data) {
         if (this.debug) {
-            console.log(`EventBus: Emitting '${event}'`, data);
         }
 
         if (this.events.has(event)) {
@@ -42,7 +39,6 @@ class EventBus {
                 try {
                     callback(data);
                 } catch (error) {
-                    console.error(`EventBus: Error in '${event}' listener:`, error);
                 }
             });
         }

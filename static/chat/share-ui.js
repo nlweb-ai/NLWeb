@@ -54,7 +54,6 @@ export class ShareUI {
             await this.copyToClipboard(shareLink);
             this.showSuccessFeedback('Share link copied to clipboard!');
         } catch (error) {
-            console.error('Failed to copy share link:', error);
             this.showErrorFeedback('Failed to copy link. Please try again.');
         }
     }
@@ -181,7 +180,6 @@ export class ShareUI {
                 window.location.href = '/chat';
             }
         } catch (error) {
-            console.error('Failed to handle share link:', error);
             this.showErrorFeedback('Failed to join conversation');
         }
     }

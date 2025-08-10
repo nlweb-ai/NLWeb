@@ -23,13 +23,11 @@ class ConversationManager {
 
   loadLocalConversations(selectedSite) {
     const saved = localStorage.getItem('nlweb_messages');
-    console.log('Loading messages from localStorage, selectedSite:', selectedSite);
     this.conversations = [];
     
     if (saved) {
       try {
         const allMessages = JSON.parse(saved);
-        console.log('Found', allMessages.length, 'total messages in localStorage');
         
         // Group messages by conversation_id to reconstruct conversations
         const conversationMap = {};
@@ -89,13 +87,10 @@ class ConversationManager {
         conversations.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         
         this.conversations = conversations;
-        console.log('Reconstructed', this.conversations.length, 'conversations from messages');
       } catch (e) {
-        console.error('Error loading messages:', e);
         this.conversations = [];
       }
     } else {
-      console.log('No messages found in localStorage');
       this.conversations = [];
     }
   }
@@ -154,7 +149,6 @@ class ConversationManager {
         // Sort by timestamp
         this.conversations.sort((a, b) => b.timestamp - a.timestamp);
       } catch (e) {
-        console.error('Error merging local conversations:', e);
       }
     }
   }
@@ -219,10 +213,8 @@ class ConversationManager {
         // Don't clear local storage - we want to keep local copies
         // localStorage.removeItem('nlweb_conversations');
       } else {
-        console.error('Failed to migrate conversations:', response.status);
       }
     } catch (error) {
-      console.error('Error migrating conversations:', error);
     }
   }
 
@@ -243,13 +235,6 @@ class ConversationManager {
     });
     
     // Log what we're saving
-    console.log('[saveConversations] Saving messages:', {
-      total_messages: allMessages.length,
-      message_types: allMessages.reduce((acc, m) => {
-        acc[m.message_type] = (acc[m.message_type] || 0) + 1;
-        return acc;
-      }, {})
-    });
     
     // Save all messages directly
     localStorage.setItem('nlweb_messages', JSON.stringify(allMessages));
@@ -258,12 +243,17 @@ class ConversationManager {
   loadConversation(id, chatInterface) {
     // Guard against undefined or invalid IDs
     if (!id) {
-      console.error('loadConversation called with undefined ID');
+      console.error('[ConversationManager] loadConversation called with undefined ID');
       return;
     }
     
+    console.log('[ConversationManager] Loading conversation:', id);
     const conversation = this.conversations.find(c => c.id === id);
-    if (!conversation) return;
+    if (!conversation) {
+      console.error('[ConversationManager] Conversation not found:', id);
+      return;
+    }
+    console.log('[ConversationManager] Found conversation with', conversation.messages?.length || 0, 'messages');
     
     chatInterface.currentConversationId = id;
     
@@ -337,18 +327,43 @@ class ConversationManager {
     chatInterface.elements.messagesContainer.innerHTML = '';
     
     // Replay all messages through the same handler used for live messages
-    conversation.messages.forEach(msg => {
-      if (!msg.content) return;
+    console.log('[ConversationManager] Starting message replay');
+    conversation.messages.forEach((msg, index) => {
+      console.log(`[ConversationManager] Processing message ${index}:`, {
+        message_type: msg.message_type,
+        has_content: !!msg.content,
+        content_type: typeof msg.content,
+        conversation_id: msg.conversation_id
+      });
+      
+      if (!msg.content) {
+        console.log(`[ConversationManager] Skipping message ${index} - no content`);
+        return;
+      }
       
       // Check if content is an object (new format) or string (legacy)
       if (typeof msg.content === 'object') {
         // This is a server-format message, replay through handler
+        console.log(`[ConversationManager] Replaying message ${index} through handleStreamData`);
         chatInterface.handleStreamData(msg.content);
       } else {
         // Legacy format - try to handle
-        console.warn('Legacy message format detected:', msg.message_id);
+        console.log(`[ConversationManager] Message ${index} has legacy string format, attempting to parse`);
+        try {
+          // Try to construct a message object from legacy format
+          const messageObj = {
+            message_type: msg.message_type,
+            content: msg.content,
+            timestamp: msg.timestamp
+          };
+          console.log(`[ConversationManager] Constructed legacy message object:`, messageObj);
+          chatInterface.handleStreamData(messageObj);
+        } catch (e) {
+          console.error(`[ConversationManager] Failed to handle legacy message ${index}:`, e);
+        }
       }
     });
+    console.log('[ConversationManager] Message replay complete');
     
     // Update title
     chatInterface.elements.chatTitle.textContent = conversation.title || 'Chat';
@@ -364,7 +379,6 @@ class ConversationManager {
       // This is a server conversation, connect to it
       chatInterface.connectWebSocket(id).then(() => {
       }).catch(error => {
-        console.error('Failed to connect WebSocket:', error);
         // Reset wsConversationId if connection fails
         chatInterface.wsConversationId = null;
       });
@@ -395,11 +409,8 @@ class ConversationManager {
   updateConversationsList(chatInterface, container = null) {
     // Use provided container or try to find the conversations list element
     const targetContainer = container || document.getElementById('conversations-list');
-    console.log('updateConversationsList called, container:', targetContainer);
-    console.log('Total conversations to display:', this.conversations.length);
     
     if (!targetContainer) {
-      console.warn('Conversations list container not found');
       return;
     }
     
@@ -422,7 +433,6 @@ class ConversationManager {
       return hasMessages;
     });
     
-    console.log('Conversations with content after filtering:', conversationsWithContent.length);
     
     // Group conversations by site
     const conversationsBySite = {};

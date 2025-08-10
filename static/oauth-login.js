@@ -114,7 +114,6 @@ class OAuthManager {
                 const user = JSON.parse(userInfo);
                 this.updateUIForLoggedInUser(user);
             } catch (error) {
-                console.error('Error parsing user info:', error);
                 this.clearSession();
             }
         }
@@ -137,7 +136,6 @@ class OAuthManager {
     handleLogin(provider) {
         
         if (!this.config || !this.config[provider]) {
-            console.error(`OAuth not configured for ${provider}`);
             alert(`OAuth not configured for ${provider}. Please check server configuration.`);
             return;
         }
@@ -230,7 +228,6 @@ class OAuthManager {
         
         if (event.data && event.data.type === 'oauth_callback') {
             if (event.data.error) {
-                console.error('OAuth error:', event.data.error);
                 alert(`Login failed: ${event.data.error}`);
                 return;
             }
@@ -313,7 +310,6 @@ class OAuthManager {
                 });
             }
         } catch (error) {
-            console.error('Logout error:', error);
         }
         
         // Clear session
@@ -401,7 +397,6 @@ class OAuthManager {
                 window.location.href = `${window.location.pathname}?join=${pendingJoin}`;
             }
         } catch (error) {
-            console.error('Email login error:', error);
             alert('Login failed. Please try again.');
         }
     }

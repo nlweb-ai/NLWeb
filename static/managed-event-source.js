@@ -29,38 +29,29 @@ export class ManagedEventSource {
    * @param {Object} chatInterface - The chat interface instance
    */
   connect(chatInterface) {
-    console.log('=== ManagedEventSource.connect called ===');
-    console.log('URL:', this.url);
     
     if (this.isStopped) {
-      console.log('Connection stopped, not connecting');
       return;
     }
     
     this.eventSource = new EventSource(this.url);
     this.eventSource.chatInterface = chatInterface;
     
-    console.log('EventSource created:', this.eventSource);
     
     this.eventSource.onopen = () => {
-      console.log('EventSource connection opened');
       this.retryCount = 0; // Reset retry count on successful connection
     };
 
     this.eventSource.onerror = (error) => {
-      console.error('EventSource error:', error);
       if (this.eventSource.readyState === EventSource.CLOSED) {
-        console.log('Connection was closed');
         
         if (this.retryCount < this.maxRetries) {
           this.retryCount++;
-          console.log(`Retry attempt ${this.retryCount} of ${this.maxRetries}`);
           
           // Implement exponential backoff
           const backoffTime = Math.min(1000 * Math.pow(2, this.retryCount), 10000);
           setTimeout(() => this.connect(), backoffTime);
         } else {
-          console.log('Max retries reached, stopping reconnection attempts');
           this.stop();
         }
       }
@@ -75,8 +66,6 @@ export class ManagedEventSource {
    * @param {Event} event - The message event
    */
   handleMessage(event) {
-    console.log('=== handleMessage called ===');
-    console.log('Raw event data:', event.data);
     
     const chatInterface = this.eventSource.chatInterface;
     
@@ -105,13 +94,11 @@ export class ManagedEventSource {
     try {
       data = JSON.parse(event.data);
     } catch (e) {
-      console.error('Error parsing event data:', e);
       return;
     }
     
     // Verify query_id matches
     if (this.query_id && data.query_id && this.query_id !== data.query_id) {
-      console.log("Query ID mismatch, ignoring message");
       return;
     }
     
@@ -128,7 +115,6 @@ export class ManagedEventSource {
   processMessageByType(data, chatInterface) {
     // Basic validation to prevent XSS
     if (!data || typeof data !== 'object') {
-      console.error('Invalid message data received');
       return;
     }
     
@@ -149,7 +135,6 @@ export class ManagedEventSource {
       });
     }
     
-    console.log('Processing message type:', messageType);
     
     switch(messageType) {
       case "query_analysis":
@@ -285,8 +270,6 @@ export class ManagedEventSource {
         this.handleChartResult(data, chatInterface);
         break;
       case "results_map":
-        console.log('=== RESULTS_MAP MESSAGE RECEIVED ===');
-        console.log('Message data:', JSON.stringify(data, null, 2));
         chatInterface.noResponse = false;
         this.handleResultsMap(data, chatInterface);
         break;
@@ -362,8 +345,6 @@ export class ManagedEventSource {
         // Handle API key configuration (removed Google Maps)
         break;
       default:
-        console.log("Unknown message type:", messageType);
-        console.log("Full message data:", data);
         break;
     }
   }
@@ -404,7 +385,6 @@ export class ManagedEventSource {
   handleResultBatch(data, chatInterface) {
     // Validate results array
     if (!data.results || !Array.isArray(data.results)) {
-      console.error('Invalid results data');
       return;
     }
     
@@ -461,7 +441,6 @@ export class ManagedEventSource {
   handleEnsembleResult(data, chatInterface) {
     // Validate data
     if (!data || !data.result || !data.result.recommendations) {
-      console.error('Invalid ensemble result data');
       return;
     }
     
@@ -740,16 +719,12 @@ export class ManagedEventSource {
    * @param {Object} chatInterface - The chat interface instance
    */
   handleChartResult(data, chatInterface) {
-    console.log('=== Chart Result Handler Called ===');
-    console.log('Received data:', data);
     
     // Validate data
     if (!data || typeof data.html !== 'string') {
-      console.error('Invalid chart result data');
       return;
     }
     
-    console.log('HTML content to insert:', data.html);
     
     // Create container for the chart
     const chartContainer = document.createElement('div');
@@ -762,14 +737,10 @@ export class ManagedEventSource {
     // It contains Data Commons web components that require specific HTML structure
     chartContainer.innerHTML = data.html;
     
-    console.log('Container element created:', chartContainer);
-    console.log('Container innerHTML after setting:', chartContainer.innerHTML);
     
     // Append to chat interface
     chatInterface.bubble.appendChild(chartContainer);
     
-    console.log('Chart container appended to bubble');
-    console.log('Bubble contents:', chatInterface.bubble.innerHTML);
     
     // The Data Commons script should automatically initialize the web component
     // when it's added to the DOM
@@ -782,20 +753,12 @@ export class ManagedEventSource {
    * @param {Object} chatInterface - The chat interface instance
    */
   handleResultsMap(data, chatInterface) {
-    console.log('=== handleResultsMap Called ===');
-    console.log('Received data:', data);
-    console.log('chatInterface:', chatInterface);
-    console.log('chatInterface.bubble:', chatInterface.bubble);
     
     // Validate data
     if (!data || !data.locations || !Array.isArray(data.locations) || data.locations.length === 0) {
-      console.error('Invalid results map data - validation failed');
-      console.log('data:', data);
-      console.log('data.locations:', data ? data.locations : 'data is null/undefined');
       return;
     }
     
-    console.log('Data validation passed, creating map container...');
     
     // Create container for the map
     const mapContainer = document.createElement('div');
@@ -815,14 +778,10 @@ export class ManagedEventSource {
     mapContainer.appendChild(mapTitle);
     mapContainer.appendChild(mapDiv);
     
-    console.log('Map container created, appending to bubble...');
     
     // Append to chat interface
     chatInterface.bubble.appendChild(mapContainer);
     
-    console.log('Map container appended to bubble, initializing map...');
-    console.log('Map div ID:', mapDiv.id);
-    console.log('Locations to display:', data.locations);
     
     // Initialize the map
     this.initializeGoogleMap(mapDiv, data.locations);
@@ -835,9 +794,6 @@ export class ManagedEventSource {
    * @param {Array} locations - Array of location objects with title and address
    */
   initializeGoogleMap(mapDiv, locations) {
-    console.log('=== initializeGoogleMap Called ===');
-    console.log('mapDiv:', mapDiv);
-    console.log('locations:', locations);
     
     // Always show location list instead of map (Google Maps removed)
     this.showLocationList(mapDiv, locations);
@@ -852,10 +808,6 @@ export class ManagedEventSource {
    * @param {Array} locations - Array of location objects with title and address
    */
   showLocationList(mapDiv, locations) {
-    console.log('=== showLocationList Called ===');
-    console.log('mapDiv:', mapDiv);
-    console.log('locations:', locations);
-    console.log('Number of locations:', locations.length);
     
     mapDiv.style.height = 'auto';
     mapDiv.innerHTML = '';
@@ -939,8 +891,6 @@ export class ManagedEventSource {
     
     mapDiv.appendChild(listContainer);
     
-    console.log('Location list created and appended successfully');
-    console.log('Final mapDiv contents:', mapDiv.innerHTML);
   }
 
   /**

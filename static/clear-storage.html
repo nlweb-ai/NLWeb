@@ -132,9 +132,9 @@
     <button class="clear-all-btn" onclick="clearAll()">Clear All Conversations</button>
 
     <script>
-        function formatDate(dateString) {
-            if (!dateString) return 'Unknown date';
-            const date = new Date(dateString);
+        function formatDate(timestamp) {
+            if (!timestamp) return 'Unknown date';
+            const date = new Date(timestamp);
             const now = new Date();
             const diffMs = now - date;
             const diffMins = Math.floor(diffMs / 60000);
@@ -148,34 +148,13 @@
             return date.toLocaleDateString();
         }
         
-        function getConversationTitle(conv) {
-            // Try to get first user message as title
-            if (conv.messages && conv.messages.length > 0) {
-                const firstUserMsg = conv.messages.find(m => m.sender !== 'ai' && m.sender !== 'system');
-                if (firstUserMsg && firstUserMsg.content) {
-                    const text = typeof firstUserMsg.content === 'string' ? 
-                        firstUserMsg.content : firstUserMsg.content.text || '';
-                    return text.substring(0, 100) + (text.length > 100 ? '...' : '');
-                }
-            }
-            return conv.id || 'Untitled conversation';
-        }
-        
-        function getLastMessage(conv) {
-            if (!conv.messages || conv.messages.length === 0) return '';
-            const lastMsg = conv.messages[conv.messages.length - 1];
-            const content = typeof lastMsg.content === 'string' ? 
-                lastMsg.content : lastMsg.content.text || '';
-            return content.substring(0, 150) + (content.length > 150 ? '...' : '');
-        }
-        
         function toggleSection(siteId) {
             const section = document.getElementById(`section-${siteId}`);
             section.classList.toggle('expanded');
         }
         
         function loadSites() {
-            const data = localStorage.getItem('nlweb_conversations');
+            const data = localStorage.getItem('nlweb_messages');
             const container = document.getElementById('sitesList');
             
             if (!data) {
@@ -184,11 +163,39 @@
             }
             
             try {
-                const conversations = JSON.parse(data);
+                const messages = JSON.parse(data);
                 
-                // Group by site
+                // Group messages by conversation_id
+                const conversationMap = {};
+                messages.forEach(msg => {
+                    const convId = msg.conversation_id;
+                    if (!convId) return;
+                    
+                    if (!conversationMap[convId]) {
+                        conversationMap[convId] = {
+                            id: convId,
+                            messages: [],
+                            site: msg.site || 'all',
+                            timestamp: msg.timestamp
+                        };
+                    }
+                    
+                    conversationMap[convId].messages.push(msg);
+                    
+                    // Update site if we find it in a message
+                    if (msg.site && conversationMap[convId].site === 'all') {
+                        conversationMap[convId].site = msg.site;
+                    }
+                    
+                    // Update timestamp to be the latest
+                    if (msg.timestamp > conversationMap[convId].timestamp) {
+                        conversationMap[convId].timestamp = msg.timestamp;
+                    }
+                });
+                
+                // Group conversations by site
                 const siteGroups = {};
-                conversations.forEach(conv => {
+                Object.values(conversationMap).forEach(conv => {
                     const site = conv.site || 'all';
                     if (!siteGroups[site]) {
                         siteGroups[site] = [];
@@ -200,29 +207,44 @@
                 container.innerHTML = '';
                 Object.keys(siteGroups).sort().forEach(site => {
                     const convs = siteGroups[site];
-                    const messages = convs.reduce((sum, c) => sum + (c.messages?.length || 0), 0);
+                    const totalMessages = convs.reduce((sum, c) => sum + c.messages.length, 0);
                     const siteId = site.replace(/[^a-zA-Z0-9]/g, '_');
                     
-                    // Sort conversations by date (newest first)
-                    convs.sort((a, b) => {
-                        const dateA = new Date(a.created_at || 0);
-                        const dateB = new Date(b.created_at || 0);
-                        return dateB - dateA;
-                    });
+                    // Sort conversations by timestamp (newest first)
+                    convs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
                     
                     const siteSection = document.createElement('div');
                     siteSection.className = 'site-section';
                     siteSection.id = `section-${siteId}`;
                     
-                    const conversationsList = convs.map(conv => `
-                        <div class="conversation-item">
-                            <div class="conversation-title">${getConversationTitle(conv)}</div>
-                            <div class="conversation-meta">
-                                ${formatDate(conv.created_at)} • ${conv.messages?.length || 0} messages
+                    const conversationsList = convs.map(conv => {
+                        // Get first user message for title
+                        const firstUserMsg = conv.messages.find(m => m.message_type === 'user');
+                        const title = firstUserMsg ? 
+                            (typeof firstUserMsg.content === 'string' ? 
+                                firstUserMsg.content : firstUserMsg.content?.content || 'Untitled') 
+                            : 'Untitled';
+                        const shortTitle = title.substring(0, 100) + (title.length > 100 ? '...' : '');
+                        
+                        // Get last message for preview
+                        const lastMsg = conv.messages[conv.messages.length - 1];
+                        let preview = '';
+                        if (lastMsg && lastMsg.message_type === 'user') {
+                            const content = typeof lastMsg.content === 'string' ? 
+                                lastMsg.content : lastMsg.content?.content || '';
+                            preview = content.substring(0, 150) + (content.length > 150 ? '...' : '');
+                        }
+                        
+                        return `
+                            <div class="conversation-item">
+                                <div class="conversation-title">${shortTitle}</div>
+                                <div class="conversation-meta">
+                                    ${formatDate(conv.timestamp)} • ${conv.messages.length} messages
+                                </div>
+                                ${preview ? `<div class="conversation-preview">${preview}</div>` : ''}
                             </div>
-                            ${getLastMessage(conv) ? `<div class="conversation-preview">${getLastMessage(conv)}</div>` : ''}
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                     
                     siteSection.innerHTML = `
                         <div class="site-header" onclick="toggleSection('${siteId}')">
@@ -231,7 +253,7 @@
                                     <span class="expand-icon">▶</span>
                                     ${site}
                                 </div>
-                                <div class="site-stats">${convs.length} conversation${convs.length !== 1 ? 's' : ''}, ${messages} message${messages !== 1 ? 's' : ''}</div>
+                                <div class="site-stats">${convs.length} conversation${convs.length !== 1 ? 's' : ''}, ${totalMessages} message${totalMessages !== 1 ? 's' : ''}</div>
                             </div>
                             <button onclick="event.stopPropagation(); clearSite('${site}')">Clear</button>
                         </div>
@@ -243,6 +265,7 @@
                 });
                 
             } catch (e) {
+                console.error('Error loading conversations:', e);
                 container.innerHTML = '<div class="empty-state">Error loading conversations</div>';
             }
         }
@@ -250,13 +273,23 @@
         function clearSite(site) {
             if (!confirm(`Clear all conversations for "${site}"?`)) return;
             
-            const data = localStorage.getItem('nlweb_conversations');
+            const data = localStorage.getItem('nlweb_messages');
             if (!data) return;
             
             try {
-                const conversations = JSON.parse(data);
-                const filtered = conversations.filter(conv => (conv.site || 'all') !== site);
-                localStorage.setItem('nlweb_conversations', JSON.stringify(filtered));
+                const messages = JSON.parse(data);
+                
+                // Find all conversation IDs for this site
+                const conversationsToDelete = new Set();
+                messages.forEach(msg => {
+                    if ((msg.site || 'all') === site) {
+                        conversationsToDelete.add(msg.conversation_id);
+                    }
+                });
+                
+                // Filter out messages from those conversations
+                const filtered = messages.filter(msg => !conversationsToDelete.has(msg.conversation_id));
+                localStorage.setItem('nlweb_messages', JSON.stringify(filtered));
                 loadSites();
             } catch (e) {
                 alert('Error clearing site conversations');
@@ -267,7 +300,7 @@
             if (!confirm('Clear ALL conversations?')) return;
             if (!confirm('This cannot be undone. Are you sure?')) return;
             
-            localStorage.removeItem('nlweb_conversations');
+            localStorage.removeItem('nlweb_messages');
             loadSites();
         }
         

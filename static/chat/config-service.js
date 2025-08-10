@@ -24,11 +24,9 @@ class ConfigService {
             ]);
 
             if (configResult.status === 'rejected') {
-                console.warn('Failed to load config:', configResult.reason);
             }
 
             if (sitesResult.status === 'rejected') {
-                console.warn('Failed to load sites:', sitesResult.reason);
             }
 
             this.loaded = true;
@@ -39,7 +37,6 @@ class ConfigService {
             });
 
         } catch (error) {
-            console.error('ConfigService initialization failed:', error);
             this.loaded = true; // Mark as loaded even on error to prevent retry loops
             eventBus.emit('config:loaded', {
                 config: this.config,
@@ -57,10 +54,8 @@ class ConfigService {
             if (response.ok) {
                 this.config = await response.json();
             } else {
-                console.warn('Config endpoint returned:', response.status);
             }
         } catch (error) {
-            console.warn('Failed to fetch config:', error);
         }
     }
 
@@ -71,10 +66,8 @@ class ConfigService {
                 const data = await response.json();
                 this.sites = Array.isArray(data) ? data : (data.sites || []);
             } else {
-                console.warn('Sites endpoint returned:', response.status);
             }
         } catch (error) {
-            console.warn('Failed to fetch sites:', error);
         }
     }
 

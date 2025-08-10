@@ -588,7 +588,7 @@ class StatisticsHandler():
             }
             
             # Send the message
-            await self.handler.send_message(message)
+            asyncio.create_task(self.handler.send_message(message))
             
             # Also send a chart result message with all components
             all_html = []
@@ -611,7 +611,7 @@ class StatisticsHandler():
 <!-- Total Components: {len(all_components)} -->
 """.strip()
             }
-            await self.handler.send_message(chart_message)
+            asyncio.create_task(self.handler.send_message(chart_message))
             
             self.sent_message = True
             
@@ -622,7 +622,7 @@ class StatisticsHandler():
     async def _send_error_message(self, error_text: str):
         """Send an error message to the user."""
         if not self.sent_message:
-            await self.handler.send_message({
+            asyncio.create_task(self.handler.send_message({
                 "message_type": "error",
                 "content": error_text,
                 "error": True

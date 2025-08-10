@@ -244,7 +244,6 @@ export class ChatInterface {
     this.dotsStillThere = true;
  
     try {
-      console.log("generate_mode", this.generate_mode);
       const selectedSite = (this.site || (this.siteSelect && this.siteSelect.value));
       const prev = JSON.stringify(this.prevMessages);
       const generate_mode = this.generate_mode;
@@ -253,7 +252,6 @@ export class ChatInterface {
       // Generate a unique query ID
       const timestamp = new Date().getTime();
       const queryId = `query_${timestamp}_${Math.floor(Math.random() * 1000)}`;
-      console.log("Generated query ID:", queryId);
       
       // Build query parameters
       const queryParams = new URLSearchParams();
@@ -267,14 +265,12 @@ export class ChatInterface {
       
       const queryString = queryParams.toString();
       const url = `/ask?${queryString}`;
-      console.log("url", url);
       
       this.eventSource = new ManagedEventSource(url);
       this.eventSource.query_id = queryId;
       this.eventSource.connect(this);
       this.prevMessages.push(message);
     } catch (error) {
-      console.error('Error fetching response:', error);
     }
   }
 
@@ -872,7 +868,6 @@ export class ChatInterface {
    * @param {Object} chatInterface - The chat interface instance
    */
   askUserMessage(message, chatInterface) { 
-    console.log("askUserMessage", message);
     const messageDiv = document.createElement('div');
     messageDiv.className = 'ask-user-message';
     messageDiv.textContent = message;
@@ -886,7 +881,6 @@ export class ChatInterface {
    * @param {Object} chatInterface - The chat interface instance
    */
   siteIsIrrelevantToQuery(message, chatInterface) { 
-    console.log("siteIsIrrelevantToQuery", message);
     const messageDiv = document.createElement('div');
     messageDiv.className = 'site-is-irrelevant-to-query';
     messageDiv.textContent = message;

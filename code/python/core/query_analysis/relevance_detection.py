@@ -9,6 +9,7 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 from core.prompts import PromptRunner
+import asyncio
 
 
 # NOTE : RelevanceDetection is turned off as a default, for now. 
@@ -45,7 +46,7 @@ class RelevanceDetection(PromptRunner):
             self.handler.query_done = True
             # Centralized abort checking will handle setting the event
             self.handler.state.abort_fast_track_if_needed()
-            await self.handler.send_message(message)
+            asyncio.create_task(self.handler.send_message(message))
         else:
             self.handler.query_is_irrelevant = False
         await self.handler.state.precheck_step_done(self.STEP_NAME)

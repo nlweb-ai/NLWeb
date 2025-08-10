@@ -16,6 +16,7 @@ import uuid
 import core.query_analysis.decontextualize as decontextualize
 import core.query_analysis.analyze_query as analyze_query
 import core.query_analysis.memory as memory   
+import core.query_analysis.query_rewrite as query_rewrite
 import core.ranking as ranking
 import core.query_analysis.required_info as required_info
 import traceback
@@ -453,6 +454,7 @@ class NLWebHandler:
         tasks.append(asyncio.create_task(self.decontextualizeQuery().do()))
         tasks.append(asyncio.create_task(relevance_detection.RelevanceDetection(self).do()))
         tasks.append(asyncio.create_task(memory.Memory(self).do()))
+        tasks.append(asyncio.create_task(query_rewrite.QueryRewrite(self).do()))
         tasks.append(asyncio.create_task(required_info.RequiredInfo(self).do()))
         tasks.append(asyncio.create_task(router.ToolSelector(self).do()))
         

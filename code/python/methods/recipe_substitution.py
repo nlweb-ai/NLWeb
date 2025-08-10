@@ -9,6 +9,7 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 import json
+import asyncio
 from core.llm import ask_llm
 from misc.logger.logging_config_helper import get_configured_logger
 from core.retriever import get_vector_db_client
@@ -237,7 +238,7 @@ Be specific and practical in your suggestions.""")
         if recipe_info_list:
             message["reference_recipes"] = recipe_info_list
         
-        await self.handler.send_message(message)
+        asyncio.create_task(self.handler.send_message(message))
     
     async def _send_error_message(self, error_msg):
         """Send an error message to the client."""
@@ -246,7 +247,7 @@ Be specific and practical in your suggestions.""")
             "message": f"Could not generate substitution suggestions: {error_msg}"
         }
         
-        await self.handler.send_message(message)
+        asyncio.create_task(self.handler.send_message(message))
     
     async def _send_no_results_message(self):
         """Send message when no recipes are found."""
@@ -255,7 +256,7 @@ Be specific and practical in your suggestions.""")
             "message": f"No recipes found for: {self.handler.query}"
         }
         
-        await self.handler.send_message(message)
+        asyncio.create_task(self.handler.send_message(message))
     
     async def _send_no_substitution_needed_message(self, recipe_details):
         """Send message when recipes already meet requirements."""
@@ -273,4 +274,4 @@ Be specific and practical in your suggestions.""")
             "reference_recipes": recipe_details['recipes'] if recipe_details else []
         }
         
-        await self.handler.send_message(message)
+        asyncio.create_task(self.handler.send_message(message))

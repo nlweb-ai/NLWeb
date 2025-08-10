@@ -109,7 +109,7 @@ class EnsembleToolHandler:
             
             query_breakdown = '\n'.join(query_details)
             
-            await self.handler.send_message({
+            asyncio.create_task(self.handler.send_message({
                 "message_type": "intermediate_message", 
                 "message": f"Found {total_items} total results:\n{query_breakdown}\n\nCombing through top results for each of these queries to answer the question..."
             })
@@ -215,7 +215,7 @@ class EnsembleToolHandler:
                 "total_items_retrieved": total_items
             }
             
-            await self.handler.send_message({
+            asyncio.create_task(self.handler.send_message({
                 "message_type": "ensemble_result",
                 "result": result
             })
@@ -225,7 +225,7 @@ class EnsembleToolHandler:
             
         except Exception as e:
             logger.error(f"Error in ensemble request: {str(e)}")
-            await self.handler.send_message({
+            asyncio.create_task(self.handler.send_message({
                 "message_type": "ensemble_result",
                 "result": {
                     "success": False,
@@ -244,7 +244,7 @@ class EnsembleToolHandler:
             site = self.handler.site if hasattr(self, 'handler') and self.handler else query_params.get('site', 'all')
             
             # Send intermediate message for this query
-            await self.handler.send_message({
+            asyncio.create_task(self.handler.send_message({
                 "message_type": "intermediate_message",
                 "message": f"Looking for {query}"
             })
@@ -285,7 +285,7 @@ class EnsembleToolHandler:
                         })
                 
                 if top_items:
-                    await self.handler.send_message({
+                    asyncio.create_task(self.handler.send_message({
                         "message_type": "intermediate_message",
                         "results": top_items
                     })

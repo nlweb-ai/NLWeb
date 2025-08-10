@@ -30,6 +30,9 @@ class QueryRewrite(PromptRunner):
         Rewrite the decontextualized query into simpler keyword queries.
         The results are stored in handler.rewritten_queries.
         """
+        # Wait for decontextualization to complete since we need the decontextualized query
+        await self.handler.state._decon_event.wait()
+        
         logger.info(f"Starting query rewrite for: {self.handler.decontextualized_query}")
         
         try:
@@ -59,7 +62,7 @@ class QueryRewrite(PromptRunner):
                     self.handler.rewritten_queries = [self.handler.decontextualized_query]
                 else:
                     # Limit to 5 queries maximum
-                    self.handler.rewritten_queries = valid_queries[:5]
+                    self.handler.rewritten_queries = valid_queries
                     logger.info(f"Generated {len(self.handler.rewritten_queries)} rewritten queries: {self.handler.rewritten_queries}")
             
             # Send a message to the client about the rewritten queries
@@ -70,7 +73,7 @@ class QueryRewrite(PromptRunner):
                     "rewritten_queries": self.handler.rewritten_queries,
                     "query_id": self.handler.query_id
                 }
-                await self.handler.send_message(message)
+                asyncio.create_task(self.handler.send_message(message))
                 
         except Exception as e:
             logger.error(f"Error during query rewrite: {e}")

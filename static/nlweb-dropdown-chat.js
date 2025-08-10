@@ -65,7 +65,6 @@ export class NLWebDropdownChat {
             }, 100);
             
         } catch (error) {
-            console.error('Failed to load NLWeb dependencies:', error);
         }
     }
     
@@ -73,7 +72,6 @@ export class NLWebDropdownChat {
         // Get container
         this.container = document.getElementById(this.config.containerId);
         if (!this.container) {
-            console.error(`Container with id "${this.config.containerId}" not found`);
             return;
         }
         

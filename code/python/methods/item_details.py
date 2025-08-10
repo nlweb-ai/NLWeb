@@ -61,10 +61,10 @@ class ItemDetailsHandler():
                 logger.info(f"Using vector search for item: {self.item_name}")
                 
                 # Send intermediate message
-                await self.handler.send_message({
+                asyncio.create_task(self.handler.send_message({
                     "message_type": "intermediate_message",
                     "message": f"Searching for {self.item_name}"
-                })
+                }))
                 candidate_items = await search(
                     self.item_name, 
                     self.handler.site,
@@ -99,7 +99,7 @@ class ItemDetailsHandler():
             return
         else:
             self.found_items.sort(key=lambda x: x.get("score", 0), reverse=True)
-            await self.handler.send_message(self.found_items[0])
+            asyncio.create_task(self.handler.send_message(self.found_items[0]))
             self.sent_message = True
     
     async def _evaluate_item_match(self, item: Dict[str, Any], details_requested: str) -> Optional[Dict[str, Any]]:
@@ -148,7 +148,7 @@ class ItemDetailsHandler():
                 else:
                     return
                 if score > 75:
-                    await self.handler.send_message(message)
+                    asyncio.create_task(self.handler.send_message(message))
                     logger.info(f"Sent item details for: {self.item_name}")
                     self.sent_message = True
                     # Add to found_items to prevent "not found" message
@@ -194,7 +194,7 @@ class ItemDetailsHandler():
                         "site": site,
                         "schema_object": json.loads(json_str)
                     }
-                    await self.handler.send_message(message)
+                    asyncio.create_task(self.handler.send_message(message))
                     return
                 
                 # Fill the prompt with item description and details requested
@@ -216,7 +216,7 @@ class ItemDetailsHandler():
                         "site": site,
                         "schema_object": json.loads(json_str)
                     }
-                    await self.handler.send_message(message)
+                    asyncio.create_task(self.handler.send_message(message))
                     logger.info(f"Sent item details for URL: {self.item_url}")
                 else:
                     logger.error("No response from ExtractItemDetailsPrompt")
@@ -240,4 +240,4 @@ class ItemDetailsHandler():
             "site": self.handler.site
         }
         
-        await self.handler.send_message(message)
+        asyncio.create_task(self.handler.send_message(message))

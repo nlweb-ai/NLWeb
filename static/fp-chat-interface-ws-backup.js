@@ -80,11 +80,8 @@ class ModernChatInterface {
         this.handleJoinLink(joinConvId);
       } else {
         const conversations = this.conversationManager.getConversations();
-        console.log('Loaded conversations:', conversations.length);
-        console.log('Conversations:', conversations);
         
         // Always show centered input for new page loads to match user expectation
-        console.log('Showing centered input for new page load');
         this.showCenteredInput();
       }
     }
@@ -248,7 +245,6 @@ class ModernChatInterface {
           }, 2000);
         }
       }).catch(err => {
-        console.error('Failed to copy share link:', err);
       });
     } else {
       // Fallback if container not found
@@ -311,12 +307,10 @@ class ModernChatInterface {
         // Focus the external input
         existingInput.focus();
       } else {
-        console.warn(`Element with id "${existingInputElementId}" not found. Falling back to centered input.`);
         this.showCenteredInput();
       }
     } else {
       // Show the default centered input
-      console.log('Showing centered input from createNewChat');
       this.showCenteredInput();
     }
     
@@ -397,7 +391,6 @@ class ModernChatInterface {
           this.elements.chatTitle.textContent = conversation.title;
         }
         
-        console.log('Set conversation title:', conversation.title, 'for conversation:', conversation.id);
       }
       
       // Update timestamp
@@ -485,11 +478,7 @@ class ModernChatInterface {
     messageLayout.appendChild(contentDiv);
     messageDiv.appendChild(messageLayout);
     
-    console.log('Appending message to container:', this.elements.messagesContainer);
-    console.log('Container ID:', this.elements.messagesContainer?.id);
-    console.log('Message being appended:', messageDiv);
     this.elements.messagesContainer.appendChild(messageDiv);
-    console.log('Container children count after append:', this.elements.messagesContainer?.children.length);
     
     if (animate) {
       // Trigger animation
@@ -535,20 +524,16 @@ class ModernChatInterface {
   }
   
   async connectWebSocket(conversationId) {
-    console.log(`connectWebSocket called for conversation: ${conversationId}`);
     
     if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
       if (this.wsConversationId === conversationId) {
-        console.log('Already connected to this conversation');
         return; // Already connected to this conversation
       }
-      console.log('Closing existing WebSocket connection');
       this.websocket.close();
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    console.log(`WebSocket protocol: ${protocol}, host: ${host}`);
     
     // Build WebSocket URL with auth token or anonymous user ID
     let wsUrl = `${protocol}//${host}/chat/ws/${conversationId}`;
@@ -573,19 +558,16 @@ class ModernChatInterface {
       }
     }
     
-    console.log(`Creating WebSocket connection to: ${wsUrl}`);
     
     this.websocket = new WebSocket(wsUrl);
     this.wsConversationId = conversationId;
     
     return new Promise((resolve, reject) => {
       this.websocket.onopen = () => {
-        console.log('WebSocket connected successfully to conversation:', conversationId);
         resolve();
       };
       
       this.websocket.onerror = (error) => {
-        console.error('WebSocket connection error:', error);
         reject(error);
       };
       
@@ -593,15 +575,12 @@ class ModernChatInterface {
         // Only log message type, not full data
         try {
           const msgData = JSON.parse(event.data);
-          console.log('WebSocket message received:', msgData.type || msgData.message_type || 'unknown type');
         } catch (e) {
-          console.log('WebSocket message received: unparseable');
         }
         this.handleWebSocketMessage(event);
       };
       
       this.websocket.onclose = () => {
-        console.log('WebSocket disconnected');
         this.websocket = null;
         this.wsConversationId = null;
       };
@@ -625,7 +604,6 @@ class ModernChatInterface {
       const randomStr = Math.random().toString(36).substr(2, 4);
       this.currentConversationId = `conv_${userName.replace(/[^a-zA-Z0-9]/g, '')}_${timestamp}_${randomStr}`;
       this.wsConversationId = this.currentConversationId;
-      console.log('Created conversation:', this.currentConversationId);
         
       // Create the conversation locally
       const conversation = {
@@ -661,7 +639,6 @@ class ModernChatInterface {
       this.conversationManager.saveConversations();
       
       // Update UI
-      console.log('Updating conversations list after creating conversation:', conversation.id, 'with', conversation.messages.length, 'messages');
       this.updateConversationsList();
     }
     
@@ -670,9 +647,7 @@ class ModernChatInterface {
       try {
         await this.connectWebSocket(this.currentConversationId);
       } catch (error) {
-        console.error('Failed to connect WebSocket:', error);
         // Fallback to HTTP streaming
-        console.log('Falling back to HTTP streaming');
         this.getStreamingResponse(query);
         return;
       }
@@ -698,7 +673,6 @@ class ModernChatInterface {
     
     // Find the actual message-text div (not the loading dots container)
     const actualTextDiv = messageDiv.querySelector('.message-text');
-    console.log('Created streaming message - textDiv:', textDiv, 'actualTextDiv:', actualTextDiv);
     
     this.currentStreamingMessage = { 
       messageDiv, 
@@ -768,7 +742,6 @@ class ModernChatInterface {
     
     // Find the actual message-text div (not the loading dots container)
     const actualTextDiv = messageDiv.querySelector('.message-text');
-    console.log('Created streaming message - textDiv:', textDiv, 'actualTextDiv:', actualTextDiv);
     
     this.currentStreamingMessage = { 
       messageDiv, 
@@ -908,14 +881,12 @@ class ModernChatInterface {
       }
       
       if (data.type === 'error') {
-        console.error('WebSocket error:', data.error);
         this.endStreaming();
         return;
       }
       
       // Handle replay messages for new users
       if (data.type === 'replay_start') {
-        console.log('[REPLAY] Starting replay for message:', data.message_id);
         // Find the AI message div that was just created
         const messages = this.elements.chatMessages.querySelectorAll('.assistant-message');
         const lastMessage = messages[messages.length - 1];
@@ -942,7 +913,6 @@ class ModernChatInterface {
       }
       
       if (data.type === 'replay_end') {
-        console.log('[REPLAY] Ending replay for message:', data.message_id);
         // Clean up replay context
         if (this.replayContext && this.replayContext.messageId === data.message_id) {
           this.replayContext = null;
@@ -988,15 +958,12 @@ class ModernChatInterface {
         
         // Skip join/leave messages for the current user
         if (participantId === currentUserId) {
-          console.log(`Skipping ${action} message for current user ${participantName}`);
           return;
         }
         
         if (action === 'join') {
-          console.log(`Showing join message for ${participantName}`);
           this.addSystemMessage(`${participantName} has joined the conversation`);
         } else if (action === 'leave') {
-          console.log(`Showing leave message for ${participantName}`);
           this.addSystemMessage(`${participantName} has left the conversation`);
         }
         return;
@@ -1004,7 +971,6 @@ class ModernChatInterface {
       
       // Handle conversation history (new format for joining users)
       if (data.type === 'conversation_history' && data.messages) {
-        console.log(`Received conversation history with ${data.messages.length} messages`);
         
         // Clear existing messages first
         this.elements.chatMessages.innerHTML = '';
@@ -1043,13 +1009,11 @@ class ModernChatInterface {
       // Handle messages (both historical and real-time from other participants)
       if (data.type === 'message' && data.message) {
         const msg = data.message;
-        console.log('Received message broadcast:', msg.message_id, msg.message_type);
         
         // Skip if this is our own message (should already be displayed)
         const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
         const currentUserId = userInfo.id || userInfo.email || this.getOrCreateAnonymousUserId();
         if (msg.sender_id === currentUserId) {
-          console.log('Skipping own message from broadcast');
           return;
         }
         
@@ -1067,7 +1031,6 @@ class ModernChatInterface {
           });
           
           if (messageExists) {
-            console.log('Skipping duplicate historical message');
             return;
           }
         }
@@ -1122,7 +1085,6 @@ class ModernChatInterface {
       if (data.message_type) {
         // Check if this is a replay message
         if (data.is_replay && this.replayContext) {
-          console.log('[REPLAY] Processing streaming message:', data.message_type);
           // Use replay context instead of current streaming context
           const savedContext = this.currentStreamingMessage;
           this.currentStreamingMessage = this.replayContext;
@@ -1134,12 +1096,10 @@ class ModernChatInterface {
           this.currentStreamingMessage = savedContext;
         } else if (!data.is_replay) {
           // Regular live streaming
-          console.log('Processing live streaming message:', data.message_type, 'currentStreamingMessage exists:', !!this.currentStreamingMessage);
           
           // If no currentStreamingMessage exists, this is an AI response from another participant
           // Create the UI elements for it
           if (!this.currentStreamingMessage && data.message_type !== 'complete') {
-            console.log('Creating UI for AI response from WebSocket');
             
             // Create AI message UI
             const loadingHtml = '<div class="loading-dots"><span></span><span></span><span></span></div>';
@@ -1164,7 +1124,6 @@ class ModernChatInterface {
           }
           
           if (data.message_type === 'result_batch' || data.message_type === 'item_details') {
-            console.log('Result data:', JSON.stringify(data).substring(0, 200));
           }
           
           // Only process if we have a streaming context
@@ -1174,14 +1133,12 @@ class ModernChatInterface {
         }
       }
     } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
     }
   }
   
   handleStreamingData(data) {
     // Shared handler for both EventSource and WebSocket streaming data
     if (!this.currentStreamingMessage) {
-      console.warn('handleStreamingData called but no currentStreamingMessage context!', data);
       // Special case: handle 'complete' message even without context
       if (data.message_type === 'complete') {
         this.endStreaming();
@@ -1193,10 +1150,8 @@ class ModernChatInterface {
     
     // Clear loading dots on first real content
     if (!this.currentStreamingMessage.started) {
-      console.log('Clearing loading dots - textDiv before:', textDiv.innerHTML);
       textDiv.innerHTML = '';
       this.currentStreamingMessage.started = true;
-      console.log('Loading dots cleared - textDiv after:', textDiv.innerHTML);
     }
     
     // Store debug messages
@@ -1268,34 +1223,19 @@ class ModernChatInterface {
           // Accumulate all results instead of replacing
           allResults = allResults.concat(data.results);
           context.allResults = allResults;
-          console.log(`Processing result_batch: ${data.results.length} new results, total: ${allResults.length}`);
           const renderedHtml = this.renderItems(allResults);
-          console.log('Rendered HTML length:', renderedHtml.length);
-          console.log('textDiv exists:', !!textDiv);
-          console.log('messageContent:', messageContent);
           textDiv.innerHTML = messageContent + renderedHtml;
-          console.log('After setting innerHTML, textDiv.innerHTML length:', textDiv.innerHTML.length);
-          console.log('textDiv parent:', textDiv.parentElement);
-          console.log('textDiv display style:', window.getComputedStyle(textDiv).display);
-          console.log('textDiv visibility:', window.getComputedStyle(textDiv).visibility);
-          console.log('textDiv opacity:', window.getComputedStyle(textDiv).opacity);
-          console.log('textDiv height:', textDiv.offsetHeight);
-          console.log('messageDiv classes:', this.currentStreamingMessage.messageDiv.className);
-          console.log('First 200 chars of innerHTML:', textDiv.innerHTML.substring(0, 200));
           // Force display the element
           textDiv.style.display = 'block';
           textDiv.style.visibility = 'visible';
           textDiv.style.opacity = '1';
-          console.log('After forcing display - height:', textDiv.offsetHeight);
           // Check parent elements
           const messageBubble = textDiv.closest('.message-bubble');
           if (messageBubble) {
-            console.log('Message bubble found - display:', window.getComputedStyle(messageBubble).display);
             messageBubble.style.display = 'block';
           }
           const messageDiv = textDiv.closest('.message');
           if (messageDiv) {
-            console.log('Message div found - display:', window.getComputedStyle(messageDiv).display);
           }
         } else if (data.message_type === 'intermediate_message') {
           // Handle intermediate messages with temp_intermediate class
@@ -1335,7 +1275,6 @@ class ModernChatInterface {
           }
         } else if (data.message_type === 'item_details') {
           // Handle item_details message type
-          console.log('Processing item_details:', data);
           // Map details to description for proper rendering
           let description = data.details;
           
@@ -1393,20 +1332,11 @@ class ModernChatInterface {
 
         } else if (data.message_type === 'api_key') {
           // Handle API key configuration EARLY to ensure it's available for maps
-          console.log('=== API KEY MESSAGE RECEIVED ===');
-          console.log('API key message:', data);
-          console.log('Before setting - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY);
           if (data.key_name === 'google_maps' && data.key_value) {
             // Store the Google Maps API key globally
             window.GOOGLE_MAPS_API_KEY = data.key_value;
-            console.log('Google Maps API key set from server:', data.key_value.substring(0, 10) + '...');
-            console.log('After setting - window.GOOGLE_MAPS_API_KEY:', window.GOOGLE_MAPS_API_KEY.substring(0, 10) + '...');
             // Verify it's actually set
-            console.log('Verification - window.GOOGLE_MAPS_API_KEY exists?', !!window.GOOGLE_MAPS_API_KEY);
-            console.log('Verification - typeof window.GOOGLE_MAPS_API_KEY:', typeof window.GOOGLE_MAPS_API_KEY);
           } else {
-            console.log('API key message not for google_maps or no value');
-            console.log('key_name:', data.key_name, 'has value?', !!data.key_value);
           }
           
         } else if (data.message_type === 'nlws') {
@@ -1429,8 +1359,6 @@ class ModernChatInterface {
           
         } else if (data.message_type === 'chart_result') {
           // Handle chart result (web components)
-          console.log('=== Chart Result Handler Called ===');
-          console.log('Received chart data:', data);
           
           if (data.html) {
             // Create container for the chart
@@ -1450,7 +1378,6 @@ class ModernChatInterface {
               // Clone the element to ensure we get all attributes
               const clonedElement = element.cloneNode(true);
               chartContainer.appendChild(clonedElement);
-              console.log('Added web component:', clonedElement.tagName, clonedElement.outerHTML);
             });
             
             // If no datacommons elements found, try to add the raw HTML (excluding scripts)
@@ -1465,24 +1392,19 @@ class ModernChatInterface {
             textDiv.innerHTML = messageContent + this.renderItems(allResults);
             textDiv.appendChild(chartContainer);
             
-            console.log('Chart container appended to message with', datacommonsElements.length, 'web components');
             
             // Force re-initialization of Data Commons components if available
             if (window.datacommons && window.datacommons.init) {
               setTimeout(() => {
                 window.datacommons.init();
-                console.log('Data Commons re-initialized');
               }, 100);
             }
           }
 
         } else if (data.message_type === 'results_map') {
           // Handle results map
-          console.log('=== RESULTS_MAP MESSAGE RECEIVED ===');
-          console.log('Message data:', JSON.stringify(data, null, 2));
           
           if (data.locations && Array.isArray(data.locations) && data.locations.length > 0) {
-            console.log('Creating map with locations:', data.locations);
             
             // Create container for the map
             const mapContainer = document.createElement('div');
@@ -1511,12 +1433,10 @@ class ModernChatInterface {
             contentDiv.innerHTML = messageContent + this.renderItems(allResults);
             textDiv.appendChild(contentDiv);
             
-            console.log('Map container appended, calling MapDisplay.initializeResultsMap');
             
             // Initialize the map using the imported MapDisplay class
             MapDisplay.initializeResultsMap(mapDiv, data.locations);
           } else {
-            console.log('No valid locations data in results_map message');
           }
 
         } else if (data.message_type === 'complete') {
@@ -1659,19 +1579,16 @@ class ModernChatInterface {
   showCenteredInput() {
     // This method should delegate to UI common library
     // TODO: Move DOM manipulation to chat-ui-common.js
-    console.log('showCenteredInput - should be handled by UI common library');
   }
   
   hideCenteredInput() {
     // This method should delegate to UI common library
     // TODO: Move DOM manipulation to chat-ui-common.js
-    console.log('hideCenteredInput - should be handled by UI common library');
   }
   
   sendFromCenteredInput() {
     // This method should delegate to UI common library  
     // TODO: Move DOM manipulation to chat-ui-common.js
-    console.log('sendFromCenteredInput - should be handled by UI common library');
   }
   
   async handleJoinLink(conversationId) {
@@ -1857,7 +1774,6 @@ class ModernChatInterface {
   }
   
   showCenteredInput() {
-    console.log('showCenteredInput called');
     // Remove any existing centered input first
     const existingCentered = document.querySelector('.centered-input-container');
     if (existingCentered) {
@@ -2141,7 +2057,6 @@ class ModernChatInterface {
         throw new Error(error.error || 'Failed to join conversation');
       }
     } catch (error) {
-      console.error('Error joining conversation:', error);
       this.addSystemMessage(`Error joining conversation: ${error.message}`);
       // Show centered input as fallback
       this.showCenteredInput();
@@ -2379,7 +2294,6 @@ class ModernChatInterface {
       try {
         this.rememberedItems = JSON.parse(saved);
       } catch (e) {
-        console.error('Error loading remembered items:', e);
         this.rememberedItems = [];
       }
     }
@@ -2512,7 +2426,6 @@ class ModernChatInterface {
         }
       }
     } catch (error) {
-      console.error('Error loading sites:', error);
       
       // Fallback sites
       const fallbackSites = ['all', 'eventbrite', 'oreilly', 'scifi_movies', 'verge'];
@@ -2543,12 +2456,9 @@ export { ModernChatInterface };
 // Initialize when DOM is ready (only if not imported as module)
 if (typeof window !== 'undefined' && !window.ModernChatInterfaceExported) {
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOMContentLoaded - initializing ModernChatInterface');
     try {
       new ModernChatInterface();
-      console.log('ModernChatInterface initialized successfully');
     } catch (error) {
-      console.error('Error initializing ModernChatInterface:', error);
     }
   });
   window.ModernChatInterfaceExported = true;

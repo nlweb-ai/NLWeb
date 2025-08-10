@@ -61,7 +61,6 @@ class SecureRenderer {
      */
     sanitize(content, type = 'default') {
         if (!this.isDOMPurifyAvailable()) {
-            console.warn('DOMPurify not available, falling back to text content');
             return this.escapeHtml(content);
         }
 
@@ -109,7 +108,6 @@ class SecureRenderer {
                     // Sanitize based on content type
                     return this.sanitize(rendered, contentType);
                 } catch (error) {
-                    console.error('Renderer error:', error);
                     return this.escapeHtml(`Error rendering content: ${error.message}`);
                 }
             }
@@ -349,7 +347,6 @@ class SecureRenderer {
                 return this.renderText(content);
             }
         } catch (error) {
-            console.error('Secure renderer error:', error);
             return this.renderError(error);
         }
     }

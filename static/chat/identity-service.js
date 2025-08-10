@@ -52,7 +52,6 @@ class IdentityService {
                 };
             }
         } catch (error) {
-            console.warn('Failed to parse OAuth identity:', error);
         }
         return null;
     }
@@ -71,7 +70,6 @@ class IdentityService {
                 };
             }
         } catch (error) {
-            console.warn('Failed to parse email identity:', error);
         }
         return null;
     }

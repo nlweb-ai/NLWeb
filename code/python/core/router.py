@@ -367,7 +367,7 @@ class ToolSelector:
                     "query": query,
                     "time_elapsed": f"{elapsed_time:.3f}s"
                 }
-                await self.handler.send_message(message)
+                asyncio.create_task(self.handler.send_message(message))
             else:
                 # No tools selected - default to search
                 logger.info(f"No tools selected (all below threshold {self.MIN_TOOL_SCORE_THRESHOLD}), defaulting to search")
@@ -380,7 +380,7 @@ class ToolSelector:
                     "query": query,
                     "time_elapsed": f"{elapsed_time:.3f}s"
                 }
-                await self.handler.send_message(message)
+                asyncio.create_task(self.handler.send_message(message))
                 # Create a dummy search tool result for the handler
                 search_tool = next((t for t in tools if t.name == 'search'), None)
                 if search_tool:
@@ -451,4 +451,4 @@ class ToolSelector:
             "schema_type": schema_type
         }
         
-        await self.handler.send_message(message)
+        asyncio.create_task(self.handler.send_message(message))

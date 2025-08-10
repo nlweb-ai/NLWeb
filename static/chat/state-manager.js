@@ -49,7 +49,6 @@ class StateManager {
     // Conversation management
     addConversation(conversation) {
         if (!conversation.id) {
-            console.error('Cannot add conversation without ID');
             return;
         }
         
@@ -82,7 +81,6 @@ class StateManager {
     updateConversation(conversationId, updates) {
         const conversation = this.conversations.get(conversationId);
         if (!conversation) {
-            console.error(`Conversation ${conversationId} not found`);
             return;
         }
         
@@ -104,7 +102,6 @@ class StateManager {
     addMessage(conversationId, message) {
         const conversation = this.conversations.get(conversationId);
         if (!conversation) {
-            console.error(`Conversation ${conversationId} not found`);
             return;
         }
         
@@ -149,7 +146,6 @@ class StateManager {
             // Enforce message limit
             if (conversation.messages.length > this.MAX_MESSAGES_PER_CONVERSATION) {
                 const removed = conversation.messages.shift();
-                console.log(`Removed old message ${removed.id} to maintain limit`);
             }
         }
         
@@ -185,7 +181,6 @@ class StateManager {
     updateParticipants(conversationId, participants) {
         const conversation = this.conversations.get(conversationId);
         if (!conversation) {
-            console.error(`Conversation ${conversationId} not found`);
             return;
         }
         
@@ -322,7 +317,6 @@ class StateManager {
             
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(state));
         } catch (error) {
-            console.error('Failed to save state:', error);
             
             // Handle quota exceeded error
             if (error.name === 'QuotaExceededError') {
@@ -331,7 +325,6 @@ class StateManager {
                 try {
                     this.saveToStorage();
                 } catch (retryError) {
-                    console.error('Failed to save after cleanup:', retryError);
                 }
             }
         }
@@ -373,10 +366,8 @@ class StateManager {
                 Object.assign(this.preferences, state.preferences);
             }
             
-            console.log(`Loaded state from storage (saved: ${state.lastSaved})`);
             
         } catch (error) {
-            console.error('Failed to load state:', error);
             // Continue with empty state
         }
     }
@@ -404,7 +395,6 @@ class StateManager {
         }
         
         if (removedCount > 0) {
-            console.log(`Cleaned up ${removedCount} old conversations`);
         }
     }
     
@@ -422,7 +412,6 @@ class StateManager {
             }
         }
         
-        console.log(`Cleaned up ${conversations.length - toKeep} conversations for storage space`);
     }
     
     // Clear all data

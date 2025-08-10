@@ -20,7 +20,6 @@ window.escapeHtml = escapeHtml; // Make the escapeHtml function available global
 // Initialize the chat interface when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
   // You can add initialization code here if needed
-  console.log('Chat interface ready');
   
   // Add basic XSS protection for the entire document
   // This helps mitigate XSS in areas we might have missed

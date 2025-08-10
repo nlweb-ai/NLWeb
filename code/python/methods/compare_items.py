@@ -148,7 +148,7 @@ class CompareItemsHandler():
                     "url" : item2[0]
                     }
             }
-            await self.handler.send_message(message)
+            asyncio.create_task(self.handler.send_message(message))
             return message
       
         except Exception as e:
@@ -185,6 +185,6 @@ class CompareItemsHandler():
             "item1": {"name": self.item1_name, "url": "", "schema_object": {}},
             "item2": {"name": self.item2_name, "url": "", "schema_object": {}}
         }
-        await self.handler.send_message(message)
+        asyncio.create_task(self.handler.send_message(message))
 
 

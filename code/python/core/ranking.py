@@ -199,7 +199,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
                     logger.info("Fast track ranking successful")
                 
                 to_send = {"message_type": "result_batch", "results": json_results, "query_id": self.handler.query_id}
-                await self.handler.send_message(to_send)
+                asyncio.create_task(self.handler.send_message(to_send))
                 self.num_results_sent += len(json_results)
                 logger.info(f"Sent {len(json_results)} results, total sent: {self.num_results_sent}/{self.NUM_RESULTS_TO_SEND}")
             except (BrokenPipeError, ConnectionResetError) as e:
@@ -224,7 +224,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             logger.info(f"Sending sites message: {top_sites_str}")
             
             try:
-                await self.handler.send_message(message)
+                asyncio.create_task(self.handler.send_message(message))
                 self.handler.sites_in_embeddings_sent = True
             except (BrokenPipeError, ConnectionResetError):
                 logger.warning("Client disconnected when sending sites message")

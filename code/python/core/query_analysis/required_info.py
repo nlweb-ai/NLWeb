@@ -9,6 +9,7 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 from misc.logger.logging_config_helper import get_configured_logger
+import asyncio
 from core.prompts import PromptRunner
 from core.config import CONFIG
 
@@ -51,7 +52,7 @@ class RequiredInfo(PromptRunner):
                 self.handler.state.abort_fast_track_if_needed()
                 
                 logger.debug(f"Sending ask_user message: {response['user_question']}")
-                await self.handler.send_message({"message_type": "ask_user", "message": response["user_question"]})
+                asyncio.create_task(self.handler.send_message({"message_type": "ask_user", "message": response["user_question"]}))
                 
                 logger.info(f"Precheck step complete: {self.STEP_NAME} (missing required info)")
                 await self.handler.state.precheck_step_done(self.STEP_NAME)
