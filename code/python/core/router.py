@@ -358,6 +358,7 @@ class ToolSelector:
             if tool_results:
                 selected_tool = tool_results[0]
                 elapsed_time = time.time() - self.handler.init_time
+                print(f"--- Tool selection complete: {selected_tool['tool'].name} (score: {selected_tool['score']:.2f})")
                 message = {
                     "message_type": "tool_selection",
                     "selected_tool": selected_tool['tool'].name,

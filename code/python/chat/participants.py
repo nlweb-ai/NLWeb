@@ -123,9 +123,6 @@ class NLWebContextBuilder:
             if current_message and msg.message_id == current_message.message_id:
                 continue
                 
-            # Log message details for debugging
-            logger.info(f"Context message: type={msg.message_type}, sender_id={msg.senderInfo.get('id')}, content_preview={msg.content[:50] if msg.content else 'None'}")
-            
             if msg.message_type == 'user':
                 # Human message
                 human_messages.append(msg)
@@ -209,41 +206,37 @@ class NLWebParticipant(BaseParticipant):
             logger.info(f"NLWebParticipant processing message: {message.content[:100]}")
             logger.info(f"NLWebParticipant received context with {len(context)} messages")
             
-            # Build context from chat history  
-            nlweb_context = self.context_builder.build_context(context, message)
-            logger.info(f"NLWebParticipant built context: prev_queries={len(nlweb_context.get('prev_queries', []))}, last_answers={len(nlweb_context.get('last_answers', []))}")
-            
             # Prepare query parameters for NLWebHandler
             query_params = {
                 "query": [message.content],
                 "user_id": [message.senderInfo.get('id')],
                 "streaming": ["true"],  # Enable streaming
+                "query_id": [message.conversation_id],  # Pass conversation_id as query_id (to be renamed later)
             }
             
-            # Get sites and mode from message metadata
-            logger.info(f"NLWebParticipant checking metadata: has metadata={hasattr(message, 'metadata')}, metadata={getattr(message, 'metadata', None)}")
-            if hasattr(message, 'metadata') and message.metadata:
-                sites = message.metadata.get('sites', ['all'])
-                generate_mode = message.metadata.get('generate_mode', 'list')
-                logger.info(f"NLWebParticipant using sites from metadata: {sites}, mode: {generate_mode}")
-            else:
-                sites = ['all']
-                generate_mode = 'list'
-                logger.info(f"NLWebParticipant using default sites: {sites}, mode: {generate_mode}")
+            # Get sites and mode from message (now top-level fields)
+            logger.info(f"NLWebParticipant checking for site/mode: has site={hasattr(message, 'site')}, site={getattr(message, 'site', None)}, mode={getattr(message, 'mode', None)}")
+            sites = getattr(message, 'site', 'all')
+            generate_mode = getattr(message, 'mode', 'list')
+            logger.info(f"NLWebParticipant using site: {sites}, mode: {generate_mode}")
             
             # Set sites and mode in query params
             query_params["site"] = sites if isinstance(sites, list) else [sites]
             query_params["generate_mode"] = [generate_mode]
             logger.info(f"NLWebParticipant initial query_params: {query_params}")
             
-            # Use server-built context
-            if nlweb_context["prev_queries"]:
-                query_params["prev"] = [json.dumps(nlweb_context["prev_queries"])]
-                logger.info(f"NLWebParticipant adding prev_queries: {nlweb_context['prev_queries']}")
-            
-            if nlweb_context["last_answers"]:
-                query_params["last_ans"] = [json.dumps(nlweb_context["last_answers"])]
-                logger.info(f"NLWebParticipant adding last_answers: {nlweb_context['last_answers']}")
+            # Use prev_queries from the message if provided
+            prev_queries = getattr(message, 'prev_queries', None)
+            if prev_queries:
+                query_params["prev"] = [json.dumps(prev_queries)]
+                logger.info(f"NLWebParticipant adding prev_queries from message: {prev_queries}")
+            else:
+                # Fallback to building context from chat history (for backwards compatibility)
+                nlweb_context = self.context_builder.build_context(context, message)
+                logger.info(f"NLWebParticipant built context from history: prev_queries={len(nlweb_context.get('prev_queries', []))}")
+                if nlweb_context["prev_queries"]:
+                    query_params["prev"] = [json.dumps(nlweb_context["prev_queries"])]
+                    logger.info(f"NLWebParticipant adding prev_queries from history: {nlweb_context['prev_queries']}")
             
             logger.info(f"NLWebParticipant final query_params being sent to NLWebHandler: {query_params}")
             
@@ -266,46 +259,8 @@ class NLWebParticipant(BaseParticipant):
                         # The client expects data with message_type at the top level
                         asyncio.create_task(websocket_manager.broadcast_message(conversation_id, data))
                         
-                        # ALWAYS store every message to storage for persistence (async)
-                        logger.info(f"Attempting to store message with type: {data.get('message_type')}")
-                        logger.info(f"Storage client available: {storage_client is not None}")
-                        
-                        if storage_client:
-                            # Generate a unique message ID
-                            message_id = f"msg_{uuid.uuid4().hex[:12]}"
-                            
-                            # Create a ChatMessage for storage
-                            storage_message = ChatMessage(
-                                message_id=message_id,
-                                conversation_id=conversation_id,
-                                content=json.dumps(data),  # Store the full streaming data
-                                message_type='assistant_stream',  # Mark as streaming data
-                                timestamp=int(time.time() * 1000),
-                                senderInfo={
-                                    'id': 'nlweb_assistant',
-                                    'name': 'NLWeb Assistant'
-                                },
-                                metadata={
-                                    'stream_type': data.get('message_type', 'unknown'),
-                                    'sites': query_params.get('sites', []),
-                                    'mode': query_params.get('mode', 'unknown')
-                                }
-                            )
-                            
-                            # Store the message asynchronously (fire and forget)
-                            async def store_async():
-                                try:
-                                    await storage_client.store_message(storage_message)
-                                    logger.info(f"Successfully stored assistant_stream message of type: {data.get('message_type')}")
-                                    print(f"[STORAGE] Stored assistant message: type={data.get('message_type')}, conversation={conversation_id}")
-                                except Exception as e:
-                                    logger.error(f"Failed to store streaming message: {e}")
-                            
-                            # Create async task for storage (non-blocking)
-                            asyncio.create_task(store_async())
-                        else:
-                            logger.warning("Storage client is None - cannot store message!")
-                            print(f"[STORAGE ERROR] Storage client is None for conversation {conversation_id}!")
+                        # NLWeb streaming messages are ephemeral and should NOT be stored
+                        # They are only for real-time display in the UI
             
             chunk_capture = ChunkCapture()
             

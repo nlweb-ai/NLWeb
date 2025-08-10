@@ -308,11 +308,156 @@ export class ChatUICommon {
         break;
         
       case 'ensemble_result':
-        // For ensemble results, render the items as regular results
-        if (data.result && data.result.recommendations && data.result.recommendations.items) {
-          // Add ensemble items to results
-          allResults = allResults.concat(data.result.recommendations.items);
+        // Handle ensemble result message type
+        if (data.result && data.result.recommendations) {
+          const ensembleHtml = this.renderEnsembleResult(data.result);
+          bubble.innerHTML = messageContent + ensembleHtml + this.renderItems(allResults);
+        }
+        break;
+        
+      case 'item_details':
+        // Handle item_details message type
+        // Map details to description for proper rendering
+        let description = data.details;
+        
+        // If details is an object (like nutrition info), format it as a string
+        if (typeof data.details === 'object' && data.details !== null) {
+          description = Object.entries(data.details)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+        }
+        
+        const mappedData = {
+          ...data,
+          description: description
+        };
+        
+        // Add to results array
+        allResults.push(mappedData);
+        bubble.innerHTML = messageContent + this.renderItems(allResults);
+        break;
+        
+      case 'intermediate_message':
+        // Handle intermediate messages with temp_intermediate class
+        const tempContainer = document.createElement('div');
+        tempContainer.className = 'temp_intermediate';
+        
+        if (data.results) {
+          // Use the same rendering as result_batch
+          tempContainer.innerHTML = this.renderItems(data.results);
+        } else if (data.message) {
+          tempContainer.textContent = data.message;
+        }
+        
+        bubble.innerHTML = messageContent + this.renderItems(allResults);
+        bubble.appendChild(tempContainer);
+        break;
+        
+      case 'ask_user':
+        if (data.message) {
+          messageContent += data.message + '\n';
           bubble.innerHTML = messageContent + this.renderItems(allResults);
+        }
+        break;
+        
+      case 'remember':
+        if (data.item_to_remember) {
+          // Handle remember message
+          const rememberMsg = `<div style="background-color: #e8f4f8; padding: 10px; border-radius: 6px; margin-bottom: 10px; color: #0066cc;">I will remember that</div>`;
+          messageContent = rememberMsg + messageContent;
+          bubble.innerHTML = messageContent + this.renderItems(allResults);
+        }
+        break;
+        
+      case 'query_analysis':
+        // Handle query analysis which may include decontextualized query
+        if (data.decontextualized_query && data.original_query && 
+            data.decontextualized_query !== data.original_query) {
+          const decontextMsg = `<div style="font-style: italic; color: #666; margin-bottom: 10px;">Query interpreted as: "${data.decontextualized_query}"</div>`;
+          messageContent = decontextMsg + messageContent;
+          bubble.innerHTML = messageContent + this.renderItems(allResults);
+        }
+        
+        // Also check for item_to_remember in query_analysis
+        if (data.item_to_remember) {
+          const rememberMsg = `<div style="background-color: #e8f4f8; padding: 10px; border-radius: 6px; margin-bottom: 10px; color: #0066cc;">I will remember that: "${data.item_to_remember}"</div>`;
+          messageContent = rememberMsg + messageContent;
+          bubble.innerHTML = messageContent + this.renderItems(allResults);
+        }
+        break;
+        
+      case 'chart_result':
+        // Handle chart result (web components)
+        if (data.html) {
+          // Create container for the chart
+          const chartContainer = document.createElement('div');
+          chartContainer.className = 'chart-result-container';
+          chartContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px; min-height: 400px;';
+          
+          // Parse the HTML to extract just the web component (remove script tags)
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(data.html, 'text/html');
+          
+          // Find all datacommons elements
+          const datacommonsElements = doc.querySelectorAll('[datacommons-scatter], [datacommons-bar], [datacommons-line], [datacommons-pie], [datacommons-map], datacommons-scatter, datacommons-bar, datacommons-line, datacommons-pie, datacommons-map');
+          
+          // Append each web component directly
+          datacommonsElements.forEach(element => {
+            // Clone the element to ensure we get all attributes
+            const clonedElement = element.cloneNode(true);
+            chartContainer.appendChild(clonedElement);
+          });
+          
+          // If no datacommons elements found, try to add the raw HTML (excluding scripts)
+          if (datacommonsElements.length === 0) {
+            const allElements = doc.body.querySelectorAll('*:not(script)');
+            allElements.forEach(element => {
+              chartContainer.appendChild(element.cloneNode(true));
+            });
+          }
+          
+          // Append the chart to the message content
+          bubble.innerHTML = messageContent + this.renderItems(allResults);
+          bubble.appendChild(chartContainer);
+          
+          // Force re-initialization of Data Commons components if available
+          if (window.datacommons && window.datacommons.init) {
+            setTimeout(() => {
+              window.datacommons.init();
+            }, 100);
+          }
+        }
+        break;
+        
+      case 'results_map':
+        // Handle results map
+        if (data.locations && Array.isArray(data.locations) && data.locations.length > 0) {
+          // Create container for the map
+          const mapContainer = document.createElement('div');
+          mapContainer.className = 'results-map-container';
+          mapContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px;';
+          
+          // Create the map div
+          const mapDiv = document.createElement('div');
+          mapDiv.id = 'results-map-' + Date.now();
+          mapDiv.style.cssText = 'width: 100%; height: 250px; border-radius: 6px;';
+          
+          // Add a title
+          const mapTitle = document.createElement('h3');
+          mapTitle.textContent = 'Result Locations';
+          mapTitle.style.cssText = 'margin: 0 0 10px 0; color: #333; font-size: 1.1em;';
+          
+          mapContainer.appendChild(mapTitle);
+          mapContainer.appendChild(mapDiv);
+          
+          // Prepend map BEFORE the results
+          bubble.innerHTML = ''; // Clear existing content
+          bubble.appendChild(mapContainer); // Add map first
+          
+          // Then add the message content and results
+          const contentDiv = document.createElement('div');
+          contentDiv.innerHTML = messageContent + this.renderItems(allResults);
+          bubble.appendChild(contentDiv);
         }
         break;
         
@@ -329,5 +474,173 @@ export class ChatUICommon {
     }
     
     return { messageContent, allResults };
+  }
+
+  renderEnsembleResult(result) {
+    if (!result || !result.recommendations) return '';
+    
+    const recommendations = result.recommendations;
+    
+    // Create ensemble result container
+    const container = document.createElement('div');
+    container.className = 'ensemble-result-container';
+    container.style.cssText = 'background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 16px 0;';
+    
+    // Add theme header
+    if (recommendations.theme) {
+      const themeHeader = document.createElement('h3');
+      themeHeader.textContent = recommendations.theme;
+      themeHeader.style.cssText = 'color: #333; margin-bottom: 20px; font-size: 1.2em;';
+      container.appendChild(themeHeader);
+    }
+    
+    // Add items
+    if (recommendations.items && Array.isArray(recommendations.items)) {
+      const itemsContainer = document.createElement('div');
+      itemsContainer.style.cssText = 'display: grid; gap: 15px;';
+      
+      recommendations.items.forEach(item => {
+        const itemCard = this.createEnsembleItemCard(item);
+        itemsContainer.appendChild(itemCard);
+      });
+      
+      container.appendChild(itemsContainer);
+    }
+    
+    // Add overall tips
+    if (recommendations.overall_tips && Array.isArray(recommendations.overall_tips)) {
+      const tipsSection = document.createElement('div');
+      tipsSection.style.cssText = 'margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6;';
+      
+      const tipsHeader = document.createElement('h4');
+      tipsHeader.textContent = 'Planning Tips';
+      tipsHeader.style.cssText = 'color: #555; margin-bottom: 10px; font-size: 1.1em;';
+      tipsSection.appendChild(tipsHeader);
+      
+      const tipsList = document.createElement('ul');
+      tipsList.style.cssText = 'margin: 0; padding-left: 20px;';
+      
+      recommendations.overall_tips.forEach(tip => {
+        const tipItem = document.createElement('li');
+        tipItem.textContent = tip;
+        tipItem.style.cssText = 'color: #666; margin-bottom: 5px;';
+        tipsList.appendChild(tipItem);
+      });
+      
+      tipsSection.appendChild(tipsList);
+      container.appendChild(tipsSection);
+    }
+    
+    return container.outerHTML;
+  }
+  
+  createEnsembleItemCard(item) {
+    const card = document.createElement('div');
+    card.style.cssText = 'background: white; padding: 15px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+    
+    // Create a flex container for content and image
+    const flexContainer = document.createElement('div');
+    flexContainer.style.cssText = 'display: flex; gap: 15px; align-items: center;';
+    
+    // Content container (goes first, on the left)
+    const contentContainer = document.createElement('div');
+    contentContainer.style.cssText = 'flex-grow: 1;';
+    
+    // Category badge
+    if (item.category) {
+      const categoryBadge = document.createElement('span');
+      categoryBadge.textContent = item.category;
+      categoryBadge.style.cssText = `
+        display: inline-block;
+        padding: 4px 12px;
+        background-color: ${item.category === 'Garden' ? '#28a745' : '#007bff'};
+        color: white;
+        border-radius: 20px;
+        font-size: 0.85em;
+        margin-bottom: 10px;
+      `;
+      contentContainer.appendChild(categoryBadge);
+    }
+    
+    // Name with hyperlink
+    const nameContainer = document.createElement('h4');
+    nameContainer.style.cssText = 'margin: 10px 0;';
+    
+    // Get URL from item or schema_object
+    const itemUrl = item.url || (item.schema_object && item.schema_object.url);
+    
+    if (itemUrl) {
+      const nameLink = document.createElement('a');
+      nameLink.href = itemUrl;
+      nameLink.textContent = item.name;
+      nameLink.target = '_blank';
+      nameLink.style.cssText = 'color: #0066cc; text-decoration: none; font-weight: bold;';
+      nameLink.onmouseover = function() { this.style.textDecoration = 'underline'; };
+      nameLink.onmouseout = function() { this.style.textDecoration = 'none'; };
+      nameContainer.appendChild(nameLink);
+    } else {
+      nameContainer.textContent = item.name;
+      nameContainer.style.color = '#333';
+    }
+    
+    contentContainer.appendChild(nameContainer);
+    
+    // Description
+    if (item.description) {
+      const description = document.createElement('p');
+      description.textContent = item.description;
+      description.style.cssText = 'color: #666; margin: 10px 0; line-height: 1.5;';
+      contentContainer.appendChild(description);
+    }
+    
+    // Why recommended
+    if (item.why_recommended) {
+      const whySection = document.createElement('div');
+      whySection.style.cssText = 'background-color: #e8f4f8; padding: 10px; border-radius: 4px; margin: 10px 0;';
+      
+      const whyLabel = document.createElement('strong');
+      whyLabel.textContent = 'Why recommended: ';
+      whyLabel.style.cssText = 'color: #0066cc;';
+      
+      const whyText = document.createElement('span');
+      whyText.textContent = item.why_recommended;
+      whyText.style.cssText = 'color: #555;';
+      
+      whySection.appendChild(whyLabel);
+      whySection.appendChild(whyText);
+      contentContainer.appendChild(whySection);
+    }
+    
+    // Details
+    if (item.details && Object.keys(item.details).length > 0) {
+      const detailsSection = document.createElement('div');
+      detailsSection.style.cssText = 'margin-top: 10px; font-size: 0.9em;';
+      
+      Object.entries(item.details).forEach(([key, value]) => {
+        const detailLine = document.createElement('div');
+        detailLine.style.cssText = 'color: #777; margin: 3px 0;';
+        
+        const detailKey = document.createElement('strong');
+        detailKey.textContent = `${key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}: `;
+        detailKey.style.cssText = 'color: #555;';
+        
+        const detailValue = document.createElement('span');
+        detailValue.textContent = value;
+        
+        detailLine.appendChild(detailKey);
+        detailLine.appendChild(detailValue);
+        detailsSection.appendChild(detailLine);
+      });
+      
+      contentContainer.appendChild(detailsSection);
+    }
+    
+    // Add content container to flex container
+    flexContainer.appendChild(contentContainer);
+    
+    // Add flex container to card
+    card.appendChild(flexContainer);
+    
+    return card;
   }
 }

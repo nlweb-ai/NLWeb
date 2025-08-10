@@ -300,15 +300,13 @@ class ConversationManager:
         
         print(f"[ConvMgr] Step 16: Creating async task for WebSocket broadcast...")
         # Broadcast to WebSocket connections asynchronously (non-blocking)
+        # IMPORTANT: Don't echo user messages back to the sender
         if self.websocket_manager:
             broadcast_task = asyncio.create_task(
                 self.websocket_manager.broadcast_message(
                     message.conversation_id,
-                    {
-                        'type': 'message',
-                        'message': sequenced_message.to_dict()
-                    },
-                    exclude_user_id=message.senderInfo.get('id')
+                    sequenced_message.to_dict(),  # Send message directly, no wrapping
+                    exclude_user_id=message.senderInfo.get('id')  # Exclude the sender
                 )
             )
             print(f"[ConvMgr] Step 16a: WebSocket broadcast task created (running async)")
@@ -456,14 +454,15 @@ class ConversationManager:
         print(f"[ConvMgr] _persist_message called for {message.message_id} from {message.senderInfo.get('name')}")
         print(f"[ConvMgr] Storage backend type: {type(self.storage)}")
         print(f"[ConvMgr] Message details: type={message.message_type}")
-        try:
-            await self.storage.store_message(message)
-            print(f"[ConvMgr] _persist_message completed for {message.message_id}")
-        except Exception as e:
-            print(f"[ConvMgr] _persist_message FAILED for {message.message_id}: {e}")
-            import traceback
-            print(f"[ConvMgr] Traceback: {traceback.format_exc()}")
-            logger.error(f"Failed to persist message {message.message_id}: {e}", exc_info=True)
+        # Temporarily disabled storage calls
+        # try:
+        #     await self.storage.store_message(message)
+        #     print(f"[ConvMgr] _persist_message completed for {message.message_id}")
+        # except Exception as e:
+        #     print(f"[ConvMgr] _persist_message FAILED for {message.message_id}: {e}")
+        #     import traceback
+        #     print(f"[ConvMgr] Traceback: {traceback.format_exc()}")
+        #     logger.error(f"Failed to persist message {message.message_id}: {e}", exc_info=True)
     
     def _calculate_mode(self, conv_state: ConversationState) -> ConversationMode:
         """

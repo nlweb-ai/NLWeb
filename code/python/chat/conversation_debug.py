@@ -138,11 +138,8 @@
                     print(f"[ConvMgr] Step 20a: Broadcasting to WebSocket connections...")
                     await self.websocket_manager.broadcast_message(
                         message.conversation_id,
-                        {
-                            'type': 'message',
-                            'message': sequenced_message.to_dict()
-                        },
-                        exclude_user_id=message.sender_id
+                        sequenced_message.to_dict(),  # Send message directly, no wrapping
+                        exclude_user_id=message.sender_id  # Exclude the sender
                     )
                     print(f"[ConvMgr] Step 20b: WebSocket broadcast complete")
                 else:

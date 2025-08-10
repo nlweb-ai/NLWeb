@@ -636,10 +636,16 @@ class AzureSearchClient:
         Returns:
             List[str]: List of unique site names
         """
+        print(f"=== AZURE SEARCH GET_SITES CALLED ===")
+        print(f"Endpoint: {self.api_endpoint if hasattr(self, 'api_endpoint') else 'NO ENDPOINT'}")
+        print(f"Has API key: {bool(self.api_key) if hasattr(self, 'api_key') else False}")
+        print(f"Endpoint name: {self.endpoint_name if hasattr(self, 'endpoint_name') else 'NO NAME'}")
         index_name = index_name or self.default_index_name
+        print(f"Index name: {index_name}")
         logger.info(f"Retrieving list of sites from index: {index_name}")
         
         search_client = self._get_search_client(index_name)
+        print(f"Search client created: {search_client}")
         
         try:
             # Use a facet query to get distinct sites
@@ -648,23 +654,42 @@ class AzureSearchClient:
                 "search_text": "*",
                 "top": 0  # We only want facets, not actual documents
             }
+            print(f"Search options: {search_options}")
             
             # Execute the search asynchronously
             def search_sync():
-                return search_client.search(**search_options)
+                print(f"Executing synchronous search...")
+                result = search_client.search(**search_options)
+                print(f"Search executed, result type: {type(result)}")
+                return result
             
             results = await asyncio.get_event_loop().run_in_executor(None, search_sync)
+            print(f"Results received: {results}")
             
             # Extract unique sites from facets
             sites = []
-            if hasattr(results, 'get_facets') and results.get_facets():
-                site_facets = results.get_facets().get('site', [])
-                sites = [facet['value'] for facet in site_facets]
+            if hasattr(results, 'get_facets'):
+                print(f"Results has get_facets method")
+                facets = results.get_facets()
+                print(f"Facets: {facets}")
+                if facets:
+                    site_facets = facets.get('site', [])
+                    print(f"Site facets: {site_facets}")
+                    sites = [facet['value'] for facet in site_facets]
+                else:
+                    print(f"No facets returned")
+            else:
+                print(f"Results object has no get_facets method")
             
+            print(f"Final sites list: {sites}")
             logger.info(f"Retrieved {len(sites)} unique sites")
             return sorted(sites)
         
         except Exception as e:
+            print(f"ERROR in get_sites: {e}")
+            print(f"Error type: {type(e).__name__}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             logger.exception(f"Error retrieving sites from index: {index_name}")
             logger.log_with_context(
                 LogLevel.ERROR,

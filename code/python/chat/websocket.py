@@ -266,19 +266,19 @@ class WebSocketManager:
         # Get all connections for conversation
         connections = self._connections[conversation_id]
         
-        # Debug: log what we're doing
-        print(f"[WebSocket] Broadcasting to conversation {conversation_id}")
-        print(f"[WebSocket] Exclude user: {exclude_user_id}")
-        print(f"[WebSocket] Active connections: {list(connections.keys())}")
+        # Debug: log what we're doing (commented out for performance)
+        # print(f"[WebSocket] Broadcasting to conversation {conversation_id}")
+        # print(f"[WebSocket] Exclude user: {exclude_user_id}")
+        # print(f"[WebSocket] Active connections: {list(connections.keys())}")
         
         # Send to all participants except excluded
         tasks = []
         for user_id, connection in connections.items():
             if user_id != exclude_user_id:
-                print(f"[WebSocket] Sending to {user_id}")
+                # print(f"[WebSocket] Sending to {user_id}")
                 tasks.append(connection.send_message(message))
             else:
-                print(f"[WebSocket] Excluding {user_id} from broadcast")
+                pass  # print(f"[WebSocket] Excluding {user_id} from broadcast")
         
         # Send all messages concurrently
         if tasks:
@@ -483,7 +483,8 @@ class WebSocketManager:
         action: str,
         participant_id: str,
         participant_name: str,
-        participant_type: str
+        participant_type: str,
+        exclude_participant: Optional[str] = None
     ) -> None:
         """
         Broadcast participant join/leave update to all connections.
@@ -494,6 +495,7 @@ class WebSocketManager:
             participant_id: The participant's ID
             participant_name: The participant's display name
             participant_type: "human" or "ai"
+            exclude_participant: Optional participant ID to exclude from broadcast
         """
         print(f"\n=== BROADCAST PARTICIPANT UPDATE ===")
         print(f"Conversation ID: {conversation_id}")
@@ -523,8 +525,8 @@ class WebSocketManager:
             "timestamp": int(time.time() * 1000)
         }
         
-        # Broadcast to all connections
-        await self.broadcast_to_conversation(conversation_id, update_message)
+        # Broadcast to all connections except excluded participant
+        await self.broadcast_message(conversation_id, update_message, exclude_user_id=exclude_participant)
     
     async def _send_participant_list(self, conversation_id: str, connection: WebSocketConnection) -> None:
         """

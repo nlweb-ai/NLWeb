@@ -30,7 +30,8 @@ class MemoryStorage(SimpleChatStorageInterface):
         self.config = config
         # Note: queue_size_limit not used in simple storage
         
-        # Persistence configuration
+        # Storage configuration
+        self.enable_storage = config.get('enable_storage', True)  # Default to True - storage enabled for upload endpoint
         self.persist_to_disk = config.get('persist_to_disk', True)
         self.storage_path = Path(config.get('storage_path', 'data/chat_storage'))
         
@@ -53,7 +54,10 @@ class MemoryStorage(SimpleChatStorageInterface):
         Args:
             message: The message to store
         """
-        print(f"[STORAGE] Storing message {message.message_id}")
+        print(f"[STORAGE] Storage called for message {message.message_id}, enabled={self.enable_storage}")
+        
+        if not self.enable_storage:
+            return  # Skip storage if disabled
         
         # Append message
         self._messages.append(message)
@@ -108,19 +112,9 @@ class MemoryStorage(SimpleChatStorageInterface):
         try:
             msg_file = self.storage_path / 'messages.jsonl'
             
-            # Create message in browser format
-            browser_msg = {
-                "message_id": message.message_id,
-                "conversation_id": message.conversation_id,
-                "content": message.content,
-                "message_type": message.message_type,
-                "timestamp": message.timestamp,
-                "senderInfo": message.senderInfo
-            }
-            
-            # Append as a single line to JSONL file
+            # Write the message as-is using to_dict()
             with open(msg_file, 'a') as f:
-                f.write(json.dumps(browser_msg) + '\n')
+                f.write(json.dumps(message.to_dict()) + '\n')
                 
         except Exception as e:
             print(f"ERROR appending message to disk: {e}")
@@ -143,14 +137,7 @@ class MemoryStorage(SimpleChatStorageInterface):
                         line = line.strip()
                         if line:  # Skip empty lines
                             msg_data = json.loads(line)
-                            message = ChatMessage(
-                                message_id=msg_data.get('message_id'),
-                                conversation_id=msg_data.get('conversation_id'),
-                                content=msg_data['content'],
-                                message_type=msg_data.get('message_type', msg_data.get('type', 'user')),
-                                timestamp=msg_data['timestamp'],
-                                senderInfo=msg_data['senderInfo']
-                            )
+                            message = ChatMessage.from_dict(msg_data)
                             self._messages.append(message)
                 
                 print(f"Loaded {len(self._messages)} messages")

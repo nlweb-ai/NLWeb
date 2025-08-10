@@ -6,6 +6,11 @@ import logging
 import json
 import uuid
 import time
+import random
+import base64
+import traceback
+import aiofiles
+import os
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 
@@ -21,6 +26,7 @@ from chat.schemas import (
     MessageType,
     QueueFullError
 )
+from core.retriever import get_vector_db_client
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +98,6 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
             anon_id = data.get('anonymous_user_id')
             if not anon_id:
                 # Create anonymous user if not provided
-                import random
                 anon_id = f"anon_{random.randint(1000, 9999)}"
             
             user = {
@@ -986,8 +991,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         if auth_token:
             # Validate the auth token using same logic as auth middleware
             try:
-                import base64
-                
                 # First try email-based base64 token
                 try:
                     decoded = base64.b64decode(auth_token).decode('utf-8')
@@ -1046,7 +1049,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         anon_id = request.query.get('anon_user_id')
         if not anon_id:
             # Create new anonymous user ID if not provided
-            import random
             anon_id = f"anon_{random.randint(1000, 9999)}"
         
         user = {
@@ -1120,6 +1122,10 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         join_user_info = data.get('user_info', {})
                         
                         print(f"User {join_user_id} (name: {join_user_name}) joining conversation {conversation_id}")
+                        
+                        # Update the connection's participant_id to match the actual user
+                        connection.participant_id = join_user_id
+                        connection.participant_name = join_user_name
                         
                         # Create participant instance with join details
                         human = HumanParticipant(
@@ -1254,8 +1260,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         
                         # Get sites from vector DB
                         try:
-                            from core.retriever import get_vector_db_client
-                            
                             # Create a retriever client
                             retriever = get_vector_db_client(query_params={})
                             
@@ -1272,7 +1276,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             
                         except Exception as e:
                             print(f"Error getting sites: {e}")
-                            import traceback
                             traceback.print_exc()
                             
                             # Fallback to default sites
@@ -1291,8 +1294,10 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             
                         # Auto-join conversation if not already joined
                         if conversation_id not in active_conversations:
-                            # Use the user_id from the message if provided (this is the real user ID from client)
-                            actual_user_id = data.get('user_id', user_id)
+                            # Get the real user ID from senderInfo in the message
+                            sender_info = data.get('senderInfo', {})
+                            actual_user_id = sender_info.get('id', user_id)
+                            actual_user_name = sender_info.get('name', user_name)
                             print(f"Auto-joining user {actual_user_id} to conversation {conversation_id}")
                             
                             # Update the connection's participant_id to match the actual user
@@ -1301,7 +1306,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             # Create participant instance with the actual user ID
                             human = HumanParticipant(
                                 user_id=actual_user_id,
-                                user_name=user_name
+                                user_name=actual_user_name
                             )
                             
                             # Add participant through conversation manager
@@ -1340,29 +1345,8 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         
                         # Extract site and mode from the WebSocket message
                         # Client sends 'site' (singular), convert to list for compatibility
-                        site = data.get('site', 'all')
-                        sites = [site] if isinstance(site, str) else site
-                        mode = data.get('mode', 'list')
-                        
-                        logger.info(f"WebSocket extracted: site={site}, sites={sites}, mode={mode}")
-                        
-                        # Extract any additional metadata
-                        additional_metadata = data.get('metadata', {})
-                        
-                        # Create chat message using the clean interface
-                        # Use the user_id from the message data if provided, otherwise fall back to authenticated user
-                        message_sender_id = data.get('user_id', user_id)
-                        # Use user ID as the name if no specific name is available
-                        message_sender_name = user.get('name') or message_sender_id
-                        message = ConversationManager.create_message(
-                            conversation_id=conversation_id,
-                            sender_id=message_sender_id,
-                            sender_name=message_sender_name,
-                            content=data.get('content', ''),
-                            sites=sites,
-                            mode=mode,
-                            metadata=additional_metadata
-                        )
+                        # Just pass the message through - no manipulation!
+                        message = ChatMessage.from_dict(data)
                         
                         logger.info(f"Processing message {message.message_id} through ConversationManager")
                         
@@ -1572,10 +1556,9 @@ async def upload_conversation_handler(request: web.Request) -> web.Response:
                       f"Conv: {data.get('conversation_id', 'NO_CONV')} - "
                       f"Content: {str(data.get('content', ''))[:50]}...")
                 
-                # Create ChatMessage object
-                message = ChatMessage(**data)
-                
-                # Store directly
+                # Convert to ChatMessage using from_dict and store
+                # This ensures the message is properly stored in memory
+                message = ChatMessage.from_dict(data)
                 await storage.store_message(message)
                 count += 1
                 

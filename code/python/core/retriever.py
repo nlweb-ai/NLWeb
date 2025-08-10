@@ -226,6 +226,7 @@ class VectorDBClientInterface(ABC):
             Backends that don't support this method should return None.
             The default implementation returns None.
         """
+       
         return None
 
 
@@ -243,6 +244,9 @@ class VectorDBClient:
             endpoint_name: Optional name of the endpoint to use (for backward compatibility)
             query_params: Optional query parameters for overriding endpoint
         """
+        print(f"=== VectorDBClient INIT ===")
+        print(f"endpoint_name: {endpoint_name}")
+        print(f"query_params: {query_params}")
         self.query_params = query_params or {}
         self.endpoint_name = endpoint_name  # Store the endpoint name
         self.db_type = None  # Will be set based on the primary endpoint
@@ -349,7 +353,9 @@ class VectorDBClient:
         
         try:
             client = await self.get_client(endpoint_name)
+            print()
             sites = await client.get_sites()
+            print("got here")
             self._endpoint_sites_cache[endpoint_name] = sites
             if sites:
                 logger.info(f"Endpoint {endpoint_name} has {len(sites)} sites: {sites[:5]}{'...' if len(sites) > 5 else ''}")
@@ -417,6 +423,9 @@ class VectorDBClient:
         
         if db_type in ["azure_ai_search", "snowflake_cortex_search", "opensearch", "milvus"]:
             # These require API key and endpoint
+            print(f"Checking credentials for {name} (type: {db_type})")
+            print(f"  api_key: {bool(config.api_key)} ({config.api_key[:10] + '...' if config.api_key else 'None'})")
+            print(f"  api_endpoint: {bool(config.api_endpoint)} ({config.api_endpoint if config.api_endpoint else 'None'})")
             return bool(config.api_key and config.api_endpoint)
         elif db_type == "qdrant":
             # Qdrant can use either local path or remote URL
@@ -925,6 +934,7 @@ class VectorDBClient:
         Returns:
             List of site names, or empty list if backend doesn't support get_sites
         """
+        
         # If endpoint is specified and different from current, create a new client for that endpoint
         if endpoint_name and endpoint_name != self.endpoint_name:
             temp_client = VectorDBClient(endpoint_name=endpoint_name)

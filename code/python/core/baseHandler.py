@@ -12,6 +12,7 @@ from core.retriever import search
 import asyncio
 import importlib
 import time
+import uuid
 import core.query_analysis.decontextualize as decontextualize
 import core.query_analysis.analyze_query as analyze_query
 import core.query_analysis.memory as memory   
@@ -274,8 +275,21 @@ class NLWebHandler:
                     else:
                         logger.info("No API keys configured in CONFIG.nlweb")
                 
-                # Add timestamp to message
+                # Add timestamp and other required fields to message
                 message["timestamp"] = int(time.time() * 1000)  # Milliseconds
+                
+                # Add missing fields for proper message format
+                if "message_id" not in message:
+                    message["message_id"] = f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:9]}"
+                
+                if "conversation_id" not in message:
+                    message["conversation_id"] = self.query_id  # query_id contains conversation_id
+                
+                if "senderInfo" not in message:
+                    message["senderInfo"] = {
+                        "id": "nlweb_assistant",
+                        "name": "NLWeb Assistant"
+                    }
                 
                 try:
                     await self.http_handler.write_stream(message)

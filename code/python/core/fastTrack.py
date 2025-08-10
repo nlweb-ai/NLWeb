@@ -59,6 +59,7 @@ class FastTrack:
             )
             self.handler.final_retrieved_items = items
             logger.info(f"Fast track retrieved {len(items)} items")
+            print(f"--- Fast track retrieval complete: {len(items)} items retrieved")
             
             # Wait for decontextualization to complete with timeout
             decon_done = False
@@ -83,12 +84,14 @@ class FastTrack:
                     self.handler.fastTrackRanker = ranking.Ranking(self.handler, items, ranking.Ranking.FAST_TRACK)
                     await self.handler.fastTrackRanker.do()
                     logger.info("Fast track ranking completed")
+                    print("--- Fast track ranking complete")
                     return  
             elif (not self.handler.query_done and not self.handler.abort_fast_track_event.is_set()):
                 logger.info("Fast track proceeding: decontextualization call pending, query not done")
                 self.handler.fastTrackRanker = ranking.Ranking(self.handler, items, ranking.Ranking.FAST_TRACK)
                 await self.handler.fastTrackRanker.do()
                 logger.info("Fast track ranking completed")
+                print("--- Fast track ranking complete")
                 return
                 
         except Exception as e:

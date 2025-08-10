@@ -271,6 +271,37 @@ class AioHTTPServer:
     
     async def start(self):
         """Start the server"""
+        # Check if port is already in use
+        import socket
+        port = self.config['port']
+        host = self.config['server']['host']
+        
+        # Try to bind to the port to check if it's available
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            # Try to bind to the port
+            if host == '0.0.0.0':
+                # Check on localhost since 0.0.0.0 means all interfaces
+                sock.bind(('127.0.0.1', port))
+            else:
+                sock.bind((host, port))
+            sock.close()
+        except OSError as e:
+            if e.errno == 48:  # Address already in use on macOS
+                logger.error(f"Port {port} is already in use!")
+                logger.error("Another server instance may be running.")
+                logger.error(f"To find the process: lsof -i :{port}")
+                logger.error(f"To kill it: kill $(lsof -t -i :{port})")
+                raise SystemExit(f"Error: Port {port} is already in use. Please stop the other server or use a different port.")
+            elif e.errno == 98:  # Address already in use on Linux
+                logger.error(f"Port {port} is already in use!")
+                logger.error("Another server instance may be running.")
+                logger.error(f"To find the process: netstat -tulpn | grep {port}")
+                raise SystemExit(f"Error: Port {port} is already in use. Please stop the other server or use a different port.")
+            else:
+                # Re-raise other socket errors
+                raise
+        
         self.app = await self.create_app()
         
         # Create runner
@@ -281,6 +312,9 @@ class AioHTTPServer:
         )
         
         await self.runner.setup()
+        
+        # Check platform support for reuse_port
+        reuse_port_supported = sys.platform not in ['win32', 'cygwin']
         
         # Setup SSL
         ssl_context = self._setup_ssl_context()

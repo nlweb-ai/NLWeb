@@ -365,29 +365,8 @@ export class UnifiedChatInterface {
       }
     }));
     
-    // Add the conversation to the conversation manager if not already there
-    if (!this.conversationManager.findConversation(conversationId)) {
-        const newConversation = {
-          id: conversationId,
-          title: 'Joined Conversation',
-          timestamp: Date.now(),
-          created_at: new Date().toISOString(),
-          site: this.state.selectedSite || 'all',
-          siteInfo: {
-            site: this.state.selectedSite || 'all',
-            mode: this.state.selectedMode || 'list'
-          },
-          messages: []
-        };
-        this.conversationManager.addConversation(newConversation);
-        this.conversationManager.saveConversations();
-        
-        // Update the chat title immediately
-        const chatTitle = document.querySelector('.chat-title');
-        if (chatTitle) {
-          chatTitle.textContent = 'Joined Conversation';
-        }
-    }
+    // Don't create conversation here - wait for conversation_history message
+    // The conversation_history handler will create the conversation with proper metadata
     
     // Update the conversations list in the UI
     this.updateConversationsList();
@@ -406,13 +385,61 @@ export class UnifiedChatInterface {
   
   // ========== Unified Message Sending ==========
   
+  createUserMessage(content, conversation = null) {
+    // ONLY place where message IDs and conversation IDs are created
+    
+    // Generate conversation ID if needed
+    if (!this.state.conversationId) {
+      this.state.conversationId = Date.now().toString();
+      this.updateURL();
+    }
+    
+    // Get user info
+    const userId = this.getOrCreateUserId();
+    const userName = userId.split('@')[0] || 'User';
+    
+    // Build prev_queries from conversation's existing messages
+    const prevQueries = [];
+    if (conversation && conversation.messages) {
+      // Extract previous user queries from conversation history
+      const userMessages = conversation.messages
+        .filter(m => m.message_type === 'user')
+        .slice(-5);  // Keep last 5 user messages for context
+      
+      userMessages.forEach(msg => {
+        prevQueries.push({
+          query: msg.content,
+          user_id: msg.senderInfo?.id || userId,
+          timestamp: new Date(msg.timestamp).toISOString()
+        });
+      });
+    }
+    
+    // Create complete message object
+    return {
+      message_id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      conversation_id: this.state.conversationId,
+      type: 'message',
+      message_type: 'user',
+      content: content,
+      timestamp: Date.now(),
+      senderInfo: {
+        id: userId,
+        name: userName
+      },
+      site: this.state.selectedSite,
+      mode: this.state.selectedMode,
+      prev_queries: prevQueries  // Include previous queries for NLWeb context
+    };
+  }
+  
   sendMessage() {
     // Get input from either centered or normal input
     const input = document.getElementById('centered-chat-input') || 
                   document.getElementById('chat-input');
-    const message = input?.value.trim();
+    const messageText = input?.value.trim();
     
-    if (!message) return;
+    if (!messageText) return;
     
     // Clear input
     input.value = '';
@@ -420,87 +447,53 @@ export class UnifiedChatInterface {
     // Hide centered input if visible
     this.hideCenteredInput();
     
-    // Get user info for sender attribution
-    const userId = this.getOrCreateUserId();
-    const userName = userId.split('@')[0] || 'User';
+    // Get current conversation for context
+    const conversation = this.conversationManager?.findConversation(this.state.conversationId);
     
-    // Create user message object and process through handleStreamData
-    const userMessageData = {
-      message_type: 'user_message',
-      content: message,
-      timestamp: Date.now(),
-      senderInfo: {
-        id: userId,
-        name: userName
-      }
-    };
+    // Create the message with conversation context
+    const message = this.createUserMessage(messageText, conversation);
     
-    // Process through handleStreamData with shouldStore = true
-    this.handleStreamData(userMessageData, true);
+    // Display and store locally
+    this.handleStreamData(message, true);
     
     // Update title if it's still "New chat"
     const chatTitle = document.querySelector('.chat-title');
     if (chatTitle && chatTitle.textContent === 'New chat') {
-      // Use first 50 chars of message as title
-      const title = message.length > 50 ? message.substring(0, 47) + '...' : message;
+      const title = messageText.length > 50 ? messageText.substring(0, 47) + '...' : messageText;
       chatTitle.textContent = title;
     }
     
-    // Ensure DOM is updated before sending message
-    // Use setTimeout to defer sending until after the current event loop
+    // Send to server
     setTimeout(() => {
       this.sendThroughConnection(message);
     }, 0);
   }
   
   async sendThroughConnection(message) {
-    // Generate conversation ID if needed (for new conversations)
-    if (!this.state.conversationId) {
-      this.state.conversationId = 'conv_' + Math.random().toString(36).substring(2, 11);
-      this.updateURL();
-    }
-    
-    // Get user details for the message
-    const userId = this.getOrCreateUserId();
-    const userName = userId.split('@')[0] || 'User';
-    
-    const params = {
-      conversation_id: this.state.conversationId,
-      user_id: userId,
-      user_name: userName,
-      sender_info: {
-        id: userId,
-        name: userName
-      },
-      mode: this.state.selectedMode,
-      site: this.state.selectedSite
-    };
-    
+    // Just send the message as-is - no modification
     console.log('[sendThroughConnection] connectionType:', this.connectionType);
     console.log('[sendThroughConnection] WebSocket state:', this.ws.connection?.readyState);
     
     if (this.connectionType === 'websocket') {
-      const data = {
-        type: 'message',
-        content: message,
-        ...params
-      };
-      
       // Get or create WebSocket connection
       const ws = await this.getWebSocketConnection(true);
       
       if (ws && ws.readyState === WebSocket.OPEN) {
         console.log('[sendThroughConnection] Sending via WebSocket');
-        ws.send(JSON.stringify(data));
+        ws.send(JSON.stringify(message));
       } else {
         console.log('[sendThroughConnection] Failed to get open WebSocket, queueing message');
         // Queue message for later
-        this.state.messageQueue.push(data);
+        this.state.messageQueue.push(message);
       }
     } else {
       console.log('[sendThroughConnection] Using SSE');
-      // Use SSE for responses
-      this.connectSSE(message, params);
+      // For SSE, extract just what we need from the message
+      this.connectSSE(message.content, {
+        conversation_id: message.conversation_id,
+        site: message.site,
+        mode: message.mode
+      });
     }
   }
   
@@ -578,7 +571,7 @@ export class UnifiedChatInterface {
     }
     
     // Handle user messages (from replay)
-    if (data.message_type === 'user_message') {
+    if (data.message_type === 'user') {
       // Extract actual message text from nested structure if needed
       let messageText = data.content;
       let senderInfo = data.senderInfo;
@@ -621,46 +614,38 @@ export class UnifiedChatInterface {
     if (data.type === 'conversation_history') {
       console.log('Processing conversation history with', data.messages?.length, 'messages');
       
-      // Set the conversation ID if we have one
+      // Create or update conversation with messages
       if (data.conversation_id) {
-        this.state.conversationId = data.conversation_id;
-        this.updateURL();
-        
-        // Ensure conversation exists in manager
-        if (!this.conversationManager.findConversation(data.conversation_id)) {
-          const newConversation = {
+        let conversation = this.conversationManager.findConversation(data.conversation_id);
+        if (!conversation) {
+          // Create conversation with basic info - metadata will be extracted in loadConversation
+          conversation = {
             id: data.conversation_id,
-            title: 'Joined Conversation', // Will be updated when first user message is received
+            title: 'Joined Conversation',
             timestamp: Date.now(),
             created_at: new Date().toISOString(),
-            site: this.state.selectedSite || 'all',
-            siteInfo: {
-              site: this.state.selectedSite || 'all',
-              mode: this.state.selectedMode || 'list'
-            },
+            site: 'all',  // Will be extracted from message metadata in loadConversation
+            mode: 'list',  // Will be extracted from message metadata in loadConversation
             messages: []
           };
-          this.conversationManager.addConversation(newConversation);
-        }
-      }
-      
-      // Process each message through the SAME handleStreamData flow
-      if (data.messages && data.messages.length > 0) {
-        data.messages.forEach(msg => {
-          // Convert to the exact format that normal messages use
-          const messageData = {
-            type: 'message',
-            content: msg.content,
-            sender_id: msg.sender_id,
-            sender_info: msg.sender_info,
-            timestamp: msg.timestamp
-          };
           
-          // Recursively call handleStreamData with the proper message format
-          // This ensures it goes through the exact same processing path
-          // Pass shouldStore through to maintain the same storage behavior
-          this.handleStreamData(messageData, shouldStore);
-        });
+          // Store all messages in the conversation - no wrapping!
+          if (data.messages && data.messages.length > 0) {
+            conversation.messages = data.messages;
+            
+            // Try to get a better title from the first user message
+            const firstUserMsg = data.messages.find(m => m.message_type === 'user');
+            if (firstUserMsg && firstUserMsg.content) {
+              conversation.title = firstUserMsg.content.substring(0, 50);
+            }
+          }
+          
+          this.conversationManager.addConversation(conversation);
+          this.conversationManager.saveConversations();
+        }
+        
+        // Load the conversation - this will replay messages and extract metadata
+        this.loadConversation(data.conversation_id);
       }
       return;
     }
@@ -764,9 +749,9 @@ export class UnifiedChatInterface {
       const role = data.sender_info?.type === 'ai' ? 'assistant' : 'user';
       this.addMessageBubble(data.content, role, data.sender_info);
       
-      // Save the message to conversation during replay so joined users have complete history
-      if (role === 'user') {
-        this.saveMessageToConversation(data.content, 'user');
+      // Messages from other users should be stored using storeStreamingMessage
+      if (shouldStore) {
+        this.storeStreamingMessage(data);
       }
       return;
     }
@@ -871,76 +856,42 @@ export class UnifiedChatInterface {
   }
   
   storeStreamingMessage(data) {
-    // Create conversation ID if needed
-    if (!this.state.conversationId) {
-      this.state.conversationId = Date.now().toString();
-      this.updateURL();
+    // Just store the message as-is - no wrapping, no ID generation
+    const conversationId = data.conversation_id || this.state.conversationId;
+    if (!conversationId) {
+      console.error('[storeStreamingMessage] No conversation ID available');
+      return;
     }
     
     // Find or create conversation
-    let conversation = this.conversationManager.findConversation(this.state.conversationId);
+    let conversation = this.conversationManager.findConversation(conversationId);
     if (!conversation) {
       conversation = {
-        id: this.state.conversationId,
+        id: conversationId,
         title: 'New chat',
         messages: [],
         timestamp: Date.now(),
-        site: this.state.selectedSite
+        site: data.site || this.state.selectedSite,
+        mode: data.mode || this.state.selectedMode
       };
       this.conversationManager.conversations.push(conversation);
     }
     
-    // Extract message ID from data if it exists, otherwise generate new one
-    let messageId;
+    // Check for duplicate using message_id if it exists
     if (data.message_id) {
-      // Use existing message ID (e.g., when replaying messages during join)
-      messageId = data.message_id;
-    } else if (data.content && typeof data.content === 'object' && data.content.message_id) {
-      // Message ID might be nested in content
-      messageId = data.content.message_id;
-    } else {
-      // Generate new message ID for fresh messages
-      messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const existingMessage = conversation.messages.find(m => m.message_id === data.message_id);
+      if (existingMessage) {
+        console.log(`[storeStreamingMessage] Skipping duplicate message: ${data.message_id}`);
+        return;
+      }
     }
     
-    // Check for duplicate - don't store if message with this ID already exists
-    const existingMessage = conversation.messages.find(m => m.message_id === messageId);
-    if (existingMessage) {
-      console.log(`[storeStreamingMessage] Skipping duplicate message: ${messageId}`);
-      return; // Skip storing duplicate
-    }
-    
-    // Use the senderInfo from the data if available, otherwise determine based on message type
-    let senderInfo;
-    if (data.senderInfo) {
-      // Use the existing senderInfo from the message
-      senderInfo = data.senderInfo;
-    } else if (data.message_type === 'user_message' || data.type === 'user') {
-      // This is a user message without senderInfo - shouldn't happen but handle gracefully
-      const userId = this.getOrCreateUserId();
-      senderInfo = {
-        id: userId,
-        name: userId.split('@')[0] || 'User'
-      };
-    } else {
-      // Default to NLWeb Assistant for other message types
-      senderInfo = {
-        id: 'nlweb_assistant',
-        name: 'NLWeb Assistant'
-      };
-    }
-    
-    conversation.messages.push({
-      message_id: messageId,
-      conversation_id: this.state.conversationId,
-      content: data,  // Store exact server message object
-      message_type: data.message_type || data.type || 'stream_data',
-      timestamp: Date.now(),
-      senderInfo: senderInfo
-    });
+    // Store the message exactly as received - no wrapping!
+    conversation.messages.push(data);
+    console.log('[storeStreamingMessage] Message stored. Total messages in conversation:', conversation.messages.length);
     
     // Update title if it's the first user message and title is still generic
-    if (data.message_type === 'user_message' && 
+    if (data.message_type === 'user' && 
         (conversation.title === 'New chat' || conversation.title === 'Joined Conversation')) {
       // Extract the actual message text for the title
       let messageText = data.content;
@@ -955,15 +906,14 @@ export class UnifiedChatInterface {
           chatTitle.textContent = conversation.title;
         }
       }
-    }
-    
-    // Save to localStorage
-    this.conversationManager.saveConversations();
-    
-    // Update conversation list UI if this is a user message (start of a new conversation)
-    if (data.message_type === 'user_message') {
+      
+      // Update conversation list UI for user messages
       this.updateConversationsList();
     }
+    
+    // Save to localStorage - for now still using the batch approach
+    // TODO: Consider IndexedDB for more efficient per-message storage
+    this.conversationManager.saveConversations();
   }
   
   endStreaming() {
@@ -1245,63 +1195,6 @@ export class UnifiedChatInterface {
   
   // ========== Utility Methods ==========
   
-  saveMessageToConversation(message, type = 'user') {
-    // Create conversation ID if needed
-    if (!this.state.conversationId) {
-      this.state.conversationId = Date.now().toString();
-      this.updateURL();
-    }
-    
-    // Find or create conversation
-    let conversation = this.conversationManager.findConversation(this.state.conversationId);
-    if (!conversation) {
-      conversation = {
-        id: this.state.conversationId,
-        title: message.substring(0, 50),
-        messages: [],
-        timestamp: Date.now(),
-        site: this.state.selectedSite,
-        mode: this.state.selectedMode
-      };
-      this.conversationManager.conversations.push(conversation);
-    }
-    
-    // Create server-format message object
-    const messageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-    const userId = this.getOrCreateUserId();
-    
-    // Store user message in same format as streaming messages
-    // The content field should be the message object that would be replayed
-    const userMessageData = {
-      message_type: 'user_message',
-      content: message,
-      timestamp: Date.now()
-    };
-    
-    conversation.messages.push({
-      message_id: messageId,
-      conversation_id: this.state.conversationId,
-      content: userMessageData,  // Store the message data object
-      message_type: 'user_message',
-      timestamp: Date.now(),
-      senderInfo: {
-        id: userId,
-        name: userId.split('@')[0] || 'User'
-      }
-    });
-    
-    // Update title if it's the first user message
-    if (type === 'user' && conversation.messages.filter(m => m.message_type === 'user_message').length === 1) {
-      conversation.title = message.substring(0, 50);
-    }
-    
-    // Save to localStorage
-    this.conversationManager.saveConversations();
-    
-    // Update conversation list UI
-    this.updateConversationsList();
-  }
-  
   updateSiteDropdowns() {
     // Update all site dropdown items if they exist
     const siteDropdownItems = document.getElementById('site-dropdown-items');
@@ -1353,22 +1246,13 @@ export class UnifiedChatInterface {
   }
   
   async loadSitesViaHttp() {
-    // First check if we have cached sites data
-    const cachedSites = localStorage.getItem('nlweb_sites');
-    if (cachedSites) {
-      try {
-        const sitesData = JSON.parse(cachedSites);
-        if (sitesData && Array.isArray(sitesData) && sitesData.length > 0) {
-          console.log('Using cached sites data:', sitesData);
-          this.processSitesData(sitesData);
-          return;
-        }
-      } catch (e) {
-        console.error('Error parsing cached sites:', e);
-      }
+    // Check if we already have sites in memory
+    if (this.state.sites && this.state.sites.length > 0) {
+      console.log('Using in-memory cached sites:', this.state.sites);
+      return;
     }
     
-    // If no cached data, fetch from server
+    // Fetch fresh sites data from server
     try {
       const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
       const response = await fetch(`${baseUrl}/sites?streaming=false`);
@@ -1380,9 +1264,6 @@ export class UnifiedChatInterface {
       const data = await response.json();
       
       if (data && data['message-type'] === 'sites' && Array.isArray(data.sites)) {
-        // Cache the sites data
-        localStorage.setItem('nlweb_sites', JSON.stringify(data.sites));
-        console.log('Cached sites data for future use');
         this.processSitesData(data.sites);
       }
     } catch (error) {
@@ -1415,10 +1296,9 @@ export class UnifiedChatInterface {
   }
   
   clearCachedSites() {
-    // Clear cached sites data (useful for forcing refresh)
-    localStorage.removeItem('nlweb_sites');
+    // This method is kept for backwards compatibility but no longer needed
     this.state.sites = [];
-    console.log('Cleared cached sites data');
+    console.log('Sites list cleared');
   }
   
   getOrCreateUserId() {
@@ -1477,13 +1357,31 @@ export class UnifiedChatInterface {
     const conversation = this.conversationManager.findConversation(conversationId);
     
     if (conversation && conversation.messages && conversation.messages.length > 0) {
+      // Check if we need to extract metadata (for joined conversations)
+      let needsMetadataExtraction = !conversation.site || conversation.site === 'all';
+      
       // Replay all messages through handleStreamData with shouldStore = false
-      // This uses the exact same code path as live messages, but without re-saving to localStorage
+      // Messages are now stored directly without wrapping
       conversation.messages.forEach(msg => {
-        if (msg.content) {
-          // Pass false for shouldStore to avoid duplicating messages in localStorage
-          this.handleStreamData(msg.content, false);
+        // Extract metadata from first user message if needed
+        if (needsMetadataExtraction && msg.message_type === 'user') {
+          if (msg.site && msg.site !== 'all') {
+            conversation.site = msg.site;
+            conversation.siteInfo = conversation.siteInfo || {};
+            conversation.siteInfo.site = msg.site;
+          }
+          if (msg.mode) {
+            conversation.mode = msg.mode;
+            conversation.siteInfo = conversation.siteInfo || {};
+            conversation.siteInfo.mode = msg.mode;
+          }
+          needsMetadataExtraction = false;
+          // Save the updated conversation
+          this.conversationManager.saveConversations();
         }
+        
+        // Pass false for shouldStore to avoid duplicating messages in localStorage
+        this.handleStreamData(msg, false);
       });
     }
     
@@ -1597,7 +1495,7 @@ export class UnifiedChatInterface {
     // Log summary of messages being uploaded
     const summary = {
       total: allMessages.length,
-      userMessages: allMessages.filter(m => m.message_type === 'user_message').length,
+      userMessages: allMessages.filter(m => m.message_type === 'user').length,
       streamData: allMessages.filter(m => m.message_type === 'stream_data').length
     };
     console.log('Message summary:', summary);

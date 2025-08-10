@@ -22,35 +22,80 @@ class ConversationManager {
   }
 
   loadLocalConversations(selectedSite) {
-    const saved = localStorage.getItem('nlweb_conversations');
-    console.log('Loading conversations from localStorage, selectedSite:', selectedSite);
+    const saved = localStorage.getItem('nlweb_messages');
+    console.log('Loading messages from localStorage, selectedSite:', selectedSite);
+    this.conversations = [];
+    
     if (saved) {
       try {
-        const allConversations = JSON.parse(saved);
-        console.log('Found', allConversations.length, 'total conversations in localStorage');
+        const allMessages = JSON.parse(saved);
+        console.log('Found', allMessages.length, 'total messages in localStorage');
         
-        // Filter out empty conversations
-        let filteredConversations = allConversations.filter(conv => conv.messages && conv.messages.length > 0);
-        console.log('After filtering empty conversations:', filteredConversations.length);
+        // Group messages by conversation_id to reconstruct conversations
+        const conversationMap = {};
         
-        // If a specific site is selected, filter by site
+        allMessages.forEach(msg => {
+          const convId = msg.conversation_id;
+          if (!convId) return;
+          
+          if (!conversationMap[convId]) {
+            conversationMap[convId] = {
+              id: convId,
+              messages: [],
+              timestamp: msg.timestamp,
+              site: msg.site || 'all',
+              mode: msg.mode || 'list',
+              title: 'New chat'
+            };
+          }
+          
+          // Add message to conversation
+          conversationMap[convId].messages.push(msg);
+          
+          // Update conversation metadata from messages
+          if (msg.site && conversationMap[convId].site === 'all') {
+            conversationMap[convId].site = msg.site;
+          }
+          if (msg.mode && conversationMap[convId].mode === 'list') {
+            conversationMap[convId].mode = msg.mode;
+          }
+          
+          // Set title from first user message
+          if (msg.message_type === 'user' && conversationMap[convId].title === 'New chat') {
+            const content = typeof msg.content === 'string' ? msg.content : msg.content?.content || 'New chat';
+            conversationMap[convId].title = content.substring(0, 50);
+          }
+          
+          // Update timestamp to be the latest message
+          if (msg.timestamp > conversationMap[convId].timestamp) {
+            conversationMap[convId].timestamp = msg.timestamp;
+          }
+        });
+        
+        // Convert map to array
+        let conversations = Object.values(conversationMap);
+        
+        // Filter by site if needed
         if (selectedSite && selectedSite !== 'all') {
-          filteredConversations = filteredConversations.filter(conv => 
-            conv.site === selectedSite || 
-            (conv.siteInfo && conv.siteInfo.site === selectedSite)
-          );
-          console.log('After site filtering for', selectedSite + ':', filteredConversations.length);
+          conversations = conversations.filter(conv => conv.site === selectedSite);
         }
         
-        this.conversations = filteredConversations;
-        // Save the cleaned list back
-        this.saveConversations();
+        // Sort messages within each conversation by timestamp
+        conversations.forEach(conv => {
+          conv.messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        });
+        
+        // Sort conversations by timestamp (most recent first)
+        conversations.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        
+        this.conversations = conversations;
+        console.log('Reconstructed', this.conversations.length, 'conversations from messages');
       } catch (e) {
-        console.error('Error loading conversations:', e);
+        console.error('Error loading messages:', e);
         this.conversations = [];
       }
     } else {
-      console.log('No conversations found in localStorage');
+      console.log('No messages found in localStorage');
       this.conversations = [];
     }
   }
@@ -182,10 +227,32 @@ class ConversationManager {
   }
 
   saveConversations() {
-    // Always save conversations locally, regardless of login status
-    // Only save conversations that have messages
-    const conversationsToSave = this.conversations.filter(conv => conv.messages && conv.messages.length > 0);
-    localStorage.setItem('nlweb_conversations', JSON.stringify(conversationsToSave));
+    // Collect all messages from all conversations
+    const allMessages = [];
+    this.conversations.forEach(conv => {
+      if (conv.messages && conv.messages.length > 0) {
+        // Add all messages from this conversation
+        conv.messages.forEach(msg => {
+          // Ensure each message has the conversation_id
+          if (!msg.conversation_id) {
+            msg.conversation_id = conv.id;
+          }
+          allMessages.push(msg);
+        });
+      }
+    });
+    
+    // Log what we're saving
+    console.log('[saveConversations] Saving messages:', {
+      total_messages: allMessages.length,
+      message_types: allMessages.reduce((acc, m) => {
+        acc[m.message_type] = (acc[m.message_type] || 0) + 1;
+        return acc;
+      }, {})
+    });
+    
+    // Save all messages directly
+    localStorage.setItem('nlweb_messages', JSON.stringify(allMessages));
   }
 
   loadConversation(id, chatInterface) {
@@ -266,37 +333,20 @@ class ConversationManager {
       chatInterface.lastAnswers = chatInterface.lastAnswers.slice(-20);
     }
     
-    // Restore messages to UI
+    // Clear messages container first
+    chatInterface.elements.messagesContainer.innerHTML = '';
+    
+    // Replay all messages through the same handler used for live messages
     conversation.messages.forEach(msg => {
-      // Create sender info based on message type and any stored metadata
-      let senderInfo = null;
-      if (msg.senderInfo) {
-        // Use stored sender info if available
-        senderInfo = msg.senderInfo;
-      } else if (msg.message_type === 'user') {
-        // For user messages, try to get from current user info or use default
-        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-        senderInfo = {
-          id: userInfo.id || 'user',
-          name: userInfo.name || userInfo.email || 'User'
-        };
-      } else if (msg.message_type === 'assistant') {
-        // For assistant messages, include site if available
-        const site = msg.site || conversation.site || chatInterface.selectedSite || 'all';
-        senderInfo = {
-          id: 'nlweb_assistant',
-          name: `NLWeb ${site}`
-        };
-      }
+      if (!msg.content) return;
       
-      // For assistant messages, check if content contains HTML
-      if (msg.message_type === 'assistant' && msg.content && 
-          (msg.content.includes('<') || msg.content.includes('class='))) {
-        // Content has HTML, pass it as an object with html property
-        chatInterface.addMessageToUI({ html: msg.content }, msg.message_type, false, senderInfo);
+      // Check if content is an object (new format) or string (legacy)
+      if (typeof msg.content === 'object') {
+        // This is a server-format message, replay through handler
+        chatInterface.handleStreamData(msg.content);
       } else {
-        // Plain text content
-        chatInterface.addMessageToUI(msg.content, msg.message_type, false, senderInfo);
+        // Legacy format - try to handle
+        console.warn('Legacy message format detected:', msg.message_id);
       }
     });
     

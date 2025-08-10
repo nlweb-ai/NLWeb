@@ -11,6 +11,7 @@ protobuf<5,>=3.20
 matplotlib>=3.8.0
 python-dotenv>=1.0.0
 aiohttp>=3.9.1
+aiofiles>=24.1.0
 pyyaml>=6.0.1
 feedparser>=6.0.1
 httpx>=0.28.1

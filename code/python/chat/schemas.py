@@ -36,38 +36,70 @@ class ParticipantType(Enum):
 class ChatMessage:
     """
     Unified chat message format matching browser localStorage.
+    Content can be any JSON-serializable object (string, dict, list, etc.)
     """
     message_id: str
     conversation_id: str
-    content: str
-    message_type: str  # "user", "assistant", "system", "join", "leave"
+    content: Any  # Can be string, dict, list - any JSON-serializable object
+    message_type: str  # "user", "assistant", "system", "join", "leave", "nlweb", etc.
     timestamp: int  # milliseconds since epoch
     senderInfo: Dict[str, str]  # {id: str, name: str}
-    metadata: Dict[str, Any] = field(default_factory=dict)  # Additional metadata (sites, mode, etc.)
+    site: Optional[str] = None  # Site for NLWeb queries
+    mode: Optional[str] = None  # Mode for NLWeb queries (list, summarize, generate)
+    prev_queries: Optional[List[Dict[str, Any]]] = None  # Previous queries for context
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert message to dictionary for serialization"""
-        return {
+        result = {
             "message_id": self.message_id,
             "conversation_id": self.conversation_id,
             "content": self.content,
             "message_type": self.message_type,
             "timestamp": self.timestamp,
-            "senderInfo": self.senderInfo,
-            "metadata": self.metadata
+            "senderInfo": self.senderInfo
         }
+        if self.site is not None:
+            result["site"] = self.site
+        if self.mode is not None:
+            result["mode"] = self.mode
+        if self.prev_queries is not None:
+            result["prev_queries"] = self.prev_queries
+        return result
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ChatMessage':
-        """Create ChatMessage from dictionary"""
+        """Create ChatMessage from dictionary.
+        For NLWeb and other messages, stores the entire message dict as content."""
+        
+        # Extract required fields
+        message_id = data.get("message_id", f"msg_{uuid.uuid4().hex[:12]}")
+        conversation_id = data.get("conversation_id")
+        message_type = data.get("message_type")
+        timestamp = data.get("timestamp")
+        senderInfo = data.get("senderInfo")
+        
+        # Validate required fields
+        if not all([conversation_id, message_type, timestamp, senderInfo]):
+            raise ValueError(f"Missing required fields. Got: conversation_id={conversation_id}, "
+                           f"message_type={message_type}, timestamp={timestamp}, senderInfo={senderInfo}")
+        
+        # For NLWeb messages that don't have a 'content' field, use the entire message as content
+        if "content" in data:
+            content = data["content"]
+        else:
+            # Store the entire message structure for NLWeb messages
+            content = data
+        
         return cls(
-            message_id=data.get("message_id", f"msg_{uuid.uuid4().hex[:12]}"),
-            conversation_id=data["conversation_id"],
-            content=data["content"],
-            message_type=data["message_type"],
-            timestamp=data["timestamp"],
-            senderInfo=data["senderInfo"],
-            metadata=data.get("metadata", {})
+            message_id=message_id,
+            conversation_id=conversation_id,
+            content=content,
+            message_type=message_type,
+            timestamp=timestamp,
+            senderInfo=senderInfo,
+            site=data.get("site"),
+            mode=data.get("mode"),
+            prev_queries=data.get("prev_queries")
         )
 
 
