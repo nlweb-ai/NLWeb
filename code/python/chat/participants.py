@@ -291,7 +291,8 @@ class NLWebParticipant(BaseParticipant):
                 # Send a completion message just like HTTP streaming
                 if websocket_manager:
                     completion_message = {
-                        'message_type': 'complete'
+                        'message_type': 'complete',
+                        'senderInfo': {'id': 'system', 'name': 'NLWeb'}
                     }
                     await websocket_manager.broadcast_message(conversation_id, completion_message)
                 

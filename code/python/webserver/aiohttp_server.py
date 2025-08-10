@@ -278,6 +278,7 @@ class AioHTTPServer:
         
         # Try to bind to the port to check if it's available
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             # Try to bind to the port
             if host == '0.0.0.0':
@@ -285,8 +286,8 @@ class AioHTTPServer:
                 sock.bind(('127.0.0.1', port))
             else:
                 sock.bind((host, port))
-            sock.close()
         except OSError as e:
+            sock.close()  # Make sure to close the socket on error
             if e.errno == 48:  # Address already in use on macOS
                 logger.error(f"Port {port} is already in use!")
                 logger.error("Another server instance may be running.")
@@ -301,6 +302,9 @@ class AioHTTPServer:
             else:
                 # Re-raise other socket errors
                 raise
+        finally:
+            # Always close the socket
+            sock.close()
         
         self.app = await self.create_app()
         

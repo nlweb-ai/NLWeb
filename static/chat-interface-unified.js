@@ -563,6 +563,21 @@ export class UnifiedChatInterface {
   }
   
   handleStreamData(data, shouldStore = true) {
+    // Initialize seen messages set if not exists (for deduplication during join)
+    if (!this.seenMessageIds) {
+      this.seenMessageIds = new Set();
+    }
+    
+    // Check for duplicate messages using message_id
+    if (data.message_id) {
+      if (this.seenMessageIds.has(data.message_id)) {
+        console.log(`[handleStreamData] Ignoring duplicate message: ${data.message_id}`);
+        return;
+      }
+      // Add to seen messages
+      this.seenMessageIds.add(data.message_id);
+    }
+    
     // Track messages for sorting
     if (!this.state.messageBuffer) {
       this.state.messageBuffer = [];
@@ -598,6 +613,8 @@ export class UnifiedChatInterface {
     // Handle different message types uniformly
     if (data.type === 'conversation_created') {
       this.state.conversationId = data.conversation_id;
+      // Clear seen messages for new conversation
+      this.seenMessageIds = new Set();
       this.updateURL();
       return;
     }

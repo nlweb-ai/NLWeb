@@ -87,7 +87,7 @@ async def handle_streaming_ask(request: web.Request, query_params: Dict[str, Any
             await handler.runQuery()
         
         # Send completion message
-        await wrapper.write_stream({"message_type": "complete"})
+        await wrapper.write_stream({"message_type": "complete", "senderInfo": {"id": "system", "name": "NLWeb"}})
         
     except Exception as e:
         logger.error(f"Error in streaming ask handler: {e}", exc_info=True)

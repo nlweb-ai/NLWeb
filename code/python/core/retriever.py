@@ -1132,7 +1132,8 @@ async def search(query: str,
             "site": site,
             "count": len(results),
             "requested_count": num_results,
-            "query_id": getattr(handler, 'query_id', None)
+            "query_id": getattr(handler, 'query_id', None),
+            "senderInfo": {"id": "system", "name": "NLWeb"}
         }
         try:
             await handler.http_handler.write_stream(retrieval_message)

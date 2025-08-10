@@ -1197,32 +1197,14 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             print(f"  SenderInfo: {msg.senderInfo}")
                             print(f"  Timestamp: {msg.timestamp}")
                             
-                            # Send the content with message_id to prevent duplicates
-                            # The frontend will process it through handleStreamData
-                            if isinstance(msg.content, dict):
-                                # Content is already an object, add message_id if not present
-                                content_with_id = msg.content.copy()
-                                if 'message_id' not in content_with_id:
-                                    content_with_id['message_id'] = msg.message_id
-                                await ws.send_json(content_with_id)
-                            elif isinstance(msg.content, str):
-                                # Try to parse as JSON if it's a string
-                                try:
-                                    content_obj = json.loads(msg.content)
-                                    # Add message_id if not present
-                                    if 'message_id' not in content_obj:
-                                        content_obj['message_id'] = msg.message_id
-                                    await ws.send_json(content_obj)
-                                except json.JSONDecodeError:
-                                    # If not JSON, send as plain message
-                                    plain_msg = {
-                                        'type': 'message',
-                                        'message_type': msg.message_type,
-                                        'content': msg.content,
-                                        'timestamp': msg.timestamp,
-                                        'sender_info': msg.senderInfo
-                                    }
-                                    await ws.send_json(plain_msg)
+                            # Construct the message properly based on type
+                            if isinstance(msg.content, dict) and 'message_type' in msg.content:
+                                # This is an NLWeb message where the entire message was stored as content
+                                # Send the content directly as it's the complete original message
+                                await ws.send_json(msg.content)
+                            else:
+                                # This is a regular message - send the full message dict
+                                await ws.send_json(msg.to_dict())
                         
                         
                         # Send end-conversation-history message to mark the end of replayed messages
