@@ -6,14 +6,14 @@ By default, this tool checks that only the configured options (set in your confi
 
 ```bash
 # Run from the code directory
-> python check_connectivity.py
+> python code/python/testing/check_connectivity.py
 ```
 
 In addition, you can leverage the `--all` parameter option to test connectivity for every known configuration from all config files.  This can be useful for automated testing suites.  
 
 ```bash
 # Run from the code directory
-> python check_connectivity.py --all
+> python code/python/testing/check_connectivity.py --all
 ```
 
 
