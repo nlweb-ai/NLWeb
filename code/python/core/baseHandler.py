@@ -116,6 +116,9 @@ class NLWebHandler:
         # the type of item that is being sought. e.g., recipe, movie, etc.
         self.item_type = siteToItemType(self.site)
 
+        # required item type from request parameter
+        self.required_item_type = get_param(query_params, "required_item_type", str, None)
+
         # tool routing results
 
         self.tool_routing_results = []
@@ -153,7 +156,7 @@ class NLWebHandler:
         logger.debug(f"Previous queries: {self.prev_queries}")
         logger.debug(f"Last answers: {self.last_answers}")
         
-        log(f"NLWebHandler initialized with site: {self.site}, query: {self.query}, prev_queries: {self.prev_queries}, mode: {self.generate_mode}, query_id: {self.query_id}, context_url: {self.context_url}")
+        # log(f"NLWebHandler initialized with site: {self.site}, query: {self.query}, prev_queries: {self.prev_queries}, mode: {self.generate_mode}, query_id: {self.query_id}, context_url: {self.context_url}")
 
     @property 
     def is_connection_alive(self):
@@ -405,7 +408,8 @@ class NLWebHandler:
                 items = await search(
                     self.decontextualized_query, 
                     self.site,
-                    query_params=self.query_params
+                    query_params=self.query_params,
+                    handler=self
                 )
                 self.final_retrieved_items = items
                 logger.debug(f"Retrieved {len(items)} items from database")

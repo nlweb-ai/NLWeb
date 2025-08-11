@@ -37,7 +37,24 @@ endpoints:
     # Vector properties
     vector_type:
       type: dense_vector
+      index_options:
+        type: int8_hnsw # byte quantization for efficient storage
 
+  clinical_trials_search:
+    enabled: false
+    api_key_env: CLINICAL_TRIALS_API_KEY
+    api_endpoint_env: CLINICAL_TRIALS_ENDPOINT
+    index_name: embeddings1536
+    db_type: azure_ai_search
+
+  # Shopify MCP endpoint for product search across Shopify stores
+  shopify:
+    enabled: false
+    db_type: shopify_mcp
+    # Note: mcp_endpoint will be dynamically set based on the site being queried
+    name: Shopify MCP Search
+
+  # Milvus is still under development and not yet supported. 
   milvus:
     enabled: false
     api_endpoint_env: MILVUS_ENDPOINT
@@ -72,7 +89,7 @@ endpoints:
     use_knn: false
 
   postgres:
-    enabled: true
+    enabled: false
     # Database connection details (i.e. "postgresql://<HOST>:<PORT>/<DATABASE>?user=<USERNAME>&sslmode=require")
     api_endpoint_env: POSTGRES_CONNECTION_STRING
     # Password for authentication 

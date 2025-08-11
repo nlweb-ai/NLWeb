@@ -1,0 +1,17 @@
+default_storage: elasticsearch
+
+storage_endpoints:
+  # Elasticsearch storage
+  elasticsearch:
+    enabled: true
+    type: elasticsearch
+    # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
+    url_env: ELASTICSEARCH_URL
+    # Authentication credentials
+    api_key_env: ELASTICSEARCH_API_KEY
+    # Collection name (index name) for conversations
+    collection_name: nlweb_test_conversations
+    vector_type:
+      type: dense_vector
+      index_options:
+        type: int8_hnsw # byte quantization for efficient storage
