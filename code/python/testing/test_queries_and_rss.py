@@ -19,7 +19,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.retriever import get_vector_db_client
-from tools.db_load import main as db_load_main
+from data_loading.db_load import main as db_load_main
 
 
 class QueryTester:

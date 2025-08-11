@@ -138,7 +138,7 @@ if [ ${TOTAL_FILES} -gt 0 ]; then
     
     # Load the smallest file
     site_name="${SMALLEST_NAME%.txt}"
-    CMD="$PYTHON_CMD -m tools.db_load"
+    CMD="$PYTHON_CMD -m data_loading.db_load"
     if [ ! -z "$DB_ARG" ]; then
         CMD="$CMD $DB_ARG"
     fi
@@ -218,7 +218,7 @@ for file_path in "${TXT_FILES_SORTED[@]}"; do
     (
         # db_load.py expects: db_load.py [options] file_path site
         # Build the command with correct argument order
-        CMD="$PYTHON_CMD -m tools.db_load"
+        CMD="$PYTHON_CMD -m data_loading.db_load"
         
         # Add database option if specified
         if [ ! -z "$DB_ARG" ]; then
