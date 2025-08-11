@@ -36,11 +36,10 @@ These instructions assume that you have Python 3.10+ installed locally.
 4. Copy the .env.template file to a new .env file and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.  Don't worry; you do not need to provide all of these providers in the file.  We explain below.
 
     ```sh
-    cd code
     cp .env.template .env
     ```
 
-5. Update your config files (located in the code/config folder) to make sure your preferred providers match your .env file. There are three files that may need changes.
+5. Update your config files (located in the config folder) to make sure your preferred providers match your .env file. There are three files that may need changes.
 
     - config_llm.yaml: Update the first line to the LLM provider you set in the .env file.  By default it is Azure OpenAI.  You can also adjust the models you call here by updating the models noted.  By default, we are assuming 4.1 and 4.1-mini.
     - config_embedding.yaml: Update the first line to your preferred embedding provider.  By default it is Azure OpenAI, using text-embedding-3-small.
@@ -49,7 +48,7 @@ These instructions assume that you have Python 3.10+ installed locally.
 6. You can verify that your configuration is set properly and you remembered to set all needed API keys by running the check-connectivity script from the python directory.  There is more information [here](nlweb-check-connectivity.md).
 
     ```sh
-    python testing/check_connectivity.py
+    python code/python/testing/check_connectivity.py
     ```
 
 7. Now we will load some data in our local vector database to test with. We've listed a few RSS feeds you can choose from below. Note, you can also load all of these on top of each other to have multiple 'sites' to search across as well.  By default it will search all sites you load, but this is configured in config_nlweb.yaml if you want to scope your search to specific sites.
