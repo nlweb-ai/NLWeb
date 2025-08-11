@@ -322,3 +322,11 @@ class QdrantStorageProvider(StorageProvider):
             logger.error(f"Failed to delete conversation: {e}")
             return False
     
+    async def search_conversations(self, query: str, user_id: Optional[str] = None, 
+        site: Optional[str] = None, limit: int = 10) -> List[ConversationEntry]:
+        """
+        To be implemented: Search conversations using a text query.
+        This will likely involve using the vector search capabilities of Qdrant.
+        """
+        # TODO: implement this method
+        raise NotImplementedError("search_conversations() not implemented yet")
