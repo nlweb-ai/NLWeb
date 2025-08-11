@@ -434,6 +434,26 @@ body {
   border-color: var(--primary-color);
 }
 
+/* Debug button in header */
+.debug-button {
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 8px;
+  color: var(--text-secondary);
+}
+
+.debug-button:hover {
+  background-color: var(--hover-bg);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
 .debug-info {
   background-color: #f0f0f0;
   padding: 16px;

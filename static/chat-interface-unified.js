@@ -127,6 +127,37 @@ export class UnifiedChatInterface {
         document.getElementById('mode-dropdown')?.classList.remove('show');
       }
     });
+    
+    // Sidebar toggle
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+    
+    if (sidebarToggle && sidebar) {
+      // Restore sidebar state from localStorage
+      const isCollapsed = localStorage.getItem('nlweb-sidebar-collapsed') === 'true';
+      if (isCollapsed) {
+        sidebar.classList.add('collapsed');
+        sidebarToggle.classList.add('sidebar-collapsed');
+      }
+      
+      // Handle sidebar toggle click
+      sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        sidebarToggle.classList.toggle('sidebar-collapsed');
+        
+        // Save state to localStorage
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        localStorage.setItem('nlweb-sidebar-collapsed', isCollapsed);
+      });
+    }
+    
+    // Mobile menu toggle
+    if (mobileMenuToggle && sidebar) {
+      mobileMenuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+      });
+    }
   }
   
   handleClick(e) {
@@ -147,6 +178,12 @@ export class UnifiedChatInterface {
     // Share button
     if (target.closest('#shareBtn')) {
       this.shareConversation();
+      return;
+    }
+    
+    // Debug button
+    if (target.closest('#debugBtn')) {
+      this.toggleDebugInfo();
       return;
     }
     
@@ -297,8 +334,7 @@ export class UnifiedChatInterface {
       const delay = this.ws.reconnectDelay * Math.pow(2, this.ws.reconnectAttempts - 1);
       
       setTimeout(() => {
-        this.connectWebSocket().catch(err => {
-        });
+        this.connectWebSocket().catch(() => {});
       }, delay);
     } else {
       this.showError('Connection lost. Please refresh the page.');
@@ -1223,11 +1259,6 @@ export class UnifiedChatInterface {
     });
   }
   
-  async loadSites() {
-    // Deprecated - use loadSitesNonBlocking instead
-    // This method is kept for backwards compatibility
-    return this.loadSitesViaHttp();
-  }
   
   async loadSitesViaHttp() {
     // Check if we already have sites in memory
@@ -1455,14 +1486,6 @@ export class UnifiedChatInterface {
       return;
     }
     
-    
-    // Log summary of messages being uploaded
-    const summary = {
-      total: allMessages.length,
-      userMessages: allMessages.filter(m => m.message_type === 'user').length,
-      streamData: allMessages.filter(m => m.message_type === 'stream_data').length
-    };
-    
     // Removed debug logging
     
     // Upload all messages to server
@@ -1533,6 +1556,112 @@ export class UnifiedChatInterface {
     }).catch(err => {
       this.showError('Failed to copy share link');
     });
+  }
+  
+  toggleDebugInfo() {
+    // Get all messages from localStorage for current conversation
+    const allMessages = JSON.parse(localStorage.getItem('nlweb_messages') || '[]');
+    
+    // Filter messages for current conversation
+    const conversationMessages = this.state.conversationId 
+      ? allMessages.filter(msg => msg.conversation_id === this.state.conversationId)
+      : allMessages;
+    
+    // Create modal or overlay to show debug info
+    const existingModal = document.getElementById('debug-modal');
+    if (existingModal) {
+      existingModal.remove();
+      document.getElementById('debug-backdrop')?.remove();
+      return;
+    }
+    
+    const modal = document.createElement('div');
+    modal.id = 'debug-modal';
+    modal.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%;
+      max-width: 800px;
+      height: 70vh;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 20px;
+      z-index: 10000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+    `;
+    
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;';
+    header.innerHTML = `
+      <h3 style="margin: 0; font-size: 16px;">Debug: Raw Messages (${conversationMessages.length} messages)</h3>
+      <button id="close-debug" style="background: transparent; border: none; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px;">&times;</button>
+    `;
+    modal.appendChild(header);
+    
+    // Content area
+    const content = document.createElement('pre');
+    content.style.cssText = `
+      flex: 1;
+      overflow: auto;
+      background: #f6f8fa;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      margin: 0;
+    `;
+    
+    // Format and display messages
+    try {
+      content.textContent = JSON.stringify(conversationMessages, null, 2);
+    } catch (e) {
+      content.textContent = 'Error formatting messages: ' + e.message;
+    }
+    
+    modal.appendChild(content);
+    
+    // Copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = 'Copy to Clipboard';
+    copyBtn.style.cssText = 'margin-top: 10px; padding: 8px 16px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer;';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(JSON.stringify(conversationMessages, null, 2));
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy to Clipboard'; }, 2000);
+    };
+    modal.appendChild(copyBtn);
+    
+    // Add backdrop
+    const backdrop = document.createElement('div');
+    backdrop.id = 'debug-backdrop';
+    backdrop.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 9999;
+    `;
+    
+    // Close handlers
+    const closeModal = () => {
+      modal.remove();
+      backdrop.remove();
+    };
+    
+    backdrop.onclick = closeModal;
+    header.querySelector('#close-debug').onclick = closeModal;
+    
+    document.body.appendChild(backdrop);
+    document.body.appendChild(modal);
   }
 }
 

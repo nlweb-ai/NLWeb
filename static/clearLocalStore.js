@@ -24,7 +24,7 @@ function clearNLWebData() {
 // Function to clear only conversation data
 function clearConversationData() {
     const conversationKeys = [
-        'nlweb_conversations',
+        'nlweb_messages',
         'nlweb-remembered-items',
         'current-conversation-id'
     ];

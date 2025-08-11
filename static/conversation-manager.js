@@ -95,128 +95,7 @@ class ConversationManager {
     }
   }
 
-  convertServerConversations(serverConversations) {
-    // Convert server format to local format
-    // Server returns array of conversation objects with conversation_id
-    const convertedConversations = [];
-    
-    serverConversations.forEach(conv => {
-      // Skip if no conversation_id
-      if (!conv.conversation_id) {
-        return;
-      }
-      
-      const converted = {
-        id: conv.conversation_id,
-        title: conv.title || 'Untitled Chat',
-        timestamp: new Date(conv.last_message_at || conv.created_at).getTime(),
-        created_at: conv.created_at,
-        site: 'all', // Default site
-        siteInfo: {
-          site: 'all',
-          mode: 'list'
-        },
-        messages: [], // Messages will be loaded separately
-        participant_count: conv.participant_count || 0
-      };
-      
-      convertedConversations.push(converted);
-    });
-    
-    // Sort by timestamp (most recent first)
-    return convertedConversations.sort((a, b) => b.timestamp - a.timestamp);
-  }
 
-  mergeLocalConversations(selectedSite) {
-    // Check if there are any conversations in localStorage that aren't on the server
-    const saved = localStorage.getItem('nlweb_conversations');
-    if (saved) {
-      try {
-        const localConversations = JSON.parse(saved);
-        const serverIds = new Set(this.conversations.map(c => c.id));
-        
-        // Add any local conversations that aren't on the server
-        localConversations.forEach(localConv => {
-          if (!serverIds.has(localConv.id) && localConv.messages && localConv.messages.length > 0) {
-            // Check site filter
-            const convSite = localConv.site || (localConv.siteInfo && localConv.siteInfo.site) || 'all';
-            if (selectedSite === 'all' || convSite === selectedSite) {
-              this.conversations.push(localConv);
-            }
-          }
-        });
-        
-        // Sort by timestamp
-        this.conversations.sort((a, b) => b.timestamp - a.timestamp);
-      } catch (e) {
-      }
-    }
-  }
-
-  async migrateLocalConversations() {
-    // Migrate local conversations to server when user logs in
-    const saved = localStorage.getItem('nlweb_conversations');
-    if (!saved) return;
-    
-    try {
-      const localConversations = JSON.parse(saved);
-      if (!localConversations || localConversations.length === 0) return;
-      
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      const authToken = localStorage.getItem('authToken');
-      const userId = userInfo.id || userInfo.email;
-      
-      if (!userId || !authToken) return;
-      
-      // Convert local conversations to server format
-      const conversationsToMigrate = [];
-      
-      localConversations.forEach(conv => {
-        if (!conv.messages || conv.messages.length === 0) return;
-        
-        // Convert to server format - extract user/assistant message pairs
-        for (let i = 0; i < conv.messages.length - 1; i += 2) {
-          const userMsg = conv.messages[i];
-          const assistantMsg = conv.messages[i + 1];
-          
-          if (userMsg.message_type === 'user' && assistantMsg && assistantMsg.message_type === 'assistant') {
-            conversationsToMigrate.push({
-              thread_id: conv.id,
-              user_id: userId,
-              user_prompt: userMsg.content,
-              response: assistantMsg.content,
-              timestamp: new Date(userMsg.timestamp || Date.now()).toISOString(),
-              time_of_creation: conv.created_at || new Date(userMsg.timestamp || Date.now()).toISOString(),
-              site: conv.site || 'all'
-            });
-          }
-        }
-      });
-      
-      if (conversationsToMigrate.length === 0) return;
-      
-      
-      // Send to server
-      const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
-      const response = await fetch(`${baseUrl}/api/conversations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({
-          conversations: conversationsToMigrate
-        })
-      });
-      
-      if (response.ok) {
-        // Don't clear local storage - we want to keep local copies
-        // localStorage.removeItem('nlweb_conversations');
-      } else {
-      }
-    } catch (error) {
-    }
-  }
 
   saveConversations() {
     // Collect all messages from all conversations
@@ -243,17 +122,13 @@ class ConversationManager {
   loadConversation(id, chatInterface) {
     // Guard against undefined or invalid IDs
     if (!id) {
-      console.error('[ConversationManager] loadConversation called with undefined ID');
       return;
     }
     
-    console.log('[ConversationManager] Loading conversation:', id);
     const conversation = this.conversations.find(c => c.id === id);
     if (!conversation) {
-      console.error('[ConversationManager] Conversation not found:', id);
       return;
     }
-    console.log('[ConversationManager] Found conversation with', conversation.messages?.length || 0, 'messages');
     
     chatInterface.currentConversationId = id;
     
@@ -327,28 +202,17 @@ class ConversationManager {
     chatInterface.elements.messagesContainer.innerHTML = '';
     
     // Replay all messages through the same handler used for live messages
-    console.log('[ConversationManager] Starting message replay');
-    conversation.messages.forEach((msg, index) => {
-      console.log(`[ConversationManager] Processing message ${index}:`, {
-        message_type: msg.message_type,
-        has_content: !!msg.content,
-        content_type: typeof msg.content,
-        conversation_id: msg.conversation_id
-      });
-      
+    conversation.messages.forEach((msg) => {
       if (!msg.content) {
-        console.log(`[ConversationManager] Skipping message ${index} - no content`);
         return;
       }
       
       // Check if content is an object (new format) or string (legacy)
       if (typeof msg.content === 'object') {
         // This is a server-format message, replay through handler
-        console.log(`[ConversationManager] Replaying message ${index} through handleStreamData`);
         chatInterface.handleStreamData(msg.content);
       } else {
         // Legacy format - try to handle
-        console.log(`[ConversationManager] Message ${index} has legacy string format, attempting to parse`);
         try {
           // Try to construct a message object from legacy format
           const messageObj = {
@@ -356,14 +220,12 @@ class ConversationManager {
             content: msg.content,
             timestamp: msg.timestamp
           };
-          console.log(`[ConversationManager] Constructed legacy message object:`, messageObj);
           chatInterface.handleStreamData(messageObj);
-        } catch (e) {
-          console.error(`[ConversationManager] Failed to handle legacy message ${index}:`, e);
+        } catch {
+          // Failed to handle legacy message
         }
       }
     });
-    console.log('[ConversationManager] Message replay complete');
     
     // Update title
     chatInterface.elements.chatTitle.textContent = conversation.title || 'Chat';
@@ -378,7 +240,7 @@ class ConversationManager {
     if (id.startsWith('conv_') && chatInterface.connectWebSocket) {
       // This is a server conversation, connect to it
       chatInterface.connectWebSocket(id).then(() => {
-      }).catch(error => {
+      }).catch(() => {
         // Reset wsConversationId if connection fails
         chatInterface.wsConversationId = null;
       });
