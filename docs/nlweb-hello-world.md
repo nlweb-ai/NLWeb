@@ -33,9 +33,10 @@ These instructions assume that you have Python 3.10+ installed locally.
     pip install -r requirements.txt
     ```
 
-4. Copy the .env.template file to a new .env file and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.  Don't worry; you do not need to provide all of these providers in the file.  We explain below.
+4. Copy the .env.template file to a new .env file under the main folder and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.  Don't worry; you do not need to provide all of these providers in the file.  We explain below.
 
     ```sh
+    cd ../../
     cp .env.template .env
     ```
 
@@ -48,7 +49,8 @@ These instructions assume that you have Python 3.10+ installed locally.
 6. You can verify that your configuration is set properly and you remembered to set all needed API keys by running the check-connectivity script from the python directory.  There is more information [here](nlweb-check-connectivity.md).
 
     ```sh
-    python code/python/testing/check_connectivity.py
+    cd code/python
+    python testing/check_connectivity.py
     ```
 
 7. Now we will load some data in our local vector database to test with. We've listed a few RSS feeds you can choose from below. Note, you can also load all of these on top of each other to have multiple 'sites' to search across as well.  By default it will search all sites you load, but this is configured in config_nlweb.yaml if you want to scope your search to specific sites.
@@ -56,7 +58,8 @@ These instructions assume that you have Python 3.10+ installed locally.
     The format of the command is as follows (make sure you are still in the 'python' folder when you run this):
 
     ```sh
-    python -m tools.db_load <RSS URL> <site-name>
+    # Run from code/python folder
+    python -m data_loading.db_load <RSS URL> <site-name>
     ```
 
     Kevin's 'Behind the Tech' Podcast:
@@ -73,9 +76,10 @@ These instructions assume that you have Python 3.10+ installed locally.
 
     You can find even more data, including other formats other than RSS, in this [OneDrive folder](https://1drv.ms/f/c/6c6197aa87f7f4c4/EsT094eql2EggGxlBAAAAAABajQiZ5unf_Ri_OWksR8eNg?e=I4z5vw). (Note:  If it asks you to login, try the URL a 2nd time. It should be open permissions.)
 
-8. Start your NLWeb server (again from the 'python' folder):
+8. Start your NLWeb server (again from the 'code/python' folder):
 
     ```sh
+    # Run from code/python folder
     python app-file.py
     ```
 

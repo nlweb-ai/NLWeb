@@ -26,7 +26,7 @@ from core.retriever import (
     search_all_sites,
     get_sites
 )
-from tools.db_load_utils import parse_rss_to_documents
+
 from core.embedding import batch_get_embeddings
 import aiohttp
 import feedparser
