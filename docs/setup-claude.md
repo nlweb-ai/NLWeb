@@ -31,13 +31,13 @@ Assumes you have [Claude for Desktop](https://claude.ai/download). This works on
     "ask_nlw": {
       "command": "/Users/yourname/NLWeb/myenv/bin/python",
       "args": [
-        "/Users/yourname/NLWeb/code/chatbot_interface.py",
+        "/Users/yourname/NLWeb/code/python/chatbot_interface.py",
         "--server",
         "http://localhost:8000",
         "--endpoint",
         "/mcp"
       ],
-      "cwd": "/Users/yourname/NLWeb/code"
+      "cwd": "/Users/yourname/NLWeb/code/python"
     }
   }
 }
@@ -51,13 +51,13 @@ Assumes you have [Claude for Desktop](https://claude.ai/download). This works on
     "ask_nlw": {
       "command": "C:\\Users\\yourusername\\NLWeb\\myenv\\Scripts\\python",
       "args": [
-        "C:\\Users\\yourusername\\NLWeb\\code\\chatbot_interface.py",
+        "C:\\Users\\yourusername\\NLWeb\\code\\python\\chatbot_interface.py",
         "--server",
         "http://localhost:8000",
         "--endpoint",
         "/mcp"
       ],
-      "cwd": "C:\\Users\\yourusername\\NLWeb\\code"
+      "cwd": "C:\\Users\\yourusername\\NLWeb\\code\\python"
     }
   }
 }
@@ -65,7 +65,7 @@ Assumes you have [Claude for Desktop](https://claude.ai/download). This works on
 
 > **Note:** For Windows paths, you need to use double backslashes (`\\`) to escape the backslash character in JSON.
 
-1. From your code folder, enter your virtual environment and start your NLWeb local server. Make sure it is configured to access the data you would like to ask about from Claude.
+1. From your `code/python` folder, enter your virtual environment and start your NLWeb local server. Make sure it is configured to access the data you would like to ask about from Claude.
 
     ```sh
     # On macOS

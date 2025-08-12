@@ -9,27 +9,30 @@
 ## Import data from an RSS feed
 With NLWeb, you can easily import data from an RSS feed for querying over in natural language using a script.  
 
-First, navigate to the NLWeb --> code directory.  Before you run this command, ensure that the database you want to write to is set as the `preferred_endpoint` in your config_retrieval.yaml file in the config directory (or use the --database switch). In this example, I am using qdrant_local.  
+First, navigate to the NLWeb --> code --> python directory.  Before you run this command, ensure that the database you want to write to is set as the `preferred_endpoint` in your config_retrieval.yaml file in the config directory (or use the --database switch). In this example, I am using qdrant_local.  
 
 The format for this command is the following.  Replace with an RSS feed, and choose a descriptive site name for that data.   
-```
-python -m tools.db_load <rss feed link> <site name> 
+```sh
+# Run from the code/python folder
+python -m data_loading.db_load <rss feed link> <site name> 
 ```
 
 As an example, here is the RSS feed for Kevin Scott's podcast "Behind the Tech".  This command will extract the data from the RSS feed, create embeddings, and store those embeddings in the vector database specified in the config_retrieval.yaml file.  
-```
-python -m tools.db_load https://feeds.libsyn.com/121695/rss behindthetech
+```sh
+# Run from the code/python folder
+python -m data_loading.db_load https://feeds.libsyn.com/121695/rss behindthetech
 ```
 
-Now, using our debug tool, you can easily ask questions about your Github data in natural language.  Start your web server by running `python app-file.py` from the code directory.  Then in a web browser, navigate to http://localhost:8000/static/str_chat.html.  Select "behindthetech" from the site dropdown and your retrieval provider from the database dropdown (I am using "Qdrant Local").  Then ask questions in natural language.  
+Now, using our debug tool, you can easily ask questions about your Github data in natural language.  Start your web server by running `python app-file.py` from the **code/python** directory.  Then in a web browser, navigate to http://localhost:8000/static/str_chat.html.  Select "behindthetech" from the site dropdown and your retrieval provider from the database dropdown (I am using "Qdrant Local").  Then ask questions in natural language.  
 
 !["Screenshot showing a chat interface with a question 'Has Kevin had any guests that are book authors?' and a list of podcast authors returned"](img/bookauthors.jpg)
 
 If you have created a new site name, you will need to add this to the list of site options in the dropdown-interface.js file in the static directory for it to appear in the tool above.  
 
 NOTE: to remove the "behindthetech" data from your vector database, run this:
-```
-python -m tools.db_load --only-delete delete-site behindthetech
+```sh
+# Run from the code/python folder
+python -m data_loading.db_load --only-delete delete-site behindthetech
 ```
 
 
@@ -41,18 +44,19 @@ First, follow these instructions to get a fine-grained personal access token fro
 Copy the .env.example file into a new file called .env.  In the .env file, update the value of GITHUB_TOKEN to the value of the token you generated.  
 
 First, we will run a script to get your Github data into a format that NLWeb can consume.  It will output a json file.  From the **demo** folder, run:
-```
+```sh
+# Run from the demo folder
 python extract_github_data.py
 ```
 
-Then, you can extract this data, create embeddings, and import them into your retrieval provider with this script.  From the **code** folder, run the db_load tool, pointing to the json file that you just created and giving it a site name like "github":
-```
-cd ..\code
-python -m tools.db_load ..\demo\ghrepoinfo.json github
+Then, you can extract this data, create embeddings, and import them into your retrieval provider with this script.  From the **code/python** folder, run the db_load tool, pointing to the json file that you just created and giving it a site name like "github":
+```sh
+# Run from the code/python folder
+python -m data_loading.db_load ../../demo/ghrepoinfo.json github
 ```
 
 Finally, you can repeat the same process as above.  Start the web server with the below command.
-```
+```sh
 python app-file.py
 ```
 
@@ -76,14 +80,14 @@ Once you have downloaded the zip file, extract all files from the zip into a dir
 
 In the demo folder, open the file called `import_clinical_trials.py` and set the `json_dir` variable near the top to the value of the directory where your extracted json files are.  
 
-Now, we will run two commands to process the data.  These commands should be run from the "code" directory.  In the second command, replace 'C:\Data\ctg-studies' with the value of the directory where you extracted the files (**but note that 'processed' should remain appended to the end**).  
+Now, we will run two commands to process the data.  These commands should be run from the "code/python" directory.  In the second command, replace 'C:\Data\ctg-studies' with the value of the directory where you extracted the files (**but note that 'processed' should remain appended to the end**).  
 
 ```
-python ..\demo\import_clinical_trials.py
-python -m tools.db_load C:\Data\ctg-studies\processed\ CancerClinicalTrials --directory
+python ..\..\demo\import_clinical_trials.py
+python -m data_loading.db_load C:\Data\ctg-studies\processed\ CancerClinicalTrials --directory
 ```
 
-Finally, you can query the data that you have imported.  Still in the code directory, start the service by running:
+Finally, you can query the data that you have imported.  Still in the code/python directory, start the service by running:
 
 ```
 python app-file.py

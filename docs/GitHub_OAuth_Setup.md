@@ -49,7 +49,7 @@ buildGithubAuthUrl() {
 
 After setting the environment variables, restart your NLWeb server:
 ```bash
-python app-file.py
+python code/python/app-file.py
 ```
 
 Now when you click "Login", you should see GitHub as an available provider.
