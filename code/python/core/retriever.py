@@ -332,11 +332,15 @@ class VectorDBClient:
         
         # Cache for endpoint sites - will be populated lazily
         self._endpoint_sites_cache: Dict[str, Optional[List[str]]] = {}
+        # Cache timestamps for each endpoint
+        self._endpoint_sites_cache_time: Dict[str, float] = {}
+        # Cache expiry time in seconds
+        self._cache_expiry_seconds = 30
         
     
     async def _get_endpoint_sites(self, endpoint_name: str) -> Optional[List[str]]:
         """
-        Get the list of sites available in an endpoint, with caching.
+        Get the list of sites available in an endpoint, with caching that expires after 30 seconds.
         
         Args:
             endpoint_name: Name of the endpoint
@@ -344,14 +348,23 @@ class VectorDBClient:
         Returns:
             List of site names if supported, None if not supported by this backend.
         """
-        # Return cached value if available
+        current_time = time.time()
+        
+        # Check if we have a cached value and if it's still valid
         if endpoint_name in self._endpoint_sites_cache:
-            return self._endpoint_sites_cache[endpoint_name]
+            cache_age = current_time - self._endpoint_sites_cache_time.get(endpoint_name, 0)
+            if cache_age < self._cache_expiry_seconds:
+                # Cache is still valid
+                return self._endpoint_sites_cache[endpoint_name]
+            else:
+                # Cache expired, clear it
+                logger.debug(f"Sites cache for endpoint {endpoint_name} expired (age: {cache_age:.1f}s)")
         
         try:
             client = await self.get_client(endpoint_name)
             sites = await client.get_sites()
             self._endpoint_sites_cache[endpoint_name] = sites
+            self._endpoint_sites_cache_time[endpoint_name] = current_time
             if sites:
                 logger.info(f"Endpoint {endpoint_name} has {len(sites)} sites: {sites[:5]}{'...' if len(sites) > 5 else ''}")
             else:
@@ -360,8 +373,9 @@ class VectorDBClient:
         except Exception as e:
             # Any error means the backend doesn't support get_sites or it failed
             logger.error(f"Backend for endpoint {endpoint_name} does not support get_sites() or it failed: {e}", exc_info=True)
-            # Cache None to indicate unsupported
+            # Cache None to indicate unsupported (also cache the timestamp to avoid repeated failures)
             self._endpoint_sites_cache[endpoint_name] = None
+            self._endpoint_sites_cache_time[endpoint_name] = current_time
             return None
     
     async def _endpoint_has_site(self, endpoint_name: str, site: Union[str, List[str]]) -> bool:
