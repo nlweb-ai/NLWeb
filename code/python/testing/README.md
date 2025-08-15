@@ -2,7 +2,7 @@
 
 This testing framework provides a modular system for testing different aspects of NLWeb functionality. It supports three types of tests: end-to-end query tests, site retrieval tests, and query retrieval tests.
 
-These commands should be run from the code directory.
+These commands should be run from the code/python directory.
 
 ## Architecture
 
@@ -31,11 +31,11 @@ The simplest way to run all tests:
 
 ```bash
 # Linux/Mac
-cd code
+cd code/python
 ./testing/run_all_tests.sh
 
 # Windows
-cd code
+cd code\python
 testing\run_all_tests.bat
 ```
 
@@ -46,6 +46,8 @@ This script runs all test types and provides a simple pass/fail summary.
 For more control over test execution:
 
 ```bash
+# Run from code/python directory
+
 # Run all tests (default)
 ./testing/run_tests_comprehensive.sh
 
