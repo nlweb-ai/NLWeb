@@ -91,6 +91,49 @@ def extract_variables_from_prompt(prompt):
     logger.debug(f"Extracted variables: {variables}")
     return variables
 
+def parse_previous_queries(prev_queries):
+    """
+    Parse previous queries from various formats into a readable string.
+    
+    Args:
+        prev_queries: Can be a list containing JSON strings, or other formats
+        
+    Returns:
+        A formatted string of previous queries suitable for LLM prompts
+    """
+    if not prev_queries:
+        return ""
+    
+    if not isinstance(prev_queries, list):
+        return str(prev_queries)
+    
+    # Check if it's a list containing a JSON string
+    if len(prev_queries) > 0 and isinstance(prev_queries[0], str):
+        try:
+            # Try to parse as JSON
+            parsed_queries = json.loads(prev_queries[0])
+            
+            # Extract just the query text from each object
+            if isinstance(parsed_queries, list):
+                query_texts = []
+                for q in parsed_queries:
+                    if isinstance(q, dict) and 'query' in q:
+                        query_texts.append(q['query'])
+                
+                if query_texts:
+                    return "; ".join(query_texts)
+            
+            # Fallback if structure is unexpected
+            return str(prev_queries)
+            
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.debug(f"Failed to parse prev_queries as JSON: {e}, using fallback")
+            return str(prev_queries)
+    
+    # It's a list but not containing a JSON string
+    return str(prev_queries)
+
+
 def get_prompt_variable_value(variable, handler):
     logger.debug(f"Getting value for variable: {variable}")
     
@@ -106,14 +149,13 @@ def get_prompt_variable_value(variable, handler):
         item_type = handler.item_type
         value = item_type.split("}")[1]
     elif variable == "request.query":
-        if (handler.state.is_decontextualization_done()):
+        # Always use decontextualized query if available, otherwise use original query
+        if handler.decontextualized_query:
             value = handler.decontextualized_query
-        elif (len(prev_queries) > 0):
-            value = query + " previous queries: " + str(prev_queries)
         else:
             value = query
     elif variable == "request.previousQueries":
-        value = str(prev_queries)
+        value = parse_previous_queries(prev_queries)
     elif variable == "request.contextUrl":
         value = handler.context_url
     elif variable == "request.itemType":
@@ -121,6 +163,7 @@ def get_prompt_variable_value(variable, handler):
     elif variable == "request.contextDescription":
         value = handler.context_description
     elif variable == "request.rawQuery":
+        # Always return the original, non-decontextualized query
         value = query
     elif variable == "request.prevAnswers":
         # Get previous answers from handler - the attribute is named 'last_answers'

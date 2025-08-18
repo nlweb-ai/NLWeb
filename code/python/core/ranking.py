@@ -26,6 +26,7 @@ class Ranking:
 
     FAST_TRACK = 1
     REGULAR_TRACK = 2
+    WHO_RANKING = 3
 
     # This is the default ranking prompt, in case, for some reason, we can't find the site_type.xml file.
     RANKING_PROMPT = ["""  Assign a score between 0 and 100 to the following {site.itemType}
@@ -36,12 +37,23 @@ If the score is below 75, in the description, include the reason why it is still
 The user's question is: {request.query}. The item's description is {item.description}""",
     {"score" : "integer between 0 and 100", 
  "description" : "short description of the item"}]
+    
+    WHO_RANKING_PROMPT = ["""  Assign a score between 0 and 100 to the following site
+                          based on how relevant the site may be to answering the user's question.
+                          The user's question is: {request.query}. The site's description is {item.description}
+                          
+                            """,
+                            {"score" : "integer between 0 and 100", 
+                            "description" : "short description of the item"}]
  
     RANKING_PROMPT_NAME = "RankingPrompt"
      
     def get_ranking_prompt(self):
         site = self.handler.site
         item_type = self.handler.item_type
+        if (self.ranking_type == Ranking.WHO_RANKING):
+            return self.WHO_RANKING_PROMPT[0], self.WHO_RANKING_PROMPT[1]
+        
         prompt_str, ans_struc = find_prompt(site, item_type, self.RANKING_PROMPT_NAME)
         if prompt_str is None:
             logger.debug("Using default ranking prompt")
@@ -63,23 +75,16 @@ The user's question is: {request.query}. The item's description is {item.descrip
         self._results_lock = asyncio.Lock()  # Add lock for thread-safe operations
 
     async def rankItem(self, url, json_str, name, site):
-        if not self.handler.connection_alive_event.is_set():
-            logger.warning("Connection lost, skipping item ranking")
-            return
+       
         if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted, skipping item ranking")
             logger.info("Aborting fast track")
             return
         try:
-            logger.debug(f"Ranking item: {name} from {site}")
             prompt_str, ans_struc = self.get_ranking_prompt()
             description = trim_json(json_str)
             prompt = fill_prompt(prompt_str, self.handler, {"item.description": description})
-            
-            logger.debug(f"Sending ranking request to LLM for item: {name}")
             ranking = await ask_llm(prompt, ans_struc, level="low", query_params=self.handler.query_params)
-            logger.debug(f"Received ranking score: {ranking.get('score', 'N/A')} for item: {name}")
-            
             
             # Handle both string and dictionary inputs for json_str
             schema_object = json_str if isinstance(json_str, dict) else json.loads(json_str)
@@ -165,14 +170,14 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 
             if self.shouldSend(result) or force:
                 json_results.append({
+                    "@type": "Item",
                     "url": result["url"],
                     "name": result["name"],
                     "site": result["site"],
                     "siteUrl": result["site"],
                     "score": result["ranking"]["score"],
                     "description": result["ranking"]["description"],
-                    "schema_object": result["schema_object"],
-                    "ranking_type": self.ranking_type_str
+                    "schema_object": result["schema_object"]
                 })
                 
                 result["sent"] = True
@@ -198,7 +203,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
                     self.handler.fastTrackWorked = True
                     logger.info("Fast track ranking successful")
                 
-                to_send = {"message_type": "result_batch", "results": json_results, "query_id": self.handler.query_id}
+                to_send = {"message_type": "result", "content": json_results, "query_id": self.handler.query_id}
                 asyncio.create_task(self.handler.send_message(to_send))
                 self.num_results_sent += len(json_results)
                 logger.info(f"Sent {len(json_results)} results, total sent: {self.num_results_sent}/{self.NUM_RESULTS_TO_SEND}")
