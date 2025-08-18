@@ -100,6 +100,10 @@ class NLWebHandler:
 
         streaming = get_param(query_params, "streaming", str, "True")
         self.streaming = streaming not in ["False", "false", "0"]
+        
+        # Debug mode for verbose messages
+        debug = get_param(query_params, "debug", str, "False")
+        self.debug_mode = debug not in ["False", "false", "0", None]
 
         # should we just list the results or try to summarize the results or use the results to generate an answer
         # Valid values are "none","summarize" and "generate"
@@ -182,102 +186,96 @@ class NLWebHandler:
         else:
             self.connection_alive_event.clear()
 
-   
+    async def _send_time_to_first_result(self):
+        """Send time-to-first-result header message."""
+        return
+        time_to_first_result = time.time() - self.init_time
+        
+        ttfr_message = {
+            "message_type": "header",
+            "header_name": "time-to-first-result",
+            "header_value": f"{time_to_first_result:.3f}s",
+            "query_id": self.query_id,
+            "timestamp": int(time.time() * 1000),
+            "senderInfo": {"id": "system", "name": "NLWeb"}
+        }
+        
+        try:
+            await self.http_handler.write_stream(ttfr_message)
+            logger.info(f"Sent time-to-first-result header: {time_to_first_result:.3f}s")
+        except Exception as e:
+            logger.error(f"Error sending time-to-first-result header: {e}")
+    
+    async def _send_api_version(self):
+        """Send API version message."""
+        return
+        version_message = {
+            "message_type": "api_version",
+            "api_version": API_VERSION,
+            "query_id": self.query_id,
+            "timestamp": int(time.time() * 1000),
+            "senderInfo": {"id": "system", "name": "NLWeb"}
+        }
+        
+        try:
+            await self.http_handler.write_stream(version_message)
+            logger.info(f"Sent API version: {API_VERSION}")
+            self.versionNumberSent = True
+        except Exception as e:
+            logger.error(f"Error sending API version: {e}")
+    
+    async def _send_config_headers(self):
+        """Send headers from configuration as messages."""
+        return
+        if not hasattr(CONFIG.nlweb, 'headers') or not CONFIG.nlweb.headers:
+            logger.warning("No headers found in CONFIG.nlweb.headers")
+            return
+        
+        logger.info(f"Sending headers: {CONFIG.nlweb.headers}")
+        for header_key, header_value in CONFIG.nlweb.headers.items():
+            header_message = {
+                "message_type": header_key,
+                "content": header_value,
+                "query_id": self.query_id,
+                "timestamp": int(time.time() * 1000),
+                "senderInfo": {"id": "system", "name": "NLWeb"}
+            }
+            
+            try:
+                await self.http_handler.write_stream(header_message)
+                logger.info(f"Sent header message: {header_key} = {header_value}")
+            except Exception as e:
+                logger.error(f"Error sending header {header_key}: {e}")
+                self.connection_alive_event.clear()
+                raise
 
     async def send_message(self, message):
-        import time
         logger.debug(f"Sending message of type: {message.get('message_type', 'unknown')}")
         async with self._send_lock:  # Protect send operation with lock
             # Check connection before sending
             if not self.connection_alive_event.is_set():
                 logger.debug("Connection lost, not sending message")
                 return
-                
             if (self.streaming and self.http_handler is not None):
                 message["query_id"] = self.query_id
-
                 
-                # Check if this is the first result_batch and add time-to-first-result header
-                if message.get("message_type") == "result_batch" and not self.first_result_sent:
+                # Check if this is the first result and add time-to-first-result header
+                if message.get("message_type") == "result" and not self.first_result_sent:
                     self.first_result_sent = True
-                    time_to_first_result = time.time() - self.init_time
-                    
-                    # Send time-to-first-result as a header message
-                    ttfr_message = {
-                        "message_type": "header",
-                        "header_name": "time-to-first-result",
-                        "header_value": f"{time_to_first_result:.3f}s",
-                        "query_id": self.query_id,
-                        "timestamp": int(time.time() * 1000),  # Milliseconds
-                        "senderInfo": {"id": "system", "name": "NLWeb"}
-                    }
-                    try:
-                        await self.http_handler.write_stream(ttfr_message)
-                        logger.info(f"Sent time-to-first-result header: {time_to_first_result:.3f}s")
-                    except Exception as e:
-                        logger.error(f"Error sending time-to-first-result header: {e}")
+                    await self._send_time_to_first_result()
                 
                 # Send headers on first message if not already sent
                 if not self.headersSent:
                     self.headersSent = True
-
                     
                     # Send version number first
                     if not self.versionNumberSent:
-                        self.versionNumberSent = True
-                        version_number_message = {"message_type": "api_version", "api_version": API_VERSION, "query_id": self.query_id, "timestamp": int(time.time() * 1000), "senderInfo": {"id": "system", "name": "NLWeb"}}
-                        try:
-                            await self.http_handler.write_stream(version_number_message)
-                            logger.info(f"Sent API version: {API_VERSION}")
-                        except Exception as e:
-                            logger.error(f"Error sending API version: {e}")
+                        await self._send_api_version()
                     
                     # Send headers from config as messages
-                    if hasattr(CONFIG.nlweb, 'headers') and CONFIG.nlweb.headers:
-                        logger.info(f"Sending headers: {CONFIG.nlweb.headers}")
-                        for header_key, header_value in CONFIG.nlweb.headers.items():
-                            header_message = {
-                                "message_type": header_key,
-                                "content": header_value,
-                                "query_id": self.query_id,
-                                "timestamp": int(time.time() * 1000),  # Milliseconds
-                                "senderInfo": {"id": "system", "name": "NLWeb"}
-                            }
-                            try:
-                                await self.http_handler.write_stream(header_message)
-                                logger.info(f"Sent header message: {header_key} = {header_value}")
-                            except Exception as e:
-                                logger.error(f"Error sending header {header_key}: {e}")
-                                self.connection_alive_event.clear()
-                                return
-                    else:
-                        logger.warning("No headers found in CONFIG.nlweb.headers")
-                    
-                    # Send API keys from config as messages
-                    if hasattr(CONFIG.nlweb, 'api_keys') and CONFIG.nlweb.api_keys:
-                        logger.info(f"API keys in config: {list(CONFIG.nlweb.api_keys.keys())}")
-                        for key_name, key_value in CONFIG.nlweb.api_keys.items():
-                            logger.info(f"Processing API key '{key_name}': value exists = {bool(key_value)}")
-                            if key_value:  # Only send if key has a value
-                                api_key_message = {
-                                    "message_type": "api_key",
-                                    "key_name": key_name,
-                                    "key_value": key_value,
-                                    "query_id": self.query_id,
-                                    "timestamp": int(time.time() * 1000)  # Milliseconds
-                                }
-                                try:
-                                    await self.http_handler.write_stream(api_key_message)
-                                    logger.info(f"Sent API key configuration for: {key_name} (length: {len(key_value)})")
-                                except Exception as e:
-                                    logger.error(f"Error sending API key {key_name}: {e}")
-                                    self.connection_alive_event.clear()
-                                    return
-                            else:
-                                logger.warning(f"API key '{key_name}' has no value, skipping")
-                    else:
-                        logger.info("No API keys configured in CONFIG.nlweb")
-                
+                    await self._send_config_headers()
+                   
+                  
                 # Add timestamp and other required fields to message
                 message["timestamp"] = int(time.time() * 1000)  # Milliseconds
                 
@@ -315,12 +313,12 @@ class NLWebHandler:
                 
                 val = {}
                 message_type = message["message_type"]
-                if (message_type == "result_batch"):
-                    val = message["results"]
+                if (message_type == "result"):
+                    val = message["content"]
                     for result in val:
-                        if "results" not in self.return_value:
-                            self.return_value["results"] = []
-                        self.return_value["results"].append(result)
+                        if "content" not in self.return_value:
+                            self.return_value["content"] = []
+                        self.return_value["content"].append(result)
                     logger.debug(f"Added {len(val)} results to return value")
                 else:
                     for key in message:
@@ -356,9 +354,6 @@ class NLWebHandler:
             
             await self.prepare()
             if (self.query_done):
-                print(f"=== Query done prematurely ===")
-                logger.info(f"Query done prematurely")
-                log(f"query done prematurely")
                 return self.return_value
             if (not self.fastTrackWorked):
                 logger.info(f"Fast track did not work, proceeding with routing logic")
@@ -447,11 +442,11 @@ class NLWebHandler:
         tasks = []
         
         logger.debug("Creating preparation tasks")
+        tasks.append(asyncio.create_task(self.decontextualizeQuery().do()))
         tasks.append(asyncio.create_task(fastTrack.FastTrack(self).do()))
         tasks.append(asyncio.create_task(analyze_query.DetectItemType(self).do()))
         tasks.append(asyncio.create_task(analyze_query.DetectMultiItemTypeQuery(self).do()))
         tasks.append(asyncio.create_task(analyze_query.DetectQueryType(self).do()))
-        tasks.append(asyncio.create_task(self.decontextualizeQuery().do()))
         tasks.append(asyncio.create_task(relevance_detection.RelevanceDetection(self).do()))
         tasks.append(asyncio.create_task(memory.Memory(self).do()))
         tasks.append(asyncio.create_task(query_rewrite.QueryRewrite(self).do()))

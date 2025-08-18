@@ -334,13 +334,14 @@ class VectorDBClient:
         self._endpoint_sites_cache: Dict[str, Optional[List[str]]] = {}
         # Cache timestamps for each endpoint
         self._endpoint_sites_cache_time: Dict[str, float] = {}
-        # Cache expiry time in seconds
-        self._cache_expiry_seconds = 30
+        # Cache expiry time in seconds (5 minutes - we use stale-while-revalidate so this can be longer)
+        self._cache_expiry_seconds = 300
         
     
     async def _get_endpoint_sites(self, endpoint_name: str) -> Optional[List[str]]:
         """
         Get the list of sites available in an endpoint, with caching that expires after 30 seconds.
+        Uses stale-while-revalidate pattern: returns stale cache immediately and refreshes in background.
         
         Args:
             endpoint_name: Name of the endpoint
@@ -350,16 +351,25 @@ class VectorDBClient:
         """
         current_time = time.time()
         
-        # Check if we have a cached value and if it's still valid
+        # Check if we have ANY cached value (even if stale)
         if endpoint_name in self._endpoint_sites_cache:
+            cached_value = self._endpoint_sites_cache[endpoint_name]
             cache_age = current_time - self._endpoint_sites_cache_time.get(endpoint_name, 0)
+            
             if cache_age < self._cache_expiry_seconds:
-                # Cache is still valid
-                return self._endpoint_sites_cache[endpoint_name]
+                # Cache is still fresh, return it
+                return cached_value
             else:
-                # Cache expired, clear it
-                logger.debug(f"Sites cache for endpoint {endpoint_name} expired (age: {cache_age:.1f}s)")
+                # Cache is stale but we have it - return stale value and refresh async
+                logger.debug(f"Sites cache for endpoint {endpoint_name} is stale (age: {cache_age:.1f}s), using stale value and refreshing async")
+                
+                # Start async refresh in background (fire and forget)
+                asyncio.create_task(self._refresh_endpoint_sites_cache(endpoint_name))
+                
+                # Return the stale cache immediately
+                return cached_value
         
+        # No cache at all - we must fetch synchronously this first time
         try:
             client = await self.get_client(endpoint_name)
             sites = await client.get_sites()
@@ -377,6 +387,33 @@ class VectorDBClient:
             self._endpoint_sites_cache[endpoint_name] = None
             self._endpoint_sites_cache_time[endpoint_name] = current_time
             return None
+    
+    async def _refresh_endpoint_sites_cache(self, endpoint_name: str) -> None:
+        """
+        Refresh the sites cache for an endpoint in the background.
+        This is called asynchronously when stale cache is detected.
+        
+        Args:
+            endpoint_name: Name of the endpoint to refresh
+        """
+        try:
+            client = await self.get_client(endpoint_name)
+            sites = await client.get_sites()
+            current_time = time.time()
+            
+            # Update cache with fresh data
+            self._endpoint_sites_cache[endpoint_name] = sites
+            self._endpoint_sites_cache_time[endpoint_name] = current_time
+            
+            if sites:
+                logger.debug(f"Background refresh: Endpoint {endpoint_name} has {len(sites)} sites")
+            else:
+                logger.debug(f"Background refresh: Endpoint {endpoint_name} returned empty sites list")
+                
+        except Exception as e:
+            # Log error but don't update cache - keep using stale value
+            logger.warning(f"Background refresh failed for endpoint {endpoint_name}: {e}")
+            # Don't update the cache timestamp so it will retry on next access
     
     async def _endpoint_has_site(self, endpoint_name: str, site: Union[str, List[str]]) -> bool:
         """
@@ -1056,8 +1093,8 @@ async def search(query: str,
         kwargs['handler'] = handler
     results = await client.search(query, site, num_results, **kwargs)
     
-    # Send retrieval count message if handler is provided
-    if handler and hasattr(handler, 'http_handler') and hasattr(handler.http_handler, 'write_stream'):
+    # Send retrieval count message if handler is provided and in debug mode
+    if handler and getattr(handler, 'debug_mode', False) and hasattr(handler, 'http_handler') and hasattr(handler.http_handler, 'write_stream'):
         retrieval_message = {
             "message_type": "retrieval_count",
             "query": query,

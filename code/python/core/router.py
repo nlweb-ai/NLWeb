@@ -281,6 +281,58 @@ class ToolSelector:
         
         return type_tools
     
+    async def _send_tool_selection_message(self, tool_results, query, tools):
+        """Send tool selection messages in debug mode."""
+        if not getattr(self.handler, 'debug_mode', False):
+            # Not in debug mode, but still need to handle no tools case
+            if not tool_results:
+                logger.info(f"No tools selected (all below threshold {self.MIN_TOOL_SCORE_THRESHOLD}), defaulting to search")
+                # Create a dummy search tool result for the handler
+                search_tool = next((t for t in tools if t.name == 'search'), None)
+                if search_tool:
+                    self.handler.tool_routing_results = [{
+                        "tool": search_tool,
+                        "score": 0,
+                        "result": {"score": 0, "justification": "Default fallback"}
+                    }]
+            return
+        
+        # In debug mode - send messages
+        if tool_results:
+            selected_tool = tool_results[0]
+            elapsed_time = time.time() - self.handler.init_time
+            logger.info(f"Tool selection complete: {selected_tool['tool'].name} (score: {selected_tool['score']:.2f})")
+            message = {
+                "message_type": "tool_selection",
+                "selected_tool": selected_tool['tool'].name,
+                "score": selected_tool['score'],
+                "parameters": selected_tool['result'],
+                "query": query,
+                "time_elapsed": f"{elapsed_time:.3f}s"
+            }
+            asyncio.create_task(self.handler.send_message(message))
+        else:
+            # No tools selected - default to search
+            logger.info(f"No tools selected (all below threshold {self.MIN_TOOL_SCORE_THRESHOLD}), defaulting to search")
+            elapsed_time = time.time() - self.handler.init_time
+            message = {
+                "message_type": "tool_selection",
+                "selected_tool": "search",
+                "score": 0,
+                "parameters": {"score": 0, "justification": "Default fallback - no tools met threshold"},
+                "query": query,
+                "time_elapsed": f"{elapsed_time:.3f}s"
+            }
+            asyncio.create_task(self.handler.send_message(message))
+            # Create a dummy search tool result for the handler
+            search_tool = next((t for t in tools if t.name == 'search'), None)
+            if search_tool:
+                self.handler.tool_routing_results = [{
+                    "tool": search_tool,
+                    "score": 0,
+                    "result": {"score": 0, "justification": "Default fallback"}
+                }]
+    
     async def do(self):
         """Main method that evaluates tools and stores results."""
         try:
@@ -354,41 +406,8 @@ class ToolSelector:
             
             self.handler.tool_routing_results = tool_results
             
-            # Send tool selection results as a message
-            if tool_results:
-                selected_tool = tool_results[0]
-                elapsed_time = time.time() - self.handler.init_time
-                print(f"--- Tool selection complete: {selected_tool['tool'].name} (score: {selected_tool['score']:.2f})")
-                message = {
-                    "message_type": "tool_selection",
-                    "selected_tool": selected_tool['tool'].name,
-                    "score": selected_tool['score'],
-                    "parameters": selected_tool['result'],
-                    "query": query,
-                    "time_elapsed": f"{elapsed_time:.3f}s"
-                }
-                asyncio.create_task(self.handler.send_message(message))
-            else:
-                # No tools selected - default to search
-                logger.info(f"No tools selected (all below threshold {self.MIN_TOOL_SCORE_THRESHOLD}), defaulting to search")
-                elapsed_time = time.time() - self.handler.init_time
-                message = {
-                    "message_type": "tool_selection",
-                    "selected_tool": "search",
-                    "score": 0,
-                    "parameters": {"score": 0, "justification": "Default fallback - no tools met threshold"},
-                    "query": query,
-                    "time_elapsed": f"{elapsed_time:.3f}s"
-                }
-                asyncio.create_task(self.handler.send_message(message))
-                # Create a dummy search tool result for the handler
-                search_tool = next((t for t in tools if t.name == 'search'), None)
-                if search_tool:
-                    self.handler.tool_routing_results = [{
-                        "tool": search_tool,
-                        "score": 0,
-                        "result": {"score": 0, "justification": "Default fallback"}
-                    }]
+            # Send tool selection message (handles debug mode internally)
+            await self._send_tool_selection_message(tool_results, query, tools)
                 
         except Exception as e:
             logger.error(f"Error in tool selection: {e}")
