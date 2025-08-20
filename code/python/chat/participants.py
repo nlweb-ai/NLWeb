@@ -138,7 +138,7 @@ class NLWebContextBuilder:
         for msg in recent_human_messages:
             context["prev_queries"].append({
                 "query": msg.content,
-                "user_id": msg.senderInfo.get('id'),
+                "user_id": msg.sender_info.get('id'),
                 "timestamp": datetime.fromtimestamp(msg.timestamp / 1000).isoformat()
             })
         
@@ -147,7 +147,7 @@ class NLWebContextBuilder:
         # Add current query info if provided
         if current_message and current_message.message_type == 'user':
             context["current_query"] = current_message.content
-            context["current_user_id"] = current_message.senderInfo.get('id')
+            context["current_user_id"] = current_message.sender_info.get('id')
         
         return context
 
@@ -209,7 +209,7 @@ class NLWebParticipant(BaseParticipant):
             # Prepare query parameters for NLWebHandler
             query_params = {
                 "query": [message.content],
-                "user_id": [message.senderInfo.get('id')],
+                "user_id": [message.sender_info.get('id')],
                 "streaming": ["true"],  # Enable streaming
                 "query_id": [message.conversation_id],  # Pass conversation_id as query_id (to be renamed later)
             }
@@ -292,7 +292,8 @@ class NLWebParticipant(BaseParticipant):
                 if websocket_manager:
                     completion_message = {
                         'message_type': 'complete',
-                        'senderInfo': {'id': 'system', 'name': 'NLWeb'}
+                        'timestamp': int(time.time() * 1000),
+                        'sender_info': {'id': 'system', 'name': 'NLWeb'}
                     }
                     await websocket_manager.broadcast_message(conversation_id, completion_message)
                 
@@ -303,7 +304,7 @@ class NLWebParticipant(BaseParticipant):
             return None
             
         except asyncio.TimeoutError:
-            logger.warning(f"NLWeb timeout processing message from {message.senderInfo.get('id')}")
+            logger.warning(f"NLWeb timeout processing message from {message.sender_info.get('id')}")
             raise
         except QueueFullError:
             # Handle queue full gracefully

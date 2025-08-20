@@ -116,9 +116,11 @@
         - Getting nutritional information for a specific dish
         - Queries that mention a specific recipe name and ask for details about it
 
-        Queries that don't mention a very specific recipe should be scored LOW (0-30).
+        Queries that don't mention a very specific recipe should be scored LOW (0-30). Queries
+        that don't specify what kind of details about the recipe should be scored low.
         
-        The details tool should score HIGH (80-100) if the user names a specific recipe and wants details.
+        The details tool should score HIGH (80-100) if the user names a specific recipe and wants specific 
+        details like the ingredients or cooking time or nutrition.
         The details tool should score LOW (0-30) if the user wants to find/search for recipes.
         
         Assign a score from 0 to 100 for whether the recipe details tool is appropriate.

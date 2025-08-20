@@ -13,4 +13,9 @@
     <itemType>HowToSection</itemType>
     <description>Serious Eats - food and cooking website with recipes, techniques, and culinary science</description>
   </Site>
+  
+  <Site name="datacommons">
+    <itemType>Statistics</itemType>
+    <description>Data Commons - statistical data and metrics from various public datasets</description>
+  </Site>
 </Sites>

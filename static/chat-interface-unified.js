@@ -434,7 +434,7 @@ export class UnifiedChatInterface {
       userMessages.forEach(msg => {
         prevQueries.push({
           query: msg.content,
-          user_id: msg.senderInfo?.id || userId,
+          user_id: msg.sender_info?.id || userId,
           timestamp: new Date(msg.timestamp).toISOString()
         });
       });
@@ -448,7 +448,7 @@ export class UnifiedChatInterface {
       message_type: 'user',
       content: content,
       timestamp: Date.now(),
-      senderInfo: {
+      sender_info: {
         id: userId,
         name: userName
       },
@@ -605,20 +605,25 @@ export class UnifiedChatInterface {
     
     // Handle user messages (from replay)
     if (data.message_type === 'user') {
+      // End any current streaming before showing user message
+      if (this.state.currentStreaming) {
+        this.endStreaming();
+      }
+      
       // Extract actual message text from nested structure if needed
       let messageText = data.content;
-      let senderInfo = data.senderInfo;
+      let sender_info = data.sender_info;
       if (typeof data.content === 'object' && data.content !== null && data.content.content) {
         // Content is nested - extract the actual text
         messageText = data.content.content;
-        // Also extract senderInfo from nested structure if present
-        if (data.content.senderInfo) {
-          senderInfo = data.content.senderInfo;
+        // Also extract sender_info from nested structure if present
+        if (data.content.sender_info) {
+          sender_info = data.content.sender_info;
         }
       }
       
       // Display user message with sender info
-      const bubble = this.addMessageBubble(messageText, 'user', senderInfo);
+      const bubble = this.addMessageBubble(messageText, 'user', sender_info);
       bubble.dataset.timestamp = data.timestamp || Date.now();
       
       // Store the message in conversation if shouldStore is true
@@ -684,9 +689,9 @@ export class UnifiedChatInterface {
       return;
     }
     
-    // Handle end of conversation history - trigger sorting
+    // Handle end of conversation history
     if (data.type === 'end-conversation-history') {
-      this.sortAndDisplayMessages();
+      // Don't sort - keep messages in order they were received
       
       // Save the conversation with all messages
       this.conversationManager.saveConversations();
@@ -696,6 +701,11 @@ export class UnifiedChatInterface {
     
     // Handle NLWeb response delimiters
     if (data.message_type === 'begin-nlweb-response') {
+      // End any current streaming before starting new NLWeb response
+      if (this.state.currentStreaming) {
+        this.endStreaming();
+      }
+      
       this.state.currentNlwebBlock = {
         beginTimestamp: data.timestamp,
         query: data.query,
@@ -711,17 +721,14 @@ export class UnifiedChatInterface {
         this.state.nlwebBlocks.push(this.state.currentNlwebBlock);
         this.state.currentNlwebBlock = null;
         
-        // For single-user chat, sort and display immediately when NLWeb response ends
-        if (!data.conversation_id || data.conversation_id === this.state.conversationId) {
-          this.sortAndDisplayMessages();
-        }
+        // Don't sort - keep messages in order they were received
       }
       // Don't buffer - we'll get messages from DOM
       return;
     }
     
     // Track messages within NLWeb blocks
-    if (this.state.currentNlwebBlock && data.message_type === 'result_batch') {
+    if (this.state.currentNlwebBlock && data.message_type === 'result') {
       this.state.currentNlwebBlock.messages.push(data);
       // Continue to display immediately - will re-sort at the end
     }
@@ -751,7 +758,7 @@ export class UnifiedChatInterface {
           message_type: 'system',
           content: message,
           timestamp: data.timestamp || Date.now(),
-          senderInfo: {
+          sender_info: {
             id: 'system',
             name: 'System'
           },
@@ -797,8 +804,8 @@ export class UnifiedChatInterface {
       return;
     }
     
-    // Only buffer NLWeb result_batch messages for score-based sorting within blocks
-    if (this.state.currentNlwebBlock && data.message_type === 'result_batch') {
+    // Only buffer NLWeb result messages for score-based sorting within blocks
+    if (this.state.currentNlwebBlock && data.message_type === 'result') {
       this.state.currentNlwebBlock.messages.push(data);
       // Don't buffer in general messageBuffer - we'll get them from DOM
     }
@@ -865,11 +872,11 @@ export class UnifiedChatInterface {
   }
   
   extractScoreFromMessage(message) {
-    // Extract score from result_batch message
-    if (message.message_type === 'result_batch' && message.results) {
+    // Extract score from result message
+    if (message.message_type === 'result' && message.content) {
       // Get the highest score from results in this batch
       let maxScore = 0;
-      message.results.forEach(result => {
+      message.content.forEach(result => {
         const score = parseFloat(result.score || result.ranking_score || 0);
         if (score > maxScore) {
           maxScore = score;
@@ -1155,7 +1162,7 @@ export class UnifiedChatInterface {
     }
   }
   
-  addMessageBubble(content, type, senderInfo = null) {
+  addMessageBubble(content, type, sender_info = null) {
     const bubble = document.createElement('div');
     bubble.className = `message ${type}-message message-appear`;
     
@@ -1166,17 +1173,17 @@ export class UnifiedChatInterface {
       
       if (type === 'user') {
         // For user messages, check if it's the current user
-        if (senderInfo && senderInfo.id === this.state.userId) {
+        if (sender_info && sender_info.id === this.state.userId) {
           senderDiv.textContent = 'You';
-        } else if (senderInfo && senderInfo.name) {
-          senderDiv.textContent = senderInfo.name;
+        } else if (sender_info && sender_info.name) {
+          senderDiv.textContent = sender_info.name;
         } else {
           // If no sender info, assume it's the current user (for messages they just sent)
           senderDiv.textContent = 'You';
         }
       } else {
         // Assistant messages
-        senderDiv.textContent = senderInfo?.name || 'Assistant';
+        senderDiv.textContent = sender_info?.name || 'Assistant';
       }
       
       bubble.appendChild(senderDiv);

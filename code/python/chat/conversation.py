@@ -272,7 +272,7 @@ class ConversationManager:
                 self.websocket_manager.broadcast_message(
                     message.conversation_id,
                     sequenced_message.to_dict(),  # Send message directly, no wrapping
-                    exclude_user_id=message.senderInfo.get('id')  # Exclude the sender
+                    exclude_user_id=message.sender_info.get('id')  # Exclude the sender
                 )
             )
         
@@ -313,7 +313,7 @@ class ConversationManager:
         
         # Deliver to all participants except sender
         for participant_id, participant in conv_state.participants.items():
-            if participant_id != message.senderInfo.get('id'):
+            if participant_id != message.sender_info.get('id'):
                 # Create delivery task for all non-sender participants
                 task = self._deliver_to_participant(
                     message,
@@ -555,7 +555,7 @@ class ConversationManager:
             content=content,
             message_type="user",
             timestamp=int(time.time() * 1000),  # milliseconds
-            senderInfo={
+            sender_info={
                 "id": sender_id,
                 "name": sender_name
             },

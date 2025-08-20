@@ -67,7 +67,16 @@ class StatisticsHandler():
                                 if bracket_start < bracket_end:
                                     # Extract visualization hints from the third column
                                     viz_hints_str = template_text[bracket_start+1:bracket_end].strip()
-                                    visualization_hints = [hint.strip() for hint in viz_hints_str.split(',')]
+                                    
+                                    # Parse function-style syntax: func(param1, param2) or just func
+                                    if '(' in viz_hints_str and ')' in viz_hints_str:
+                                        # Extract function name (visualization type)
+                                        func_name = viz_hints_str[:viz_hints_str.index('(')].strip()
+                                        # Also store the full hint for title generation
+                                        visualization_hints = [func_name, viz_hints_str]
+                                    else:
+                                        # Simple format without parameters
+                                        visualization_hints = [viz_hints_str.strip()]
                                     
                                     # Remove the third column from the template text
                                     template_text = template_text[:bracket_start].strip()
@@ -80,9 +89,8 @@ class StatisticsHandler():
                                 
                                 # Parse the variables JSON
                                 try:
-                                    # Convert single quotes to double quotes for valid JSON
-                                    vars_json_str_fixed = vars_json_str.replace("'", '"')
-                                    variables_dict = json.loads(vars_json_str_fixed)
+                                    # Parse the JSON directly (templates now use proper double quotes)
+                                    variables_dict = json.loads(vars_json_str)
                                 except json.JSONDecodeError as e:
                                     logger.error(f"Error parsing variables JSON for template {template_num}: {e}")
                                     variables_dict = {}
@@ -316,6 +324,71 @@ class StatisticsHandler():
         # Return None if no hints provided
         return None
     
+    def generate_title_from_hint(self, template_hints: List[str], extracted_values: Dict, 
+                                 variable_dcids: List[str], place_dcids: List[str]) -> str:
+        """Generate a descriptive title from visualization hints and actual DCID values."""
+        
+        if not template_hints or len(template_hints) == 0:
+            return ""
+        
+        # Get the visualization type
+        viz_type = template_hints[0]
+        
+        # Generate title based on visualization type using actual DCIDs
+        if viz_type == 'ranking':
+            # Ranking of [variable] by [place_type]
+            variable = variable_dcids[0] if variable_dcids else "metric"
+            # Determine place type from extracted values or places
+            place_type = extracted_values.get('place_type', extracted_values.get('place-type', 'regions'))
+            if 'place' in extracted_values:
+                place = extracted_values.get('place')
+                return f"Ranking of {variable} by {place_type} in {place}"
+            return f"Ranking of {variable} by {place_type}"
+            
+        elif viz_type == 'map':
+            # Map of [variable] across [place_type]
+            variable = variable_dcids[0] if variable_dcids else "metric"
+            place_type = extracted_values.get('place_type', extracted_values.get('place-type', 'counties'))
+            return f"Map of {variable} across {place_type}"
+            
+        elif viz_type == 'bar':
+            # Comparison of [variable]: [place1] vs [place2]
+            variable = variable_dcids[0] if variable_dcids else "metric"
+            # For bar charts, we should use the actual place names from extracted values
+            if 'county_a' in extracted_values and 'county_b' in extracted_values:
+                return f"Comparison of {variable}: {extracted_values['county_a']} vs {extracted_values['county_b']}"
+            elif len(place_dcids) >= 2:
+                # Use place DCIDs if we have them
+                return f"Comparison of {variable}"
+            return f"Comparison of {variable}"
+            
+        elif viz_type == 'line':
+            # Trend of [variable] over time
+            variable = variable_dcids[0] if variable_dcids else "metric"
+            # For line charts, typically show trend over time
+            return f"Trend of {variable} over time"
+            
+        elif viz_type == 'scatter':
+            # Correlation: [variable1] vs [variable2] across [place_type]
+            if len(variable_dcids) >= 2:
+                variable1 = variable_dcids[0]
+                variable2 = variable_dcids[1]
+            else:
+                variable1 = variable_dcids[0] if variable_dcids else 'Variable 1'
+                variable2 = 'Variable 2'
+            place_type = extracted_values.get('place_type', extracted_values.get('place-type', 'regions'))
+            return f"Correlation: {variable1} vs {variable2} across {place_type}"
+            
+        elif viz_type == 'highlight':
+            # [variable] in [place]
+            variable = variable_dcids[0] if variable_dcids else extracted_values.get('variable', 'metric')
+            # For highlight, use the extracted place name if available
+            place = extracted_values.get('place', 'location')
+            return f"{variable} in {place}"
+        
+        # Default: use visualization type as title
+        return viz_type.capitalize()
+    
     async def process_template(self, match: Dict, query: str) -> Optional[Dict]:
         """Process a single template match."""
         if match['score'] < 70:
@@ -333,6 +406,24 @@ class StatisticsHandler():
         if any(isinstance(v, list) and not v for v in extracted_values.values()):
             print(f"  Template {template['id']} - Skipping - empty list found in extracted values")
             return None
+            
+        # Check if all required template parameters have been properly extracted
+        # A parameter is required if it's defined in the template variables
+        template_vars = template.get('variables', {})
+        for var_name in template_vars.keys():
+            if var_name == 'score':  # Skip the score field
+                continue
+            # Check if the variable was extracted and has a meaningful value
+            if var_name not in extracted_values or not extracted_values[var_name]:
+                print(f"  Template {template['id']} - Skipping - missing required parameter '{var_name}'")
+                return None
+            # Check for placeholder values that indicate failed extraction
+            value = str(extracted_values[var_name]).strip()
+            if value in ['US', 'US counties', 'counties'] and var_name == 'place' and template['id'] == '7':
+                # For template 7, "US" alone is not a valid specific place
+                print(f"  Template {template['id']} - Skipping - '{var_name}' has generic value '{value}'")
+                return None
+            
         print(f"\nProcessing template {template['id']} (score: {match['score']}): {template['pattern']}")
         print(f"  Extracted values: {extracted_values}")
         
@@ -343,21 +434,28 @@ class StatisticsHandler():
             
             # Check if all required template variables have valid values
             # Skip templates with placeholder/invalid values
-            invalid_values = {'geoId', 'variable1', 'variable2', 'variable', 'place', 
-                            'county', 'state', 'city', '<variable1>', '<variable2>',
-                            '<place>', '<county>', '<state>', '<city>', ''}
+            # These are generic placeholders that indicate extraction failure
+            invalid_placeholders = {'<variable1>', '<variable2>', '<place>', '<county>', 
+                                  '<state>', '<city>', '<variable>', '<place-type>', ''}
             
             has_invalid = False
             for key, value in extracted_values.items():
                 # Check if the value is invalid or a placeholder
-                if not value or str(value).strip().lower() in invalid_values or str(value).startswith('<'):
+                if not value or str(value).strip() in invalid_placeholders or str(value).startswith('<'):
                     print(f"  Template {template['id']} - Skipping - invalid/placeholder value for {key}: '{value}'")
                     has_invalid = True
                     break
                 
+                # For place-type parameters, valid values include: county, state, city, zip code, etc.
+                # These should NOT be considered invalid
+                
                 if 'variable' in key.lower():
                     variables.append(value)
-                elif any(place_type in key.lower() for place_type in ['county', 'place', 'state', 'city']):
+                elif 'place-type' in key.lower() or 'place_type' in key.lower():
+                    # This is a place type (e.g., "counties", "states"), not a place
+                    # Don't add to places list - it will be used for childPlaceType parameter
+                    pass
+                elif any(place_name in key.lower() for place_name in ['county', 'place', 'state', 'city', 'containing']):
                     places.append(value)
             
             # Skip this template if it has invalid values
@@ -390,12 +488,12 @@ class StatisticsHandler():
             if 'limit' in self.params and self.params['limit']:
                 additional_params['limit'] = self.params['limit']
             
-            # Determine title based on confidence score
-            if match['score'] >= 80:
-                title = query
-            else:
-                # For lower confidence matches, indicate it might be related
-                title = f"{query} (Related: {template['pattern']})"
+            # Generate title from visualization hints and actual DCIDs
+            title = self.generate_title_from_hint(template_hints, extracted_values, variable_dcids, place_dcids)
+            
+            # If title generation failed or returned empty, use a fallback
+            if not title:
+                title = f"{viz_type.capitalize()} visualization"
                 
             component_html = self.create_web_component(
                 viz_type,
@@ -593,6 +691,7 @@ class StatisticsHandler():
             
             message = {
                 "message_type": "statistics_result",
+                "@type": "StatisticalAnalysis",
                 "content": f"Found {len(all_components)} matching visualizations for your query:",
                 "all_components": [
                     {
@@ -642,6 +741,7 @@ class StatisticsHandler():
             
             chart_message = {
                 "message_type": "chart_result",
+                "@type": "DataVisualization",
                 "html": f"""
 <!-- Data Commons Web Components ({len(all_components)} visualizations) -->
 {chr(10).join(all_html)}

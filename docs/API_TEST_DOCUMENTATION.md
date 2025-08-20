@@ -250,7 +250,7 @@ Authorization: Bearer {token}
 ```json
 {
   "type": "ai_response",
-  "message_type": "result_batch|summary|chart_result|nlws|ai_chunk",
+  "message_type": "result|summary|chart_result|nlws|ai_chunk",
   "sequence_id": 790,
   "conversation_id": "conv_123",
   "content": "AI generated content",

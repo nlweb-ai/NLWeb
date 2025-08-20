@@ -43,7 +43,7 @@ class ChatMessage:
     content: Any  # Can be string, dict, list - any JSON-serializable object
     message_type: str  # "user", "assistant", "system", "join", "leave", "nlweb", etc.
     timestamp: int  # milliseconds since epoch
-    senderInfo: Dict[str, str]  # {id: str, name: str}
+    sender_info: Dict[str, str]  # {id: str, name: str}
     site: Optional[str] = None  # Site for NLWeb queries
     mode: Optional[str] = None  # Mode for NLWeb queries (list, summarize, generate)
     prev_queries: Optional[List[Dict[str, Any]]] = None  # Previous queries for context
@@ -56,7 +56,7 @@ class ChatMessage:
             "content": self.content,
             "message_type": self.message_type,
             "timestamp": self.timestamp,
-            "senderInfo": self.senderInfo
+            "sender_info": self.sender_info
         }
         if self.site is not None:
             result["site"] = self.site
@@ -76,12 +76,12 @@ class ChatMessage:
         conversation_id = data.get("conversation_id")
         message_type = data.get("message_type")
         timestamp = data.get("timestamp")
-        senderInfo = data.get("senderInfo")
+        sender_info = data.get("sender_info")
         
         # Validate required fields
-        if not all([conversation_id, message_type, timestamp, senderInfo]):
+        if not all([conversation_id, message_type, timestamp, sender_info]):
             raise ValueError(f"Missing required fields. Got: conversation_id={conversation_id}, "
-                           f"message_type={message_type}, timestamp={timestamp}, senderInfo={senderInfo}")
+                           f"message_type={message_type}, timestamp={timestamp}, sender_info={sender_info}")
         
         # For NLWeb messages that don't have a 'content' field, use the entire message as content
         if "content" in data:
@@ -96,7 +96,7 @@ class ChatMessage:
             content=content,
             message_type=message_type,
             timestamp=timestamp,
-            senderInfo=senderInfo,
+            sender_info=sender_info,
             site=data.get("site"),
             mode=data.get("mode"),
             prev_queries=data.get("prev_queries")
@@ -250,7 +250,7 @@ class Conversation:
             content=content,
             message_type=msg_type,
             timestamp=int(time.time() * 1000),  # milliseconds
-            senderInfo={
+            sender_info={
                 "id": "system",
                 "name": "System"
             }

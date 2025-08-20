@@ -208,13 +208,58 @@ export class JsonRenderer {
    */
   getItemName(item) {
     let name = '';
-    if (item.name) {
+    
+    // First check if item.name exists and is not a URL or "Unnamed Item"
+    if (item.name && !item.name.startsWith('http://') && !item.name.startsWith('https://') && item.name !== 'Unnamed Item') {
       name = item.name;
-    } else if (item.schema_object && item.schema_object.keywords) {
-      name = item.schema_object.keywords;
-    } else if (item.url) {
+    } 
+    // If name is a URL, "Unnamed Item", or doesn't exist, try to get it from schema_object
+    else if (item.schema_object) {
+      // Special handling for Review schema type - get name from itemReviewed
+      if (item.schema_object['@type'] === 'Review' && item.schema_object.itemReviewed) {
+        const reviewed = item.schema_object.itemReviewed;
+        if (reviewed.name && !reviewed.name.startsWith('http://') && !reviewed.name.startsWith('https://')) {
+          name = reviewed.name;
+        }
+      }
+      // Check if schema_object has a proper name field
+      else if (item.schema_object.name && !item.schema_object.name.startsWith('http://') && !item.schema_object.name.startsWith('https://')) {
+        name = item.schema_object.name;
+      } 
+      // Try keywords as fallback
+      else if (item.schema_object.keywords) {
+        name = item.schema_object.keywords;
+      }
+      
+      // If still no name found, try to extract from URL
+      if (!name && item.url) {
+        // Try to create a readable name from the URL
+        try {
+          const urlParts = item.url.split('/');
+          const lastPart = urlParts[urlParts.length - 1] || urlParts[urlParts.length - 2];
+          if (lastPart) {
+            // Remove anchor tags like #1, #2, #3
+            let cleanPart = lastPart.replace(/#\d+$/, '');
+            // Remove file extensions and clean up
+            name = cleanPart.replace(/\.[^/.]+$/, '')
+              .replace(/[_-]/g, ' ')
+              .replace(/([a-z])([A-Z])/g, '$1 $2')
+              .trim();
+            // Capitalize first letter of each word
+            name = name.split(' ').map(word => 
+              word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join(' ');
+          }
+        } catch (e) {
+          name = item.url;
+        }
+      }
+    } 
+    // Last resort: use the URL
+    else if (item.url) {
       name = item.url;
     }
+    
     return name;
   }
   
@@ -267,6 +312,19 @@ export class JsonRenderer {
         return articleObj.thumbnailUrl;
       }
       
+      // Look for ImageGallery with associatedMedia
+      const galleryObj = schema_object.find(obj => obj['@type'] === 'ImageGallery');
+      if (galleryObj && galleryObj.associatedMedia && Array.isArray(galleryObj.associatedMedia)) {
+        const firstMedia = galleryObj.associatedMedia[0];
+        if (firstMedia) {
+          // Try contentUrl first, then thumbnailUrl
+          const imageUrl = firstMedia.contentUrl || firstMedia.thumbnailUrl;
+          if (imageUrl && imageUrl.startsWith('http')) {
+            return imageUrl;
+          }
+        }
+      }
+      
       // Check first object for any image property
       if (schema_object[0]) {
         schema_object = schema_object[0];
@@ -275,6 +333,23 @@ export class JsonRenderer {
     
     // Handle single schema object
     if (schema_object) {
+      // Check for ImageGallery type with associatedMedia
+      if (schema_object['@type'] === 'ImageGallery' && schema_object.associatedMedia && Array.isArray(schema_object.associatedMedia)) {
+        const firstMedia = schema_object.associatedMedia[0];
+        if (firstMedia) {
+          // Try contentUrl first, then thumbnailUrl
+          const imageUrl = firstMedia.contentUrl || firstMedia.thumbnailUrl;
+          if (imageUrl && imageUrl.startsWith('http')) {
+            return imageUrl;
+          }
+        }
+      }
+      
+      // Check for Product type with image
+      if (schema_object['@type'] === 'Product' && schema_object.image) {
+        return this.extractImageInternal(schema_object.image);
+      }
+      
       // Check for direct image property
       if (schema_object.image) {
         return this.extractImageInternal(schema_object.image);
@@ -282,6 +357,17 @@ export class JsonRenderer {
       // Check for thumbnailUrl property
       if (schema_object.thumbnailUrl) {
         return schema_object.thumbnailUrl;
+      }
+      
+      // Check for associatedMedia even without specific type
+      if (schema_object.associatedMedia && Array.isArray(schema_object.associatedMedia)) {
+        const firstMedia = schema_object.associatedMedia[0];
+        if (firstMedia) {
+          const imageUrl = firstMedia.contentUrl || firstMedia.thumbnailUrl;
+          if (imageUrl && imageUrl.startsWith('http')) {
+            return imageUrl;
+          }
+        }
       }
     }
     return null;

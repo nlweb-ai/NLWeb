@@ -97,17 +97,125 @@
             color: #27ae60;
             font-weight: bold;
         }
+        
+        /* Status message styles */
+        .status {
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        
+        .status.error {
+            background: #fee;
+            color: #c00;
+            border: 1px solid #fcc;
+        }
+        
+        .status.success {
+            background: #efe;
+            color: #060;
+            border: 1px solid #cfc;
+        }
+        
+        .status.info {
+            background: #e7f3ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        
+        #console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        #console-output .log-entry {
+            margin: 2px 0;
+            line-height: 1.4;
+        }
+        
+        #console-output .log-error {
+            color: #f48771;
+        }
+        
+        #console-output .log-warn {
+            color: #dcdcaa;
+        }
+        
+        #console-output .log-info {
+            color: #4ec9b0;
+        }
+        
+        #console-output .log-success {
+            color: #4fc1ff;
+        }
+        
+        .debug-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .debug-section h3 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 16px;
+        }
+        
+        .debug-controls {
+            margin: 10px 0;
+        }
+        
+        .debug-controls button {
+            margin-right: 10px;
+            padding: 6px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .debug-controls button:hover {
+            background: #0056b3;
+        }
+        
+        .debug-controls button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>NLWeb Dropdown Chat Example</h1>
-        <p>This page demonstrates the NLWeb Dropdown Chat component for recipe search</p>
+        <p>This page demonstrates the NLWeb Dropdown Chat component for recipe search with debugging</p>
     </div>
     
     <div class="section" style="max-width: 800px; margin: 0 auto;">
         <h2>Recipe Search</h2>
         <p>Try searching for recipes using natural language queries:</p>
+        
+        <!-- Status display -->
+        <div id="status"></div>
         
         <!-- Search box instance -->
         <div id="recipe-search-container"></div>
@@ -120,6 +228,17 @@
                 <li>Quick pasta recipes under 30 minutes</li>
                 <li>Remember that I'm vegetarian</li>
             </ul>
+        </div>
+        
+        <!-- Debug section -->
+        <div class="debug-section">
+            <h3>Debug Information</h3>
+            <div class="debug-controls">
+                <button onclick="window.checkStatus()">Check Status</button>
+                <button onclick="window.clearConsole()">Clear Console</button>
+                <button onclick="window.testSearch()">Test Search</button>
+            </div>
+            <div id="console-output"></div>
         </div>
         
         <div class="code-section">
@@ -155,18 +274,145 @@
     
     <!-- Include the dropdown chat JavaScript -->
     <script type="module">
-        import { NLWebDropdownChat } from './nlweb-dropdown-chat.js';
+        const statusEl = document.getElementById('status');
+        const consoleOutput = document.getElementById('console-output');
         
-        // Initialize the search instance
-        const chat = new NLWebDropdownChat({
-            containerId: 'recipe-search-container',
-            site: 'seriouseats',
-            placeholder: 'Search for recipes...',
-            endpoint: window.location.origin
-        });
+        // Enhanced console logging
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const originalInfo = console.info;
         
-        // Make it available for debugging
-        window.nlwebChat = chat;
+        function addToConsole(type, ...args) {
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            const msg = args.map(arg => {
+                if (typeof arg === 'object') {
+                    try {
+                        return JSON.stringify(arg, null, 2);
+                    } catch (e) {
+                        return String(arg);
+                    }
+                }
+                return String(arg);
+            }).join(' ');
+            
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type.toLowerCase()}`;
+            entry.textContent = `[${timestamp}] [${type}] ${msg}`;
+            consoleOutput.appendChild(entry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        // Override console methods
+        console.log = (...args) => {
+            originalLog(...args);
+            addToConsole('LOG', ...args);
+        };
+        
+        console.error = (...args) => {
+            originalError(...args);
+            addToConsole('ERROR', ...args);
+        };
+        
+        console.warn = (...args) => {
+            originalWarn(...args);
+            addToConsole('WARN', ...args);
+        };
+        
+        console.info = (...args) => {
+            originalInfo(...args);
+            addToConsole('INFO', ...args);
+        };
+        
+        // Helper functions
+        function setStatus(message, type = 'info') {
+            statusEl.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        window.clearConsole = function() {
+            consoleOutput.innerHTML = '';
+            console.info('Console cleared');
+        };
+        
+        window.checkStatus = function() {
+            if (window.nlwebChat) {
+                console.info('Chat instance found:', {
+                    container: !!window.nlwebChat.container,
+                    searchInput: !!window.nlwebChat.searchInput,
+                    dropdownResults: !!window.nlwebChat.dropdownResults,
+                    chatInterface: !!window.nlwebChat.chatInterface,
+                    conversationManager: window.nlwebChat.chatInterface ? !!window.nlwebChat.chatInterface.conversationManager : false,
+                    currentConversationId: window.nlwebChat.chatInterface ? window.nlwebChat.chatInterface.currentConversationId : null,
+                    selectedSite: window.nlwebChat.chatInterface ? window.nlwebChat.chatInterface.selectedSite : null
+                });
+                setStatus('✓ Chat instance is active', 'success');
+            } else {
+                console.error('Chat instance not found');
+                setStatus('✗ Chat instance not found', 'error');
+            }
+        };
+        
+        window.testSearch = function() {
+            if (window.nlwebChat && window.nlwebChat.searchInput) {
+                const testQuery = 'chocolate cake recipe';
+                console.info(`Testing search with query: "${testQuery}"`);
+                window.nlwebChat.searchInput.value = testQuery;
+                window.nlwebChat.handleSearch();
+                setStatus('Test search initiated', 'info');
+            } else {
+                console.error('Cannot test search - chat not initialized');
+                setStatus('Cannot test search - chat not initialized', 'error');
+            }
+        };
+        
+        // Initialize the dropdown chat
+        async function initializeDropdownChat() {
+            try {
+                setStatus('Loading NLWebDropdownChat module...', 'info');
+                console.log('Starting initialization...');
+                
+                const { NLWebDropdownChat } = await import('./nlweb-dropdown-chat.js');
+                console.log('Module loaded successfully');
+                
+                setStatus('Creating chat instance...', 'info');
+                
+                // Initialize the search instance
+                const chat = new NLWebDropdownChat({
+                    containerId: 'recipe-search-container',
+                    site: 'seriouseats',
+                    placeholder: 'Search for recipes...',
+                    endpoint: window.location.origin
+                });
+                
+                console.log('Chat instance created');
+                
+                // Make it available for debugging
+                window.nlwebChat = chat;
+                
+                // Wait for full initialization
+                setTimeout(() => {
+                    if (chat.chatInterface) {
+                        setStatus('✓ Dropdown chat initialized successfully!', 'success');
+                        console.info('Chat interface ready:', {
+                            conversationManager: !!chat.chatInterface.conversationManager,
+                            currentConversationId: chat.chatInterface.currentConversationId,
+                            selectedSite: chat.chatInterface.selectedSite
+                        });
+                    } else {
+                        setStatus('⚠ Chat interface initialization pending...', 'warning');
+                        console.warn('Chat interface not yet initialized');
+                    }
+                }, 2000);
+                
+            } catch (error) {
+                setStatus(`✗ Failed to initialize: ${error.message}`, 'error');
+                console.error('Initialization error:', error);
+                console.error('Stack trace:', error.stack);
+            }
+        }
+        
+        // Start initialization when page loads
+        initializeDropdownChat();
     </script>
 </body>
 </html>

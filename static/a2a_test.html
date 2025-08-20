@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A2A Test Interface</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #e91e63;
+            padding-bottom: 10px;
+        }
+        .container {
+            display: flex;
+            gap: 0;
+            position: relative;
+            height: 600px;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: auto;
+            min-width: 200px;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .left-panel {
+            flex: 1;
+        }
+        .right-panel {
+            flex: 1;
+        }
+        .splitter {
+            width: 10px;
+            background-color: #ddd;
+            cursor: col-resize;
+            position: relative;
+        }
+        .splitter::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 4px;
+            height: 30px;
+            background-color: #aaa;
+            border-radius: 2px;
+        }
+        .splitter:hover {
+            background-color: #ccc;
+        }
+        .splitter.active {
+            background-color: #e91e63;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 100px;
+            font-family: monospace;
+        }
+        button {
+            background-color: #e91e63;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #c2185b;
+        }
+        button.secondary {
+            background-color: #9c27b0;
+        }
+        button.secondary:hover {
+            background-color: #7b1fa2;
+        }
+        .response {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            height: 400px;
+            overflow: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .status {
+            margin-top: 10px;
+            font-style: italic;
+        }
+        .tab-container {
+            margin-bottom: 20px;
+        }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .tab-button {
+            padding: 10px 15px;
+            background-color: #e0e0e0;
+            border: none;
+            margin-right: 5px;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+        }
+        .tab-button.active {
+            background-color: #e91e63;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .agent-info {
+            background-color: #fce4ec;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .agent-info strong {
+            color: #880e4f;
+        }
+        .message-type-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .message-type-selector label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0;
+        }
+        .message-type-selector input[type="radio"] {
+            width: auto;
+            margin-right: 5px;
+        }
+        .registered-agents {
+            background-color: #f3e5f5;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .agent-item {
+            background-color: white;
+            padding: 5px 10px;
+            margin: 5px 0;
+            border-radius: 3px;
+            border: 1px solid #ce93d8;
+        }
+        .examples-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .examples-list li {
+            background-color: #fce4ec;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .examples-list li:hover {
+            background-color: #f8bbd0;
+        }
+        .json-tree-viewer {
+            font-family: monospace;
+            font-size: 14px;
+            overflow: auto;
+            height: 400px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .json-tree-viewer ul {
+            list-style-type: none;
+            padding-left: 20px;
+            margin: 0;
+        }
+        .json-tree-viewer > ul {
+            padding-left: 0;
+        }
+        .json-key {
+            color: #881391;
+            font-weight: bold;
+        }
+        .json-string {
+            color: #1a8a34;
+        }
+        .json-number {
+            color: #0d22aa;
+        }
+        .json-boolean {
+            color: #994500;
+        }
+        .json-null {
+            color: #545454;
+        }
+        .json-mark {
+            color: #666;
+        }
+        .json-toggle {
+            position: relative;
+            cursor: pointer;
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-right: 3px;
+        }
+        .json-toggle:before {
+            content: "+";
+            position: absolute;
+            top: -2px;
+            left: 0;
+            font-weight: bold;
+            color: #888;
+        }
+        .json-toggle.collapsed:before {
+            content: "+";
+        }
+        .json-toggle.expanded:before {
+            content: "-";
+        }
+        .json-item {
+            line-height: 1.5;
+        }
+        .json-item:hover {
+            background-color: #f0f0f0;
+        }
+        .json-children {
+            display: block;
+        }
+        .json-children.hidden {
+            display: none;
+        }
+        .view-mode-selector {
+            margin-bottom: 10px;
+        }
+        .view-mode-selector button {
+            background-color: #e0e0e0;
+            color: #333;
+            padding: 5px 10px;
+            margin-right: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .view-mode-selector button.active {
+            background-color: #e91e63;
+            color: white;
+            border-color: #c2185b;
+        }
+    </style>
+</head>
+<body>
+    <h1>A2A (Agent-to-Agent) Test Interface</h1>
+    
+    <div class="agent-info">
+        <strong>NLWeb Agent ID:</strong> <span id="nlwebAgentId">nlweb-agent</span> | 
+        <strong>Your Test Agent ID:</strong> <span id="testAgentId">test-agent-001</span>
+    </div>
+    
+    <div class="tab-container">
+        <div class="tab-buttons">
+            <button class="tab-button active" onclick="switchTab('messages-tab')">Send Messages</button>
+            <button class="tab-button" onclick="switchTab('registration-tab')">Agent Registration</button>
+            <button class="tab-button" onclick="switchTab('examples-tab')">Examples</button>
+            <button class="tab-button" onclick="switchTab('about-tab')">About</button>
+        </div>
+        
+        <div id="messages-tab" class="tab-content active">
+            <div class="container">
+                <div class="panel left-panel">
+                    <h2>A2A Message</h2>
+                    
+                    <div class="form-group">
+                        <label for="serverUrl">A2A Server URL:</label>
+                        <input type="text" id="serverUrl" value="http://localhost:8000/a2a" placeholder="http://localhost:8000/a2a">
+                    </div>
+                    
+                    <div class="message-type-selector">
+                        <label><input type="radio" name="messageType" value="query" checked> Query</label>
+                        <label><input type="radio" name="messageType" value="register"> Register</label>
+                        <label><input type="radio" name="messageType" value="discover"> Discover</label>
+                    </div>
+                    
+                    <div id="queryFields">
+                        <div class="form-group">
+                            <label for="query">Query:</label>
+                            <textarea id="query" placeholder="Enter your question here">chocolate cake recipe</textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="site">Sites (comma-separated, optional):</label>
+                            <input type="text" id="site" placeholder="all" value="all">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="generateMode">Generate Mode:</label>
+                            <select id="generateMode">
+                                <option value="list">List</option>
+                                <option value="summarize">Summarize</option>
+                                <option value="generate">Generate</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="registerFields" style="display: none;">
+                        <div class="form-group">
+                            <label for="capabilities">Agent Capabilities (comma-separated):</label>
+                            <input type="text" id="capabilities" placeholder="search, analyze, summarize" value="search, analyze">
+                        </div>
+                    </div>
+                    
+                    <button onclick="sendA2AMessage()">Send Message</button>
+                    <button class="secondary" onclick="getAgentInfo()">Get Agent Info</button>
+                </div>
+                
+                <div class="splitter" id="messages-splitter"></div>
+                
+                <div class="panel right-panel">
+                    <h2>Response</h2>
+                    <div class="view-mode-selector">
+                        <button class="active" onclick="switchViewMode('messages-json-tree', 'messages-response', this)">Tree View</button>
+                        <button onclick="switchViewMode('messages-response', 'messages-json-tree', this)">Raw JSON</button>
+                    </div>
+                    <div id="messages-json-tree" class="json-tree-viewer"></div>
+                    <div id="messages-response" class="response" style="display: none;"></div>
+                    <div id="messages-status" class="status"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="registration-tab" class="tab-content">
+            <div class="container">
+                <div class="panel left-panel">
+                    <h2>Agent Management</h2>
+                    
+                    <div class="form-group">
+                        <label for="newAgentId">New Agent ID:</label>
+                        <input type="text" id="newAgentId" placeholder="my-custom-agent" value="">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newAgentCapabilities">Capabilities (comma-separated):</label>
+                        <input type="text" id="newAgentCapabilities" placeholder="query, search, analyze" value="query, search">
+                    </div>
+                    
+                    <button onclick="registerNewAgent()">Register Agent</button>
+                    <button class="secondary" onclick="discoverAgents()">Discover All Agents</button>
+                    
+                    <div class="registered-agents" id="registeredAgents">
+                        <h3>Registered Agents</h3>
+                        <div id="agentsList">No agents discovered yet</div>
+                    </div>
+                </div>
+                
+                <div class="splitter" id="registration-splitter"></div>
+                
+                <div class="panel right-panel">
+                    <h2>Registration Response</h2>
+                    <div class="view-mode-selector">
+                        <button class="active" onclick="switchViewMode('registration-json-tree', 'registration-response', this)">Tree View</button>
+                        <button onclick="switchViewMode('registration-response', 'registration-json-tree', this)">Raw JSON</button>
+                    </div>
+                    <div id="registration-json-tree" class="json-tree-viewer"></div>
+                    <div id="registration-response" class="response" style="display: none;"></div>
+                    <div id="registration-status" class="status"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="examples-tab" class="tab-content">
+            <div class="container">
+                <div class="panel left-panel">
+                    <h2>Example Messages</h2>
+                    <p>Click on an example to load it:</p>
+                    
+                    <h3>Query Examples</h3>
+                    <ul class="examples-list">
+                        <li onclick="loadExample('query', 'pasta recipes', 'all', 'list')">
+                            Query: Pasta recipes (list mode)</li>
+                        <li onclick="loadExample('query', 'healthy breakfast ideas', 'all', 'summarize')">
+                            Query: Healthy breakfast ideas (summarize)</li>
+                        <li onclick="loadExample('query', 'chocolate desserts', 'all', 'generate')">
+                            Query: Chocolate desserts (generate mode)</li>
+                        <li onclick="loadExample('query', 'vegan dinner options', 'all', 'list')">
+                            Query: Vegan dinner options</li>
+                    </ul>
+                    
+                    <h3>Registration Examples</h3>
+                    <ul class="examples-list">
+                        <li onclick="loadExample('register', '', '', '', ['search', 'analyze'])">
+                            Register: Search & Analyze Agent</li>
+                        <li onclick="loadExample('register', '', '', '', ['query', 'summarize', 'translate'])">
+                            Register: Multi-capability Agent</li>
+                    </ul>
+                    
+                    <h3>Discovery Example</h3>
+                    <ul class="examples-list">
+                        <li onclick="loadExample('discover')">
+                            Discover: List all registered agents</li>
+                    </ul>
+                </div>
+                
+                <div class="splitter" id="examples-splitter"></div>
+                
+                <div class="panel right-panel">
+                    <h2>Example A2A Payload</h2>
+                    <p>This is the actual JSON that will be sent:</p>
+                    
+                    <div class="view-mode-selector">
+                        <button class="active" onclick="switchViewMode('example-json-tree', 'example-payload', this)">Tree View</button>
+                        <button onclick="switchViewMode('example-payload', 'example-json-tree', this)">Raw JSON</button>
+                    </div>
+                    <div id="example-json-tree" class="json-tree-viewer"></div>
+                    <pre id="example-payload" class="response" style="display: none;">
+// Click an example from the left panel to see its JSON payload
+</pre>
+                </div>
+            </div>
+        </div>
+        
+        <div id="about-tab" class="tab-content">
+            <div class="container">
+                <div class="panel left-panel">
+                    <h2>About A2A Protocol</h2>
+                    <p>A2A (Agent-to-Agent) is a protocol that enables AI agents to communicate directly with each other. 
+                       Unlike MCP which uses JSON-RPC, A2A uses a simpler message-based format designed for agent interactions.</p>
+                    
+                    <h3>Key Concepts</h3>
+                    <ul>
+                        <li><strong>Agent Identity</strong>: Each agent has a unique ID</li>
+                        <li><strong>Message Types</strong>: query, register, discover, response</li>
+                        <li><strong>Direct Communication</strong>: Agents send messages directly to other agents</li>
+                        <li><strong>Schema.org Results</strong>: Same structured data format as MCP</li>
+                    </ul>
+                    
+                    <h3>Message Format</h3>
+                    <pre>{
+  "from": "agent-id",
+  "to": "target-agent",
+  "type": "message-type",
+  "content": {
+    // Type-specific content
+  }
+}</pre>
+                    
+                    <h3>NLWeb A2A Implementation</h3>
+                    <p>This NLWeb server implements A2A protocol alongside MCP, allowing agents to:</p>
+                    <ul>
+                        <li>Query the NLWeb knowledge base</li>
+                        <li>Register themselves with capabilities</li>
+                        <li>Discover other registered agents</li>
+                        <li>Exchange messages with other agents</li>
+                    </ul>
+                </div>
+                
+                <div class="splitter" id="about-splitter"></div>
+                
+                <div class="panel right-panel">
+                    <h2>Using This Interface</h2>
+                    
+                    <h3>Quick Start</h3>
+                    <ol>
+                        <li>Make sure your NLWeb server is running with A2A support</li>
+                        <li>Use the "Send Messages" tab to send queries</li>
+                        <li>Try registering your agent in the "Agent Registration" tab</li>
+                        <li>Discover other agents that have registered</li>
+                    </ol>
+                    
+                    <h3>Features</h3>
+                    <ul>
+                        <li><strong>Interactive Testing</strong>: Send any A2A message type</li>
+                        <li><strong>Agent Registration</strong>: Register and discover agents</li>
+                        <li><strong>JSON Tree View</strong>: Expandable/collapsible response viewer</li>
+                        <li><strong>Examples</strong>: Pre-configured messages for quick testing</li>
+                        <li><strong>Resizable Panels</strong>: Drag the divider to adjust panel sizes</li>
+                    </ul>
+                    
+                    <h3>Tips</h3>
+                    <ul>
+                        <li>Your test agent ID is shown at the top of the page</li>
+                        <li>Click the "Get Agent Info" button to see NLWeb's capabilities</li>
+                        <li>Switch between Tree View and Raw JSON using the buttons</li>
+                        <li>Use the Examples tab for quick testing scenarios</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Generate a unique test agent ID
+        const testAgentId = 'test-agent-' + Date.now().toString(36) + '-' + Math.random().toString(36).substr(2, 5);
+        document.getElementById('testAgentId').textContent = testAgentId;
+        
+        // Initialize splitters
+        document.addEventListener('DOMContentLoaded', function() {
+            initSplitter('messages-splitter');
+            initSplitter('registration-splitter');
+            initSplitter('examples-splitter');
+            initSplitter('about-splitter');
+            
+            // Add message type radio button listeners
+            document.querySelectorAll('input[name="messageType"]').forEach(radio => {
+                radio.addEventListener('change', handleMessageTypeChange);
+            });
+        });
+        
+        // Handle message type changes
+        function handleMessageTypeChange(event) {
+            const messageType = event.target.value;
+            const queryFields = document.getElementById('queryFields');
+            const registerFields = document.getElementById('registerFields');
+            
+            if (messageType === 'query') {
+                queryFields.style.display = 'block';
+                registerFields.style.display = 'none';
+            } else if (messageType === 'register') {
+                queryFields.style.display = 'none';
+                registerFields.style.display = 'block';
+            } else { // discover
+                queryFields.style.display = 'none';
+                registerFields.style.display = 'none';
+            }
+        }
+        
+        // Initialize a splitter (same as MCP interface)
+        function initSplitter(splitterId) {
+            const splitter = document.getElementById(splitterId);
+            if (!splitter) return;
+            
+            const container = splitter.parentElement;
+            const leftPanel = splitter.previousElementSibling;
+            const rightPanel = splitter.nextElementSibling;
+            
+            let isResizing = false;
+            let startX, startLeftWidth;
+            
+            splitter.addEventListener('mousedown', startResize);
+            document.addEventListener('mousemove', resize);
+            document.addEventListener('mouseup', stopResize);
+            
+            splitter.addEventListener('touchstart', startResizeTouch);
+            document.addEventListener('touchmove', resizeTouch);
+            document.addEventListener('touchend', stopResize);
+            
+            function startResize(e) {
+                e.preventDefault();
+                isResizing = true;
+                startX = e.clientX;
+                startLeftWidth = leftPanel.getBoundingClientRect().width;
+                splitter.classList.add('active');
+            }
+            
+            function startResizeTouch(e) {
+                if (e.touches.length === 1) {
+                    isResizing = true;
+                    startX = e.touches[0].clientX;
+                    startLeftWidth = leftPanel.getBoundingClientRect().width;
+                    splitter.classList.add('active');
+                }
+            }
+            
+            function resize(e) {
+                if (!isResizing) return;
+                
+                const containerWidth = container.getBoundingClientRect().width;
+                const splitterWidth = splitter.getBoundingClientRect().width;
+                
+                let newLeftWidth = startLeftWidth + e.clientX - startX;
+                
+                const minWidth = 200;
+                const maxWidth = containerWidth - minWidth - splitterWidth;
+                
+                newLeftWidth = Math.max(minWidth, Math.min(newLeftWidth, maxWidth));
+                
+                const leftPercent = (newLeftWidth / containerWidth) * 100;
+                const rightPercent = 100 - leftPercent - (splitterWidth / containerWidth) * 100;
+                
+                leftPanel.style.flex = `0 0 ${leftPercent}%`;
+                rightPanel.style.flex = `0 0 ${rightPercent}%`;
+            }
+            
+            function resizeTouch(e) {
+                if (!isResizing || e.touches.length !== 1) return;
+                resize({ clientX: e.touches[0].clientX });
+            }
+            
+            function stopResize() {
+                isResizing = false;
+                splitter.classList.remove('active');
+            }
+        }
+        
+        // Switch between view modes
+        function switchViewMode(showId, hideId, button) {
+            const showElement = document.getElementById(showId);
+            const hideElement = document.getElementById(hideId);
+            
+            if (showElement && hideElement) {
+                showElement.style.display = '';
+                hideElement.style.display = 'none';
+                
+                const buttons = button.parentElement.querySelectorAll('button');
+                buttons.forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+            }
+        }
+        
+        // Tab switching
+        function switchTab(tabId) {
+            const tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            const buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(button => button.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        // JSON Tree Viewer (same as MCP)
+        function renderJsonTree(json, elementId) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            
+            try {
+                let jsonObj;
+                if (typeof json === 'string') {
+                    jsonObj = JSON.parse(json);
+                } else {
+                    jsonObj = json;
+                }
+                
+                element.innerHTML = '';
+                const tree = document.createElement('ul');
+                element.appendChild(tree);
+                renderObject(jsonObj, tree);
+                addToggleHandlers(element);
+                
+            } catch (e) {
+                console.error('Error rendering JSON tree:', e);
+                element.innerHTML = `<div style="color: red;">Error rendering JSON: ${e.message}</div>`;
+            }
+        }
+        
+        function renderObject(obj, parentElement) {
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    const value = obj[key];
+                    const li = document.createElement('li');
+                    
+                    if (isObject(value)) {
+                        const toggle = document.createElement('span');
+                        toggle.className = 'json-toggle expanded';
+                        li.appendChild(toggle);
+                        
+                        const keySpan = document.createElement('span');
+                        keySpan.className = 'json-key';
+                        keySpan.textContent = `${key}: `;
+                        li.appendChild(keySpan);
+                        
+                        const openMark = document.createElement('span');
+                        openMark.className = 'json-mark';
+                        openMark.textContent = Array.isArray(value) ? '[' : '{';
+                        li.appendChild(openMark);
+                        
+                        const children = document.createElement('ul');
+                        children.className = 'json-children';
+                        li.appendChild(children);
+                        
+                        renderObject(value, children);
+                        
+                        const closeMark = document.createElement('span');
+                        closeMark.className = 'json-mark';
+                        closeMark.textContent = Array.isArray(value) ? ']' : '}';
+                        li.appendChild(closeMark);
+                        
+                    } else {
+                        const keySpan = document.createElement('span');
+                        keySpan.className = 'json-key';
+                        keySpan.textContent = `${key}: `;
+                        li.appendChild(keySpan);
+                        
+                        const valueSpan = document.createElement('span');
+                        
+                        if (value === null) {
+                            valueSpan.className = 'json-null';
+                            valueSpan.textContent = 'null';
+                        } else if (typeof value === 'string') {
+                            valueSpan.className = 'json-string';
+                            valueSpan.textContent = `"${value}"`;
+                        } else if (typeof value === 'number') {
+                            valueSpan.className = 'json-number';
+                            valueSpan.textContent = value;
+                        } else if (typeof value === 'boolean') {
+                            valueSpan.className = 'json-boolean';
+                            valueSpan.textContent = value;
+                        } else {
+                            valueSpan.textContent = value;
+                        }
+                        
+                        li.appendChild(valueSpan);
+                    }
+                    
+                    parentElement.appendChild(li);
+                }
+            }
+        }
+        
+        function isObject(value) {
+            return value !== null && typeof value === 'object';
+        }
+        
+        function addToggleHandlers(element) {
+            const toggles = element.querySelectorAll('.json-toggle');
+            toggles.forEach(toggle => {
+                toggle.addEventListener('click', function() {
+                    this.classList.toggle('expanded');
+                    this.classList.toggle('collapsed');
+                    
+                    const children = this.parentNode.querySelector('.json-children');
+                    if (children) {
+                        children.classList.toggle('hidden');
+                    }
+                });
+            });
+        }
+        
+        // Send A2A Message
+        async function sendA2AMessage() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const messageType = document.querySelector('input[name="messageType"]:checked').value;
+            
+            const responseEl = document.getElementById('messages-response');
+            const jsonTreeEl = document.getElementById('messages-json-tree');
+            const statusEl = document.getElementById('messages-status');
+            
+            let message;
+            
+            if (messageType === 'query') {
+                const query = document.getElementById('query').value;
+                const sites = document.getElementById('site').value.split(',').map(s => s.trim()).filter(s => s);
+                const generateMode = document.getElementById('generateMode').value;
+                
+                message = {
+                    from: testAgentId,
+                    to: "nlweb",
+                    type: "query",
+                    id: generateMessageId(),
+                    content: {
+                        query: query,
+                        site: sites.length > 0 ? sites : ["all"],
+                        generate_mode: generateMode
+                    }
+                };
+                
+            } else if (messageType === 'register') {
+                const capabilities = document.getElementById('capabilities').value.split(',').map(s => s.trim());
+                
+                message = {
+                    from: testAgentId,
+                    to: "nlweb",
+                    type: "register",
+                    id: generateMessageId(),
+                    content: {
+                        capabilities: capabilities
+                    }
+                };
+                
+            } else { // discover
+                message = {
+                    from: testAgentId,
+                    to: "nlweb",
+                    type: "discover",
+                    id: generateMessageId(),
+                    content: {}
+                };
+            }
+            
+            try {
+                statusEl.textContent = `Sending ${messageType} message...`;
+                responseEl.textContent = "";
+                jsonTreeEl.innerHTML = "";
+                
+                const response = await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(message)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                responseEl.textContent = JSON.stringify(data, null, 2);
+                renderJsonTree(data, 'messages-json-tree');
+                
+                statusEl.textContent = `${messageType} completed: ${new Date().toLocaleTimeString()}`;
+                
+            } catch (error) {
+                responseEl.textContent = `Error: ${error.message}`;
+                jsonTreeEl.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                statusEl.textContent = `${messageType} failed: ${new Date().toLocaleTimeString()}`;
+                console.error("Error:", error);
+            }
+        }
+        
+        // Get Agent Info
+        async function getAgentInfo() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            
+            const responseEl = document.getElementById('messages-response');
+            const jsonTreeEl = document.getElementById('messages-json-tree');
+            const statusEl = document.getElementById('messages-status');
+            
+            try {
+                statusEl.textContent = "Getting agent info...";
+                responseEl.textContent = "";
+                jsonTreeEl.innerHTML = "";
+                
+                const response = await fetch(serverUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                responseEl.textContent = JSON.stringify(data, null, 2);
+                renderJsonTree(data, 'messages-json-tree');
+                
+                // Update agent ID if provided
+                if (data.agent_id) {
+                    document.getElementById('nlwebAgentId').textContent = data.agent_id;
+                }
+                
+                statusEl.textContent = `Agent info retrieved: ${new Date().toLocaleTimeString()}`;
+                
+            } catch (error) {
+                responseEl.textContent = `Error: ${error.message}`;
+                jsonTreeEl.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                statusEl.textContent = `Failed to get agent info: ${new Date().toLocaleTimeString()}`;
+                console.error("Error:", error);
+            }
+        }
+        
+        // Register New Agent
+        async function registerNewAgent() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const agentId = document.getElementById('newAgentId').value || generateAgentId();
+            const capabilities = document.getElementById('newAgentCapabilities').value.split(',').map(s => s.trim());
+            
+            const responseEl = document.getElementById('registration-response');
+            const jsonTreeEl = document.getElementById('registration-json-tree');
+            const statusEl = document.getElementById('registration-status');
+            
+            const message = {
+                from: agentId,
+                to: "nlweb",
+                type: "register",
+                id: generateMessageId(),
+                content: {
+                    capabilities: capabilities
+                }
+            };
+            
+            try {
+                statusEl.textContent = `Registering agent: ${agentId}...`;
+                responseEl.textContent = "";
+                jsonTreeEl.innerHTML = "";
+                
+                const response = await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(message)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                responseEl.textContent = JSON.stringify(data, null, 2);
+                renderJsonTree(data, 'registration-json-tree');
+                
+                statusEl.textContent = `Agent ${agentId} registered: ${new Date().toLocaleTimeString()}`;
+                
+                // Refresh agent list
+                setTimeout(discoverAgents, 500);
+                
+            } catch (error) {
+                responseEl.textContent = `Error: ${error.message}`;
+                jsonTreeEl.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                statusEl.textContent = `Registration failed: ${new Date().toLocaleTimeString()}`;
+                console.error("Error:", error);
+            }
+        }
+        
+        // Discover Agents
+        async function discoverAgents() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            
+            const responseEl = document.getElementById('registration-response');
+            const jsonTreeEl = document.getElementById('registration-json-tree');
+            const statusEl = document.getElementById('registration-status');
+            const agentsList = document.getElementById('agentsList');
+            
+            const message = {
+                from: testAgentId,
+                to: "nlweb",
+                type: "discover",
+                id: generateMessageId(),
+                content: {}
+            };
+            
+            try {
+                statusEl.textContent = "Discovering agents...";
+                responseEl.textContent = "";
+                jsonTreeEl.innerHTML = "";
+                
+                const response = await fetch(serverUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(message)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                responseEl.textContent = JSON.stringify(data, null, 2);
+                renderJsonTree(data, 'registration-json-tree');
+                
+                // Update agents list
+                if (data.content && data.content.agents) {
+                    const agents = data.content.agents;
+                    if (agents.length > 0) {
+                        agentsList.innerHTML = agents.map(agent => 
+                            `<div class="agent-item">
+                                <strong>${agent.agent_id}</strong>: 
+                                ${agent.capabilities ? agent.capabilities.join(', ') : 'No capabilities'}
+                            </div>`
+                        ).join('');
+                    } else {
+                        agentsList.innerHTML = '<div class="agent-item">No agents registered</div>';
+                    }
+                }
+                
+                statusEl.textContent = `Discovery completed: ${new Date().toLocaleTimeString()}`;
+                
+            } catch (error) {
+                responseEl.textContent = `Error: ${error.message}`;
+                jsonTreeEl.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                statusEl.textContent = `Discovery failed: ${new Date().toLocaleTimeString()}`;
+                console.error("Error:", error);
+            }
+        }
+        
+        // Load Example
+        function loadExample(type, query = '', site = '', mode = '', capabilities = []) {
+            // Set message type
+            document.querySelector(`input[name="messageType"][value="${type}"]`).checked = true;
+            handleMessageTypeChange({ target: { value: type } });
+            
+            if (type === 'query') {
+                document.getElementById('query').value = query;
+                document.getElementById('site').value = site;
+                document.getElementById('generateMode').value = mode;
+            } else if (type === 'register') {
+                document.getElementById('capabilities').value = capabilities.join(', ');
+            }
+            
+            // Show example payload
+            let message;
+            if (type === 'query') {
+                message = {
+                    from: testAgentId,
+                    to: "nlweb",
+                    type: "query",
+                    content: {
+                        query: query,
+                        site: site.split(',').map(s => s.trim()),
+                        generate_mode: mode
+                    }
+                };
+            } else if (type === 'register') {
+                message = {
+                    from: testAgentId,
+                    to: "nlweb",
+                    type: "register",
+                    content: {
+                        capabilities: capabilities
+                    }
+                };
+            } else {
+                message = {
+                    from: testAgentId,
+                    to: "nlweb",
+                    type: "discover",
+                    content: {}
+                };
+            }
+            
+            document.getElementById('example-payload').textContent = JSON.stringify(message, null, 2);
+            renderJsonTree(message, 'example-json-tree');
+            
+            // Switch to messages tab
+            document.querySelector('.tab-button').click();
+        }
+        
+        // Helper functions
+        function generateMessageId() {
+            return 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+        
+        function generateAgentId() {
+            return 'agent_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+        }
+    </script>
+</body>
+</html>

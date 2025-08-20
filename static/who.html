@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NLWeb Who Query</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="stylesheet" href="/static/common-chat-styles.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #7c4a3a 0%, #a0604c 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .header h1 {
+      margin: 0;
+      color: #333;
+      font-size: 2rem;
+    }
+
+    .header p {
+      margin: 10px 0 0 0;
+      color: #666;
+      font-size: 1rem;
+    }
+
+    .query-section {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .query-input-wrapper {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .query-input {
+      flex: 1;
+      padding: 12px 16px;
+      font-size: 16px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.3s;
+    }
+
+    .query-input:focus {
+      border-color: #7c4a3a;
+    }
+
+    .query-button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #7c4a3a 0%, #a0604c 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: opacity 0.3s;
+      min-width: 100px;
+    }
+
+    .query-button:hover:not(:disabled) {
+      opacity: 0.9;
+    }
+
+    .query-button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .results-section {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      flex: 1;
+      overflow-y: auto;
+      min-height: 300px;
+    }
+
+    .results-container {
+      min-height: 200px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .loading-spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #7c4a3a;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      color: #d32f2f;
+      padding: 16px;
+      background: #ffebee;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
+
+    .result-item {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: box-shadow 0.3s;
+    }
+
+    .result-item:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .result-title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 1.1rem;
+    }
+
+    .result-snippet {
+      color: #666;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    .result-metadata {
+      display: flex;
+      gap: 16px;
+      font-size: 0.9rem;
+      color: #999;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+
+    .streaming-indicator {
+      display: inline-block;
+      margin-left: 10px;
+    }
+
+    .streaming-indicator span {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #7c4a3a;
+      margin: 0 2px;
+      animation: pulse 1.4s infinite;
+    }
+
+    .streaming-indicator span:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .streaming-indicator span:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes pulse {
+      0%, 60%, 100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+      }
+      30% {
+        opacity: 1;
+        transform: scale(1.2);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="header">
+      <h1>NLWeb Who Query</h1>
+      <p>Find out who can help with your query</p>
+    </div>
+
+    <div class="query-section">
+      <div class="query-input-wrapper">
+        <input 
+          type="text" 
+          class="query-input" 
+          id="queryInput" 
+          placeholder="Enter your query..."
+          autocomplete="off"
+        >
+        <button class="query-button" id="queryButton">Search</button>
+      </div>
+    </div>
+
+    <div class="results-section">
+      <div class="results-container" id="resultsContainer">
+        <div class="no-results">
+          Enter a query above to find who can help
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { ChatUICommon } from '/static/chat-ui-common.js';
+    import { JsonRenderer } from '/static/json-renderer.js';
+    
+    class WhoQueryInterface {
+      constructor() {
+        this.queryInput = document.getElementById('queryInput');
+        this.queryButton = document.getElementById('queryButton');
+        this.resultsContainer = document.getElementById('resultsContainer');
+        
+        this.isProcessing = false;
+        this.eventSource = null;
+        this.allResults = []; // Accumulate all results for re-sorting
+        this.aiResponses = []; // Keep AI responses separate
+        
+        // Initialize UI helper
+        this.uiHelper = new ChatUICommon({
+          messagesContainer: this.resultsContainer
+        });
+        
+        // Initialize JsonRenderer for consistent item display
+        this.jsonRenderer = new JsonRenderer();
+        
+        this.initializeEventListeners();
+      }
+
+      initializeEventListeners() {
+        this.queryButton.addEventListener('click', () => this.handleQuery());
+        this.queryInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            this.handleQuery();
+          }
+        });
+      }
+
+      async handleQuery() {
+        const query = this.queryInput.value.trim();
+        if (!query || this.isProcessing) return;
+
+        this.isProcessing = true;
+        this.queryButton.disabled = true;
+        this.queryButton.textContent = 'Searching...';
+        
+        // Clear previous results and reset accumulators
+        this.allResults = [];
+        this.aiResponses = [];
+        this.resultsContainer.innerHTML = `
+          <div class="loading">
+            <div class="loading-spinner"></div>
+            <div>Searching for who can help with your query...</div>
+            <div class="streaming-indicator">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        `;
+
+        try {
+          // Close any existing connection
+          if (this.eventSource) {
+            this.eventSource.close();
+          }
+
+          // Create URL with query parameters
+          const params = new URLSearchParams({
+            query: query,
+            streaming: 'false'  // Use non-streaming mode
+          });
+
+          const url = `/who?${params.toString()}`;
+          
+          // Use regular fetch instead of EventSource
+          const response = await fetch(url);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          
+          // Clear loading message
+          this.resultsContainer.innerHTML = '';
+          
+          // Handle the response
+          if (data === null) {
+            this.handleError('No results found');
+          } else if (data && data.error) {
+            this.handleError(data.error);
+          } else if (data) {
+            // Process the non-streaming response
+            // The response has a different structure - it's a dictionary with results
+            if (data.content && Array.isArray(data.content)) {
+              // Process the content array which contains the results
+              this.allResults = data.content;
+              this.renderAllResults();
+            } else {
+              // Try to handle it as a regular message
+              this.handleMessage(data);
+            }
+          }
+
+        } catch (error) {
+          console.error('Error:', error);
+          this.handleError(error.message || 'An error occurred');
+          this.cleanup();
+        }
+      }
+
+      handleMessage(message) {
+        // Handle different message types
+        if (message.message_type === 'error') {
+          this.handleError(message.error || 'An error occurred');
+          this.cleanup();
+          return;
+        }
+
+        if (message.message_type === 'complete' || message.message_type === 'end-nlweb-response') {
+          this.cleanup();
+          
+          // Check if no results were received
+          if (this.allResults.length === 0 && this.aiResponses.length === 0) {
+            this.resultsContainer.innerHTML = `
+              <div class="no-results">
+                No results found for your query
+              </div>
+            `;
+          }
+          return;
+        }
+
+        // Handle result batches - accumulate and re-render sorted
+        if (message.message_type === 'result' && message.content) {
+          // Add new results to our accumulator
+          this.allResults = this.allResults.concat(message.content);
+          
+          // Re-render all results sorted by score
+          this.renderAllResults();
+        }
+
+        // Handle individual results
+        if (message.message_type === 'result' && message.item) {
+          // Add to accumulated results
+          this.allResults.push(message.item);
+          
+          // Re-render all results sorted by score
+          this.renderAllResults();
+        }
+
+        // Handle nlws messages (AI-generated content)
+        if (message.message_type === 'nlws' && message.content) {
+          this.aiResponses.push(message.content);
+          this.renderAllResults();
+        }
+      }
+
+      renderAllResults() {
+        // Clear loading message if present
+        if (this.resultsContainer.querySelector('.loading')) {
+          this.resultsContainer.innerHTML = '';
+        }
+        
+        // Clear container for re-render
+        this.resultsContainer.innerHTML = '';
+        
+        // Render sorted results
+        if (this.allResults.length > 0) {
+          const renderedResults = this.renderItems(this.allResults);
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = renderedResults;
+          this.resultsContainer.appendChild(tempDiv.firstChild);
+        }
+        
+        // Append AI responses at the end
+        this.aiResponses.forEach(content => {
+          const responseDiv = document.createElement('div');
+          responseDiv.className = 'result-item';
+          responseDiv.style.background = '#f5f5f5';
+          
+          // Use the UI helper to render the content with markdown support
+          const renderedContent = this.uiHelper.renderMessageContent(content);
+          responseDiv.innerHTML = `
+            <div class="result-title">AI Analysis</div>
+            <div class="result-snippet">${renderedContent}</div>
+          `;
+          
+          this.resultsContainer.appendChild(responseDiv);
+        });
+      }
+
+      renderItems(items) {
+        if (!items || items.length === 0) return '';
+        
+        // Sort items by score in descending order
+        const sortedItems = [...items].sort((a, b) => {
+          const scoreA = a.score || 0;
+          const scoreB = b.score || 0;
+          return scoreB - scoreA;
+        });
+        
+        // Create a container for all results
+        const resultsContainer = document.createElement('div');
+        resultsContainer.className = 'search-results';
+        
+        sortedItems.forEach(item => {
+          // Use JsonRenderer to create the item HTML
+          const itemElement = this.jsonRenderer.createJsonItemHtml(item);
+          
+          // No inline styles - let CSS handle all styling
+          
+          resultsContainer.appendChild(itemElement);
+        });
+        
+        // Return the outer HTML of the container
+        return resultsContainer.outerHTML;
+      }
+
+
+      handleError(errorMessage) {
+        this.resultsContainer.innerHTML = `
+          <div class="error-message">
+            Error: ${this.escapeHtml(errorMessage)}
+          </div>
+        `;
+      }
+
+      cleanup() {
+        this.isProcessing = false;
+        this.queryButton.disabled = false;
+        this.queryButton.textContent = 'Search';
+        
+        if (this.eventSource) {
+          this.eventSource.close();
+          this.eventSource = null;
+        }
+      }
+
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+    }
+
+    // Initialize the interface
+    new WhoQueryInterface();
+  </script>
+</body>
+</html>

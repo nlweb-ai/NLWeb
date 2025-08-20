@@ -395,7 +395,7 @@ Core features:
 Message handling:
 - Parse incoming JSON messages
 - Route by type: message, ai_response, participant_update, typing, sync, error
-- For ai_response, further route by message_type (result_batch, summary, etc)
+- For ai_response, further route by message_type (result, summary, etc)
 - Emit events for each message type
 
 Reconnection:
@@ -468,7 +468,7 @@ Typing throttle logic:
 - On keypress: if no lastTypingEventTime OR >3 seconds passed, emit typing event
 - Clear typing on message send
 
-For AI responses (result_batch, chart_result, etc), sanitize before
+For AI responses (result, chart_result, etc), sanitize before
 passing to existing renderers. AI-generated HTML must also be sanitized.
 
 Include message batching with requestAnimationFrame for performance.
@@ -742,7 +742,7 @@ WebSocket message types from server:
 - error: Error message
 
 AI response message_types (in ai_response.data.message_type):
-- result_batch: Search results to render
+- result: Search results to render
 - summary: Summary text
 - chart_result: Data Commons chart HTML
 - results_map: Location data for map

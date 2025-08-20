@@ -49,6 +49,9 @@ class ModernChatInterface {
     this.debugMode = false;
     this.debugMessages = [];
     
+    // Timestamp display toggle - set to true to show timestamps, false to hide
+    this.showTimestamps = true; // Toggle this to show/hide timestamps
+    
     // Initialize the interface
     this.init();
   }
@@ -508,22 +511,37 @@ class ModernChatInterface {
           tempDivs.forEach(div => div.remove());
         }
         
+        // Add timestamp display if enabled and timestamp exists
+        if (this.showTimestamps && data.timestamp) {
+          const date = new Date(data.timestamp);
+          const timeStr = date.toLocaleTimeString('en-US', { 
+            hour12: false, 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit'
+          });
+          messageContent += `<span style="font-size: 11px; color: #888; font-family: monospace;">[${timeStr}]</span> `;
+        }
+        
         // Handle different message types
-        if (data.message_type === 'summary' && data.message) {
-          messageContent += data.message + '\n\n';
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
-        } else if (data.message_type === 'result_batch' && data.results) {
-          // Accumulate all results instead of replacing
-          allResults = allResults.concat(data.results);
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
+        if (data.message_type === 'result' && data.content) {
+          // Check if it's a summary based on @type field
+          if (data['@type'] === 'Summary') {
+            messageContent += data.content + '\n\n';
+            textDiv.innerHTML = messageContent + this.renderItems(allResults);
+          } else {
+            // Accumulate all results instead of replacing
+            allResults = allResults.concat(data.content);
+            textDiv.innerHTML = messageContent + this.renderItems(allResults);
+          }
         } else if (data.message_type === 'intermediate_message') {
           // Handle intermediate messages with temp_intermediate class
           const tempContainer = document.createElement('div');
           tempContainer.className = 'temp_intermediate';
           
-          if (data.results) {
-            // Use the same rendering as result_batch
-            tempContainer.innerHTML = this.renderItems(data.results);
+          if (data.content) {
+            // Use the same rendering as result
+            tempContainer.innerHTML = this.renderItems(data.content);
           } else if (data.message) {
             // Handle text-only intermediate messages in italics
             const textSpan = document.createElement('span');
@@ -703,7 +721,11 @@ class ModernChatInterface {
           } else {
           }
 
-        } else if (data.message_type === 'complete') {
+        } else if (data.message_type === 'complete' || data.message_type === 'end-nlweb-response') {
+          // Scroll back to user message after NLWeb finishes
+          setTimeout(() => {
+            this.scrollToUserMessage();
+          }, 100);
           this.endStreaming();
           return; // Exit early to avoid setting content on null
         }
@@ -1035,6 +1057,11 @@ class ModernChatInterface {
     
     this.isStreaming = false;
     this.elements.sendButton.disabled = false;
+    
+    // Scroll back to user message after streaming ends
+    setTimeout(() => {
+      this.scrollToUserMessage();
+    }, 100);
     
     // Save the final message
     if (this.currentStreamingMessage) {
@@ -1600,15 +1627,59 @@ class ModernChatInterface {
     debugHtml += `<div style="color: #6e7781; font-size: 12px;">Messages: ${this.debugMessages ? this.debugMessages.length : 0}</div>`;
     debugHtml += '</div>';
     
-    // Add debug messages in MCP style
+    // Sort debug messages by timestamp
     if (this.debugMessages && this.debugMessages.length > 0) {
-      for (const msg of this.debugMessages) {
+      // Create a copy and sort by timestamp
+      const sortedMessages = [...this.debugMessages].sort((a, b) => {
+        // Parse timestamps and compare
+        // Check both the message timestamp and the data.timestamp from server
+        const getTime = (msg) => {
+          // First check if msg itself has a timestamp
+          if (msg.timestamp) {
+            // If it's already a number (milliseconds), use it directly
+            if (typeof msg.timestamp === 'number') {
+              return msg.timestamp;
+            }
+            // Otherwise parse it as a date
+            return new Date(msg.timestamp).getTime();
+          }
+          // Then check if msg.data has a timestamp
+          if (msg.data && msg.data.timestamp) {
+            // Server timestamps are in milliseconds
+            if (typeof msg.data.timestamp === 'number') {
+              return msg.data.timestamp;
+            }
+            return new Date(msg.data.timestamp).getTime();
+          }
+          return 0;
+        };
+        
+        const timeA = getTime(a);
+        const timeB = getTime(b);
+        return timeA - timeB; // Ascending order (oldest first)
+      });
+      
+      // Add debug messages in MCP style
+      for (const msg of sortedMessages) {
         // Message type header
         debugHtml += '<div style="margin-bottom: 12px;">';
         debugHtml += '<div style="background: #ddf4ff; border: 1px solid #54aeff; border-radius: 6px 6px 0 0; padding: 8px 12px; font-weight: 600; color: #0969da;">';
         debugHtml += `${this.escapeHtml(msg.type || 'unknown')}`;
-        if (msg.timestamp) {
-          debugHtml += `<span style="float: right; font-weight: normal; font-size: 11px; color: #57606a;">${new Date(msg.timestamp).toLocaleTimeString()}</span>`;
+        
+        // Display timestamp - prefer server timestamp if available
+        let displayTime = null;
+        if (msg.data && msg.data.timestamp) {
+          displayTime = typeof msg.data.timestamp === 'number' ? 
+            new Date(msg.data.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }) :
+            new Date(msg.data.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+        } else if (msg.timestamp) {
+          displayTime = typeof msg.timestamp === 'number' ?
+            new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 }) :
+            new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+        }
+        
+        if (displayTime) {
+          debugHtml += `<span style="float: right; font-weight: normal; font-size: 11px; color: #57606a;">${displayTime}</span>`;
         }
         debugHtml += '</div>';
         

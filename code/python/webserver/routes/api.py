@@ -4,7 +4,7 @@ from aiohttp import web
 import logging
 import json
 from typing import Dict, Any
-from methods.whoHandler import WhoHandler
+from core.whoHandler import WhoHandler
 from methods.generate_answer import GenerateAnswer
 from webserver.aiohttp_streaming_wrapper import AioHttpStreamingWrapper
 from core.retriever import get_vector_db_client
@@ -87,7 +87,7 @@ async def handle_streaming_ask(request: web.Request, query_params: Dict[str, Any
             await handler.runQuery()
         
         # Send completion message
-        await wrapper.write_stream({"message_type": "complete", "senderInfo": {"id": "system", "name": "NLWeb"}})
+        await wrapper.write_stream({"message_type": "complete", "sender_info": {"id": "system", "name": "NLWeb"}})
         
     except Exception as e:
         logger.error(f"Error in streaming ask handler: {e}", exc_info=True)

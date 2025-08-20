@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Dropdown Test</title>
+    <link rel="stylesheet" href="nlweb-dropdown-chat.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        #log {
+            background: #f4f4f4;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Dropdown Test</h1>
+    <div id="status"></div>
+    
+    <h2>Search Box:</h2>
+    <div id="recipe-search-container"></div>
+    
+    <h2>Debug Log:</h2>
+    <div id="log"></div>
+    
+    <script type="module">
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('log');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            logEl.textContent += `[${timestamp}] ${message}\n`;
+            console.log(message);
+        }
+        
+        function setStatus(message, type = 'info') {
+            statusEl.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        async function testDropdown() {
+            try {
+                log('Starting test...');
+                setStatus('Loading NLWebDropdownChat module...', 'info');
+                
+                // First test if we can import the module
+                const module = await import('./nlweb-dropdown-chat.js');
+                log('✓ Module imported successfully');
+                log('Module exports: ' + Object.keys(module).join(', '));
+                
+                const { NLWebDropdownChat } = module;
+                if (!NLWebDropdownChat) {
+                    throw new Error('NLWebDropdownChat not found in module exports');
+                }
+                log('✓ NLWebDropdownChat class found');
+                
+                setStatus('Creating NLWebDropdownChat instance...', 'info');
+                
+                // Create instance with minimal config
+                const chat = new NLWebDropdownChat({
+                    containerId: 'recipe-search-container',
+                    site: 'seriouseats',
+                    placeholder: 'Search for recipes...',
+                    endpoint: window.location.origin
+                });
+                
+                log('✓ Instance created');
+                
+                // Make it globally available for debugging
+                window.nlwebChat = chat;
+                log('✓ Instance available as window.nlwebChat');
+                
+                // Wait for initialization
+                setStatus('Waiting for initialization...', 'info');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Check what was initialized
+                if (chat.container) {
+                    log('✓ Container initialized');
+                }
+                if (chat.searchInput) {
+                    log('✓ Search input initialized');
+                }
+                if (chat.dropdownResults) {
+                    log('✓ Dropdown results initialized');
+                }
+                if (chat.chatInterface) {
+                    log('✓ Chat interface initialized');
+                    log('  - conversationManager: ' + (chat.chatInterface.conversationManager ? '✓' : '✗'));
+                    log('  - currentConversationId: ' + chat.chatInterface.currentConversationId);
+                    log('  - selectedSite: ' + chat.chatInterface.selectedSite);
+                } else {
+                    log('✗ Chat interface NOT initialized');
+                }
+                
+                // Check if the DOM was created
+                const container = document.getElementById('recipe-search-container');
+                if (container) {
+                    const searchInput = container.querySelector('input');
+                    if (searchInput) {
+                        log('✓ Search input found in DOM');
+                        log('  - placeholder: ' + searchInput.placeholder);
+                    } else {
+                        log('✗ Search input NOT found in DOM');
+                    }
+                }
+                
+                setStatus('✓ Test completed successfully!', 'success');
+                
+            } catch (error) {
+                log('✗ Error: ' + error.message, 'error');
+                log('Stack trace:\n' + error.stack);
+                setStatus('✗ Test failed: ' + error.message, 'error');
+            }
+        }
+        
+        // Run the test
+        testDropdown();
+    </script>
+</body>
+</html>

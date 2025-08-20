@@ -25,12 +25,8 @@ export class ChatUICommon {
   renderItems(items) {
     if (!items || items.length === 0) return '';
     
-    // Sort items by score in descending order
-    const sortedItems = [...items].sort((a, b) => {
-      const scoreA = a.score || 0;
-      const scoreB = b.score || 0;
-      return scoreB - scoreA;
-    });
+    // Don't sort - keep items in the order they were received
+    const sortedItems = [...items];
     
     // Create a container for all results
     const resultsContainer = document.createElement('div');
@@ -137,13 +133,15 @@ export class ChatUICommon {
         return schemaObj.image;
       } else if (schemaObj.image.url) {
         return schemaObj.image.url;
-      } else if (schemaObj.image['@id']) {
+      } else if (schemaObj.image['@id'] && schemaObj.image['@id'].startsWith('http')) {
+        // Only use @id if it's an actual URL, not a fragment
         return schemaObj.image['@id'];
       } else if (Array.isArray(schemaObj.image) && schemaObj.image.length > 0) {
         return this.extractImageUrl({ image: schemaObj.image[0] });
       }
     }
     
+    // Always check thumbnailUrl as it often contains the actual image URL
     if (schemaObj.thumbnailUrl) {
       return schemaObj.thumbnailUrl;
     }
@@ -277,14 +275,14 @@ export class ChatUICommon {
         if (data.decontextualized_query && data.original_query && 
             data.decontextualized_query !== data.original_query) {
           const decontextMsg = `<div style="font-style: italic; color: #666; margin-bottom: 10px;">Query interpreted as: "${data.decontextualized_query}"</div>`;
-          messageContent = decontextMsg + messageContent;
+          messageContent = messageContent + decontextMsg;
           bubble.innerHTML = messageContent + this.renderItems(allResults);
         }
         break;
         
-      case 'result_batch':
-        if (data.results && Array.isArray(data.results)) {
-          allResults = allResults.concat(data.results);
+      case 'result':
+        if (data.content && Array.isArray(data.content)) {
+          allResults = allResults.concat(data.content);
           bubble.innerHTML = messageContent + this.renderItems(allResults);
         }
         break;
@@ -342,9 +340,9 @@ export class ChatUICommon {
         const tempContainer = document.createElement('div');
         tempContainer.className = 'temp_intermediate';
         
-        if (data.results) {
-          // Use the same rendering as result_batch
-          tempContainer.innerHTML = this.renderItems(data.results);
+        if (data.content) {
+          // Use the same rendering as result
+          tempContainer.innerHTML = this.renderItems(data.content);
         } else if (data.message) {
           tempContainer.textContent = data.message;
         }
@@ -374,7 +372,7 @@ export class ChatUICommon {
         if (data.decontextualized_query && data.original_query && 
             data.decontextualized_query !== data.original_query) {
           const decontextMsg = `<div style="font-style: italic; color: #666; margin-bottom: 10px;">Query interpreted as: "${data.decontextualized_query}"</div>`;
-          messageContent = decontextMsg + messageContent;
+          messageContent = messageContent + decontextMsg;
           bubble.innerHTML = messageContent + this.renderItems(allResults);
         }
         
@@ -389,6 +387,14 @@ export class ChatUICommon {
       case 'chart_result':
         // Handle chart result (web components)
         if (data.html) {
+          // Ensure DataCommons script is loaded (only once)
+          if (!document.querySelector('script[src*="datacommons.org/datacommons.js"]')) {
+            const script = document.createElement('script');
+            script.src = 'https://datacommons.org/datacommons.js';
+            script.async = true;
+            document.head.appendChild(script);
+          }
+          
           // Create container for the chart
           const chartContainer = document.createElement('div');
           chartContainer.className = 'chart-result-container';
@@ -399,7 +405,7 @@ export class ChatUICommon {
           const doc = parser.parseFromString(data.html, 'text/html');
           
           // Find all datacommons elements
-          const datacommonsElements = doc.querySelectorAll('[datacommons-scatter], [datacommons-bar], [datacommons-line], [datacommons-pie], [datacommons-map], datacommons-scatter, datacommons-bar, datacommons-line, datacommons-pie, datacommons-map');
+          const datacommonsElements = doc.querySelectorAll('[datacommons-scatter], [datacommons-bar], [datacommons-line], [datacommons-pie], [datacommons-map], datacommons-scatter, datacommons-bar, datacommons-line, datacommons-pie, datacommons-map, datacommons-highlight, datacommons-ranking');
           
           // Append each web component directly
           datacommonsElements.forEach(element => {

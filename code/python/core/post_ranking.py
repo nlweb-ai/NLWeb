@@ -102,6 +102,7 @@ class PostRanking:
                 # Send the map message
                 map_message = {
                     'message_type': 'results_map',
+                    '@type': 'LocationMap',
                     'locations': results_with_addresses
                 }
                 
@@ -136,7 +137,7 @@ class SummarizeResults(PromptRunner):
         if (not response):
             return
         self.handler.summary = response["summary"]
-        message = {"message_type": "summary", "message": self.handler.summary}
+        message = {"message_type": "result", "@type": "Summary", "content": self.handler.summary}
         asyncio.create_task(self.handler.send_message(message))
         # Use proper state update
         await self.handler.state.precheck_step_done("post_ranking")

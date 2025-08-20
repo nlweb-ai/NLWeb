@@ -112,7 +112,7 @@ class EnsembleToolHandler:
             asyncio.create_task(self.handler.send_message({
                 "message_type": "intermediate_message", 
                 "message": f"Found {total_items} total results:\n{query_breakdown}\n\nCombing through top results for each of these queries to answer the question..."
-            })
+            }))
             
             # Generate ensemble recommendations using LLM
             ensemble_response = await self._generate_ensemble_recommendations(
@@ -217,8 +217,9 @@ class EnsembleToolHandler:
             
             asyncio.create_task(self.handler.send_message({
                 "message_type": "ensemble_result",
+                "@type": "EnsembleRecommendation",
                 "result": result
-            })
+            }))
             
             # Mark query as done to prevent further processing
             self.handler.query_done = True
@@ -227,11 +228,12 @@ class EnsembleToolHandler:
             logger.error(f"Error in ensemble request: {str(e)}")
             asyncio.create_task(self.handler.send_message({
                 "message_type": "ensemble_result",
+                "@type": "EnsembleRecommendation",
                 "result": {
                     "success": False,
                     "error": str(e)
                 }
-            })
+            }))
     
     async def _retrieve_and_rank_for_query(self, query: str, query_idx: int, queries_count: int, query_params: Dict[str, Any], original_query: str) -> List[Dict]:
         """Retrieve and rank results for a single query."""
@@ -247,7 +249,7 @@ class EnsembleToolHandler:
             asyncio.create_task(self.handler.send_message({
                 "message_type": "intermediate_message",
                 "message": f"Looking for {query}"
-            })
+            }))
             
             # Use the search abstraction from retriever.py
             results = await search(
@@ -278,6 +280,7 @@ class EnsembleToolHandler:
                             schema_object = {}
                         
                         top_items.append({
+                            "@type": "Item",
                             "name": name,
                             "url": url,
                             "site": site,
@@ -287,8 +290,8 @@ class EnsembleToolHandler:
                 if top_items:
                     asyncio.create_task(self.handler.send_message({
                         "message_type": "intermediate_message",
-                        "results": top_items
-                    })
+                        "content": top_items
+                    }))
             
             return ranked_results
             

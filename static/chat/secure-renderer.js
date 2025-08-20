@@ -144,7 +144,7 @@ class SecureRenderer {
             case 'summary':
                 return this.renderText(content);
 
-            case 'result_batch':
+            case 'result':
                 return this.renderResultBatch(data);
 
             case 'chart_result':

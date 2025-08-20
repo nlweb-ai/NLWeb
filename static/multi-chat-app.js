@@ -195,8 +195,8 @@ class MultiChatApp {
         });
         
         // Handle different AI response types
-        this.eventBus.on('websocket:ai_response:result_batch', (response) => {
-            this.handleAIResponse(response, 'result_batch');
+        this.eventBus.on('websocket:ai_response:result', (response) => {
+            this.handleAIResponse(response, 'result');
         });
         
         this.eventBus.on('websocket:ai_response:chart_result', (response) => {

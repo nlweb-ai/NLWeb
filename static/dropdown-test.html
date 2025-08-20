@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NLWeb Dropdown Chat - Test</title>
+    
+    <!-- Include the dropdown chat CSS -->
+    <link rel="stylesheet" href="nlweb-dropdown-chat.css">
+    
+    <!-- Page-specific styles -->
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        .section {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        #recipe-search-container {
+            margin-bottom: 30px;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c00;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background: #efe;
+            color: #060;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>NLWeb Dropdown Chat Test</h1>
+        <p>Testing the dropdown chat component with error logging</p>
+    </div>
+    
+    <div class="section">
+        <h2>Recipe Search</h2>
+        <div id="status"></div>
+        
+        <!-- Search box instance -->
+        <div id="recipe-search-container"></div>
+        
+        <div style="margin-top: 30px;">
+            <h3>Console Output:</h3>
+            <pre id="console-output" style="background: #f4f4f4; padding: 15px; max-height: 300px; overflow-y: auto;"></pre>
+        </div>
+    </div>
+    
+    <!-- Include the dropdown chat JavaScript -->
+    <script type="module">
+        const statusEl = document.getElementById('status');
+        const consoleOutput = document.getElementById('console-output');
+        
+        // Capture console logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function addToConsole(type, ...args) {
+            const msg = args.map(arg => {
+                if (typeof arg === 'object') {
+                    return JSON.stringify(arg, null, 2);
+                }
+                return String(arg);
+            }).join(' ');
+            
+            consoleOutput.textContent += `[${type}] ${msg}\n`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        console.log = (...args) => {
+            originalLog(...args);
+            addToConsole('LOG', ...args);
+        };
+        
+        console.error = (...args) => {
+            originalError(...args);
+            addToConsole('ERROR', ...args);
+        };
+        
+        console.warn = (...args) => {
+            originalWarn(...args);
+            addToConsole('WARN', ...args);
+        };
+        
+        // Try to initialize the dropdown
+        try {
+            statusEl.innerHTML = '<div class="success">Loading modules...</div>';
+            console.log('Starting initialization...');
+            
+            const { NLWebDropdownChat } = await import('./nlweb-dropdown-chat.js');
+            console.log('NLWebDropdownChat module loaded');
+            
+            // Initialize the search instance
+            const chat = new NLWebDropdownChat({
+                containerId: 'recipe-search-container',
+                site: 'seriouseats',
+                placeholder: 'Search for recipes...',
+                endpoint: window.location.origin
+            });
+            
+            console.log('NLWebDropdownChat instance created');
+            
+            // Make it available for debugging
+            window.nlwebChat = chat;
+            
+            // Wait a bit and check if it initialized
+            setTimeout(() => {
+                if (chat.chatInterface) {
+                    statusEl.innerHTML = '<div class="success">✓ Chat interface initialized successfully!</div>';
+                    console.log('Chat interface ready:', chat.chatInterface);
+                } else {
+                    statusEl.innerHTML = '<div class="error">Chat interface not initialized</div>';
+                    console.error('Chat interface failed to initialize');
+                }
+            }, 2000);
+            
+        } catch (error) {
+            statusEl.innerHTML = `<div class="error">Failed to initialize: ${error.message}</div>`;
+            console.error('Initialization error:', error);
+        }
+    </script>
+</body>
+</html>

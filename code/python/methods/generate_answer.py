@@ -166,7 +166,8 @@ class GenerateAnswer(NLWebHandler):
             if not self.final_ranked_answers:
                 logger.warning("No ranked answers found, sending empty response")
                 message = {
-                    "message_type": "nlws", 
+                    "message_type": "nlws",
+                    "@type": "GeneratedAnswer",
                     "answer": "I couldn't find relevant information to answer your question.", 
                     "items": []
                 }
@@ -181,7 +182,7 @@ class GenerateAnswer(NLWebHandler):
             answer = response["answer"]
             
             # Create initial message with just the answer
-            message = {"message_type": "nlws", "answer": answer, "items": json_results}
+            message = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": answer, "items": json_results}
             logger.info("Sending initial answer")
             await self.send_message(message)
             
@@ -212,6 +213,7 @@ class GenerateAnswer(NLWebHandler):
                         url, name, site, description, json_str = result
                         logger.debug(f"Adding result for {name} to final message")
                         json_results.append({
+                            "@type": "Item",
                             "url": url,
                             "name": name,
                             "description": description,
@@ -220,7 +222,7 @@ class GenerateAnswer(NLWebHandler):
                         })
                         
                     # Update message with descriptions
-                    message = {"message_type": "nlws", "answer": answer, "items": json_results}
+                    message = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": answer, "items": json_results}
                     logger.info(f"Sending final answer with {len(json_results)} item descriptions")
                     await self.send_message(message)
             else:
@@ -230,7 +232,7 @@ class GenerateAnswer(NLWebHandler):
             logger.exception(f"Error in synthesizeAnswer: {e}")
             if self.connection_alive_event.is_set():
                 try:
-                    error_msg = {"message_type": "nlws", "answer": "I encountered an error while generating your answer. Please try again.", "items": []}
+                    error_msg = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": "I encountered an error while generating your answer. Please try again.", "items": []}
                     await self.send_message(error_msg)
                 except:
                     pass

@@ -153,7 +153,7 @@ DOMPurify.sanitize() → Existing renderers → DOM update
 {
   type: "ai_response",
   data: {
-    message_type: "result_batch|summary|chart_result|etc",
+    message_type: "result|summary|chart_result|etc",
     sequence_id: 790,
     conversation_id: "conv_123",
     // Original NLWeb response data based on message_type
@@ -238,7 +238,7 @@ DOMPurify.sanitize() → Existing renderers → DOM update
 - `typing:update` - Typing status changed
 
 ### AI Response Events
-- `ai:result_batch` - Search results received
+- `ai:result` - Search results received
 - `ai:summary` - Summary text received
 - `ai:chart_result` - Chart HTML received
 - `ai:results_map` - Map locations received

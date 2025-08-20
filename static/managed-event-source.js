@@ -182,13 +182,13 @@ export class ManagedEventSource {
         }
         this.handleResultBatch(items, chatInterface);
         break;
-      case "result_batch":
+      case "result":
         chatInterface.noResponse = false;
         // Process results immediately for display
         this.handleResultBatch(data, chatInterface);
         // Also collect for debug output
-        if (chatInterface.pendingResultBatches && data.results) {
-          chatInterface.pendingResultBatches.push(...data.results);
+        if (chatInterface.pendingResultBatches && data.content) {
+          chatInterface.pendingResultBatches.push(...data.content);
         }
         break;
       case "intermediate_message":
@@ -198,9 +198,9 @@ export class ManagedEventSource {
         tempContainer.className = 'temp_intermediate';
         
         // Handle both results data and text messages
-        if (data.results) {
-          // Use the same rendering as result_batch
-          const resultsHtml = chatInterface.renderItems(data.results);
+        if (data.content) {
+          // Use the same rendering as result
+          const resultsHtml = chatInterface.renderItems(data.content);
           tempContainer.innerHTML = resultsHtml;
         } else if (typeof data.message === 'string') {
           // Handle text-only intermediate messages in italics
@@ -384,11 +384,11 @@ export class ManagedEventSource {
    */
   handleResultBatch(data, chatInterface) {
     // Validate results array
-    if (!data.results || !Array.isArray(data.results)) {
+    if (!data.content || !Array.isArray(data.content)) {
       return;
     }
     
-    for (const item of data.results) {
+    for (const item of data.content) {
       // Validate each item
       if (!item || typeof item !== 'object') continue;
       const domItem = chatInterface.createJsonItemHtml(item);

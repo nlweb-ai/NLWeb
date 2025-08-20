@@ -249,6 +249,33 @@ class NLWebHandler:
                 self.connection_alive_event.clear()
                 raise
 
+    def _add_message_metadata(self, message):
+        """Add standard metadata fields to a message if not already present."""
+        # Add timestamp
+        if "timestamp" not in message:
+            message["timestamp"] = int(time.time() * 1000)  # Milliseconds
+        
+        # Add message_id
+        if "message_id" not in message:
+            message["message_id"] = f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:9]}"
+        
+        # Add conversation_id
+        if "conversation_id" not in message:
+            message["conversation_id"] = self.query_id  # query_id contains conversation_id
+        
+        # Add query_id for consistency
+        if "query_id" not in message:
+            message["query_id"] = self.query_id
+        
+        # Add sender_info
+        if "sender_info" not in message:
+            message["sender_info"] = {
+                "id": "nlweb_assistant",
+                "name": "NLWeb Assistant"
+            }
+        
+        return message
+    
     async def send_message(self, message):
         logger.debug(f"Sending message of type: {message.get('message_type', 'unknown')}")
         async with self._send_lock:  # Protect send operation with lock
@@ -256,8 +283,11 @@ class NLWebHandler:
             if not self.connection_alive_event.is_set():
                 logger.debug("Connection lost, not sending message")
                 return
+            
+            # Add metadata to all messages (both streaming and non-streaming)
+            message = self._add_message_metadata(message)
+            
             if (self.streaming and self.http_handler is not None):
-                message["query_id"] = self.query_id
                 
                 # Check if this is the first result and add time-to-first-result header
                 if message.get("message_type") == "result" and not self.first_result_sent:
@@ -274,23 +304,6 @@ class NLWebHandler:
                     
                     # Send headers from config as messages
                     await self._send_config_headers()
-                   
-                  
-                # Add timestamp and other required fields to message
-                message["timestamp"] = int(time.time() * 1000)  # Milliseconds
-                
-                # Add missing fields for proper message format
-                if "message_id" not in message:
-                    message["message_id"] = f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:9]}"
-                
-                if "conversation_id" not in message:
-                    message["conversation_id"] = self.query_id  # query_id contains conversation_id
-                
-                if "senderInfo" not in message:
-                    message["senderInfo"] = {
-                        "id": "nlweb_assistant",
-                        "name": "NLWeb Assistant"
-                    }
                 
                 try:
                     await self.http_handler.write_stream(message)

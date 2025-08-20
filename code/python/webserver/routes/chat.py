@@ -1192,7 +1192,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                                 print(f"  Content: {msg.content[:200] if msg.content else 'None'}...")
                             else:
                                 print(f"  Content: {str(msg.content)[:200]}...")
-                            print(f"  SenderInfo: {msg.senderInfo}")
+                            print(f"  SenderInfo: {msg.sender_info}")
                             print(f"  Timestamp: {msg.timestamp}")
                             
                             # Construct the message properly based on type
@@ -1274,8 +1274,8 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                             
                         # Auto-join conversation if not already joined
                         if conversation_id not in active_conversations:
-                            # Get the real user ID from senderInfo in the message
-                            sender_info = data.get('senderInfo', {})
+                            # Get the real user ID from sender_info in the message
+                            sender_info = data.get('sender_info', {})
                             actual_user_id = sender_info.get('id', user_id)
                             actual_user_name = sender_info.get('name', user_name)
                             print(f"Auto-joining user {actual_user_id} to conversation {conversation_id}")

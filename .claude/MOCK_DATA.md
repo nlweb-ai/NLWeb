@@ -228,10 +228,10 @@ XSS_TEST_MESSAGES = [
 ### AI Response Messages
 ```python
 AI_RESPONSES = {
-    "result_batch": {
+    "result": {
         "id": "ai_result_001",
         "type": "ai_response",
-        "message_type": "result_batch",
+        "message_type": "result",
         "content": "Found 5 results",
         "data": {
             "results": [

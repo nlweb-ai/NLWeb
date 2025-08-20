@@ -908,8 +908,8 @@
                             const data = JSON.parse(event.data);
                             if (data && data.message_type == "answer") {
                                 chatInterface.addProductCard(data, this);
-                            } else if (data && data.message_type == "result_batch") {
-                                for (const item of data.results) {
+                            } else if (data && data.message_type == "result") {
+                                for (const item of data.content) {
                                     chatInterface.addProductCard(item, this);
                                 }
                             } else if (data && data.message_type == "complete") {

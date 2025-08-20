@@ -1,0 +1,32 @@
+# Optimized requirements for Azure Web App
+# Core dependencies only - add others as needed
+
+# Web framework
+aiohttp==3.9.1
+aiohttp-cors==0.7.0
+
+# Essential dependencies
+pyyaml==6.0.1
+python-dotenv==1.0.0
+
+# Azure services (only if using Azure storage/search)
+azure-storage-blob==12.19.0
+azure-search-documents==11.4.0
+azure-identity==1.15.0
+
+# AI/ML providers (comment out unused ones)
+openai==1.6.1
+# anthropic==0.8.1
+
+# Database/Cache (only if needed)
+# redis==5.0.1
+# pymongo==4.6.1
+
+# Remove heavy packages unless absolutely needed
+# numpy==1.24.3  # Only if using vector operations
+# pandas==2.0.3  # Only if doing data processing
+
+# Smaller alternatives
+requests==2.31.0  # Instead of httpx
+# Use JSON instead of pandas for data processing
+# Use lists instead of numpy arrays where possible

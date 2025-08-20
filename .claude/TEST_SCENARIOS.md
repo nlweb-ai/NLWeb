@@ -45,7 +45,7 @@ This document outlines manual test scenarios for the multi-participant chat syst
 
 **Expected Behavior:**
 - AI response appears with "AI Assistant" attribution
-- Response formatted based on message_type (text, result_batch, etc.)
+- Response formatted based on message_type (text, result, etc.)
 - Content properly rendered (lists, links, etc.)
 - All HTML content sanitized
 - Timestamp shown

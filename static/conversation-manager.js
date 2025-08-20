@@ -201,8 +201,11 @@ class ConversationManager {
     // Clear messages container first
     chatInterface.elements.messagesContainer.innerHTML = '';
     
-    // Replay all messages through the same handler used for live messages
-    conversation.messages.forEach((msg) => {
+    // Sort messages by timestamp
+    const sortedMessages = [...conversation.messages].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    
+    // Replay all messages in timestamp order
+    sortedMessages.forEach((msg) => {
       if (!msg.content) {
         return;
       }

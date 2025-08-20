@@ -59,7 +59,7 @@ NLWeb is a natural language search system that provides intelligent query proces
 - `decontextualized_query` - Reformulated query for context
 - `remember` - Items to remember
 - `asking_sites` - Sites being queried
-- `result_batch` - Batch of search results
+- `result` - Batch of search results
 - `summary` - Summarized response
 - `nlws` - Natural language web search response (for generate mode)
 - `ensemble_result` - Multi-source recommendations
@@ -212,7 +212,7 @@ Based on `generate_mode`:
 
 #### List Mode:
 ```
-Format Results → Stream result_batch messages → Complete
+Format Results → Stream result messages → Complete
 ```
 
 #### Summarize Mode:
