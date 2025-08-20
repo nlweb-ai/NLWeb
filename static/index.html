@@ -196,8 +196,28 @@
 
   <script type="module">
     import { UnifiedChatInterface } from '/static/chat-interface-unified.js';
-    // Use WebSocket for multi-participant chat
-    new UnifiedChatInterface({ connectionType: 'websocket' });
+    
+    // Parse ALL URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Extract connection mode
+    const mode = urlParams.get('mode') || urlParams.get('connection');
+    const connectionType = (mode === 'http' || mode === 'sse') ? 'sse' : 'websocket';
+    
+    // Collect all additional parameters to pass to backend
+    const additionalParams = {};
+    for (const [key, value] of urlParams.entries()) {
+      // Skip special frontend-only parameters
+      if (!['mode', 'connection', 'join', 'conversation'].includes(key)) {
+        additionalParams[key] = value;
+      }
+    }
+    
+    // Initialize chat interface with connection type and additional parameters
+    new UnifiedChatInterface({ 
+      connectionType: connectionType,
+      additionalParams: additionalParams
+    });
   </script>
   <script src="/static/oauth-login.js"></script>
 </body>

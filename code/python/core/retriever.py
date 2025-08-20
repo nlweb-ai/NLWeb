@@ -431,6 +431,12 @@ class VectorDBClient:
         # Handle 'all' case - endpoint should be queried for all sites
         if site == "all":
             return True
+        
+        # If this is the only enabled endpoint (explicitly requested via retrieval_backend param),
+        # bypass site checking - the user explicitly wants this backend
+        if len(self.enabled_endpoints) == 1 and endpoint_name in self.enabled_endpoints:
+            logger.info(f"Bypassing site check for explicitly requested endpoint: {endpoint_name}")
+            return True
             
         endpoint_sites = await self._get_endpoint_sites(endpoint_name)
         

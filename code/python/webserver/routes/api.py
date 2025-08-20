@@ -126,17 +126,55 @@ async def handle_regular_ask(request: web.Request, query_params: Dict[str, Any])
 
 
 async def who_handler(request: web.Request) -> web.Response:
-    """Handle /who endpoint"""
+    """Handle /who endpoint with optional streaming support"""
     
     try:
         # Get query parameters
         query_params = dict(request.query)
         
-        # Run the who handler
-        handler = WhoHandler(query_params, None)
-        result = await handler.runQuery()
+        # Check if SSE streaming is requested
+        is_sse = request.get('is_sse', False)
+        streaming = get_param(query_params, "streaming", str, "False")
+        streaming = streaming not in ["False", "false", "0"]
         
-        return web.json_response(result)
+        if is_sse or streaming:
+            # Handle streaming response
+            response = web.StreamResponse(
+                status=200,
+                headers={
+                    'Content-Type': 'text/event-stream',
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive',
+                    'X-Accel-Buffering': 'no'
+                }
+            )
+            
+            await response.prepare(request)
+            
+            # Create aiohttp-compatible wrapper
+            wrapper = AioHttpStreamingWrapper(request, response, query_params)
+            await wrapper.prepare_response()
+            
+            try:
+                # Run the who handler with streaming
+                handler = WhoHandler(query_params, wrapper)
+                await handler.runQuery()
+                
+                # Send completion message
+                await wrapper.write_stream({"message_type": "complete", "sender_info": {"id": "system", "name": "NLWeb"}})
+                
+            except Exception as e:
+                logger.error(f"Error in streaming who handler: {e}", exc_info=True)
+                await wrapper.send_error_response(500, str(e))
+            finally:
+                await wrapper.finish_response()
+            
+            return response
+        else:
+            # Handle non-streaming response
+            handler = WhoHandler(query_params, None)
+            result = await handler.runQuery()
+            return web.json_response(result)
         
     except Exception as e:
         logger.error(f"Error in who handler: {e}", exc_info=True)

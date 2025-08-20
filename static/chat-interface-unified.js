@@ -10,6 +10,7 @@ export class UnifiedChatInterface {
   constructor(options = {}) {
     this.connectionType = options.connectionType || 'sse';
     this.options = options;
+    this.additionalParams = options.additionalParams || {};  // Store additional URL params
     
     // Core state
     this.state = {
@@ -441,7 +442,7 @@ export class UnifiedChatInterface {
     }
     
     // Create complete message object
-    return {
+    const message = {
       message_id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       conversation_id: this.state.conversationId,
       type: 'message',
@@ -456,6 +457,11 @@ export class UnifiedChatInterface {
       mode: this.state.selectedMode,
       prev_queries: prevQueries  // Include previous queries for NLWeb context
     };
+    
+    // Add any additional URL parameters
+    Object.assign(message, this.additionalParams);
+    
+    return message;
   }
   
   sendMessage() {
@@ -508,11 +514,13 @@ export class UnifiedChatInterface {
         this.state.messageQueue.push(message);
       }
     } else {
-      // For SSE, extract just what we need from the message
-      this.connectSSE(message.content, {
-        conversation_id: message.conversation_id,
-        site: message.site,
-        mode: message.mode
+      // For SSE, pass all message properties except some internal ones
+      const { content, message_id, timestamp, message_type, type, sender_info, prev_queries, ...sseParams } = message;
+      
+      this.connectSSE(content, {
+        ...sseParams,  // Include all additional parameters
+        user_id: this.state.userId,
+        streaming: 'true'
       });
     }
   }
