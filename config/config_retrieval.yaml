@@ -127,3 +127,10 @@ endpoints:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
     db_type: snowflake_cortex_search
+
+  cloudflare_autorag:
+    enabled: true
+    api_key_env: CLOUDFLARE_API_TOKEN
+    api_endpoint_env: CLOUDFLARE_AUTORAG_ENDPOINT
+    index_name: CLOUDFLARE_RAG_ID_ENV
+    db_type: cloudflare_autorag

@@ -62,12 +62,15 @@ These fields are common across most endpoint types:
   - `milvus`
   - `snowflake_cortex_search`
   - `opensearch`
+  - `cloudflare_autorag`
 - **Example**: `db_type: azure_ai_search`
 
 #### `index_name`
-- **Purpose**: The name of the index/collection to use in the database
+- **Purpose**: The name of the index/collection to use in the database.
 - **Type**: String
 - **Example**: `index_name: embeddings1536`
+
+> Note: For `cloudflare_autorag`, this is the id of the AutoRAG instance.
 
 ## Multiple Endpoints
 
