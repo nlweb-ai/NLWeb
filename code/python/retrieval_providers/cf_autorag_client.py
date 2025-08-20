@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 import threading
 
 import os
+import json
 
 import httpx
 
@@ -98,15 +99,6 @@ class CloudflareAutoRAGClient:
 
         return self._cf_sdk_clients[client_key]
 
-    async def __get(self, path: str, body: dict) -> httpx.Response:
-        client = self._get_cf_sdk_client()
-
-        return await client.get(
-            path,
-            cast_to=httpx.Response,
-            body=body,
-        )
-
     async def __post(self, path: str, body: dict) -> httpx.Response:
         client = self._get_cf_sdk_client()
 
@@ -117,15 +109,6 @@ class CloudflareAutoRAGClient:
         )
 
         return resp
-
-    async def __put(self, path: str, body: dict) -> httpx.Response:
-        client = self._get_cf_sdk_client()
-
-        return await client.put(
-            path,
-            cast_to=httpx.Response,
-            body=body,
-        )
 
     async def deleted_documents_by_site(self, site: str, **kwargs) -> int:
         raise NotImplementedError("Not implemented yet")
@@ -170,10 +153,13 @@ class CloudflareAutoRAGClient:
         data = results['data']
 
         def _parse_data_item(item: dict):
-            url = item.get('filename')
-            text_json = ''
+            url: str = item.get('filename')
+
+            contents = item.get('content', [])
+            text_json = json.dumps(contents)
+
             name = item.get('attributes', {}).get('filename', '')
-            site = ''
+            site = url.removeprefix('https://').split('/')[0] # FIXME: this filtering scheme just returns the actual domain, not "section specific" data (like different sections related to different offerings in a documentation website)
 
             return [url, text_json, name, site]
 
