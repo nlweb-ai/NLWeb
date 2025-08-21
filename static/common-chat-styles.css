@@ -546,13 +546,18 @@ body {
 .item-site-link {
   display: inline-block;
   margin-top: 4px;
-  color: #5a6c7d;
+  margin-bottom: 8px;
+  color: #6b7280;
   text-decoration: none;
   font-size: 13px;
+  padding: 2px 8px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
 }
 
 .item-site-link:hover {
   text-decoration: underline;
+  background-color: #e5e7eb;
 }
 
 .item-description {
@@ -580,8 +585,8 @@ body {
 }
 
 .item-image {
-  max-width: 120px;
-  height: auto;
+  width: 120px;
+  height: 120px;
   object-fit: cover;
   border-radius: 6px;
   flex-shrink: 0;

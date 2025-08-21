@@ -19,12 +19,13 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 
 from core.config import CONFIG
 from core.embedding import get_embedding
+from core.retriever import RetrievalClientBase
 from misc.logger.logging_config_helper import get_configured_logger
 from misc.logger.logger import LogLevel
 
 logger = get_configured_logger("qdrant_client")
 
-class QdrantVectorClient:
+class QdrantVectorClient(RetrievalClientBase):
     """
     Client for Qdrant vector database operations, providing a unified interface for 
     indexing, storing, and retrieving vector-based search results.
@@ -37,6 +38,7 @@ class QdrantVectorClient:
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
+        super().__init__()  # Initialize the base class with caching
         self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         self._client_lock = threading.Lock()
         self._qdrant_clients = {}  # Cache for Qdrant clients

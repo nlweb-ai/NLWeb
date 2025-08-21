@@ -13,14 +13,14 @@ from typing import List, Dict, Union, Optional, Any
 import httpx
 
 from core.config import CONFIG
-from core.embedding import get_embedding
+from core.retriever import RetrievalClientBasefrom core.embedding import get_embedding
 from misc.logger.logging_config_helper import get_configured_logger
 from misc.logger.logger import LogLevel
 
 logger = get_configured_logger("opensearch_client")
 
 
-class OpenSearchClient:
+class OpenSearchClient(RetrievalClientBase):
     """
     Client for OpenSearch operations, providing a unified interface for 
     vector-based search results using OpenSearch REST API.
@@ -626,6 +626,7 @@ class OpenSearchClient:
                         },
                         "script": {
                             "source": """
+        super().__init__()  # Initialize the base class with caching
                                 double dotProduct = 0.0;
                                 double normA = 0.0;
                                 double normB = 0.0;

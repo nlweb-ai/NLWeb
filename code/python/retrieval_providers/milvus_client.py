@@ -17,12 +17,13 @@ import numpy as np
 
 from core.config import CONFIG
 from core.embedding import get_embedding
+from core.retriever import RetrievalClientBase
 from misc.logger.logging_config_helper import get_configured_logger
 from misc.logger.logger import LogLevel
 
 logger = get_configured_logger("milvus_client")
 
-class MilvusVectorClient:
+class MilvusVectorClient(RetrievalClientBase):
     """
     Client for Milvus vector database operations, providing a unified interface for 
     indexing, storing, and retrieving vector-based search results.
@@ -35,6 +36,7 @@ class MilvusVectorClient:
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
+        super().__init__()  # Initialize the base class with caching
         self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         logger.info(f"Initialized MilvusVectorClient for endpoint: {self.endpoint_name}")
 

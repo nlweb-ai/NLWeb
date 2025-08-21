@@ -90,6 +90,12 @@ export class JsonRenderer {
 
     // Title row with link and info icon
     this.createTitleRow(item, contentDiv);
+    
+    // Add site link if site information is available (for multi-site queries)
+    // Show site link whenever we have site information, which indicates this came from a multi-site query
+    if (item.site || item.source_site_name) {
+      this.addVisibleUrl(item, contentDiv);
+    }
 
     // Description
     const description = document.createElement('div');
@@ -191,11 +197,14 @@ export class JsonRenderer {
    * @param {HTMLElement} contentDiv - The content div
    */
   addVisibleUrl(item, contentDiv) {
+    const siteName = item.site || item.source_site_name || '';
+    if (!siteName) return;
+    
     const visibleUrlLink = document.createElement("a");
-    // FIX: Use sanitizeUrl for URL attributes
-    visibleUrlLink.href = item.siteUrl ? this.sanitizeUrl(item.siteUrl) : '#';
+    // Link to the site-specific search page
+    visibleUrlLink.href = `/?site=${encodeURIComponent(siteName)}`;
     // Use textContent for safe insertion
-    visibleUrlLink.textContent = item.site || '';
+    visibleUrlLink.textContent = siteName;
     visibleUrlLink.className = 'item-site-link';
     contentDiv.appendChild(visibleUrlLink);
   }

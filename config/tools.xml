@@ -3,7 +3,8 @@
 
 <!-- This file contains all the tools that can be used to process queries for different schema.org types. -->
 
-  <Item>
+  <Site id="default">
+    <Item>
     <Tool name="search" enabled="true">
       <method>builtin</method>
       <example>Find Italian restaurants near me</example>
@@ -237,192 +238,6 @@
     </Tool>
   </Recipe>
 
-  <Movie>
-  
-    <Tool name="details" enabled="true">
-      <method>code</method>
-      <handler>methods.item_details.ItemDetailsHandler</handler>
-      <example>Who directed The Dark Knight?</example>
-      <example>What's the plot of Inception?</example>
-      <example>How long is Avengers Endgame?</example>
-      <example>What's the rating for Parasite?</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        The movie details tool gets detailed information about a specific movie including cast, director, plot, runtime, release date, and ratings. It's best for:
-        - Getting cast information for a SPECIFIC named movie
-        - Getting plot, director, or other details for a particular movie
-        - Getting ratings or runtime for a specific film
-        - Queries that mention a specific movie title and ask for details about it
-        
-        The details tool should score HIGH (80-100) if the user names a specific movie and wants details.
-        The details tool should score LOW (0-30) if the user wants to find/search for movies.
-        
-        Assign a score from 0 to 100 for whether the movie details tool is appropriate.
-        If the user is asking for details about a specific movie, provide the movie title and what details are being requested.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "item_name": "the title or identifier of the specific movie for which details are being sought",
-          "details_requested": "the details that the user is asking for"
-        }
-      </returnStruc>
-    </Tool>
-
-  </Movie>
-
-  <Product>
-   
-
-    <Tool name="details" enabled="true">
-      <method>code</method>
-      <handler>methods.item_details.ItemDetailsHandler</handler>
-      <example>What colors does the iPhone 15 Pro come in?</example>
-      <example>What's the price of the Samsung 65-inch QLED TV?</example>
-      <example>Show me customer reviews for the Keurig K-Elite</example>
-      <example>Is the Levi's 501 Jeans available in size 32?</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        The product details tool gets detailed information about a specific product including price, specifications, available colors/sizes, customer reviews, and shipping information. It's best for:
-        - Getting price or specs for a SPECIFIC named product
-        - Getting availability, colors, or sizes for a particular product
-        - Getting customer reviews for a specific item
-        - Queries that mention a specific product name and ask for details about it
-        
-        The details tool should score HIGH (80-100) if the user names a specific product and wants details.
-        The details tool should score LOW (0-30) if the user wants to find/search for products.
-        
-        Assign a score from 0 to 100 for whether the product details tool is appropriate.
-        If the user is asking for details about a specific product, provide the product name and what details are being requested.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "item_name": "the name or identifier of the specific product for which details are being sought",
-          "details_requested": "the details that the user is asking for"
-        }
-      </returnStruc>
-    </Tool>
-
-    <Tool name="compare" enabled="true">
-      <method>code</method>
-      <handler>methods.compare_items.CompareItemsHandler</handler>
-      <example>Compare iPhone 15 vs Samsung Galaxy S24 prices and features</example>
-      <example>Which is better: Sony WH-1000XM5 or Bose QuietComfort headphones?</example>
-      <example>Compare these three laptops for gaming performance</example>
-      <example>What's the price difference between these two coffee machines?</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        The product compare tool compares two or more products side by side for price, features, specifications, customer ratings, or other attributes. It's best for:
-        - Direct comparisons between two specific named products
-        - Questions asking "which is better" or "what's the price difference"
-        - Evaluating products against each other on specific criteria
-        
-        Assign a score from 0 to 100 for whether the product compare tool is appropriate.
-        If appropriate, identify the products being compared.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "item1": "the name or identifier of the first product to compare",
-          "item2": "the name or identifier of the second product to compare"
-        }
-      </returnStruc>
-    </Tool>
-  </Product>
-
-  <Restaurant>
-    <Tool name="search" enabled="true">
-      <method>builtin</method>
-      <example>Find Italian restaurants near downtown with outdoor seating</example>
-      <example>Show me highly rated sushi places within 5 miles</example>
-      <example>I need cheap eats near the airport</example>
-      <example>Find upscale restaurants for a date night in the city center</example>
-      <prompt>
-        The user has the following query: {request.query}.
-
-        The restaurant search tool finds restaurants in a specific area that match criteria such as cuisine type, price range, ratings, or special features. It's designed for:
-        - Finding restaurants by cuisine, location, price, or features
-        - Discovering restaurants that meet specific requirements
-        - Broad restaurant exploration when users want to see what's available
-        
-        The search tool is NOT the best choice if the user is asking for specific details 
-        about a PARTICULAR named restaurant (like menu, hours, ratings, location, etc.).
-        
-        Assign a score from 0 to 100 for whether the restaurant search tool is appropriate.
-        Also provide the search query that should be passed to the tool.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "search_query": "the search query that should be passed to the tool"
-        }
-      </returnStruc>
-    </Tool>
-
-    <Tool name="details" enabled="true">
-      <method>code</method>
-      <handler>methods.item_details.ItemDetailsHandler</handler>
-      <example>What are the hours for Olive Garden?</example>
-      <example>Show me the menu for Joe's Pizza</example>
-      <example>What's the rating for The French Laundry?</example>
-      <example>Does Chipotle have outdoor seating?</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        The restaurant details tool gets detailed information about a specific restaurant including menu, hours, location, ratings, and special features. It's best for:
-        - Getting hours, menu, or location for a SPECIFIC named restaurant
-        - Getting ratings or reviews for a particular restaurant
-        - Getting specific features like outdoor seating for a named restaurant
-        - Queries that mention a specific restaurant name and ask for details about it
-        
-        The details tool should score HIGH (80-100) if the user names a specific restaurant and wants details.
-        The details tool should score LOW (0-30) if the user wants to find/search for restaurants.
-        
-        Assign a score from 0 to 100 for whether the restaurant details tool is appropriate.
-        If the user is asking for details about a specific restaurant, provide the restaurant name and what details are being requested.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "item_name": "the name or identifier of the specific restaurant for which details are being sought",
-          "details_requested": "the details that the user is asking for"
-        }
-      </returnStruc>
-    </Tool>
-
-    <Tool name="compare" enabled="true">
-      <method>code</method>
-      <example>Compare Olive Garden vs Carrabba's Italian Grill</example>
-      <example>Which is more expensive: Ruth's Chris or Morton's?</example>
-      <example>Compare the ratings of In-N-Out vs Five Guys</example>
-      <example>Which has better vegetarian options: Chipotle or Qdoba?</example>
-      <prompt>
-        The user has the following query: {request.query}.
-        
-        The restaurant compare tool compares two restaurants side by side for ratings, price, cuisine, or other attributes. It's best for:
-        - Direct comparisons between two specific named restaurants
-        - Questions asking "which is better" or "which is more expensive"
-        - Evaluating restaurants against each other on specific criteria
-        
-        Assign a score from 0 to 100 for whether the restaurant compare tool is appropriate.
-        If appropriate, identify the two restaurants being compared.
-      </prompt>
-      <returnStruc>
-        {
-          "score": "integer between 0 and 100",
-          "item1": "the name or identifier of the first restaurant to compare",
-          "item2": "the name or identifier of the second restaurant to compare"
-        }
-      </returnStruc>
-    </Tool>
-
-
-</Restaurant>
-
   <Item>
     <Tool name="ensemble">
       <method>code</method>
@@ -525,5 +340,68 @@
     </Tool>
     
   </Statistics>
+  </Site>
+
+  <!-- Site configuration for querying all sites -->
+  <Site id="all">
+    <Item>
+      <Tool name="who_and_search" enabled="true">
+        <method>extension</method>
+        <handler>methods.multi_site_query.MultiSiteQueryHandler</handler>
+        <example>Find the best deals on laptops across all shopping sites</example>
+        <example>Search for Italian restaurants across all review platforms</example>
+        <example>Find news about climate change from all news sources</example>
+        <example>Compare hotel prices in Paris across all booking sites</example>
+        <prompt>
+          The user has the following query: {request.query}.
+          
+          When the site is 'all', we search across multiple websites to find the best aggregated results.
+          This is ideal for queries that benefit from comparing information from multiple sources.
+          
+          Since this is the 'all' site context, the search tool should almost always be selected
+          unless the query is asking for something very specific that doesn't make sense for multi-site search.
+          
+          Assign a score from 0 to 100 for whether searching across all sites is appropriate.
+        </prompt>
+        <returnStruc>
+          {
+            "score": "integer between 0 and 100",
+            "justification": "brief explanation"
+          }
+        </returnStruc>
+      </Tool>
+
+      <!-- Other tools can be disabled or configured differently for 'all' site -->
+      <Tool name="details" enabled="false">
+        <method>extension</method>
+        <handler>methods.item_details.ItemDetailsHandler</handler>
+        <prompt>
+          Details queries don't make sense when searching across all sites.
+          This tool should always score 0 for the 'all' site.
+        </prompt>
+        <returnStruc>
+          {
+            "score": "0",
+            "reason": "Details queries require a specific site context"
+          }
+        </returnStruc>
+      </Tool>
+
+      <Tool name="compare" enabled="false">
+        <method>extension</method>
+        <handler>methods.compare_items.CompareItemsHandler</handler>
+        <prompt>
+          Compare queries for specific items don't make sense when searching across all sites.
+          This tool should always score 0 for the 'all' site.
+        </prompt>
+        <returnStruc>
+          {
+            "score": "0",
+            "reason": "Compare queries require a specific site context"
+          }
+        </returnStruc>
+      </Tool>
+    </Item>
+  </Site>
 
 </Tools>

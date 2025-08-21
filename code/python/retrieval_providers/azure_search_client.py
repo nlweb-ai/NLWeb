@@ -30,12 +30,13 @@ from azure.search.documents.indexes.models import (
 
 from core.config import CONFIG
 from core.embedding import get_embedding
+from core.retriever import RetrievalClientBase
 from misc.logger.logging_config_helper import get_configured_logger
 from misc.logger.logger import LogLevel
 
 logger = get_configured_logger("azure_search_client")
 
-class AzureSearchClient:
+class AzureSearchClient(RetrievalClientBase):
     """
     Client for Azure AI Search operations, providing a unified interface for 
     indexing, storing, and retrieving vector-based search results.
@@ -48,6 +49,7 @@ class AzureSearchClient:
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
+        super().__init__()  # Initialize the base class with caching
         self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         self._client_lock = threading.Lock()
         self._search_clients = {}  # Cache for search clients

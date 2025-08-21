@@ -5,7 +5,8 @@
 
 <!-- This file has all the prompts that are used in the process of running a query. -->
 
-  <Item>
+  <Site id="default">
+    <Item>
 
     <Prompt ref="DetectIrrelevantQueryPrompt">
       <promptString>
@@ -735,5 +736,61 @@
       </returnStruc>
     </Prompt>
   </Statistics>
+  </Site>
+
+  <!-- Site configuration for 'all' - searching across multiple sites -->
+  <Site id="all">
+    <Item>
+      <Prompt ref="DetectIrrelevantQueryPrompt">
+        <promptString>
+          The user is searching across ALL sites for: '{request.query}'
+          
+          Since we're searching across all sites, very few queries would be truly irrelevant.
+          Only mark as irrelevant if the query is completely nonsensical or impossible to search for.
+        </promptString>
+        <returnStruc>
+          {
+            "site_is_irrelevant_to_query": "True or False",
+            "explanation_for_irrelevance": "Explanation for why the query cannot be searched across sites"
+          }
+        </returnStruc>
+      </Prompt>
+
+      <Prompt ref="RankingPrompt">
+        <promptString>
+          Assign a score between 0 and 100 to the following item from {item.source_site}
+          based on how relevant it is to the user's question across all sites.
+          
+          Consider that this result is being compared against results from multiple different sites,
+          so factor in the credibility and relevance of the source site as well.
+          
+          The user's question is: "{request.query}". 
+          The item's description is: "{item.description}".
+          Source site: {item.source_site}
+        </promptString>
+        <returnStruc>
+          {
+            "score": "integer between 0 and 100",
+            "description": "short description of the item highlighting cross-site relevance"
+          }
+        </returnStruc>
+      </Prompt>
+
+      <Prompt ref="SummarizeResultsPrompt">
+        <promptString>
+          Given the following items from multiple sites, summarize the aggregated results to answer the user's question.
+          Highlight consensus across sites where it exists, and note significant differences.
+          
+          The user's question is: {request.query}.
+          The items from various sites are: {request.answers}.
+        </promptString>
+        <returnStruc>
+          {
+            "summary": "comprehensive summary highlighting insights from multiple sources"
+          }
+        </returnStruc>
+      </Prompt>
+    </Item>
+  </Site>
 
 </root>

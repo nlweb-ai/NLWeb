@@ -230,6 +230,115 @@ class VectorDBClientInterface(ABC):
         return None
 
 
+class RetrievalClientBase(VectorDBClientInterface):
+    """
+    Base implementation for retrieval clients with default caching behavior.
+    All retrieval provider implementations should inherit from this class.
+    """
+    
+    def __init__(self):
+        """Initialize the base client with caching structures."""
+        # Cache for available sites
+        self._sites_cache: Optional[List[str]] = None
+        self._sites_cache_time: float = 0
+        self._cache_expiry_seconds = 300  # 5 minutes cache expiry
+        self._cache_lock = asyncio.Lock()
+    
+    async def can_handle_query(self, site: Union[str, List[str]], **kwargs) -> bool:
+        """
+        Check if this provider can handle a query for the given site(s).
+        Implements caching with stale-while-revalidate pattern.
+        
+        Args:
+            site: Site identifier or list of sites
+            **kwargs: Additional parameters
+            
+        Returns:
+            True if the provider can handle queries for at least one of the requested sites
+        """
+        # Handle 'all' case - always return True
+        if site == "all":
+            return True
+        
+        # Get cached or fresh sites list
+        available_sites = await self._get_cached_sites()
+        
+        # If get_sites is not supported or errored, assume provider might have the site
+        if available_sites is None:
+            return True
+        
+        # If no sites available, provider can't handle any query
+        if not available_sites:
+            return False
+        
+        # Convert site to list for uniform handling
+        sites_to_check = [site] if isinstance(site, str) else site
+        
+        # Check if any requested site is available
+        return any(s in available_sites for s in sites_to_check)
+    
+    async def _get_cached_sites(self) -> Optional[List[str]]:
+        """
+        Get sites list with caching and background refresh.
+        Uses stale-while-revalidate pattern for better performance.
+        
+        Returns:
+            List of available sites or None if get_sites is not supported
+        """
+        current_time = time.time()
+        cache_age = current_time - self._sites_cache_time
+        
+        # If we have cache and it's fresh, return it immediately
+        if self._sites_cache is not None and cache_age < self._cache_expiry_seconds:
+            return self._sites_cache
+        
+        # If we have stale cache (but not too old), return it and refresh in background
+        if self._sites_cache is not None and cache_age < self._cache_expiry_seconds * 10:
+            logger.debug(f"Returning stale sites cache (age: {cache_age:.1f}s), refreshing in background")
+            # Start background refresh (fire and forget)
+            asyncio.create_task(self._refresh_sites_cache())
+            return self._sites_cache
+        
+        # No cache or very old cache - fetch synchronously
+        async with self._cache_lock:
+            # Check again in case another coroutine just updated it
+            if self._sites_cache is not None:
+                cache_age = time.time() - self._sites_cache_time
+                if cache_age < self._cache_expiry_seconds:
+                    return self._sites_cache
+            
+            try:
+                sites = await self.get_sites()
+                self._sites_cache = sites
+                self._sites_cache_time = current_time
+                if sites:
+                    logger.info(f"Provider has {len(sites)} sites: {sites[:5]}{'...' if len(sites) > 5 else ''}")
+                return sites
+            except AttributeError:
+                # get_sites method doesn't exist - not supported by this backend
+                logger.debug("Provider does not support get_sites()")
+                self._sites_cache = None
+                self._sites_cache_time = current_time
+                return None
+            except Exception as e:
+                logger.warning(f"Failed to get sites from provider: {e}")
+                # Keep using old cache if available
+                return self._sites_cache
+    
+    async def _refresh_sites_cache(self) -> None:
+        """Refresh the sites cache in the background."""
+        try:
+            sites = await self.get_sites()
+            async with self._cache_lock:
+                self._sites_cache = sites
+                self._sites_cache_time = time.time()
+            if sites:
+                logger.debug(f"Background refresh: Provider has {len(sites)} sites")
+        except Exception as e:
+            logger.warning(f"Background refresh of sites cache failed: {e}")
+            # Don't update cache - keep using stale value
+
+
 class VectorDBClient:
     """
     Unified client for vector database operations. This class routes operations to the appropriate
@@ -330,135 +439,10 @@ class VectorDBClient:
         
         self._retrieval_lock = asyncio.Lock()
         
-        # Cache for endpoint sites - will be populated lazily
-        self._endpoint_sites_cache: Dict[str, Optional[List[str]]] = {}
-        # Cache timestamps for each endpoint
-        self._endpoint_sites_cache_time: Dict[str, float] = {}
-        # Cache expiry time in seconds (5 minutes - we use stale-while-revalidate so this can be longer)
-        self._cache_expiry_seconds = 300
         
     
-    async def _get_endpoint_sites(self, endpoint_name: str) -> Optional[List[str]]:
-        """
-        Get the list of sites available in an endpoint, with caching that expires after 30 seconds.
-        Uses stale-while-revalidate pattern: returns stale cache immediately and refreshes in background.
-        
-        Args:
-            endpoint_name: Name of the endpoint
-            
-        Returns:
-            List of site names if supported, None if not supported by this backend.
-        """
-        current_time = time.time()
-        
-        # Check if we have ANY cached value (even if stale)
-        if endpoint_name in self._endpoint_sites_cache:
-            cached_value = self._endpoint_sites_cache[endpoint_name]
-            cache_age = current_time - self._endpoint_sites_cache_time.get(endpoint_name, 0)
-            
-            if cache_age < self._cache_expiry_seconds:
-                # Cache is still fresh, return it
-                return cached_value
-            else:
-                # Cache is stale but we have it - return stale value and refresh async
-                logger.debug(f"Sites cache for endpoint {endpoint_name} is stale (age: {cache_age:.1f}s), using stale value and refreshing async")
-                
-                # Start async refresh in background (fire and forget)
-                asyncio.create_task(self._refresh_endpoint_sites_cache(endpoint_name))
-                
-                # Return the stale cache immediately
-                return cached_value
-        
-        # No cache at all - we must fetch synchronously this first time
-        try:
-            client = await self.get_client(endpoint_name)
-            sites = await client.get_sites()
-            self._endpoint_sites_cache[endpoint_name] = sites
-            self._endpoint_sites_cache_time[endpoint_name] = current_time
-            if sites:
-                logger.info(f"Endpoint {endpoint_name} has {len(sites)} sites: {sites[:5]}{'...' if len(sites) > 5 else ''}")
-            else:
-                logger.info(f"Endpoint {endpoint_name} returned empty sites list")
-            return sites
-        except Exception as e:
-            # Any error means the backend doesn't support get_sites or it failed
-            logger.error(f"Backend for endpoint {endpoint_name} does not support get_sites() or it failed: {e}", exc_info=True)
-            # Cache None to indicate unsupported (also cache the timestamp to avoid repeated failures)
-            self._endpoint_sites_cache[endpoint_name] = None
-            self._endpoint_sites_cache_time[endpoint_name] = current_time
-            return None
     
-    async def _refresh_endpoint_sites_cache(self, endpoint_name: str) -> None:
-        """
-        Refresh the sites cache for an endpoint in the background.
-        This is called asynchronously when stale cache is detected.
-        
-        Args:
-            endpoint_name: Name of the endpoint to refresh
-        """
-        try:
-            client = await self.get_client(endpoint_name)
-            sites = await client.get_sites()
-            current_time = time.time()
-            
-            # Update cache with fresh data
-            self._endpoint_sites_cache[endpoint_name] = sites
-            self._endpoint_sites_cache_time[endpoint_name] = current_time
-            
-            if sites:
-                logger.debug(f"Background refresh: Endpoint {endpoint_name} has {len(sites)} sites")
-            else:
-                logger.debug(f"Background refresh: Endpoint {endpoint_name} returned empty sites list")
-                
-        except Exception as e:
-            # Log error but don't update cache - keep using stale value
-            logger.warning(f"Background refresh failed for endpoint {endpoint_name}: {e}")
-            # Don't update the cache timestamp so it will retry on next access
     
-    async def _endpoint_has_site(self, endpoint_name: str, site: Union[str, List[str]]) -> bool:
-        """
-        Check if an endpoint has data for the requested site(s).
-        
-        If the backend doesn't support get_sites, we assume it might have the site.
-        
-        Args:
-            endpoint_name: Name of the endpoint
-            site: Site name or list of site names to check
-            
-        Returns:
-            True if endpoint has data for at least one of the requested sites
-        """
-        # Handle 'all' case - endpoint should be queried for all sites
-        if site == "all":
-            return True
-        
-        # If this is the only enabled endpoint (explicitly requested via retrieval_backend param),
-        # bypass site checking - the user explicitly wants this backend
-        if len(self.enabled_endpoints) == 1 and endpoint_name in self.enabled_endpoints:
-            logger.info(f"Bypassing site check for explicitly requested endpoint: {endpoint_name}")
-            return True
-            
-        endpoint_sites = await self._get_endpoint_sites(endpoint_name)
-        
-        if endpoint_sites is None:
-            # Backend doesn't support get_sites, assume it might have the site
-            return True
-        elif not endpoint_sites:
-            # Backend supports get_sites but returned empty list
-            return False
-        
-        # Convert site to list for uniform handling
-        if isinstance(site, str):
-            sites_to_check = [site]
-        else:
-            sites_to_check = site
-        
-        # Check if any requested site is available in the endpoint
-        for site_name in sites_to_check:
-            if site_name in endpoint_sites:
-                return True
-        
-        return False
     
     def _has_valid_credentials(self, name: str, config) -> bool:
         """
@@ -815,12 +799,12 @@ class VectorDBClient:
             
             for endpoint_name in self.enabled_endpoints:
                 try:
-                    # Check if endpoint has data for the requested site
-                    if not await self._endpoint_has_site(endpoint_name, site):
+                    client = await self.get_client(endpoint_name)
+                    
+                    # Check if the provider can handle this query
+                    if not await client.can_handle_query(site, **kwargs):
                         skipped_endpoints.append(endpoint_name)
                         continue
-                    
-                    client = await self.get_client(endpoint_name)
                     
                     # Use search_all_sites if site is "all"
                     if site == "all":

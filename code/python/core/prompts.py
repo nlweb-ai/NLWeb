@@ -218,58 +218,120 @@ def fill_prompt(prompt_str, handler, pr_dict={}):
 
 
 cached_prompts = {}
-def get_cached_values(site, item_type, prompt_name):
-    cache_key = (site, item_type, prompt_name)
-    if cache_key in cached_prompts:
-        logger.debug(f"Cache hit for prompt: {cache_key}")
-        return cached_prompts[cache_key]
-    logger.debug(f"Cache miss for prompt: {cache_key}")
-    return None
-
-def find_prompt(site, item_type, prompt_name):  
-    if (site):
-        site = site[0]
-    if (prompt_roots == []):
+def get_site_element(site_id=None):
+    """
+    Get the Site element from prompt_roots.
+    
+    Args:
+        site_id: The id attribute of the Site element to find (e.g., 'default', 'shopify.com')
+                If None, returns the default site element
+                
+    Returns:
+        The Site XML element, or None if not found
+    """
+    if prompt_roots == []:
         logger.debug("Prompt roots not initialized, initializing now")
         init_prompts()
     
-    cached_values = get_cached_values(site, item_type, prompt_name)
-    if cached_values is not None:
-        logger.debug(f"Returning cached prompt for '{prompt_name}'")
-        return cached_values
-
     BASE_NS = "http://nlweb.ai/base"
     SITE_TAG = "{" + BASE_NS + "}Site"
+    
+    # If no site_id specified, use 'default'
+    if site_id is None:
+        site_id = 'default'
+    
+    # Search for Site element with matching id
+    for root_element in prompt_roots:
+        for site_element in root_element.findall(SITE_TAG):
+            if site_element.get("id") == site_id:
+                logger.debug(f"Found Site element with id='{site_id}'")
+                return site_element
+    
+    # If specific site not found and it wasn't 'default', try 'default' as fallback
+    if site_id != 'default':
+        logger.debug(f"Site element with id='{site_id}' not found, falling back to 'default'")
+        return get_site_element('default')
+    
+    logger.warning(f"No Site element found with id='{site_id}'")
+    return None
+
+def find_prompt(site, item_type, prompt_name):
+    """
+    Find a prompt for a given site, item type, and prompt name.
+    
+    Args:
+        site: The site identifier (can be a list with site_id or None)
+        item_type: The type of item to find the prompt for
+        prompt_name: The name of the prompt to find
+        
+    Returns:
+        tuple: (prompt_text, return_structure) or (None, None) if not found
+    """
+    # Get the site_id from site (which is typically a list)
+    site_id = None
+    if site and isinstance(site, list) and len(site) > 0:
+        site_id = site[0]
+    elif site and isinstance(site, str):
+        site_id = site
+    
+    # Check cache first
+    cache_key = (site_id, item_type, prompt_name)
+    if cache_key in cached_prompts:
+        logger.debug(f"Returning cached prompt for '{prompt_name}'")
+        return cached_prompts[cache_key]
+    
+    # Get the Site XML element
+    site_element = get_site_element(site_id)
+    
+    if site_element is None:
+        logger.warning(f"Site element not found for site_id='{site_id}'")
+        cached_prompts[cache_key] = (None, None)
+        return None, None
+    
+    # Find the prompt using the Site element as the root
+    result = find_prompt_in_root(site_element, item_type, prompt_name)
+    
+    # Cache the result
+    cached_prompts[cache_key] = result
+    return result
+
+def find_prompt_in_root(xml_root, item_type, prompt_name):  
+    """
+    Find a prompt in the given XML root element.
+    
+    Args:
+        xml_root: The XML root element to search within (e.g., a Site element)
+        item_type: The type of item to find the prompt for
+        prompt_name: The name of the prompt to find
+        
+    Returns:
+        tuple: (prompt_text, return_structure) or (None, None) if not found
+    """
+    if xml_root is None:
+        logger.warning(f"xml_root is None when searching for prompt '{prompt_name}'")
+        return None, None
+    
+    # Note: caching is now handled in find_prompt function
+
+    BASE_NS = "http://nlweb.ai/base"
     PROMPT_TAG = "{" + BASE_NS + "}Prompt"
     PROMPT_STRING_TAG = "{" + BASE_NS + "}promptString"
     RETURN_STRUC_TAG = "{" + BASE_NS + "}returnStruc"
     
-    # First, try to find a Site element matching the site parameter
-    site_element = None
     prompt_element = None
     
-    logger.debug(f"Searching for site element with ref='{site}'")
-    for root_element in prompt_roots:
-        for site_element in root_element.findall(SITE_TAG):
-            if site_element.get("ref") == site:
+    # Search for matching Type element within the xml_root
+    for child in xml_root:
+        if super_class_of(item_type, child.tag):
+            children = child.findall(PROMPT_TAG)
+            
+            for pe in children:
+                if pe.get("ref") == prompt_name:
+                    prompt_element = pe
+                    break
+            
+            if prompt_element is not None:
                 break
-    
-    candidate_roots = []
-    if site_element is not None:
-        candidate_roots.append(site_element)
-    else:
-        candidate_roots = prompt_roots
-    
-    # If site element found, search for matching Type element within it
-    for candidate_root in candidate_roots:
-        for child in candidate_root:
-            if (super_class_of(item_type, child.tag)):
-                children = child.findall(PROMPT_TAG)
-                
-                for pe in children:
-                    if pe.get("ref") == prompt_name:
-                        prompt_element = pe
-                        break
     
     if prompt_element is not None:
         prompt_text = prompt_element.find(PROMPT_STRING_TAG).text
@@ -288,11 +350,9 @@ def find_prompt(site, item_type, prompt_name):
         else:
             return_struc = None
         
-        cached_prompts[(site, item_type, prompt_name)] = (prompt_text, return_struc)
         return prompt_text, return_struc
     else:
-        logger.warning(f"Prompt '{prompt_name}' not found for site='{site}', item_type='{item_type}'")
-        cached_prompts[(site, item_type, prompt_name)] = (None, None)
+        logger.warning(f"Prompt '{prompt_name}' not found for item_type='{item_type}'")
         return None, None
 
 
@@ -353,9 +413,10 @@ class PromptRunner:
         item_type = self.handler.item_type
         site = self.handler.site
         
+        # Use the main find_prompt function
         prompt_str, ans_struc = find_prompt(site, item_type, prompt_name)
 
-        if (prompt_str is None):
+        if prompt_str is None:
             prompt_runner_logger.warning(f"Prompt '{prompt_name}' not found for site='{site}', item_type='{item_type}'")
             return None, None
         

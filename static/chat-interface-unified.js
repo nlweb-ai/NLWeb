@@ -17,8 +17,8 @@ export class UnifiedChatInterface {
       conversationId: null,
       userId: this.getOrCreateUserId(),
       currentStreaming: null,
-      selectedMode: 'list',
-      selectedSite: 'all',
+      selectedMode: this.additionalParams.mode || 'list',
+      selectedSite: this.additionalParams.site || 'all',
       sites: [],  // Will be loaded from API
       messageQueue: []
     };
@@ -106,6 +106,12 @@ export class UnifiedChatInterface {
         await this.loadConversation(convId);
       } else {
         this.showCenteredInput();
+      }
+      
+      // Update the UI to show the selected site from URL params
+      const siteInfo = document.getElementById('chat-site-info');
+      if (siteInfo) {
+        siteInfo.textContent = `Asking ${this.state.selectedSite}`;
       }
       
       // Load conversation list
@@ -1270,7 +1276,10 @@ export class UnifiedChatInterface {
     this.loadSitesViaHttp().catch(error => {
       // Continue with default sites
       this.state.sites = ['all'];
-      this.state.selectedSite = 'all';
+      // Only set to 'all' if not already set from URL params
+      if (!this.state.selectedSite) {
+        this.state.selectedSite = 'all';
+      }
     });
   }
   
@@ -1299,7 +1308,10 @@ export class UnifiedChatInterface {
       
       // Fallback sites
       this.state.sites = ['all'];
-      this.state.selectedSite = 'all';
+      // Only set to 'all' if not already set from URL params
+      if (!this.state.selectedSite) {
+        this.state.selectedSite = 'all';
+      }
     }
   }
   
@@ -1317,7 +1329,11 @@ export class UnifiedChatInterface {
     
     // Store sites
     this.state.sites = sites;
-    this.state.selectedSite = 'all';
+    // Don't override selectedSite if it was set from URL parameters
+    // Only set to 'all' if it wasn't already set
+    if (!this.state.selectedSite) {
+      this.state.selectedSite = 'all';
+    }
     
     // Don't automatically update dropdowns - they will be populated on-demand when clicked
     // this.updateSiteDropdowns();

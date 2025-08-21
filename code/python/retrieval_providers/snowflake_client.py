@@ -1,10 +1,11 @@
 import httpx
 import json
 from core.config import CONFIG, RetrievalProviderConfig
+from core.retriever import RetrievalClientBase
 from typing import Any, Dict, List, Optional, Tuple, Union
 from core.utils import snowflake
 
-class SnowflakeCortexSearchClient:
+class SnowflakeCortexSearchClient(RetrievalClientBase):
     """
     Adapts the Snowflake Cortex Search API to the VectorDBClientInterface.
 
@@ -13,6 +14,7 @@ class SnowflakeCortexSearchClient:
     _cfg = None
 
     def __init__(self, endpoint_name: Optional[str] = None):
+        super().__init__()  # Initialize the base class with caching
         self._cfg = CONFIG.retrieval_endpoints[endpoint_name]
 
     async def deleted_documents_by_site(self, site: str, **kwargs) -> int:

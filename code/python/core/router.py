@@ -18,7 +18,7 @@ import time
 from misc.logger.logging_config_helper import get_configured_logger
 from core.llm import ask_llm
 from core.config import CONFIG
-from core.prompts import fill_prompt
+from core.prompts import fill_prompt, get_site_element
 logger = get_configured_logger("tool_selector")
 
 @dataclass
@@ -35,24 +35,53 @@ class Tool:
 
 def init():
     """Initialize the router module by loading tools."""
-    # Load tools from config directory
+    # Load tools from config directory for default site
     tools_xml_path = os.path.join(CONFIG.config_directory, "tools.xml")
+    site_id = 'default'
     
-    logger.info(f"Loading tools from {tools_xml_path}")
-    tools = _load_tools_from_file(tools_xml_path)
-    _tools_cache[tools_xml_path] = tools
+    logger.info(f"Loading tools from {tools_xml_path} for site '{site_id}'")
+    tools = _load_tools_from_file(tools_xml_path, site_id)
+    cache_key = (tools_xml_path, site_id)
+    _tools_cache[cache_key] = tools
     
     logger.info(f"Loaded {len(tools)} tools")
     logger.info("Router initialization complete")
 
-def _load_tools_from_file(tools_xml_path: str) -> List[Tool]:
-    """Load tools from XML file."""
+def _load_tools_from_file(tools_xml_path: str, site_id: str = 'default') -> List[Tool]:
+    """Load tools from XML file for a specific site.
+    
+    Args:
+        tools_xml_path: Path to the tools.xml file
+        site_id: The site ID to load tools for (default: 'default')
+        
+    Returns:
+        List of Tool objects
+    """
     tools = []
     try:
         tree = ET.parse(tools_xml_path)
         root = tree.getroot()
         
-        for schema_elem in root:
+        # Find the Site element with the matching id
+        site_element = None
+        for site_elem in root:
+            if site_elem.tag == 'Site' and site_elem.get('id') == site_id:
+                site_element = site_elem
+                break
+        
+        # If specific site not found and it's not 'default', try 'default' as fallback
+        if site_element is None and site_id != 'default':
+            for site_elem in root:
+                if site_elem.tag == 'Site' and site_elem.get('id') == 'default':
+                    site_element = site_elem
+                    break
+        
+        if site_element is None:
+            logger.warning(f"No Site element found with id='{site_id}' in {tools_xml_path}")
+            return []
+        
+        # Now iterate through schema types within the Site element
+        for schema_elem in site_element:
             if not hasattr(schema_elem, 'tag'):
                 continue
                 
@@ -117,7 +146,8 @@ def _load_tools_from_file(tools_xml_path: str) -> List[Tool]:
         return []
 
 # Global cache for tools - loaded once and shared
-_tools_cache: Dict[str, List['Tool']] = {}
+# Key is (tools_xml_path, site_id) tuple
+_tools_cache: Dict[tuple, List['Tool']] = {}
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -144,11 +174,21 @@ class ToolSelector:
     PRE_CACHE_TYPES = ["Item", "Recipe", "Movie", "Product", "Restaurant", "Event", "Podcast", "Statistics"]
     
     # Class-level cache for get_tools_by_type results
-    _type_tools_cache: Dict[str, List[Tool]] = {}
+    # Key is (site_id, schema_type) tuple
+    _type_tools_cache: Dict[tuple, List[Tool]] = {}
     
     def __init__(self, handler):
         self.handler = handler
         self.handler.state.start_precheck_step(self.STEP_NAME)
+        
+        # Get site_id from handler (similar to how prompts.py does it)
+        self.site_id = None
+        if handler.site and isinstance(handler.site, list) and len(handler.site) > 0:
+            self.site_id = handler.site[0]
+        elif handler.site and isinstance(handler.site, str):
+            self.site_id = handler.site
+        if self.site_id is None:
+            self.site_id = 'default'
         
         # Load tools if not already cached
         tools_xml_path = os.path.join(CONFIG.config_directory, "tools.xml")
@@ -162,16 +202,19 @@ class ToolSelector:
         """Load tools from XML if not already cached."""
         global _tools_cache
         
-        if tools_xml_path not in _tools_cache:
-            logger.info(f"Loading tools from {tools_xml_path}")
-            _tools_cache[tools_xml_path] = self._load_tools_from_file(tools_xml_path)
+        # Cache key includes both path and site_id
+        cache_key = (tools_xml_path, self.site_id)
+        
+        if cache_key not in _tools_cache:
+            logger.info(f"Loading tools from {tools_xml_path} for site '{self.site_id}'")
+            _tools_cache[cache_key] = self._load_tools_from_file(tools_xml_path, self.site_id)
         else:
-            logger.info(f"Using cached tools from {tools_xml_path}")
+            logger.info(f"Using cached tools from {tools_xml_path} for site '{self.site_id}'")
     
-    def _load_tools_from_file(self, tools_xml_path: str) -> List[Tool]:
+    def _load_tools_from_file(self, tools_xml_path: str, site_id: str = 'default') -> List[Tool]:
         """Load tools from XML file."""
-        # Now just delegates to the module-level function
-        return _load_tools_from_file(tools_xml_path)
+        # Now just delegates to the module-level function with site_id
+        return _load_tools_from_file(tools_xml_path, site_id)
     
     def _warm_cache(self):
         """Warm the cache for common types."""
@@ -241,14 +284,18 @@ class ToolSelector:
     
     def get_tools_by_type(self, schema_type: str) -> List[Tool]:
         """Get tools for a specific schema type, including inherited tools from parent types."""
+        # Cache key includes site_id
+        cache_key = (self.site_id, schema_type)
+        
         # Check cache first
-        if schema_type in self._type_tools_cache:
-            logger.info(f"Using cached tools for type: {schema_type}")
-            return self._type_tools_cache[schema_type]
+        if cache_key in self._type_tools_cache:
+            logger.info(f"Using cached tools for type: {schema_type} (site: {self.site_id})")
+            return self._type_tools_cache[cache_key]
         
         # Get all loaded tools
         tools_xml_path = os.path.join(CONFIG.config_directory, "tools.xml")
-        all_tools = _tools_cache.get(tools_xml_path, [])
+        tools_cache_key = (tools_xml_path, self.site_id)
+        all_tools = _tools_cache.get(tools_cache_key, [])
         
         # Get all parent types including the current type
         types_to_check = [schema_type]
@@ -272,8 +319,9 @@ class ToolSelector:
         # Convert back to list
         type_tools = list(tools_by_name.values())
         
-        # Cache the result
-        self._type_tools_cache[schema_type] = type_tools
+        # Cache the result with site_id
+        cache_key = (self.site_id, schema_type)
+        self._type_tools_cache[cache_key] = type_tools
         
         # Debug logging
         logger.info(f"Schema type: {schema_type}, checking types: {types_to_check}")
@@ -364,8 +412,40 @@ class ToolSelector:
             # Get tools for this type
             tools = self.get_tools_by_type(schema_type)
             
-            # Evaluate tools with early termination strategy
-            tool_results = await self._evaluate_tools_with_early_termination(query, tools, threshold=90)
+            # Handle case where no tools are available
+            if len(tools) == 0:
+                logger.warning(f"No tools available for schema type: {schema_type}")
+                self.handler.tool_routing_results = []
+                await self.handler.state.precheck_step_done(self.STEP_NAME)
+                return
+            
+            # If there's only one tool, skip LLM evaluation and use it directly
+            elif len(tools) == 1:
+                logger.info(f"Only one tool available ({tools[0].name}), skipping LLM evaluation - saving API call")
+                tool_results = [{
+                    "tool": tools[0],
+                    "score": 100,  # Give it a perfect score since it's the only option
+                    "result": {
+                        "score": 100,
+                        "justification": "Only available tool for this query type"
+                    }
+                }]
+                
+                # Send debug message if in debug mode
+                if getattr(self.handler, 'debug_mode', False):
+                    elapsed_time = time.time() - self.handler.init_time
+                    await self.handler.send_message({
+                        "message_type": "tool_selection",
+                        "selected_tool": tools[0].name,
+                        "score": 100,
+                        "parameters": {"score": 100, "justification": "Single tool available - skipped LLM evaluation"},
+                        "query": query,
+                        "time_elapsed": f"{elapsed_time:.3f}s",
+                        "llm_skipped": True
+                    })
+            else:
+                # Evaluate tools with early termination strategy
+                tool_results = await self._evaluate_tools_with_early_termination(query, tools, threshold=90)
             
             # Sort by score
             tool_results.sort(key=lambda x: x["score"], reverse=True)

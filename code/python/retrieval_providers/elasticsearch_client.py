@@ -13,13 +13,13 @@ from typing import List, Dict, Union, Optional, Any
 from elasticsearch import AsyncElasticsearch
 from elasticsearch.helpers import async_bulk
 from core.config import CONFIG
-from core.embedding import get_embedding
+from core.retriever import RetrievalClientBasefrom core.embedding import get_embedding
 from misc.logger.logging_config_helper import get_configured_logger
 from misc.logger.logger import LogLevel
 
 logger = get_configured_logger("elasticsearch_client")
 
-class ElasticsearchClient:
+class ElasticsearchClient(RetrievalClientBase):
     """
     Client for Elasticsearch operations, providing a unified interface for 
     vector-based search results using the Elasticsearch Python client.
@@ -32,6 +32,7 @@ class ElasticsearchClient:
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
+        super().__init__()  # Initialize the base class with caching
         self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         self._client_lock = threading.Lock()
         self._es_clients = {}  # Cache for Elasticsearch clients

@@ -61,6 +61,11 @@ class ModernChatInterface {
     this.selectedSite = this.options.site || 'all';
     this.selectedMode = this.options.mode || 'list'; // Default generate_mode
     
+    // Update the UI to show the selected site
+    if (this.elements.chatSiteInfo) {
+      this.elements.chatSiteInfo.textContent = `Asking ${this.selectedSite}`;
+    }
+    
     // Load saved conversations from localStorage only
     this.conversationManager.loadLocalConversations(this.selectedSite);
     this.updateConversationsList();
@@ -559,6 +564,23 @@ class ModernChatInterface {
         } else if (data.message_type === 'asking_sites' && data.message) {
           messageContent += `Searching: ${data.message}\n\n`;
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
+        } else if (data.message_type === 'site_querying') {
+          // Show when a site is being queried
+          const queryingMsg = `→ Querying ${data.site_name || data.site} (${data.index}/${data.total})...\n`;
+          messageContent += queryingMsg;
+          textDiv.innerHTML = messageContent + this.renderItems(allResults);
+        } else if (data.message_type === 'site_complete') {
+          // Show intermediate message when a site completes
+          const siteMsg = `✓ ${data.site}: ${data.results_count} results found\n`;
+          messageContent += siteMsg;
+          textDiv.innerHTML = messageContent + this.renderItems(allResults);
+        } else if (data.message_type === 'site_error') {
+          // Show error message for failed sites (but only if not a common "no endpoints" error)
+          if (!data.error || !data.error.includes('No valid endpoints')) {
+            const errorMsg = `✗ ${data.site}: Failed to retrieve results\n`;
+            messageContent += errorMsg;
+            textDiv.innerHTML = messageContent + this.renderItems(allResults);
+          }
         } else if (data.message_type === 'decontextualized_query') {
           // Display the decontextualized query if different from original
           if (data.decontextualized_query && data.original_query && 
@@ -786,7 +808,15 @@ class ModernChatInterface {
     const resultsContainer = document.createElement('div');
     resultsContainer.className = 'search-results';
     
+    // Check if this is a multi-site query
+    const isMultiSite = this.selectedSite === 'all';
+    
     sortedItems.forEach(item => {
+      // Add flag to item so renderer knows if this is from a multi-site query
+      if (isMultiSite) {
+        item._isFromMultiSiteQuery = true;
+      }
+      
       // Use JsonRenderer to create the item HTML
       const itemElement = this.jsonRenderer.createJsonItemHtml(item);
       
@@ -1549,8 +1579,8 @@ class ModernChatInterface {
     // Focus the input
     this.centeredInput.focus();
     
-    // Load sites if not already loaded AND no specific site is selected
-    if ((!this.sites || this.sites.length === 0) && (!this.selectedSite || this.selectedSite === 'all')) {
+    // Load sites if not already loaded
+    if (!this.sites || this.sites.length === 0) {
       this.loadSites();
     } else {
       // If sites are already loaded, populate the dropdown
@@ -1957,7 +1987,11 @@ class ModernChatInterface {
         
         // Store sites
         this.sites = sites;
-        this.selectedSite = 'all';
+        
+        // Only set selectedSite to 'all' if it wasn't already set from URL params
+        if (!this.selectedSite) {
+          this.selectedSite = 'all';
+        }
         
         // Update site selector icon if it exists
         if (this.siteSelectorIcon) {
@@ -1979,7 +2013,11 @@ class ModernChatInterface {
       // Fallback sites
       const fallbackSites = ['all', 'eventbrite', 'oreilly', 'scifi_movies', 'verge'];
       this.sites = fallbackSites;
-      this.selectedSite = 'all';
+      
+      // Only set selectedSite to 'all' if it wasn't already set from URL params
+      if (!this.selectedSite) {
+        this.selectedSite = 'all';
+      }
       
       // Update site selector icon if it exists
       if (this.siteSelectorIcon) {
@@ -2006,7 +2044,21 @@ export { ModernChatInterface };
 if (typeof window !== 'undefined' && !window.ModernChatInterfaceExported) {
   document.addEventListener('DOMContentLoaded', () => {
     try {
-      new ModernChatInterface();
+      // Parse URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const options = {};
+      
+      // Get site parameter from URL if present
+      if (urlParams.has('site')) {
+        options.site = urlParams.get('site');
+      }
+      
+      // Get mode parameter from URL if present
+      if (urlParams.has('mode')) {
+        options.mode = urlParams.get('mode');
+      }
+      
+      new ModernChatInterface(options);
     } catch (error) {
     }
   });

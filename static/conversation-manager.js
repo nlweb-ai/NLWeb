@@ -18,10 +18,12 @@ class ConversationManager {
   async loadConversations(selectedSite, elements) {
     // Always load conversations from localStorage
     // Server is only contacted when joining via share link
-    this.loadLocalConversations(selectedSite);
+    // Note: selectedSite parameter is kept for backward compatibility but not used
+    // All conversations are shown regardless of selected site
+    this.loadLocalConversations();
   }
 
-  loadLocalConversations(selectedSite) {
+  loadLocalConversations() {
     const saved = localStorage.getItem('nlweb_messages');
     this.conversations = [];
     
@@ -73,10 +75,8 @@ class ConversationManager {
         // Convert map to array
         let conversations = Object.values(conversationMap);
         
-        // Filter by site if needed
-        if (selectedSite && selectedSite !== 'all') {
-          conversations = conversations.filter(conv => conv.site === selectedSite);
-        }
+        // Don't filter by site - show all conversations regardless of selected site
+        // The selected site only affects new queries, not which conversations are shown
         
         // Sort messages within each conversation by timestamp
         conversations.forEach(conv => {

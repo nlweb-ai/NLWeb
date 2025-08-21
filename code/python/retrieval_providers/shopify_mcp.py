@@ -13,12 +13,13 @@ import asyncio
 from typing import List, Dict, Optional, Any, Union
 
 from core.config import CONFIG
+from core.retriever import RetrievalClientBase
 from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("shopify_mcp")
 
 
-class ShopifyMCPClient:
+class ShopifyMCPClient(RetrievalClientBase):
     """
     Client for Shopify MCP operations, providing search functionality via MCP endpoints.
     Currently supports search_shop_catalog method with USD currency and 50 results by default.
@@ -31,7 +32,24 @@ class ShopifyMCPClient:
         Args:
             endpoint_name: Name of the endpoint configuration in config_retrieval.yaml
         """
+        super().__init__()  # Initialize the base class with caching
         self.endpoint_name = endpoint_name
+    
+    async def can_handle_query(self, site: Union[str, List[str]], **kwargs) -> bool:
+        """
+        Check if this Shopify MCP client can handle a query for the given site(s).
+        Returns True if the site contains 'shopify' in the domain or is in the cached sites list.
+        """
+        # Convert site to list for uniform handling
+        sites_to_check = [site] if isinstance(site, str) else site
+        
+        # Check if any site contains 'shopify' in the domain
+        for site_name in sites_to_check:
+            if 'shopify' in site_name.lower():
+                return True
+        
+        # Fall back to the default implementation
+        return await super().can_handle_query(site, **kwargs)
     
     async def search(self, query: str, site: Union[str, List[str]], 
                     num_results: int = 50, query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
@@ -125,8 +143,6 @@ class ShopifyMCPClient:
         # Construct the MCP endpoint URL based on the site
         endpoint = f"https://{site}/api/mcp"
         
-        logger.info(f"Shopify MCP search initiated for query: '{query}' on site: {site}")
-        
         # Prepare the MCP request
         mcp_request = {
             "jsonrpc": "2.0",
@@ -151,9 +167,6 @@ class ShopifyMCPClient:
         
         try:
             async with aiohttp.ClientSession() as session:
-                logger.debug(f"Sending request to: {endpoint}")
-                logger.debug(f"Request headers: {headers}")
-                logger.debug(f"Request body: {json.dumps(mcp_request, indent=2)}")
                 
                 async with session.post(
                     endpoint,
@@ -161,8 +174,6 @@ class ShopifyMCPClient:
                     headers=headers,
                     timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
-                    logger.debug(f"Response status: {response.status}")
-                    logger.debug(f"Response headers: {dict(response.headers)}")
                     
                     if response.status != 200:
                         logger.error(f"Shopify MCP request failed with status {response.status}")
@@ -179,7 +190,6 @@ class ShopifyMCPClient:
                         # If JSON parsing fails, then it's really not JSON
                         text = await response.text()
                         logger.error(f"Failed to parse response as JSON. Content-Type: {content_type}")
-                        logger.debug(f"Response text (first 500 chars): {text[:500]}")
                         return []
                     
                     # Check for JSON-RPC error
@@ -376,3 +386,44 @@ class ShopifyMCPClient:
         Close the MCP client. No cleanup needed for now.
         """
         pass
+    
+    async def delete_documents_by_site(self, site: str, **kwargs) -> int:
+        """
+        Delete documents for a site - not supported by Shopify MCP.
+        
+        Args:
+            site: Site identifier
+            **kwargs: Additional parameters
+            
+        Returns:
+            0 - deletion not supported
+        """
+        logger.warning("Document deletion not supported by Shopify MCP")
+        return 0
+    
+    async def upload_documents(self, documents: List[Dict[str, Any]], **kwargs) -> int:
+        """
+        Upload documents - not supported by Shopify MCP.
+        
+        Args:
+            documents: Documents to upload
+            **kwargs: Additional parameters
+            
+        Returns:
+            0 - upload not supported
+        """
+        logger.warning("Document upload not supported by Shopify MCP")
+        return 0
+    
+    async def search_by_url(self, url: str, **kwargs) -> Optional[List[str]]:
+        """
+        Search by URL - not implemented for Shopify MCP.
+        
+        Args:
+            url: URL to search for
+            **kwargs: Additional parameters
+            
+        Returns:
+            None - search by URL not supported
+        """
+        return None
