@@ -155,13 +155,23 @@ class CloudflareAutoRAGClient:
         def _parse_data_item(item: dict):
             url: str = item.get('filename')
 
-            contents = item.get('content', [])
-            text_json = json.dumps(contents)
+            attributes = item.get('attributes', {})
+            file_attributes = attributes.get('file', {})
 
-            name = item.get('attributes', {}).get('filename', '')
+            name = file_attributes.get('title', '')
+
+            contents = item.get('content', [])
+            text_json = json.dumps({
+                'attributes': attributes,
+                'contents': contents,
+                'filename': url
+            })
+
             site = url.removeprefix('https://').split('/')[0] # FIXME: this filtering scheme just returns the actual domain, not "section specific" data (like different sections related to different offerings in a documentation website)
 
-            return [url, text_json, name, site]
+            entry =  [url, text_json, name, site]
+
+            return entry
 
         return list(map(_parse_data_item, data))
 
