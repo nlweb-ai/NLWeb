@@ -65,7 +65,13 @@ def init():
                 elif db_type == "shopify_mcp":
                     from retrieval_providers.shopify_mcp import ShopifyMCPClient
                     _preloaded_modules[db_type] = ShopifyMCPClient
-                
+                elif db_type == "cloudflare_autorag":
+                    from code.python.retrieval_providers.cf_autorag_client import (
+                        CloudflareAutoRAGClient,
+                    )
+
+                    _preloaded_modules[db_type] = CloudflareAutoRAGClient
+
             except Exception as e:
                 logger.warning(f"Failed to preload {db_type} client module: {e}")
 
@@ -79,6 +85,7 @@ _db_type_packages = {
     "elasticsearch": ["elasticsearch[async]>=8,<9"],
     "postgres": ["psycopg", "psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0", "pgvector>=0.4.0"],
     "shopify_mcp": ["aiohttp>=3.8.0"],
+    "cloudflare_autorag": ['cloudflare>=4.3.1', "httpx>=0.28.1", "zon>=3.0.0"],
 }
 
 # Cache for installed packages
@@ -478,6 +485,8 @@ class VectorDBClient:
         elif db_type == "shopify_mcp":
             # Shopify MCP doesn't require authentication
             return True
+        elif db_type == "cloudflare_autorag":
+            return bool(config.api_key)
         else:
             logger.warning(f"Unknown database type {db_type} for endpoint {name}")
             return False
@@ -533,6 +542,12 @@ class VectorDBClient:
                 elif db_type == "snowflake_cortex_search":
                     from retrieval_providers.snowflake_client import SnowflakeCortexSearchClient
                     client = SnowflakeCortexSearchClient(endpoint_name)
+                elif db_type == "cloudflare_autorag":
+                    from retrieval_providers.cf_autorag_client import (
+                        CloudflareAutoRAGClient,
+                    )
+
+                    client = CloudflareAutoRAGClient(endpoint_name)
                 elif db_type == "elasticsearch":
                     from retrieval_providers.elasticsearch_client import ElasticsearchClient
                     client = ElasticsearchClient(endpoint_name)

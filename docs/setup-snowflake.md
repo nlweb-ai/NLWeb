@@ -23,7 +23,7 @@ The sample application can use a [programmatic access token](https://docs.snowfl
 Run from 'python' directory:
 
 ```sh
-python testing/check_connectivity.py
+python code/python/testing/check_connectivity.py
 ```
 
 You'll see a three line report on configuration whether configuration has been set correctly for Snowflake services.

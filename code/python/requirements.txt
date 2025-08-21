@@ -74,3 +74,8 @@ PyJWT>=2.8.0
 # psycopg[binary]>=3.1.12  # PostgreSQL adapter (psycopg3)
 # psycopg[pool]>=3.2.0  # Connection pooling for psycopg3
 # pgvector>=0.4.0
+
+# For Cloudflare AutoRAG
+# httpx>=0.28.1
+# cloudflare>=4.3.1
+# zon>=3.0.0

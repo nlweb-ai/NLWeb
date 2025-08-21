@@ -35,7 +35,7 @@ New files:
 
 Testing:
 
-- **Connectivity check** tool - please test your integration with the [Check Connectivity](../code/python/testing/check_connectivity.py) script and ensure that it works when the configuration is set properly and fails when the API key is not set or other items are not configured properly, preferably with helpful error messages.
+- **Connectivity check** tool - please test your integration with the [Check Connectivity](./code/python/testing/check_connectivity.py) script and ensure that it works when the configuration is set properly and fails when the API key is not set or other items are not configured properly, preferably with helpful error messages.
 
 ## Retrieval Provider Checklist
 
@@ -69,4 +69,4 @@ New files:
 
 Testing:
 
-- **Connectivity check** tool - please test your integration with the [Check Connectivity](../code/python/testing/check_connectivity.py) script and ensure that it works when the configuration is set properly and fails when the API key is not set or other items are not configured properly, preferably with helpful error messages.
+- **Connectivity check** tool - please test your integration with the [Check Connectivity](./code/python/testing/check_connectivity.py) script and ensure that it works when the configuration is set properly and fails when the API key is not set or other items are not configured properly, preferably with helpful error messages.

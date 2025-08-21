@@ -33,14 +33,14 @@ These instructions assume that you have Python 3.10+ installed locally.
     pip install -r requirements.txt
     ```
 
-4. Copy the .env.template file to a new .env file and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.  Don't worry; you do not need to provide all of these providers in the file.  We explain below.
+4. Copy the .env.template file to a new .env file under the main folder and update the API key you will use for your LLM endpoint of choice. The local Qdrant database variables are already set for this exercise.  Don't worry; you do not need to provide all of these providers in the file.  We explain below.
 
     ```sh
-    cd code
+    cd ../../
     cp .env.template .env
     ```
 
-5. Update your config files (located in the code/config folder) to make sure your preferred providers match your .env file. There are three files that may need changes.
+5. Update your config files (located in the config folder) to make sure your preferred providers match your .env file. There are three files that may need changes.
 
     - config_llm.yaml: Update the first line to the LLM provider you set in the .env file.  By default it is Azure OpenAI.  You can also adjust the models you call here by updating the models noted.  By default, we are assuming 4.1 and 4.1-mini.
     - config_embedding.yaml: Update the first line to your preferred embedding provider.  By default it is Azure OpenAI, using text-embedding-3-small.
@@ -49,6 +49,7 @@ These instructions assume that you have Python 3.10+ installed locally.
 6. You can verify that your configuration is set properly and you remembered to set all needed API keys by running the check-connectivity script from the python directory.  There is more information [here](nlweb-check-connectivity.md).
 
     ```sh
+    cd code/python
     python testing/check_connectivity.py
     ```
 
@@ -57,7 +58,8 @@ These instructions assume that you have Python 3.10+ installed locally.
     The format of the command is as follows (make sure you are still in the 'python' folder when you run this):
 
     ```sh
-    python -m tools.db_load <RSS URL> <site-name>
+    # Run from code/python folder
+    python -m data_loading.db_load <RSS URL> <site-name>
     ```
 
     Kevin's 'Behind the Tech' Podcast:
@@ -74,9 +76,10 @@ These instructions assume that you have Python 3.10+ installed locally.
 
     You can find even more data, including other formats other than RSS, in this [OneDrive folder](https://1drv.ms/f/c/6c6197aa87f7f4c4/EsT094eql2EggGxlBAAAAAABajQiZ5unf_Ri_OWksR8eNg?e=I4z5vw). (Note:  If it asks you to login, try the URL a 2nd time. It should be open permissions.)
 
-8. Start your NLWeb server (again from the 'python' folder):
+8. Start your NLWeb server (again from the 'code/python' folder):
 
     ```sh
+    # Run from code/python folder
     python app-file.py
     ```
 

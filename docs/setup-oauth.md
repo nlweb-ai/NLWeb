@@ -4,18 +4,29 @@ This guide explains how to set up and use OAuth authentication in NLWeb, allowin
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [Provider Setup](#provider-setup)
-  - [Google OAuth Setup](#google-oauth-setup)
-  - [Facebook OAuth Setup](#facebook-oauth-setup)
-  - [Microsoft OAuth Setup](#microsoft-oauth-setup)
-  - [GitHub OAuth Setup](#github-oauth-setup)
-- [NLWeb Configuration](#nlweb-configuration)
-- [Testing the Integration](#testing-the-integration)
-- [How It Works](#how-it-works)
-- [Troubleshooting](#troubleshooting)
-- [Security Best Practices](#security-best-practices)
+- [OAuth Authentication Setup Guide for NLWeb](#oauth-authentication-setup-guide-for-nlweb)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+    - [Key Features](#key-features)
+  - [Prerequisites](#prerequisites)
+  - [Provider Setup](#provider-setup)
+    - [Google OAuth Setup](#google-oauth-setup)
+    - [Facebook OAuth Setup](#facebook-oauth-setup)
+    - [Microsoft OAuth Setup](#microsoft-oauth-setup)
+    - [GitHub OAuth Setup](#github-oauth-setup)
+  - [NLWeb Configuration](#nlweb-configuration)
+  - [Testing the Integration](#testing-the-integration)
+  - [How It Works](#how-it-works)
+    - [Authentication Flow](#authentication-flow)
+    - [Security Features](#security-features)
+  - [Troubleshooting](#troubleshooting)
+    - ["OAuth configuration not found for provider: unknown"](#oauth-configuration-not-found-for-provider-unknown)
+    - [Debug Mode](#debug-mode)
+  - [Security Best Practices](#security-best-practices)
+  - [Advanced Configuration](#advanced-configuration)
+    - [Custom Redirect URIs](#custom-redirect-uris)
+    - [Session Storage Options](#session-storage-options)
+    - [Rate Limiting](#rate-limiting)
 
 ## Overview
 
@@ -194,7 +205,7 @@ Before setting up OAuth, ensure you have:
 1. **Start NLWeb Server**
 
    ```bash
-   cd NLWeb/code/python
+   cd code/python
    python app-file.py
    ```
 

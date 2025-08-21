@@ -44,5 +44,14 @@
     "site": "all",
     "num_results": 10,
     "expected_min_results": 1
+  },
+  {
+    "test_type": "query_retrieval",
+    "description": "Test search with Cloudflare AutoRAG",
+    "query": "cloudflare 1.1.1.1 ",
+    "retrieval_backend": "cloudflare_autorag",
+    "site": "all",
+    "num_results": 10,
+    "expected_min_results": 1
   }
 ]
