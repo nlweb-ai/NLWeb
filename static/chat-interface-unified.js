@@ -736,6 +736,12 @@ export class UnifiedChatInterface {
         
         // Don't sort - keep messages in order they were received
       }
+      
+      // Scroll to the user message after NLWeb response completes
+      setTimeout(() => {
+        this.scrollToUserMessage();
+      }, 100);
+      
       // Don't buffer - we'll get messages from DOM
       return;
     }
@@ -1460,6 +1466,36 @@ export class UnifiedChatInterface {
     const chatArea = this.dom.chatArea();
     if (chatArea) {
       chatArea.scrollTop = chatArea.scrollHeight;
+    }
+  }
+  
+  scrollToUserMessage() {
+    const chatArea = this.dom.chatArea();
+    const messagesContainer = this.dom.messages();
+    
+    if (!chatArea || !messagesContainer) return;
+    
+    // Find the last user message
+    const userMessages = messagesContainer.querySelectorAll('.user-message');
+    if (userMessages.length > 0) {
+      const lastUserMessage = userMessages[userMessages.length - 1];
+      
+      // Get the position of the user message relative to the chat container
+      const messageRect = lastUserMessage.getBoundingClientRect();
+      const containerRect = chatArea.getBoundingClientRect();
+      
+      // Calculate the optimal scroll position
+      // Position the user message about 1/3 down from the top of the viewport
+      // This ensures it's clearly visible with context above and space for results below
+      const targetOffset = containerRect.height * 0.3;
+      const scrollTarget = chatArea.scrollTop + 
+                          (messageRect.top - containerRect.top) - targetOffset;
+      
+      // Smooth scroll to the calculated position
+      chatArea.scrollTo({
+        top: Math.max(0, scrollTarget),
+        behavior: 'smooth'
+      });
     }
   }
   

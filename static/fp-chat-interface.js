@@ -1440,14 +1440,22 @@ class ModernChatInterface {
     if (userMessages.length > 0) {
       const lastUserMessage = userMessages[userMessages.length - 1];
       
-      // Always scroll to put the user message at the top of the viewport
-      // This ensures consistent positioning for follow-up queries
-      lastUserMessage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Get the position of the user message relative to the chat container
+      const messageRect = lastUserMessage.getBoundingClientRect();
+      const containerRect = this.elements.chatMessages.getBoundingClientRect();
       
-      // Add a small offset from the top (e.g., 20px padding)
-      setTimeout(() => {
-        this.elements.chatMessages.scrollTop -= 20;
-      }, 100);
+      // Calculate the optimal scroll position
+      // Position the user message about 1/3 down from the top of the viewport
+      // This ensures it's clearly visible with context above and space for results below
+      const targetOffset = containerRect.height * 0.3;
+      const scrollTarget = this.elements.chatMessages.scrollTop + 
+                          (messageRect.top - containerRect.top) - targetOffset;
+      
+      // Smooth scroll to the calculated position
+      this.elements.chatMessages.scrollTo({
+        top: Math.max(0, scrollTarget),
+        behavior: 'smooth'
+      });
     }
   }
   
