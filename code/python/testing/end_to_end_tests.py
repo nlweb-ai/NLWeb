@@ -140,7 +140,7 @@ class EndToEndTestRunner(BaseTestRunner):
                 "model": [e2e_case.model],
                 "generate_mode": [e2e_case.generate_mode],
                 "streaming": ["False"],  # Non-streaming mode for testing
-                "query_id": [f"test_{hash(e2e_case.query)}_{hash(str(e2e_case.prev))}"],
+                "conversation_id": [f"test_{hash(e2e_case.query)}_{hash(str(e2e_case.prev))}"],
                 "db": [e2e_case.retrieval_backend],
             }
             

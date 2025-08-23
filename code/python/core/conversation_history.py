@@ -30,7 +30,7 @@ class ConversationEntry:
     """
     user_id: str                    # User ID (if logged in) or anonymous ID
     site: str                       # Site context for the conversation
-    thread_id: str                  # Thread ID to group related conversations
+    message_id: str                 # Message ID to group related messages in a conversation
     user_prompt: str                # The user's question/prompt
     response: str                   # The assistant's response
     time_of_creation: datetime      # Timestamp of creation
@@ -38,14 +38,14 @@ class ConversationEntry:
     embedding: Optional[List[float]] = None  # Embedding vector for the conversation
     summary: Optional[str] = None   # LLM-generated summary of the conversation
     main_topics: Optional[List[str]] = None  # Main topics identified in the conversation
-    key_insights: Optional[str] = None  # Key insights from the conversation
+    participants: Optional[List[Dict[str, Any]]] = None  # List of participants in the conversation
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
         return {
             "user_id": self.user_id,
             "site": self.site,
-            "thread_id": self.thread_id,
+            "message_id": self.message_id,
             "user_prompt": self.user_prompt,
             "response": self.response,
             "time_of_creation": self.time_of_creation.isoformat(),
@@ -53,7 +53,7 @@ class ConversationEntry:
             "embedding": self.embedding,
             "summary": self.summary,
             "main_topics": self.main_topics,
-            "key_insights": self.key_insights
+            "participants": self.participants
         }
     
     def to_json(self) -> Dict[str, Any]:
@@ -75,23 +75,25 @@ class StorageProvider(ABC):
     """Abstract base class for storage providers."""
     
     @abstractmethod
-    async def add_conversation(self, user_id: str, site: str, thread_id: Optional[str], 
-                             user_prompt: str, response: str, embedding: Optional[List[float]] = None,
+    async def add_conversation(self, user_id: str, site: str, message_id: Optional[str], 
+                             user_prompt: str, response: str, conversation_id: str,
+                             embedding: Optional[List[float]] = None,
                              summary: Optional[str] = None, main_topics: Optional[List[str]] = None,
-                             key_insights: Optional[str] = None) -> ConversationEntry:
+                             participants: Optional[List[Dict[str, Any]]] = None) -> ConversationEntry:
         """
         Add a conversation to storage.
         
         Args:
             user_id: User ID (if logged in) or anonymous ID
             site: Site context for the conversation
-            thread_id: Thread ID for grouping. If None, create a new thread_id
+            message_id: Message ID for grouping. If None, create a new message_id
             user_prompt: The user's question/prompt
             response: The assistant's response
+            conversation_id: The conversation ID (required, from frontend)
             embedding: Optional pre-computed embedding vector
             summary: Optional LLM-generated summary
             main_topics: Optional list of main topics
-            key_insights: Optional key insights
+            participants: Optional list of participants
             
         Returns:
             ConversationEntry: The created conversation entry with generated conversation_id
@@ -99,15 +101,16 @@ class StorageProvider(ABC):
         pass
     
     @abstractmethod
-    async def get_conversation_by_id(self, conversation_id: str) -> Dict[str, Any]:
+    async def get_conversation_by_id(self, conversation_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """
-        Retrieve a specific conversation by its ID.
+        Retrieve all conversations with the given conversation_id.
         
         Args:
             conversation_id: The conversation ID to retrieve
+            limit: Optional limit to return only the N most recent exchanges
             
         Returns:
-            Dict containing conversation data with events and participants
+            List of conversation entries
         """
         pass
     
@@ -124,7 +127,7 @@ class StorageProvider(ABC):
         Returns:
             List of thread objects, each containing:
             {
-                "id": thread_id,
+                "id": message_id,
                 "site": site,
                 "conversations": [
                     {
@@ -221,43 +224,46 @@ async def get_storage_client() -> StorageProvider:
         logger.info(f"Storage client initialized successfully")
         return _storage_client
 
-async def add_conversation(user_id: str, site: str, thread_id: Optional[str], 
-                         user_prompt: str, response: str, embedding: Optional[List[float]] = None,
+async def add_conversation(user_id: str, site: str, message_id: Optional[str], 
+                         user_prompt: str, response: str, conversation_id: str,
+                         embedding: Optional[List[float]] = None,
                          summary: Optional[str] = None, main_topics: Optional[List[str]] = None,
-                         key_insights: Optional[str] = None) -> ConversationEntry:
+                         participants: Optional[List[Dict[str, Any]]] = None) -> ConversationEntry:
     """
     Add a conversation to storage.
     
     Args:
         user_id: User ID (can be anonymous ID)
         site: Site context
-        thread_id: Thread ID for grouping. If None, create a new thread_id
+        message_id: Message ID for grouping. If None, create a new message_id
         user_prompt: User's question
         response: Assistant's response
+        conversation_id: The conversation ID (required, from frontend)
         embedding: Optional pre-computed embedding vector
         summary: Optional LLM-generated summary
         main_topics: Optional list of main topics
-        key_insights: Optional key insights
+        participants: Optional list of participants
         
     Returns:
         ConversationEntry: The stored conversation entry
     """
     client = await get_storage_client()
-    return await client.add_conversation(user_id, site, thread_id, user_prompt, response, 
-                                        embedding, summary, main_topics, key_insights)
+    return await client.add_conversation(user_id, site, message_id, user_prompt, response, 
+                                        conversation_id, embedding, summary, main_topics, participants)
 
-async def get_conversation_by_id(conversation_id: str) -> Dict[str, Any]:
+async def get_conversation_by_id(conversation_id: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
     """
-    Get a specific conversation by ID.
+    Get all conversations with the given conversation_id.
     
     Args:
         conversation_id: The conversation ID to retrieve
+        limit: Optional limit to return only the N most recent exchanges
         
     Returns:
-        Dict containing conversation data with events and participants
+        List of conversation entries
     """
     client = await get_storage_client()
-    return await client.get_conversation_by_id(conversation_id)
+    return await client.get_conversation_by_id(conversation_id, limit)
 
 async def get_recent_conversations(user_id: str, site: str, limit: int = 50) -> List[Dict[str, Any]]:
     """
@@ -305,7 +311,7 @@ async def migrate_from_localstorage(user_id: str, conversations_data: List[Dict[
     for conv_data in conversations_data:
         try:
             # Handle converted format from client
-            thread_id = conv_data.get('thread_id', str(uuid.uuid4()))
+            message_id = conv_data.get('message_id', conv_data.get('thread_id', str(uuid.uuid4())))
             site = conv_data.get('site', 'all')
             user_prompt = conv_data.get('user_prompt', '')
             response = conv_data.get('response', '')
@@ -314,7 +320,7 @@ async def migrate_from_localstorage(user_id: str, conversations_data: List[Dict[
                 await add_conversation(
                     user_id=user_id,
                     site=site,
-                    thread_id=thread_id,
+                    message_id=message_id,
                     user_prompt=user_prompt,
                     response=response
                 )

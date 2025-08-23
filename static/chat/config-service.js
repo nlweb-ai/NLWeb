@@ -49,14 +49,11 @@ class ConfigService {
     }
 
     async loadConfig() {
-        try {
-            const response = await fetch('/api/chat/config');
-            if (response.ok) {
-                this.config = await response.json();
-            } else {
-            }
-        } catch (error) {
-        }
+        // Config endpoint removed - using defaults
+        this.config = {
+            websocket_url: "/chat/ws",
+            max_message_length: 10000
+        };
     }
 
     async loadSites() {

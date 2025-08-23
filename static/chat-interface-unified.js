@@ -88,23 +88,90 @@ export class UnifiedChatInterface {
       // Initialize connection (will use the conversation ID if set)
       await this.initConnection();
       
-      // If we have a join parameter, check authentication first
-      if (joinId && this.connectionType === 'websocket') {
+      // Check for pending join from join.html redirect
+      const pendingJoin = localStorage.getItem('pendingJoin');
+      if (pendingJoin) {
         // Check if user is logged in
         const authToken = localStorage.getItem('authToken');
         if (!authToken || authToken === 'anonymous') {
-          // User is not logged in, show login popup
-          this.showLoginForJoin(joinId);
+          // User is not logged in, keep pendingJoin in localStorage
+          // The login flow will handle it after authentication
+          const overlay = document.getElementById('oauthPopupOverlay');
+          if (overlay) {
+            overlay.style.display = 'flex';
+          }
         } else {
-          // User is logged in, proceed with join
-          await this.joinServerConversation(joinId);
+          // User is logged in
+          localStorage.removeItem('pendingJoin');
+          
+          // Check if conversation messages are already in localStorage
+          const allMessages = JSON.parse(localStorage.getItem('nlweb_messages') || '[]');
+          const convMessages = allMessages.filter(m => m.conversation_id === pendingJoin);
+          
+          if (convMessages.length > 0) {
+            // Conversation exists locally, just display it
+            this.state.conversationId = pendingJoin;
+            // Clear current messages
+            const messagesContainer = this.dom.messages();
+            if (messagesContainer) {
+              messagesContainer.innerHTML = '';
+            }
+            // Display each message
+            convMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            convMessages.forEach(msg => {
+              this.handleStreamData(msg, false);
+            });
+          } else {
+            // Request conversation history from server via WebSocket
+            if (this.connectionType === 'websocket') {
+              const ws = await this.getWebSocketConnection(true);
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                // Send request for conversation history
+                ws.send(JSON.stringify({
+                  type: 'get_conversation_history',
+                  conversation_id: pendingJoin
+                }));
+                // Set the conversation ID so incoming messages are associated correctly
+                this.state.conversationId = pendingJoin;
+              }
+            }
+          }
+          
+          // Update URL to show the conversation
+          const newUrl = new URL(window.location);
+          newUrl.searchParams.set('conversation', pendingJoin);
+          window.history.replaceState({}, '', newUrl);
         }
       }
       
       // Load conversation from URL or show new
-      if (convId) {
-        await this.loadConversation(convId);
-      } else {
+      if (convId && !pendingJoin) {
+        // Load messages from localStorage if we have a conversation ID (and it's not from pendingJoin)
+        const allMessages = JSON.parse(localStorage.getItem('nlweb_messages') || '[]');
+        const convMessages = allMessages.filter(m => m.conversation_id === convId);
+        
+        if (convMessages.length > 0) {
+          // Clear current messages
+          const messagesContainer = this.dom.messages();
+          if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+          }
+          // Display each message
+          convMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          convMessages.forEach(msg => {
+            this.handleStreamData(msg, false);
+          });
+        } else {
+          // No messages in localStorage - this might be a shared conversation
+          // Send join_conversation message to get the messages from server
+          if (this.ws.connection && this.ws.connection.readyState === WebSocket.OPEN) {
+            this.ws.connection.send(JSON.stringify({
+              type: 'join',
+              conversation_id: convId
+            }));
+          }
+        }
+      } else if (!pendingJoin) {
         this.showCenteredInput();
       }
       
@@ -602,12 +669,8 @@ export class UnifiedChatInterface {
   }
   
   handleStreamData(data, shouldStore = true) {
-    // Initialize seen messages set if not exists (for deduplication during join)
-    if (!this.seenMessageIds) {
-      this.seenMessageIds = new Set();
-    }
-    
-    // Removed deduplication - messages from same handler may share message_id
+    // No deduplication - multiple events can share the same message_id
+    // (e.g., multiple NLWeb results belong to the same logical message)
     
     // Track messages for sorting
     if (!this.state.messageBuffer) {
@@ -649,8 +712,6 @@ export class UnifiedChatInterface {
     // Handle different message types uniformly
     if (data.type === 'conversation_created') {
       this.state.conversationId = data.conversation_id;
-      // Clear seen messages for new conversation
-      this.seenMessageIds = new Set();
       this.updateURL();
       return;
     }
@@ -927,13 +988,8 @@ export class UnifiedChatInterface {
       this.conversationManager.conversations.push(conversation);
     }
     
-    // Check for duplicate using message_id if it exists
-    if (data.message_id) {
-      const existingMessage = conversation.messages.find(m => m.message_id === data.message_id);
-      if (existingMessage) {
-        return;
-      }
-    }
+    // Don't check for duplicates - multiple events can share the same message_id
+    // (e.g., multiple NLWeb results for the same query)
     
     // Store the message exactly as received - no wrapping!
     conversation.messages.push(data);
@@ -1194,8 +1250,8 @@ export class UnifiedChatInterface {
         // For user messages, check if it's the current user
         if (sender_info && sender_info.id === this.state.userId) {
           senderDiv.textContent = 'You';
-        } else if (sender_info && sender_info.name) {
-          senderDiv.textContent = sender_info.name;
+        } else if (sender_info && sender_info.id) {
+          senderDiv.textContent = sender_info.id;
         } else {
           // If no sender info, assume it's the current user (for messages they just sent)
           senderDiv.textContent = 'You';
@@ -1391,9 +1447,6 @@ export class UnifiedChatInterface {
     this.state.conversationId = conversationId;
     this.updateURL();
     
-    // Clear the seen message IDs to allow replay
-    this.seenMessageIds = new Set();
-    
     // Hide centered input
     this.hideCenteredInput();
     
@@ -1550,7 +1603,7 @@ export class UnifiedChatInterface {
       return;
     }
     
-    // Get the current conversation with all messages
+    // Get the current conversation to verify it exists
     const conversation = this.conversationManager.findConversation(this.state.conversationId);
     
     if (!conversation) {
@@ -1558,48 +1611,13 @@ export class UnifiedChatInterface {
       return;
     }
     
-    // Use messages array directly - it now contains all messages in proper format
-    const allMessages = conversation.messages || [];
+    // Don't upload messages to server - conversations are stored locally
+    // The share URL will contain the conversation ID, and when someone joins,
+    // they'll retrieve the conversation from the WebSocket connection
     
-    if (allMessages.length === 0) {
-      this.showError('No messages to share');
-      return;
-    }
-    
-    // Removed debug logging
-    
-    // Upload all messages to server
-    try {
-      // Convert messages to JSONL format (one JSON per line)
-      const jsonlData = allMessages
-        .map(msg => JSON.stringify(msg))
-        .join('\n');
-      
-      
-      // Upload to server
-      const response = await fetch('/chat/upload', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain'
-        },
-        body: jsonlData
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      if (result.errors) {
-      }
-      
-    } catch (error) {
-      // Continue with share even if upload fails
-    }
-    
-    // Generate share URL
+    // Generate share URL directly to join.html
     const baseUrl = `${window.location.protocol}//${window.location.host}`;
-    const shareUrl = `${baseUrl}/chat/join/${this.state.conversationId}`;
+    const shareUrl = `${baseUrl}/static/join.html?conv_id=${this.state.conversationId}`;
     
     // Copy to clipboard
     navigator.clipboard.writeText(shareUrl).then(() => {

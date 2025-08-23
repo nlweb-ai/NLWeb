@@ -177,21 +177,8 @@ class AioHTTPServer:
             }
             app['conversation_manager'] = ConversationManager(conv_manager_config)
             
-            # Initialize storage client
-            storage_config = chat_config.get('storage', {})
-            storage_type = storage_config.get('backend', 'memory')
-            
-            if storage_type == 'memory':
-                from chat_storage_providers.memory_storage import MemoryStorage
-                storage_backend = MemoryStorage(storage_config)
-                # Use the backend directly for now
-                app['chat_storage'] = storage_backend
-            else:
-                # Initialize storage client for other backends
-                app['chat_storage'] = ChatStorageClient(config=chat_config)
-            
-            # Store storage in conversation manager
-            app['conversation_manager'].storage = app['chat_storage']
+            # Note: Storage is handled through conversation_history API directly
+            # No need to initialize a separate storage client
             
             # Store websocket manager in conversation manager
             app['conversation_manager'].websocket_manager = app['websocket_manager']
@@ -209,7 +196,6 @@ class AioHTTPServer:
             # Set up WebSocket manager callbacks
             ws_manager = app['websocket_manager']
             conv_manager = app['conversation_manager']
-            storage = app['chat_storage']
             
             # Participant verification callback
             async def verify_participant(conversation_id: str, participant_id: str) -> bool:

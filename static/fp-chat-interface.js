@@ -132,11 +132,8 @@ class ModernChatInterface {
     // Search history button
     if (this.elements.searchHistoryBtn) {
       this.elements.searchHistoryBtn.addEventListener('click', () => {
-        console.log('Search history button clicked');
         this.createNewChat(null, 'conv_history');
       });
-    } else {
-      console.error('Search history button not found');
     }
     
     // Send button

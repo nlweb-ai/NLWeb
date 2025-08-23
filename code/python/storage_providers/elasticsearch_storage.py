@@ -127,7 +127,7 @@ class ElasticsearchStorageProvider(StorageProvider):
             "main_topics": {
                 "type": "keyword"
             },
-            "key_insights": {
+            "participants": {
                 "type": "text"
             }
         }
@@ -174,7 +174,7 @@ class ElasticsearchStorageProvider(StorageProvider):
     async def add_conversation(self, user_id: str, site: str, thread_id: Optional[str], 
                              user_prompt: str, response: str, embedding: Optional[List[float]] = None,
                              summary: Optional[str] = None, main_topics: Optional[List[str]] = None,
-                             key_insights: Optional[str] = None) -> ConversationEntry:
+                             participants: Optional[List[Dict[str, Any]]] = None) -> ConversationEntry:
         """
         Add a conversation to storage.
         
@@ -190,7 +190,7 @@ class ElasticsearchStorageProvider(StorageProvider):
             embedding: Optional pre-computed embedding vector
             summary: Optional LLM-generated summary
             main_topics: Optional list of main topics
-            key_insights: Optional key insights
+            participants: Optional list of participants
 
         Returns:
             ConversationEntry: The conversation entry created
@@ -224,7 +224,7 @@ class ElasticsearchStorageProvider(StorageProvider):
                 embedding=embedding,
                 summary=summary,
                 main_topics=main_topics,
-                key_insights=key_insights
+                participants=participants
             )
             
             # Store in Elasticsearch
@@ -244,8 +244,8 @@ class ElasticsearchStorageProvider(StorageProvider):
                 document["summary"] = entry.summary
             if entry.main_topics:
                 document["main_topics"] = entry.main_topics
-            if entry.key_insights:
-                document["key_insights"] = entry.key_insights
+            if entry.participants:
+                document["participants"] = entry.participants
             
             await client.index(
                 index=self.index_name,
@@ -308,7 +308,7 @@ class ElasticsearchStorageProvider(StorageProvider):
                     embedding=source.get("embedding", []),
                     summary=source.get("summary"),
                     main_topics=source.get("main_topics"),
-                    key_insights=source.get("key_insights")
+                    participants=source.get("participants")
                 ))
 
             return conversations
@@ -317,68 +317,59 @@ class ElasticsearchStorageProvider(StorageProvider):
             logger.error(f"Failed to get conversation thread: {e}")
             return []
     
-    async def get_conversation_by_id(self, conversation_id: str) -> Dict[str, Any]:
+    async def get_conversation_by_id(self, conversation_id: str, limit: Optional[int] = None) -> Dict[str, Any]:
         """
-        Retrieve a specific conversation by its ID.
+        Retrieve all conversations with the given conversation_id.
         
         Args:
             conversation_id: The conversation ID to retrieve
+            limit: Optional limit to return only the N most recent exchanges
             
         Returns:
-            Dict containing conversation data with events and participants
+            Dict containing all conversation exchanges as events
         """
         try:
             client = await self._get_es_client()
             
-            # Search for the specific conversation
+            # Search for all conversations with this ID
+            # Use a high default limit if none specified
+            search_limit = limit if limit else 1000
+            
             query = {
                 "term": {
                     "conversation_id": conversation_id
                 }
             }
             
+            # Sort by time_of_creation ascending
+            sort = [{"time_of_creation": {"order": "asc"}}]
+            
             response = await client.search(
                 index=self.index_name,
                 query=query,
-                size=1
+                size=search_limit,
+                sort=sort
             )
             
             if response['hits']['total']['value'] == 0:
-                return {
-                    "conversation_id": conversation_id,
-                    "events": [],
-                    "participants": []
-                }
+                return []
             
-            # Get the conversation data
-            hit = response['hits']['hits'][0]
-            source = hit['_source']
+            # Extract all events - just pass through the raw data
+            events = []
+            for hit in response['hits']['hits']:
+                events.append(hit['_source'])
             
-            # Return formatted conversation data
-            return {
-                "conversation_id": conversation_id,
-                "events": [{
-                    "id": source.get("conversation_id"),
-                    "user_prompt": source.get("user_prompt"),
-                    "response": source.get("response"),
-                    "time": source.get("time_of_creation"),
-                    "summary": source.get("summary"),
-                    "main_topics": source.get("main_topics"),
-                    "key_insights": source.get("key_insights")
-                }],
-                "participants": [
-                    {"type": "USER", "id": source.get("user_id"), "name": "User"},
-                    {"type": "AGENT", "id": "nlweb", "name": "NLWeb Assistant"}
-                ]
-            }
+            # If limit is specified and we have more events, take only the N most recent
+            # Events are already sorted by time ascending, so take the last N
+            if limit and len(events) > limit:
+                events = events[-limit:]
+            
+            # Return just the array of events
+            return events
             
         except Exception as e:
             logger.error(f"Failed to get conversation by ID: {e}")
-            return {
-                "conversation_id": conversation_id,
-                "events": [],
-                "participants": []
-            }
+            return []
     
     async def get_recent_conversations(self, user_id: str, site: str, limit: int = 50) -> List[Dict[str, Any]]:
         """
@@ -595,7 +586,7 @@ class ElasticsearchStorageProvider(StorageProvider):
                     embedding=None, # We don't return embeddings in search results
                     summary=source.get("summary"),
                     main_topics=source.get("main_topics"),
-                    key_insights=source.get("key_insights")
+                    participants=source.get("participants")
                 ))
 
             return conversations

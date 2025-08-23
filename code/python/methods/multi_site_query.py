@@ -234,7 +234,7 @@ class MultiSiteQueryHandler:
                     "source_site_name": result.get('site_name', ''),
                     "source_site_score": result.get('site_score', 0)
                 }],
-                "query_id": self.handler.query_id
+                "conversation_id": self.handler.conversation_id
             }
             await self.handler.send_message(formatted_result)
     

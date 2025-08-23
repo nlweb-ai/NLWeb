@@ -17,7 +17,6 @@ from typing import Dict, Any, List, Optional
 from chat.websocket import WebSocketManager, WebSocketConnection
 from chat.conversation import ConversationManager
 from chat.participants import HumanParticipant, NLWebParticipant, ParticipantConfig
-from chat.storage import ChatStorageClient
 from chat.schemas import (
     ChatMessage,
     Conversation,
@@ -27,6 +26,7 @@ from chat.schemas import (
     QueueFullError
 )
 from core.retriever import get_vector_db_client
+from core import conversation_history
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +207,7 @@ async def create_conversation_handler(request: web.Request) -> web.Response:
                     human_messages_context=5,
                     nlweb_messages_context=1
                 )
-                nlweb = NLWebParticipant(nlweb_handler, config, storage_client)
+                nlweb = NLWebParticipant(nlweb_handler, config)
                 conv_manager.add_participant(conversation_id, nlweb)
                 
                 # Add to conversation
@@ -509,7 +509,6 @@ async def join_conversation_handler(request: web.Request) -> web.Response:
         
         # Get managers from app
         conv_manager: ConversationManager = request.app['conversation_manager']
-        storage_client: ChatStorageClient = request.app['chat_storage']
         ws_manager: WebSocketManager = request.app['websocket_manager']
         
         # Verify conversation exists
@@ -681,7 +680,6 @@ async def leave_conversation_handler(request: web.Request) -> web.Response:
         
         # Get managers from app
         conv_manager: ConversationManager = request.app['conversation_manager']
-        storage_client: ChatStorageClient = request.app['chat_storage']
         ws_manager: WebSocketManager = request.app['websocket_manager']
         
         # Verify conversation exists
@@ -827,54 +825,59 @@ async def join_via_share_link_handler(request: web.Request) -> web.Response:
         
         # Get managers from app
         conv_manager: ConversationManager = request.app['conversation_manager']
-        storage_client: ChatStorageClient = request.app['chat_storage']
         ws_manager: WebSocketManager = request.app['websocket_manager']
         
-        # Verify conversation exists
-        conversation = await storage_client.get_conversation(conversation_id)
-        if not conversation:
+        # Get conversation from conversation_history
+        conv_data = await conversation_history.get_conversation_by_id(conversation_id)
+        
+        if not conv_data:
             return web.json_response(
                 {'error': 'Invalid share link - conversation not found'},
                 status=404
             )
         
-        # Check if already a participant
-        existing_participant_ids = {p.participant_id for p in conversation.active_participants}
-        if user_id in existing_participant_ids:
-            # Already a member - return success with conversation details
-            messages = await storage_client.get_conversation_messages(
-                conversation_id=conversation_id,
-                limit=50
-            )
+        # Extract messages and participants from the conversation entries
+        all_messages = []
+        participants_list = []
+        print(f"DEBUG: Processing {len(conv_data)} conversation entries")
+        for i, entry in enumerate(conv_data):
+            # Extract messages from response field
+            response_str = entry.get('response', '')
+            print(f"DEBUG: Entry {i+1}: has response field: {bool(response_str)}, response length: {len(response_str) if response_str else 0}")
+            if response_str:
+                try:
+                    # Parse the JSON string in the response field
+                    messages = json.loads(response_str)
+                    print(f"DEBUG: Parsed response - is list: {isinstance(messages, list)}, is dict: {isinstance(messages, dict)}")
+                    if isinstance(messages, list):
+                        all_messages.extend(messages)
+                        print(f"DEBUG: Added {len(messages)} messages from list")
+                    elif isinstance(messages, dict):
+                        # Response might be a single message object, not a list
+                        all_messages.append(messages)
+                        print(f"DEBUG: Added single message dict")
+                except json.JSONDecodeError as e:
+                    print(f"DEBUG: Failed to parse JSON: {e}")
+                    logger.warning(f"Failed to parse response field for conversation {conversation_id}")
             
-            return web.json_response({
-                'success': True,
-                'already_member': True,
-                'conversation': {
-                    'id': conversation.conversation_id,
-                    'title': conversation.metadata.get('title', 'Untitled Chat') if conversation.metadata else 'Untitled Chat',
-                    'participants': [
-                        {
-                            'participantId': p.participant_id,
-                            'displayName': p.name,
-                            'type': p.participant_type.value
-                        }
-                        for p in conversation.active_participants
-                    ],
-                    'message_count': conversation.message_count
-                }
-            })
+            # Extract participants if present
+            if entry.get('participants'):
+                participants_list = entry.get('participants', [])
+                break  # All entries should have the same participants, so we can stop after the first one
         
-        # Add new participant
+        # Check if user is already a participant
+        existing_participant_ids = {p.get('participant_id', p.get('id', '')) for p in participants_list}
+        if user_id in existing_participant_ids:
+            # Already a member - just send the messages
+            pass  # Will send messages below
+        
+        # Create participant info for adding to conversation manager
         participant_info = ParticipantInfo(
             participant_id=user_id,
             name=user_name,
             participant_type=ParticipantType.HUMAN,
             joined_at=datetime.utcnow()
         )
-        
-        # Add to conversation
-        conversation.add_participant(participant_info)
         
         # Create HumanParticipant instance
         human = HumanParticipant(
@@ -885,10 +888,7 @@ async def join_via_share_link_handler(request: web.Request) -> web.Response:
         # Add participant through conversation manager
         conv_manager.add_participant(conversation_id, human)
         
-        # Update conversation in storage
-        await storage_client.update_conversation(conversation)
-        
-        # Broadcast participant joined event
+        # Broadcast participant joined event (simplified without storage update)
         participant_update = {
             'type': 'participant_joined',
             'conversation_id': conversation_id,
@@ -896,50 +896,23 @@ async def join_via_share_link_handler(request: web.Request) -> web.Response:
                 'id': participant_info.participant_id,
                 'name': participant_info.name,
                 'type': participant_info.participant_type.value,
-                'joined_at': participant_info.joined_at  # Already in milliseconds
+                'joined_at': participant_info.joined_at.isoformat() if hasattr(participant_info.joined_at, 'isoformat') else str(participant_info.joined_at)
             },
-            'participant_count': len(conversation.active_participants),
             'timestamp': int(time.time() * 1000)
         }
         
         await ws_manager.broadcast_to_conversation(conversation_id, participant_update)
         
-        # Get recent messages
-        messages = await storage_client.get_conversation_messages(
-            conversation_id=conversation_id,
-            limit=50
-        )
+        # Don't send messages here - the client will join via WebSocket and get them there
+        print(f"DEBUG: Found {len(all_messages)} messages in conversation {conversation_id}")
+        print(f"DEBUG: User {user_id} will receive messages when they connect via WebSocket")
         
-        # Return success with conversation details
+        # Return success response
         return web.json_response({
             'success': True,
             'conversation': {
-                'id': conversation.conversation_id,
-                'title': conversation.metadata.get('title', 'Untitled Chat') if conversation.metadata else 'Untitled Chat',
-                'sites': conversation.metadata.get('sites', []) if conversation.metadata else [],
-                'mode': conversation.metadata.get('mode', 'list') if conversation.metadata else 'list',
-                'participants': [
-                    {
-                        'participantId': p.participant_id,
-                        'displayName': p.name,
-                        'type': p.participant_type.value,
-                        'joinedAt': p.joined_at  # Already in milliseconds
-                    }
-                    for p in conversation.active_participants
-                ],
-                'messages': [
-                    {
-                        'id': msg.message_id,
-                        'sender_id': msg.sender_id,
-                        'content': msg.content,
-                        'timestamp': msg.timestamp,  # Already in milliseconds
-                        'type': msg.message_type.value
-                    }
-                    for msg in messages
-                ],
-                'created_at': conversation.created_at,  # Already in milliseconds
-                'participant_count': len(conversation.active_participants),
-                'message_count': conversation.message_count
+                'id': conversation_id,
+                'title': 'Shared Conversation'
             }
         })
         
@@ -962,9 +935,9 @@ async def join_via_share_link_get_handler(request: web.Request) -> web.Response:
     """
     conv_id = request.match_info['conv_id']
     
-    # Redirect to the chat interface with the conversation ID as a parameter
+    # Redirect to join.html with the conversation ID as a parameter
     # The frontend will handle the actual join process
-    redirect_url = f"/static/multi-chat-index.html?join={conv_id}"
+    redirect_url = f"/static/join.html?conv_id={conv_id}"
     
     return web.HTTPFound(location=redirect_url)
 
@@ -1066,7 +1039,6 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
     # Get managers
     ws_manager: WebSocketManager = request.app['websocket_manager']
     conv_manager: ConversationManager = request.app['conversation_manager']
-    storage_client: ChatStorageClient = request.app['chat_storage']
     
     # Create a general WebSocket connection not tied to any conversation
     print(f"Accepting WebSocket connection for user: {user_id}")
@@ -1156,7 +1128,7 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                                     human_messages_context=5,
                                     nlweb_messages_context=1
                                 )
-                                nlweb = NLWebParticipant(nlweb_handler, config, storage_client)
+                                nlweb = NLWebParticipant(nlweb_handler, config)
                                 conv_manager.add_participant(conversation_id, nlweb)
                         
                         # Send participant list
@@ -1173,36 +1145,42 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         )
                         
                         # Send conversation history by replaying individual events
-                        recent_messages = await storage_client.get_conversation_messages(
-                            conversation_id=conversation_id,
-                            limit=50
-                        )
+                        # Get conversation history using conversation_history API
+                        conv_data = await conversation_history.get_conversation_by_id(conversation_id, limit=50)
                         
-                        # Sort messages by timestamp to ensure correct order
-                        recent_messages.sort(key=lambda m: m.timestamp)
+                        print(f"DEBUG: get_conversation_by_id returned type: {type(conv_data)}")
+                        print(f"DEBUG: get_conversation_by_id returned length: {len(conv_data) if conv_data else 0}")
+                        if conv_data:
+                            print(f"DEBUG: First entry keys: {conv_data[0].keys() if conv_data else 'N/A'}")
+                        
+                        # Extract messages from the response field and send them
+                        recent_messages = []
+                        for i, entry in enumerate(conv_data):
+                            response_str = entry.get('response', '')
+                            print(f"DEBUG: Entry {i}: has response: {bool(response_str)}, response length: {len(response_str) if response_str else 0}")
+                            if response_str:
+                                try:
+                                    messages = json.loads(response_str)
+                                    print(f"DEBUG: Parsed response type: {type(messages)}")
+                                    if isinstance(messages, list):
+                                        recent_messages.extend(messages)
+                                        print(f"DEBUG: Added {len(messages)} messages from list")
+                                    elif isinstance(messages, dict):
+                                        recent_messages.append(messages)
+                                        print(f"DEBUG: Added single message dict")
+                                except json.JSONDecodeError as e:
+                                    print(f"DEBUG: JSON decode error: {e}")
+                                    logger.warning(f"Failed to parse response field for conversation {conversation_id}")
                         
                         # Replay conversation history for joining user
                         
+                        print(f"DEBUG: Sending {len(recent_messages)} messages to joining user")
                         # Replay each message as individual events in timestamp order
                         for i, msg in enumerate(recent_messages):
-                            print(f"\nMessage {i+1}:")
-                            print(f"  Type: {msg.message_type}")
-                            # Handle content as either string or object
-                            if isinstance(msg.content, str):
-                                print(f"  Content: {msg.content[:200] if msg.content else 'None'}...")
-                            else:
-                                print(f"  Content: {str(msg.content)[:200]}...")
-                            print(f"  SenderInfo: {msg.sender_info}")
-                            print(f"  Timestamp: {msg.timestamp}")
-                            
-                            # Construct the message properly based on type
-                            if isinstance(msg.content, dict) and 'message_type' in msg.content:
-                                # This is an NLWeb message where the entire message was stored as content
-                                # Send the content directly as it's the complete original message
-                                await ws.send_json(msg.content)
-                            else:
-                                # This is a regular message - send the full message dict
-                                await ws.send_json(msg.to_dict())
+                            # Messages are already in the correct format from the stored JSON
+                            # Just send them directly
+                            print(f"DEBUG: Sending message {i+1}/{len(recent_messages)}: type={msg.get('message_type') if isinstance(msg, dict) else 'unknown'}")
+                            await ws.send_json(msg)
                         
                         
                         # Send end-conversation-history message to mark the end of replayed messages
@@ -1314,8 +1292,8 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                                         human_messages_context=5,
                                         nlweb_messages_context=1
                                     )
-                                    print(f"[AUTO-JOIN] Creating NLWebParticipant with storage_client: {storage_client is not None}")
-                                    nlweb = NLWebParticipant(nlweb_handler, config, storage_client)
+                                    print(f"[AUTO-JOIN] Creating NLWebParticipant")
+                                    nlweb = NLWebParticipant(nlweb_handler, config)
                                     conv_manager.add_participant(conversation_id, nlweb)
                         print(f"User ID: {user_id}")
                         print(f"Content: {data.get('content', '')[:100]}")

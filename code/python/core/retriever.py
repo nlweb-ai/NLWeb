@@ -1106,7 +1106,6 @@ async def search(query: str,
             "site": site,
             "count": len(results),
             "requested_count": num_results,
-            "query_id": getattr(handler, 'query_id', None),
             "sender_info": {"id": "system", "name": "NLWeb"}
         }
         try:

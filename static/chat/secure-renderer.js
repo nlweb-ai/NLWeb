@@ -137,7 +137,7 @@ class SecureRenderer {
     renderAIResponse(message) {
         const messageType = message.message_type || message.type || 'text';
         const content = message.content || '';
-        const data = message.data || message.results;
+        const data = message.content;
 
         switch (messageType) {
             case 'text':
@@ -184,9 +184,9 @@ class SecureRenderer {
                 <ul class="result-list">
                     ${results.map(result => `
                         <li class="result-item">
-                            ${result.title ? `<strong>${this.escapeHtml(result.title)}</strong>` : ''}
+                            ${result.name ? `<strong>${this.escapeHtml(result.name)}</strong>` : ''}
                             ${result.url ? `<a href="${this.escapeHtml(result.url)}" target="_blank" rel="noopener">${this.escapeHtml(result.url)}</a>` : ''}
-                            ${result.snippet ? `<p>${this.escapeHtml(result.snippet)}</p>` : ''}
+                            ${result.description ? `<p>${this.escapeHtml(result.description)}</p>` : ''}
                         </li>
                     `).join('')}
                 </ul>

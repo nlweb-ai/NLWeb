@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+MOST IMPORTANT GUIDELINE: Only implement exactly what you have been asked to. Do not add additional functionality. You tend to over complicate.
+
 ## Project Overview
 
 NLWeb is a conversational interface platform that enables natural language interactions with websites. It leverages Schema.org markup and supports MCP (Model Context Protocol) for AI agent interactions.

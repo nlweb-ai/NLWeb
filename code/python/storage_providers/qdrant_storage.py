@@ -102,24 +102,26 @@ class QdrantStorageProvider(StorageProvider):
             logger.error(f"Failed to initialize Qdrant storage: {e}")
             raise
     
-    async def add_conversation(self, user_id: str, site: str, thread_id: Optional[str], 
-                             user_prompt: str, response: str, embedding: Optional[List[float]] = None,
+    async def add_conversation(self, user_id: str, site: str, message_id: Optional[str], 
+                             user_prompt: str, response: str, conversation_id: str,
+                             embedding: Optional[List[float]] = None,
                              summary: Optional[str] = None, main_topics: Optional[List[str]] = None,
-                             key_insights: Optional[str] = None) -> ConversationEntry:
+                             participants: Optional[List[Dict[str, Any]]] = None) -> ConversationEntry:
         """
         Add a conversation to storage.
         
-        If thread_id is None, creates a new thread_id.
-        Creates conversation_id and computes embedding from user_prompt + response if not provided.
+        conversation_id is required (from frontend).
+        If message_id is None, creates a new message_id.
         """
         try:
-            # Generate thread_id if not provided
-            if thread_id is None:
-                thread_id = str(uuid.uuid4())
-                logger.info(f"Created new thread_id: {thread_id}")
+            # conversation_id is required
+            if not conversation_id:
+                raise ValueError("conversation_id is required")
             
-            # Generate conversation_id
-            conversation_id = str(uuid.uuid4())
+            # Generate message_id if not provided
+            if message_id is None:
+                message_id = str(uuid.uuid4())
+                logger.info(f"Created new message_id: {message_id}")
             
             # Generate embedding if not provided
             if embedding is None:
@@ -131,7 +133,7 @@ class QdrantStorageProvider(StorageProvider):
             entry = ConversationEntry(
                 user_id=user_id,
                 site=site,
-                thread_id=thread_id,
+                message_id=message_id,
                 user_prompt=user_prompt,
                 response=response,
                 time_of_creation=datetime.utcnow(),
@@ -139,7 +141,7 @@ class QdrantStorageProvider(StorageProvider):
                 embedding=embedding,
                 summary=summary,
                 main_topics=main_topics,
-                key_insights=key_insights
+                participants=participants
             )
             
             # Build payload
@@ -147,7 +149,7 @@ class QdrantStorageProvider(StorageProvider):
                 "conversation_id": entry.conversation_id,
                 "user_id": entry.user_id,
                 "site": entry.site,
-                "thread_id": entry.thread_id,
+                "message_id": entry.message_id,
                 "user_prompt": entry.user_prompt,
                 "response": entry.response,
                 "time_of_creation": entry.time_of_creation.isoformat()
@@ -158,8 +160,8 @@ class QdrantStorageProvider(StorageProvider):
                 payload["summary"] = entry.summary
             if entry.main_topics:
                 payload["main_topics"] = entry.main_topics
-            if entry.key_insights:
-                payload["key_insights"] = entry.key_insights
+            if entry.participants:
+                payload["participants"] = entry.participants
             
             # Convert to point format
             point = models.PointStruct(
@@ -174,7 +176,7 @@ class QdrantStorageProvider(StorageProvider):
                 points=[point]
             )
             
-            logger.debug(f"Stored conversation {entry.conversation_id} in thread {entry.thread_id}")
+            logger.debug(f"Stored conversation {entry.conversation_id} with message_id {entry.message_id}")
             return entry
             
         except Exception as e:
@@ -224,7 +226,7 @@ class QdrantStorageProvider(StorageProvider):
                     embedding=point.vector,
                     summary=payload.get("summary"),
                     main_topics=payload.get("main_topics"),
-                    key_insights=payload.get("key_insights")
+                    participants=payload.get("participants")
                 ))
             
             # Sort by time
@@ -235,18 +237,22 @@ class QdrantStorageProvider(StorageProvider):
             logger.error(f"Failed to get conversation thread: {e}")
             return []
     
-    async def get_conversation_by_id(self, conversation_id: str) -> Dict[str, Any]:
+    async def get_conversation_by_id(self, conversation_id: str, limit: Optional[int] = None) -> Dict[str, Any]:
         """
-        Retrieve a specific conversation by its ID.
+        Retrieve all conversations with the given conversation_id.
         
         Args:
             conversation_id: The conversation ID to retrieve
+            limit: Optional limit to return only the N most recent exchanges
             
         Returns:
-            Dict containing conversation data with events and participants
+            Dict containing all conversation exchanges as events
         """
         try:
-            # Search for the specific conversation
+            # Search for all conversations with this ID
+            # Use a high default limit if none specified
+            scroll_limit = limit if limit else 1000
+            
             results = await self.client.scroll(
                 collection_name=self.collection_name,
                 scroll_filter=models.Filter(
@@ -257,47 +263,35 @@ class QdrantStorageProvider(StorageProvider):
                         )
                     ]
                 ),
-                limit=1,
+                limit=scroll_limit,
                 with_payload=True,
                 with_vectors=False
             )
             
-            if not results[0]:
-                return {
-                    "conversation_id": conversation_id,
-                    "events": [],
-                    "participants": []
-                }
+            points = results[0]
             
-            # Get the conversation data
-            point = results[0][0]
-            payload = point.payload
+            if not points:
+                return []
             
-            # Return formatted conversation data
-            return {
-                "conversation_id": conversation_id,
-                "events": [{
-                    "id": payload.get("conversation_id"),
-                    "user_prompt": payload.get("user_prompt"),
-                    "response": payload.get("response"),
-                    "time": payload.get("time_of_creation"),
-                    "summary": payload.get("summary"),
-                    "main_topics": payload.get("main_topics"),
-                    "key_insights": payload.get("key_insights")
-                }],
-                "participants": [
-                    {"type": "USER", "id": payload.get("user_id"), "name": "User"},
-                    {"type": "AGENT", "id": "nlweb", "name": "NLWeb Assistant"}
-                ]
-            }
+            # Extract all payloads and sort by time
+            events = []
+            for point in points:
+                events.append(point.payload)
+            
+            # Sort events by time (oldest first for chronological order)
+            events.sort(key=lambda x: x.get("time_of_creation", ""))
+            
+            # If limit is specified, take only the N most recent
+            if limit and len(events) > limit:
+                # For most recent, we want the last N items after sorting
+                events = events[-limit:]
+            
+            # Return just the array of events
+            return events
             
         except Exception as e:
             logger.error(f"Failed to get conversation by ID: {e}")
-            return {
-                "conversation_id": conversation_id,
-                "events": [],
-                "participants": []
-            }
+            return []
     
     async def get_recent_conversations(self, user_id: str, site: str, limit: int = 50) -> List[Dict[str, Any]]:
         """
@@ -474,7 +468,7 @@ class QdrantStorageProvider(StorageProvider):
                     time_of_creation=payload.get('time_of_creation'),
                     summary=payload.get('summary'),
                     embedding=payload.get('embedding'),
-                    key_insights=payload.get('key_insights'),
+                    participants=payload.get('participants'),
                     main_topics=payload.get('main_topics')
                 )
                 conversations.append(conversation)

@@ -29,7 +29,7 @@ RUN_MULTI_TURN = True                   # Whether to run multi-turn benchmark
 MULTITURN_CONVERSATIONS = load_conversations("./benchmark/data/conversations.jsonl")
 
 
-async def single_turn(query, generate_mode, streaming, query_id):
+async def single_turn(query, generate_mode, streaming, conversation_id):
     """Run a single turn and return result, elapsed time, and error."""
     site = "scifi_movies"
     query_params = {
@@ -37,7 +37,7 @@ async def single_turn(query, generate_mode, streaming, query_id):
         "query": [query],
         "streaming": [str(streaming)],
         "generate_mode": [generate_mode],
-        "query_id": [query_id]
+        "conversation_id": [conversation_id]
     }
     handler = NLWebHandler(query_params, http_handler=None)
     start = time.time()
@@ -121,8 +121,8 @@ async def run_single_turn_benchmark(generate_mode, streaming, num_runs=1):
         times = []
         errors = []
         for i in range(num_runs):
-            query_id = f"benchmark_{query}_{i}"
-            result, elapsed, error = await single_turn(query, generate_mode, streaming, query_id)
+            conversation_id = f"benchmark_{query}_{i}"
+            result, elapsed, error = await single_turn(query, generate_mode, streaming, conversation_id)
             if error is None:
                 print(f"    Run {i+1}: {elapsed:.3f} seconds")
                 times.append(elapsed)
@@ -153,7 +153,7 @@ async def run_multiturn_benchmark(generate_mode, streaming):
             "site": [site],
             "streaming": [str(streaming)],
             "generate_mode": [generate_mode],
-            "query_id": [f"multiturn_{conv_idx}_0_{CONFIG.preferred_llm_endpoint}"],
+            "conversation_id": [f"multiturn_{conv_idx}_0_{CONFIG.preferred_llm_endpoint}"],
             "prev": []
         }, http_handler=None)
         handler.site = site
@@ -163,7 +163,7 @@ async def run_multiturn_benchmark(generate_mode, streaming):
         for turn_idx, user_query in enumerate(conversation):
             print(f"\nTurn {turn_idx+1}: '{user_query}'")
             handler.query = user_query
-            handler.query_id = f"multiturn_{conv_idx}_{turn_idx}_{CONFIG.preferred_llm_endpoint}"
+            handler.conversation_id = f"multiturn_{conv_idx}_{turn_idx}_{CONFIG.preferred_llm_endpoint}"
             if turn_idx == 0:
                 handler.prev_queries = []
                 handler.prev_answers = []

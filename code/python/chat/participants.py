@@ -161,25 +161,18 @@ class NLWebParticipant(BaseParticipant):
     Does NOT modify NLWebHandler in any way.
     """
     
-    def __init__(self, nlweb_handler, config: ParticipantConfig, storage_client):
+    def __init__(self, nlweb_handler, config: ParticipantConfig):
         """
         Initialize NLWeb participant.
         
         Args:
             nlweb_handler: Existing NLWebHandler instance (used as-is)
             config: Participant configuration
-            storage_client: Required storage client for persisting messages
         """
-        if not storage_client:
-            raise ValueError("storage_client is required for NLWebParticipant")
-            
         self.nlweb_handler = nlweb_handler
         self.config = config
-        self.storage_client = storage_client
         self.participant_id = "nlweb_1"
         self.joined_at = int(time.time() * 1000)
-        
-        print(f"[NLWebParticipant.__init__] Created with storage_client type: {type(storage_client)}")
         
         # Context builder
         self.context_builder = NLWebContextBuilder({
@@ -248,8 +241,6 @@ class NLWebParticipant(BaseParticipant):
             conversation_id = message.conversation_id
             websocket_manager = stream_callback  # stream_callback is the websocket manager
             
-            storage_client = self.storage_client
-            
             class ChunkCapture:
                 async def write_stream(self, data, end_response=False):
                     nonlocal response_sent
@@ -307,7 +298,7 @@ class NLWebParticipant(BaseParticipant):
                 return
             
             # Get the accumulated results from handler.return_value
-            response = json.dumps(handler.return_value)
+            response = json.dumps(handler.raw_messages)
             summary_array = []
             
             # Create summary array with titles and descriptions
@@ -328,13 +319,14 @@ class NLWebParticipant(BaseParticipant):
             await add_conversation(
                 user_id=user_id,
                 site=handler.site if hasattr(handler, 'site') else 'all',
-                thread_id=conversation_id,  
+                message_id=None,  # Let storage generate a message_id
                 user_prompt=decontextualized_query,
                 response=response,
+                conversation_id=conversation_id,  # This is the frontend's conversation ID
                 embedding=embedding,
                 summary=summary_result.get('summary') if summary_result else None,
                 main_topics=summary_result.get('main_topics') if summary_result else None,
-                key_insights=summary_result.get('key_insights') if summary_result else None
+                participants=summary_result.get('participants') if summary_result else None
             )
             logger.info(f"Stored conversation with summary for user {user_id} in conversation {conversation_id}")
             

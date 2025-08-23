@@ -71,7 +71,6 @@ class QueryRewrite(PromptRunner):
                     "message_type": "query_rewrite",
                     "original_query": self.handler.decontextualized_query,
                     "rewritten_queries": self.handler.rewritten_queries,
-                    "query_id": self.handler.query_id
                 }
                 asyncio.create_task(self.handler.send_message(message))
                 

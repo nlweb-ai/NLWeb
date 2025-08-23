@@ -44,19 +44,9 @@ class NLWebHandler:
         import time
         logger.info("Initializing NLWebHandler")
         
-        # Print all received arguments
-        print("\n" + "="*80)
-        print("NLWebHandler RECEIVED ARGUMENTS:")
-        print("="*80)
-        for key, value in query_params.items():
-            print(f"{key}: {value}")
-        print("="*80 + "\n")
         
         self.http_handler = http_handler
         self.query_params = query_params
-        
-        # Create MessageSender helper
-        self.message_sender = MessageSender(self)
         
         # Track initialization time for time-to-first-result
         self.init_time = time.time()
@@ -168,6 +158,17 @@ class NLWebHandler:
 
         self.versionNumberSent = False
         self.headersSent = False
+        self.raw_messages = []
+        
+        # Generate a single message_id for all messages from this handler instance
+        self.handler_message_id = f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:9]}"
+        
+        # Create MessageSender helper (after handler_message_id is set)
+        self.message_sender = MessageSender(self)
+        
+        # Add the initial user query message to raw_messages
+        initial_user_message = self.message_sender.create_initial_user_message()
+        self.raw_messages.append(initial_user_message)
         
         logger.info(f"NLWebHandler initialized with parameters:")
         logger.debug(f"site: {self.site}, query: {self.query}")
@@ -176,9 +177,6 @@ class NLWebHandler:
         logger.debug(f"context_url: {self.context_url}")
         logger.debug(f"Previous queries: {self.prev_queries}")
         logger.debug(f"Last answers: {self.last_answers}")
-        
-        # Generate a single message_id for all messages from this handler instance
-        self.handler_message_id = f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:9]}"
         
         # log(f"NLWebHandler initialized with site: {self.site}, query: {self.query}, prev_queries: {self.prev_queries}, mode: {self.generate_mode}, conversation_id: {self.conversation_id}, context_url: {self.context_url}")
 
@@ -224,7 +222,7 @@ class NLWebHandler:
             await self.message_sender.send_end_response()
             
             logger.info(f"Query execution completed for conversation_id: {self.conversation_id}")
-            return self.return_value
+            return self.return_value, self.raw_messages
         except Exception as e:
             logger.exception(f"Error in runQuery: {e}")
             log(f"Error in runQuery: {e}")

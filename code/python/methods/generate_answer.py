@@ -46,14 +46,14 @@ class GenerateAnswer(NLWebHandler):
 
     async def runQuery(self):
         try:
-            logger.info(f"Starting query execution for query_id: {self.query_id}")
+            logger.info(f"Starting query execution for conversation_id: {self.conversation_id}")
             await self.prepare()
             if (self.query_done):
                 logger.info("Query done prematurely")
                 return self.return_value
             await self.get_ranked_answers()
-            self.return_value["query_id"] = self.query_id
-            logger.info(f"Query execution completed for query_id: {self.query_id}")
+            self.return_value["conversation_id"] = self.conversation_id
+            logger.info(f"Query execution completed for conversation_id: {self.conversation_id}")
             return self.return_value
         except Exception as e:
             logger.exception(f"Error in runQuery: {e}")
