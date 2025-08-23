@@ -89,7 +89,8 @@ class ConversationSearchHandler():
                     "conversation_id": conv.conversation_id,
                     "user_prompt": conv.user_prompt,
                     "description": conv.summary if conv.summary else conv.user_prompt,
-                    "messages": conv.response  # The response contains the messages
+                    "messages": conv.response,  # The response contains the messages
+                    "time_of_creation": conv.time_of_creation  # Include timestamp
                 }
                 
                 # Create the 4-tuple item format

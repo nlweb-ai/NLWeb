@@ -61,17 +61,21 @@ export class ConversationRenderer {
         metaDiv.appendChild(siteBadge);
       }
       
-      // Add user name (extract from conversation_id which contains user email)
-      if (schema.conversation_id) {
-        // For now, we'll need to get the user from the search context
-        // In the future, we might want to include user_id in the schema
-        const userSpan = document.createElement('span');
-        userSpan.className = 'user-info';
-        userSpan.style.cssText = 'color: #888; font-size: 13px;';
-        // Extract user from handler context if available
-        const userId = item.user_id || 'User';
-        userSpan.textContent = userId.split('@')[0]; // Get username part before @
-        metaDiv.appendChild(userSpan);
+      // Add "You" to indicate this is the current user's conversation
+      const userSpan = document.createElement('span');
+      userSpan.className = 'user-info';
+      userSpan.style.cssText = 'color: #888; font-size: 13px;';
+      userSpan.textContent = 'You';
+      metaDiv.appendChild(userSpan);
+      
+      // Add timestamp next to site
+      if (schema.time_of_creation) {
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'conversation-time';
+        timeSpan.style.cssText = 'color: #999; font-size: 12px;';
+        const date = new Date(schema.time_of_creation);
+        timeSpan.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        metaDiv.appendChild(timeSpan);
       }
       
       headerDiv.appendChild(metaDiv);
@@ -87,34 +91,6 @@ export class ConversationRenderer {
         container.appendChild(summaryDiv);
       }
       
-      // Add score indicator if available
-      if (item.score) {
-        const scoreDiv = document.createElement('div');
-        scoreDiv.className = 'relevance-score';
-        scoreDiv.style.cssText = 'margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0; color: #666; font-size: 12px;';
-        
-        // Create visual score indicator
-        const scoreBar = document.createElement('div');
-        scoreBar.style.cssText = 'display: inline-block; width: 100px; height: 6px; background: #e0e0e0; border-radius: 3px; margin-right: 8px;';
-        const scoreFill = document.createElement('div');
-        scoreFill.style.cssText = `width: ${item.score}%; height: 100%; background: #4caf50; border-radius: 3px;`;
-        scoreBar.appendChild(scoreFill);
-        
-        scoreDiv.appendChild(scoreBar);
-        scoreDiv.appendChild(document.createTextNode(`Relevance: ${item.score}%`));
-        container.appendChild(scoreDiv);
-      }
-      
-      // Add timestamp if available
-      if (schema.timestamp || schema.time_of_creation) {
-        const timeDiv = document.createElement('div');
-        timeDiv.className = 'conversation-time';
-        timeDiv.style.cssText = 'margin-top: 8px; color: #999; font-size: 12px;';
-        const timestamp = schema.timestamp || schema.time_of_creation;
-        const date = new Date(timestamp);
-        timeDiv.textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-        container.appendChild(timeDiv);
-      }
       
       return container;
     }
