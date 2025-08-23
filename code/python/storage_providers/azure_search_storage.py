@@ -506,7 +506,7 @@ class AzureSearchStorageProvider(StorageProvider):
                     embedding=None,  # We don't return embeddings in search results
                     summary=result.get("summary"),
                     main_topics=result.get("main_topics"),
-                    participants=json.loads(result.get("participants", "[]"))
+                    participants=json.loads(result.get("participants") or "[]")
                 ))
             
             return conversations

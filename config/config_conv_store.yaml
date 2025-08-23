@@ -2,14 +2,14 @@
 # This file configures where and how conversation history is stored
 
 # Default storage endpoint to use
-default_storage: qdrant_local
+default_storage: azure_search
 
 # Storage endpoints configuration
 storage_endpoints:
   
   # Local Qdrant storage (default)
   qdrant_local:
-    enabled: true
+    enabled: false
     type: qdrant
     # Local file-based storage path
     database_path: "../data/conversations_db"
@@ -21,12 +21,11 @@ storage_endpoints:
   
   # Azure AI Search storage
   azure_search:
-    enabled: false
+    enabled: true
     type: azure_ai_search
     # Azure Search endpoint (from environment variable)
-    endpoint_env: AZURE_SEARCH_CONVERSATIONS_ENDPOINT
-    # API key (from environment variable)
-    api_key_env: AZURE_SEARCH_CONVERSATIONS_KEY
+    api_key_env: AZURE_VECTOR_SEARCH_API_KEY
+    endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     # Index name for conversations
     collection_name: nlweb_conversations
     # Vector size for embeddings

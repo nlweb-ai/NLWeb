@@ -101,6 +101,11 @@ class ConversationManager {
     // Collect all messages from all conversations
     const allMessages = [];
     this.conversations.forEach(conv => {
+      // Skip conversation history searches - don't save them to localStorage
+      if (conv.site === 'conv_history') {
+        return;
+      }
+      
       if (conv.messages && conv.messages.length > 0) {
         // Add all messages from this conversation
         conv.messages.forEach(msg => {

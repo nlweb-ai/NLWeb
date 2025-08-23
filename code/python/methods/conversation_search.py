@@ -81,8 +81,7 @@ class ConversationSearchHandler():
             # Convert conversation results to format expected by Ranking
             # Create items in the 4-tuple format (url, json_str, name, site)
             items_for_ranking = []
-            print(f"\nConverting {len(conversation_results)} conversations to ranking format:")
-            for i, conv in enumerate(conversation_results):
+            for conv in conversation_results:
                 # Create the conversation JSON object with specified fields
                 conversation_data = {
                     "@type": "Conversation",
@@ -90,7 +89,7 @@ class ConversationSearchHandler():
                     "user_prompt": conv.user_prompt,
                     "description": conv.summary if conv.summary else conv.user_prompt,
                     "messages": conv.response,  # The response contains the messages
-                    "time_of_creation": conv.time_of_creation  # Include timestamp
+                    "time_of_creation": conv.time_of_creation.isoformat() if hasattr(conv.time_of_creation, 'isoformat') else str(conv.time_of_creation)  # Convert datetime to string
                 }
                 
                 # Create the 4-tuple item format
@@ -102,27 +101,21 @@ class ConversationSearchHandler():
                     conv.site  # site
                 )
                 items_for_ranking.append(item)
-                print(f"  Item {i+1}: {conv.user_prompt[:50]}... (site: {conv.site})")
             
             # Step 3: Rank the results using conversation-specific ranking
             # Set the handler's query to the search query for ranking
             original_query = self.handler.query
             self.handler.query = self.search_query
             
-            print(f"\nStarting ranking for {len(items_for_ranking)} conversations...")
-            
             # Use the Ranking class with CONVERSATION_SEARCH type
             ranking = Ranking(self.handler, items_for_ranking, ranking_type=Ranking.CONVERSATION_SEARCH)
             await ranking.do()
-            
-            print(f"\nRanking complete. Final ranked answers:")
-            for i, answer in enumerate(self.handler.final_ranked_answers[:5], 1):
-                print(f"  {i}. {answer['name']}: Score={answer['ranking']['score']}")
             
             # Restore original query
             self.handler.query = original_query
             
         except Exception as e:
+            logger.error(f"Exception during conversation search: {e}")
             await self._send_no_results_message()
     
     async def _send_no_results_message(self):
