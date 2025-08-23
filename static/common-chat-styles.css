@@ -127,8 +127,8 @@ body {
 }
 
 .new-chat-icon-btn {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   background-color: transparent;
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -138,6 +138,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .new-chat-icon-btn:hover {
@@ -146,7 +147,7 @@ body {
 }
 
 .plus-icon {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: bold;
   line-height: 1;
   color: var(--text-secondary);
@@ -154,6 +155,23 @@ body {
 
 .new-chat-icon-btn:hover .plus-icon {
   color: var(--primary-color);
+}
+
+.new-chat-icon-btn svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-secondary);
+}
+
+.new-chat-icon-btn:hover svg {
+  color: var(--primary-color);
+}
+
+.header-buttons {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  align-items: center;
 }
 
 .conversations-list {

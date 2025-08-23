@@ -36,6 +36,7 @@ class ModernChatInterface {
       sidebarToggle: document.getElementById('sidebar-toggle'),
       mobileMenuToggle: document.getElementById('mobile-menu-toggle'),
       newChatBtn: document.getElementById('new-chat-btn'),
+      searchHistoryBtn: document.getElementById('search-history-btn'),
       conversationsList: document.getElementById('conversations-list'),
       chatTitle: document.querySelector('.chat-title'),
       chatSiteInfo: document.getElementById('chat-site-info'),
@@ -128,6 +129,15 @@ class ModernChatInterface {
     // New chat button
     this.elements.newChatBtn.addEventListener('click', () => this.createNewChat());
     
+    // Search history button
+    if (this.elements.searchHistoryBtn) {
+      this.elements.searchHistoryBtn.addEventListener('click', () => {
+        console.log('Search history button clicked');
+        this.createNewChat(null, 'conv_history');
+      });
+    } else {
+      console.error('Search history button not found');
+    }
     
     // Send button
     this.elements.sendButton.addEventListener('click', () => this.sendMessage());
@@ -193,6 +203,17 @@ class ModernChatInterface {
     // Create new conversation
     // Create new conversation ID but don't add to conversations array yet
     this.currentConversationId = Date.now().toString();
+    
+    // Set site if provided (for conversation history search)
+    if (site) {
+      this.selectedSite = site;
+      // Update site info display
+      if (site === 'conv_history') {
+        this.elements.chatSiteInfo.textContent = 'Searching conversation history';
+      } else {
+        this.elements.chatSiteInfo.textContent = `Asking ${site}`;
+      }
+    }
     
     // Clear UI
     this.elements.messagesContainer.innerHTML = '';

@@ -404,4 +404,31 @@
     </Item>
   </Site>
 
+  <!-- Special site for searching conversation history -->
+  <Site id="conv_history">
+    <Item>
+      <Tool name="conversation_search" enabled="true">
+        <method>extension</method>
+        <handler>methods.conversation_search.ConversationSearchHandler</handler>
+        <example>Find my previous conversations about recipes</example>
+        <example>What did I ask about movies last week?</example>
+        <example>Show me my conversations about Italian food</example>
+        <prompt>
+          The user has the following query: {request.query}.
+          
+          This tool searches through the user's conversation history. Since the site is "conv_history",
+          ALL queries should use this tool to search the conversation history.
+          
+          Always score 100 for this tool when site=conv_history.
+
+        </prompt>
+        <returnStruc>
+          {
+            "score": "100"
+          }
+        </returnStruc>
+      </Tool>
+    </Item>
+  </Site>
+
 </Tools>

@@ -3,7 +3,7 @@
 from aiohttp import web
 import logging
 from typing import Dict, Any, List
-from core.conversation import get_conversation_by_id, get_recent_conversations
+from core.conversation_history import get_conversation_by_id, get_recent_conversations
 
 logger = logging.getLogger(__name__)
 

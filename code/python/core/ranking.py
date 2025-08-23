@@ -27,6 +27,7 @@ class Ranking:
     FAST_TRACK = 1
     REGULAR_TRACK = 2
     WHO_RANKING = 3
+    CONVERSATION_SEARCH = 4
 
     # This is the default ranking prompt, in case, for some reason, we can't find the site_type.xml file.
     RANKING_PROMPT = ["""  Assign a score between 0 and 100 to the following {site.itemType}
@@ -45,6 +46,24 @@ The user's question is: {request.query}. The item's description is {item.descrip
                             """,
                             {"score" : "integer between 0 and 100", 
                             "description" : "short description of the item"}]
+    
+    CONVERSATION_SEARCH_PROMPT = ["""Assign a score between 0 and 100 to the following past conversation
+                          based on how relevant it is to the user's current search query.
+                          Consider both the original question asked and the response received.
+                          
+                          The user's search query is: {request.query}
+                          
+                          Past conversation details:
+                          {item.description}
+                          
+                          Score higher if:
+                          - The conversation directly addresses the search topic
+                          - The response contains useful information related to the query
+                          - The conversation summary or topics match the search intent
+                          
+                          Provide a brief description highlighting why this conversation is relevant.""",
+                          {"score": "integer between 0 and 100",
+                           "description": "brief description of why this past conversation is relevant to the search"}]
  
     RANKING_PROMPT_NAME = "RankingPrompt"
      
@@ -53,6 +72,8 @@ The user's question is: {request.query}. The item's description is {item.descrip
         item_type = self.handler.item_type
         if (self.ranking_type == Ranking.WHO_RANKING):
             return self.WHO_RANKING_PROMPT[0], self.WHO_RANKING_PROMPT[1]
+        if (self.ranking_type == Ranking.CONVERSATION_SEARCH):
+            return self.CONVERSATION_SEARCH_PROMPT[0], self.CONVERSATION_SEARCH_PROMPT[1]
         
         prompt_str, ans_struc = find_prompt(site, item_type, self.RANKING_PROMPT_NAME)
         if prompt_str is None:
@@ -64,7 +85,16 @@ The user's question is: {request.query}. The item's description is {item.descrip
         
     def __init__(self, handler, items, ranking_type=FAST_TRACK):
         ll = len(items)
-        self.ranking_type_str = "FAST_TRACK" if ranking_type == self.FAST_TRACK else "REGULAR_TRACK"
+        if ranking_type == self.FAST_TRACK:
+            self.ranking_type_str = "FAST_TRACK"
+        elif ranking_type == self.REGULAR_TRACK:
+            self.ranking_type_str = "REGULAR_TRACK"
+        elif ranking_type == self.WHO_RANKING:
+            self.ranking_type_str = "WHO_RANKING"
+        elif ranking_type == self.CONVERSATION_SEARCH:
+            self.ranking_type_str = "CONVERSATION_SEARCH"
+        else:
+            self.ranking_type_str = "UNKNOWN"
         logger.info(f"Initializing Ranking with {ll} items, type: {self.ranking_type_str}")
         logger.info(f"Ranking {ll} items of type {self.ranking_type_str}")
         self.handler = handler
@@ -203,7 +233,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
                     self.handler.fastTrackWorked = True
                     logger.info("Fast track ranking successful")
                 
-                to_send = {"message_type": "result", "content": json_results, "query_id": self.handler.query_id}
+                to_send = {"message_type": "result", "content": json_results}
                 asyncio.create_task(self.handler.send_message(to_send))
                 self.num_results_sent += len(json_results)
                 logger.info(f"Sent {len(json_results)} results, total sent: {self.num_results_sent}/{self.NUM_RESULTS_TO_SEND}")

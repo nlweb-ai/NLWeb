@@ -2,6 +2,8 @@
  * Type-specific renderers for JSON objects
  */
 
+import { ConversationRenderer } from './conversation-renderer.js';
+
 /**
  * Base class for type-specific renderers
  */
@@ -150,6 +152,7 @@ export class TypeRendererFactory {
   static registerAll(jsonRenderer) {
     TypeRendererFactory.registerRenderer(RealEstateRenderer, jsonRenderer);
     TypeRendererFactory.registerRenderer(PodcastEpisodeRenderer, jsonRenderer);
+    TypeRendererFactory.registerRenderer(ConversationRenderer, jsonRenderer);
     // RecipeRenderer will be registered separately
     // Add more renderers here as needed
   }

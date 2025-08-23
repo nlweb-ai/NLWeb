@@ -20,6 +20,9 @@ from chat.schemas import (
     ParticipantType,
     QueueFullError
 )
+from core.conversation_history import add_conversation
+from core.llm import ask_llm
+from core.embedding import get_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -211,7 +214,7 @@ class NLWebParticipant(BaseParticipant):
                 "query": [message.content],
                 "user_id": [message.sender_info.get('id')],
                 "streaming": ["true"],  # Enable streaming
-                "query_id": [message.conversation_id],  # Pass conversation_id as query_id (to be renamed later)
+                "conversation_id": [message.conversation_id],  # Pass conversation_id
             }
             
             # Get sites and mode from message (now top-level fields)
@@ -258,33 +261,11 @@ class NLWebParticipant(BaseParticipant):
                         # Send the streaming data asynchronously (non-blocking)
                         # The client expects data with message_type at the top level
                         asyncio.create_task(websocket_manager.broadcast_message(conversation_id, data))
-                        
-                        # NLWeb streaming messages are ephemeral and should NOT be stored
-                        # They are only for real-time display in the UI
             
             chunk_capture = ChunkCapture()
-            
-            # Call NLWebHandler directly - it's a class that needs to be instantiated
-            # This follows the same pattern as MCP integration
-            
-            # If nlweb_handler is a class, instantiate it
-            if isinstance(self.nlweb_handler, type):
-                logger.info(f"NLWebParticipant instantiating NLWebHandler with query_params")
-                handler = self.nlweb_handler(query_params, chunk_capture)
-                logger.info(f"NLWebParticipant calling handler.runQuery()")
-                # Run query with timeout
-                await asyncio.wait_for(
-                    handler.runQuery(),
-                    timeout=self.config.timeout
-                )
-                logger.info(f"NLWebParticipant handler.runQuery() completed")
-            else:
-                logger.info(f"NLWebParticipant calling mock handler function")
-                # For testing, nlweb_handler might be a mock function
-                await asyncio.wait_for(
-                    self.nlweb_handler(query_params, chunk_capture),
-                    timeout=self.config.timeout
-                )
+          
+            handler = self.nlweb_handler(query_params, chunk_capture)
+            results = await handler.runQuery()
             
             # If we streamed the response, create a message for storage
             if response_sent:
@@ -297,11 +278,10 @@ class NLWebParticipant(BaseParticipant):
                     }
                     await websocket_manager.broadcast_message(conversation_id, completion_message)
                 
-                # NLWebParticipant only streams - it doesn't create messages
-                return None
-            
-            # If no streaming happened, return None (NLWeb didn't respond)
-            return None
+                # Store the conversation exchange
+                user_id = message.sender_info.get('id')
+                await self.storeConversationExchange(handler, user_id, conversation_id)
+        
             
         except asyncio.TimeoutError:
             logger.warning(f"NLWeb timeout processing message from {message.sender_info.get('id')}")
@@ -313,6 +293,135 @@ class NLWebParticipant(BaseParticipant):
         except Exception as e:
             logger.error(f"Error in NLWeb processing: {e}")
             return None
+    
+    async def storeConversationExchange(self, handler, user_id, conversation_id):
+        """Store the conversation exchange."""
+        try:
+            # Don't store conversation history searches in the conversation history
+            if hasattr(handler, 'site') and handler.site == 'conv_history':
+                logger.info("Skipping storage for conversation history search")
+                return
+            
+            # Check if handler has return_value with content
+            if not hasattr(handler, 'return_value') or 'content' not in handler.return_value:
+                return
+            
+            # Get the accumulated results from handler.return_value
+            response = json.dumps(handler.return_value)
+            summary_array = []
+            
+            # Create summary array with titles and descriptions
+            for item in handler.return_value['content']:
+                title = item.get('name', '') 
+                description = item.get('description', '') 
+            
+                summary_array.append({
+                    'title': title,
+                    'description': description
+                })
+            
+            # Generate summary and embedding in parallel
+            decontextualized_query = handler.decontextualized_query if hasattr(handler, 'decontextualized_query') else handler.query
+            summary_result, embedding = await self.createSummaryAndEmbedding(summary_array, decontextualized_query)
+            
+            # Store the conversation with summary and embedding
+            await add_conversation(
+                user_id=user_id,
+                site=handler.site if hasattr(handler, 'site') else 'all',
+                thread_id=conversation_id,  
+                user_prompt=decontextualized_query,
+                response=response,
+                embedding=embedding,
+                summary=summary_result.get('summary') if summary_result else None,
+                main_topics=summary_result.get('main_topics') if summary_result else None,
+                key_insights=summary_result.get('key_insights') if summary_result else None
+            )
+            logger.info(f"Stored conversation with summary for user {user_id} in conversation {conversation_id}")
+            
+        except Exception as e:
+            logger.error(f"Error storing conversation: {e}")
+            # Don't fail the request if storage fails
+    
+    async def createSummaryAndEmbedding(self, summary_array, decontextualized_query):
+        """
+        Create a summary using LLM and generate embedding from the summary array.
+        Both calls happen in parallel for efficiency.
+        
+        Args:
+            summary_array: List of dicts with 'title' and 'description' keys
+            decontextualized_query: The processed/decontextualized query string
+            
+        Returns:
+            Tuple of (summary_result, embedding)
+        """
+        try:
+            # Define the prompt directly
+            prompt_str = f"""You are tasked with creating a concise, informative summary of search results from a conversation.
+          
+The user's query was: {decontextualized_query}
+
+You will receive a list of search results returned for this query, each with a title and description.
+Create a summary that:
+1. Captures the main themes and topics covered across all results
+2. Highlights the most relevant and useful information
+3. Is concise yet comprehensive (2-3 sentences)
+4. Maintains factual accuracy without speculation
+5. Relates the findings back to the user's original query
+
+In the summary, don't explicitly refer to "the search results"
+
+The search results are:
+{json.dumps(summary_array, indent=2)}
+
+Create a summary that would be useful for understanding what information was found in response to the user's query."""
+
+            # Define the expected response structure
+            ans_struc = {
+                "summary": "A concise 2-3 sentence summary of the search results",
+                "main_topics": ["topic1", "topic2", "topic3"]
+            }
+            
+            # Convert summary array to text for embedding
+            embedding_text = " ".join([
+                f"{item['title']} {item['description']}" 
+                for item in summary_array 
+                if item['title'] or item['description']
+            ])
+            
+            # Make parallel calls to LLM and embedding service
+            llm_task = ask_llm(
+                prompt=prompt_str,
+                schema=ans_struc,
+                level="low",
+                timeout=10
+            )
+            
+            embedding_task = get_embedding(
+                text=embedding_text[:2000],  # Limit text length for embedding
+                timeout=10
+            )
+            
+            # Wait for both tasks to complete
+            summary_result, embedding = await asyncio.gather(
+                llm_task,
+                embedding_task,
+                return_exceptions=True
+            )
+            
+            # Handle exceptions from either task
+            if isinstance(summary_result, Exception):
+                logger.error(f"Error generating summary: {summary_result}")
+                summary_result = None
+            
+            if isinstance(embedding, Exception):
+                logger.error(f"Error generating embedding: {embedding}")
+                embedding = None
+            
+            return summary_result, embedding
+            
+        except Exception as e:
+            logger.error(f"Error in createSummaryAndEmbedding: {e}")
+            return None, None
     
     def get_participant_info(self) -> ParticipantInfo:
         """Get participant information"""

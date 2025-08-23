@@ -16,7 +16,6 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 from abc import ABC, abstractmethod
-from enum import Enum
 
 from core.config import CONFIG
 from core.embedding import get_embedding
@@ -24,32 +23,10 @@ from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("storage")
 
-
-class ParticipantType(Enum):
-    """Enum for conversation participant types"""
-    USER = "USER"
-    AGENT = "AGENT"
-
-
 @dataclass
-class ConversationParticipant:
-    """Represents a participant in a conversation"""
-    participant_type: ParticipantType
-    id: str
-    name: str
-
-
-@dataclass
-class Conversation:
-    """Represents a conversation with multiple participants"""
-    conversation_id: str
-    participants: List[ConversationParticipant]
-
-
-@dataclass
-class ConversationEvent:
+class ConversationEntry:
     """
-    Represents a single conversation event (one exchange between user and assistant).
+    Represents a single conversation entry (one exchange between user and assistant).
     """
     user_id: str                    # User ID (if logged in) or anonymous ID
     site: str                       # Site context for the conversation
@@ -57,9 +34,11 @@ class ConversationEvent:
     user_prompt: str                # The user's question/prompt
     response: str                   # The assistant's response
     time_of_creation: datetime      # Timestamp of creation
-    conversation_id: str            # Unique ID for this conversation event
-    event_type: str                 # Type of conversation event
+    conversation_id: str            # Unique ID for this conversation entry
     embedding: Optional[List[float]] = None  # Embedding vector for the conversation
+    summary: Optional[str] = None   # LLM-generated summary of the conversation
+    main_topics: Optional[List[str]] = None  # Main topics identified in the conversation
+    key_insights: Optional[str] = None  # Key insights from the conversation
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
@@ -71,8 +50,10 @@ class ConversationEvent:
             "response": self.response,
             "time_of_creation": self.time_of_creation.isoformat(),
             "conversation_id": self.conversation_id,
-            "event_type": self.event_type,
-            "embedding": self.embedding
+            "embedding": self.embedding,
+            "summary": self.summary,
+            "main_topics": self.main_topics,
+            "key_insights": self.key_insights
         }
     
     def to_json(self) -> Dict[str, Any]:
@@ -81,12 +62,11 @@ class ConversationEvent:
             "id": self.conversation_id,
             "user_prompt": self.user_prompt,
             "response": self.response,
-            "time": self.time_of_creation.isoformat(),
-            "event_type": self.event_type
+            "time": self.time_of_creation.isoformat()
         }
     
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ConversationEvent':
+    def from_dict(cls, data: Dict[str, Any]) -> 'ConversationEntry':
         """Create from dictionary."""
         data["time_of_creation"] = datetime.fromisoformat(data["time_of_creation"])
         return cls(**data)
@@ -96,7 +76,9 @@ class StorageProvider(ABC):
     
     @abstractmethod
     async def add_conversation(self, user_id: str, site: str, thread_id: Optional[str], 
-                             user_prompt: str, response: str) -> ConversationEvent:
+                             user_prompt: str, response: str, embedding: Optional[List[float]] = None,
+                             summary: Optional[str] = None, main_topics: Optional[List[str]] = None,
+                             key_insights: Optional[str] = None) -> ConversationEntry:
         """
         Add a conversation to storage.
         
@@ -106,9 +88,26 @@ class StorageProvider(ABC):
             thread_id: Thread ID for grouping. If None, create a new thread_id
             user_prompt: The user's question/prompt
             response: The assistant's response
+            embedding: Optional pre-computed embedding vector
+            summary: Optional LLM-generated summary
+            main_topics: Optional list of main topics
+            key_insights: Optional key insights
             
         Returns:
-            ConversationEvent: The created conversation event with generated conversation_id and embedding
+            ConversationEntry: The created conversation entry with generated conversation_id
+        """
+        pass
+    
+    @abstractmethod
+    async def get_conversation_by_id(self, conversation_id: str) -> Dict[str, Any]:
+        """
+        Retrieve a specific conversation by its ID.
+        
+        Args:
+            conversation_id: The conversation ID to retrieve
+            
+        Returns:
+            Dict containing conversation data with events and participants
         """
         pass
     
@@ -153,17 +152,21 @@ class StorageProvider(ABC):
             bool: True if deleted successfully, False otherwise
         """
         pass
-    
+
     @abstractmethod
-    async def get_conversation_by_id(self, conversation_id: str) -> Dict[str, Any]:
+    async def search_conversations(self, query: str, user_id: Optional[str] = None, 
+                                 site: Optional[str] = None, limit: int = 10) -> List[ConversationEntry]:
         """
-        Retrieve all events and participants for a specific conversation.
-        
+        Search conversations using a query string.
+
         Args:
-            conversation_id: The conversation ID to retrieve
-            
+            query: The search query string
+            user_id: Optional user ID to filter results
+            site: Optional site to filter results
+            limit: Maximum number of results to return
+
         Returns:
-            Dictionary containing conversation events and participants
+            List[ConversationEntry]: The search results
         """
         pass
 
@@ -206,9 +209,6 @@ async def get_storage_client() -> StorageProvider:
         elif storage_type == 'postgres':
             from storage_providers.postgres_storage import PostgresStorageProvider
             _storage_client = PostgresStorageProvider(storage_config)
-        elif storage_type == 'memory':
-            from storage_providers.memory_storage import MemoryStorageProvider
-            _storage_client = MemoryStorageProvider(storage_config)
         else:
             # Default to Qdrant for now
             from storage_providers.qdrant_storage import QdrantStorageProvider
@@ -222,7 +222,9 @@ async def get_storage_client() -> StorageProvider:
         return _storage_client
 
 async def add_conversation(user_id: str, site: str, thread_id: Optional[str], 
-                         user_prompt: str, response: str) -> ConversationEvent:
+                         user_prompt: str, response: str, embedding: Optional[List[float]] = None,
+                         summary: Optional[str] = None, main_topics: Optional[List[str]] = None,
+                         key_insights: Optional[str] = None) -> ConversationEntry:
     """
     Add a conversation to storage.
     
@@ -232,12 +234,30 @@ async def add_conversation(user_id: str, site: str, thread_id: Optional[str],
         thread_id: Thread ID for grouping. If None, create a new thread_id
         user_prompt: User's question
         response: Assistant's response
+        embedding: Optional pre-computed embedding vector
+        summary: Optional LLM-generated summary
+        main_topics: Optional list of main topics
+        key_insights: Optional key insights
         
     Returns:
-        ConversationEvent: The stored conversation event
+        ConversationEntry: The stored conversation entry
     """
     client = await get_storage_client()
-    return await client.add_conversation(user_id, site, thread_id, user_prompt, response)
+    return await client.add_conversation(user_id, site, thread_id, user_prompt, response, 
+                                        embedding, summary, main_topics, key_insights)
+
+async def get_conversation_by_id(conversation_id: str) -> Dict[str, Any]:
+    """
+    Get a specific conversation by ID.
+    
+    Args:
+        conversation_id: The conversation ID to retrieve
+        
+    Returns:
+        Dict containing conversation data with events and participants
+    """
+    client = await get_storage_client()
+    return await client.get_conversation_by_id(conversation_id)
 
 async def get_recent_conversations(user_id: str, site: str, limit: int = 50) -> List[Dict[str, Any]]:
     """
@@ -267,19 +287,6 @@ async def delete_conversation(conversation_id: str, user_id: Optional[str] = Non
     """
     client = await get_storage_client()
     return await client.delete_conversation(conversation_id, user_id)
-
-async def get_conversation_by_id(conversation_id: str) -> Dict[str, Any]:
-    """
-    Retrieve all events and participants for a specific conversation.
-    
-    Args:
-        conversation_id: The conversation ID to retrieve
-        
-    Returns:
-        Dictionary containing conversation events and participants
-    """
-    client = await get_storage_client()
-    return await client.get_conversation_by_id(conversation_id)
 
 # Convenience function for migration from localStorage
 async def migrate_from_localstorage(user_id: str, conversations_data: List[Dict[str, Any]]) -> int:

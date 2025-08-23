@@ -422,13 +422,26 @@ class ToolSelector:
             # If there's only one tool, skip LLM evaluation and use it directly
             elif len(tools) == 1:
                 logger.info(f"Only one tool available ({tools[0].name}), skipping LLM evaluation - saving API call")
+                # Build result with default parameters based on tool requirements
+                result = {
+                    "score": 100,
+                    "justification": "Only available tool for this query type"
+                }
+                
+                # Add required parameters based on tool name
+                # These are the common parameters that tools expect when skipping LLM
+                if tools[0].name == "conversation_search":
+                    result["search_query"] = query
+                elif tools[0].name == "search":
+                    result["search_query"] = query
+                elif tools[0].name in ["who_and_search", "statistics_query"]:
+                    # Add any default params these tools might need
+                    pass
+                
                 tool_results = [{
                     "tool": tools[0],
-                    "score": 100,  # Give it a perfect score since it's the only option
-                    "result": {
-                        "score": 100,
-                        "justification": "Only available tool for this query type"
-                    }
+                    "score": 100,
+                    "result": result
                 }]
                 
                 # Send debug message if in debug mode
@@ -513,12 +526,13 @@ class ToolSelector:
             
             result = response or {"score": 0, "justification": "No response from LLM"}
             
-            # Log timing and response information (commented out to reduce console output)
-            # print(f"\n--- Tool Evaluation: {tool.name} ---")
-            # print(f"Time taken: {elapsed_time:.3f} seconds")
-            # print(f"Response: {result}")
-            # print(f"Score: {result.get('score', 0)}")
-            # print("-" * 40)
+            # Debug print for conversation_search tool
+            if tool.name == "conversation_search":
+                print(f"\n--- Tool Evaluation: {tool.name} ---")
+                print(f"Time taken: {elapsed_time:.3f} seconds")
+                print(f"Response: {result}")
+                print(f"Score: {result.get('score', 0)}")
+                print("-" * 40)
             
             return {"tool": tool, "result": result, "score": result.get("score", 0)}
         except Exception as e:

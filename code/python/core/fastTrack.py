@@ -17,7 +17,13 @@ from misc.logger.logging_config_helper import get_configured_logger
 import asyncio
 
 logger = get_configured_logger("fast_track")
-NO_FASTTRACK_SITES = ["datacommons", "all"]
+
+# Sites that don't support standard vector retrieval
+NO_STANDARD_RETRIEVAL_SITES = ["datacommons", "all", "conv_history"]
+
+def site_supports_standard_retrieval(site):
+    """Check if a site supports standard vector database retrieval"""
+    return site not in NO_STANDARD_RETRIEVAL_SITES
 
 class FastTrack:
     def __init__(self, handler):
@@ -26,8 +32,8 @@ class FastTrack:
 
     def is_fastTrack_eligible(self):
         """Check if query is eligible for fast track processing"""
-        # Skip fast track for sites without embeddings
-        if self.handler.site in NO_FASTTRACK_SITES:
+        # Skip fast track for sites without standard retrieval
+        if not site_supports_standard_retrieval(self.handler.site):
             return False
         if (self.handler.context_url != ''):
             logger.debug("Fast track not eligible: context_url present")

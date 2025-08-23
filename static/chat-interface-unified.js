@@ -176,6 +176,12 @@ export class UnifiedChatInterface {
       return;
     }
     
+    // Search history button
+    if (target.closest('#search-history-btn')) {
+      this.createNewChat('conv_history');
+      return;
+    }
+    
     // Send button (both centered and normal)
     if (target.closest('#send-button, #centered-send-button')) {
       this.sendMessage();
@@ -601,14 +607,7 @@ export class UnifiedChatInterface {
       this.seenMessageIds = new Set();
     }
     
-    // Check for duplicate messages using message_id
-    if (data.message_id) {
-      if (this.seenMessageIds.has(data.message_id)) {
-        return;
-      }
-      // Add to seen messages
-      this.seenMessageIds.add(data.message_id);
-    }
+    // Removed deduplication - messages from same handler may share message_id
     
     // Track messages for sorting
     if (!this.state.messageBuffer) {
@@ -1464,10 +1463,24 @@ export class UnifiedChatInterface {
     }
   }
   
-  createNewChat() {
+  createNewChat(site = null) {
     // Clear current conversation state
     this.state.conversationId = null;
     this.state.currentStreaming = null;
+    
+    // Set site if provided (for conversation history search)
+    if (site) {
+      this.state.selectedSite = site;
+      // Update site info display
+      const siteInfo = document.getElementById('chat-site-info');
+      if (siteInfo) {
+        if (site === 'conv_history') {
+          siteInfo.textContent = 'Searching conversation history';
+        } else {
+          siteInfo.textContent = `Asking ${site}`;
+        }
+      }
+    }
     
     // Clear messages container
     const container = this.dom.messages();
