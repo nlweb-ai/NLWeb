@@ -39,7 +39,14 @@ export class ConversationRenderer {
       
       // Title (user prompt)
       const titleLink = document.createElement('a');
-      titleLink.href = item.url || '#';
+      // Convert conversation:// URL to join link
+      if (item.url && item.url.startsWith('conversation://')) {
+        const conversationId = item.url.replace('conversation://', '');
+        titleLink.href = `/static/join.html?conv_id=${conversationId}`;
+        titleLink.target = '_blank';
+      } else {
+        titleLink.href = item.url || '#';
+      }
       titleLink.textContent = item.name || schema.user_prompt || 'Conversation';
       titleLink.className = 'conversation-title-link';
       titleLink.style.cssText = 'font-weight: 600; color: #0066cc; text-decoration: none; font-size: 16px;';
