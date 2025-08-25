@@ -641,6 +641,20 @@ class ModernChatInterface {
           
           // Add to remembered items
           this.addRememberedItem(data.item_to_remember);
+        } else if (data.message_type === 'multi_site_complete') {
+          // Handle multi-site query completion - rerank results to avoid too many from same site
+          if (allResults && allResults.length > 0 && this.state.selectedSite === 'all') {
+            // Apply reranking algorithm
+            const rerankedResults = this.rerankResults(allResults);
+            
+            // Clear and redisplay with reranked results
+            allResults = rerankedResults;
+            textDiv.innerHTML = messageContent + this.renderItems(allResults);
+            
+            // Add a subtle indicator that results were reranked
+            const rerankMsg = `<div style="font-size: 11px; color: #888; margin-top: 10px;">✓ Results optimized for diversity (${data.total_results} total from ${data.sites_successful} sites)</div>`;
+            textDiv.innerHTML += rerankMsg;
+          }
         } else if (data.message_type === 'query_analysis') {
           // Handle query analysis which may include decontextualized query
           if (data.decontextualized_query && query && 
@@ -810,6 +824,68 @@ class ModernChatInterface {
       // Stream complete
       this.endStreaming();
     }
+  }
+  
+  rerankResults(items) {
+    // Ensure top 3 results are from different sites for diversity
+    // Algorithm:
+    // 1. First result: highest scoring
+    // 2. Second result: highest scoring from a different site
+    // 3. Third result: highest scoring from a site different from first two
+    // 4. Remaining results: simple score order
+    
+    if (!items || items.length === 0) return items;
+    
+    // Create a copy to avoid mutating original
+    let results = items.map(item => ({ ...item }));
+    
+    // Sort by score initially
+    results.sort((a, b) => (b.score || 0) - (a.score || 0));
+    
+    // If we have less than 3 results, just return sorted
+    if (results.length <= 3) return results;
+    
+    const rerankedResults = [];
+    const usedSites = new Set();
+    const remainingResults = [...results];
+    
+    // Pick top 3 from different sites
+    for (let position = 0; position < 3 && remainingResults.length > 0; position++) {
+      let selectedIndex = -1;
+      
+      // Find the highest scoring result from a site not yet used
+      for (let i = 0; i < remainingResults.length; i++) {
+        const site = remainingResults[i].site || remainingResults[i].siteUrl || '';
+        
+        // If this is from a new site (or the first result), select it
+        if (!usedSites.has(site)) {
+          selectedIndex = i;
+          usedSites.add(site);
+          break;
+        }
+      }
+      
+      // If we couldn't find a result from a new site, just take the highest scoring one
+      if (selectedIndex === -1) {
+        selectedIndex = 0;
+        const site = remainingResults[0].site || remainingResults[0].siteUrl || '';
+        usedSites.add(site);
+      }
+      
+      // Add the selected result and remove it from remaining
+      rerankedResults.push(remainingResults[selectedIndex]);
+      remainingResults.splice(selectedIndex, 1);
+    }
+    
+    // Add all remaining results in score order (they're already sorted)
+    rerankedResults.push(...remainingResults);
+    
+    // Log diversity metrics for debugging
+    const topThreeSites = rerankedResults.slice(0, 3).map(r => r.site || r.siteUrl || 'unknown');
+    const uniqueTopSites = new Set(topThreeSites).size;
+    console.log(`Reranking: Top 3 results from ${uniqueTopSites} different site(s): ${topThreeSites.join(', ')}`);
+    
+    return rerankedResults;
   }
   
   renderItems(items) {

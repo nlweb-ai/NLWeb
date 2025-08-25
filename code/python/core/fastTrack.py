@@ -19,7 +19,7 @@ import asyncio
 logger = get_configured_logger("fast_track")
 
 # Sites that don't support standard vector retrieval
-NO_STANDARD_RETRIEVAL_SITES = ["datacommons", "all", "conv_history", "CricketLens"]
+NO_STANDARD_RETRIEVAL_SITES = ["datacommons", "all", "conv_history", "CricketLens", "cricketlens", "cricketlens.com"]
 
 def site_supports_standard_retrieval(site):
     """Check if a site supports standard vector database retrieval"""

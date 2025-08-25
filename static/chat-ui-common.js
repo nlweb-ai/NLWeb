@@ -692,6 +692,7 @@ export class ChatUICommon {
       let preContent = '';
       let headerFound = false;
       
+      let rowCount = 0;
       for (const line of lines) {
         // Skip "KEY INSIGHTS" section entirely
         if (line.includes('=== KEY INSIGHTS')) {
@@ -707,8 +708,13 @@ export class ChatUICommon {
           continue;
         }
         
+        // Skip pure separator lines (only contains -, +, |, and spaces)
+        if (line.match(/^[\s\-+|]+$/)) {
+          continue;
+        }
+        
         // Check if this is a table line (contains | but not just separator)
-        if (line.includes('|') && !line.match(/^[\s\-+|]+$/)) {
+        if (line.includes('|')) {
           if (!inTable) {
             // Start of table
             if (preContent) {
@@ -720,11 +726,7 @@ export class ChatUICommon {
             }
             inTable = true;
             tableHtml = '<table style="width: 100%; border-collapse: collapse; background: white; border-radius: 4px; overflow: hidden;">';
-          }
-          
-          // Skip pure separator lines (only contains -, +, |, and spaces)
-          if (line.match(/^[\s\-+|]+$/)) {
-            continue;
+            rowCount = 0;
           }
           
           const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
@@ -736,13 +738,21 @@ export class ChatUICommon {
             }
             
             const cellTag = isHeader ? 'th' : 'td';
-            const rowStyle = isHeader ? 'background: #0066cc; color: white;' : 'border-bottom: 1px solid #e0e0e0;';
+            let rowStyle = '';
+            
+            if (isHeader) {
+              rowStyle = 'background: #0066cc; color: white;';
+            } else {
+              // Alternating row backgrounds for data rows
+              rowStyle = rowCount % 2 === 0 ? 'background: #f9f9f9;' : 'background: white;';
+              rowCount++;
+            }
             
             tableHtml += `<tr style="${rowStyle}">`;
             for (const cell of cells) {
               const cellStyle = isHeader 
                 ? 'padding: 10px; text-align: left; font-weight: 600;' 
-                : 'padding: 10px; text-align: left;';
+                : 'padding: 10px; text-align: left; border-bottom: 1px solid #e9e9e9;';
               tableHtml += `<${cellTag} style="${cellStyle}">${this.escapeHtml(cell)}</${cellTag}>`;
             }
             tableHtml += '</tr>';

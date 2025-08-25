@@ -260,12 +260,55 @@ class ConversationManager {
     }, 100);
   }
 
-  deleteConversation(conversationId, chatInterface) {
+  async deleteConversation(conversationId, chatInterface) {
     // Remove from conversations array
     this.conversations = this.conversations.filter(conv => conv.id !== conversationId);
     
-    // Save updated list
+    // Save updated list to localStorage
     this.saveConversations();
+    
+    // If this is a server conversation (starts with conv_), also delete from server
+    if (conversationId && conversationId.startsWith('conv_')) {
+      try {
+        // Get user ID if available
+        const userInfo = localStorage.getItem('userInfo');
+        let userId = null;
+        if (userInfo) {
+          try {
+            const parsed = JSON.parse(userInfo);
+            userId = parsed.id || parsed.user_id;
+          } catch (e) {
+            console.error('Error parsing userInfo:', e);
+          }
+        }
+        
+        // Call server API to delete conversation
+        const params = new URLSearchParams({
+          conversation_id: conversationId
+        });
+        if (userId) {
+          params.append('user_id', userId);
+        }
+        
+        const response = await fetch(`/api/conversation/delete?${params}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Failed to delete conversation from server:', errorData);
+          // Continue with local deletion even if server fails
+        } else {
+          console.log(`Conversation ${conversationId} deleted from server`);
+        }
+      } catch (error) {
+        console.error('Error deleting conversation from server:', error);
+        // Continue with local deletion even if server fails
+      }
+    }
     
     // Update UI
     chatInterface.updateConversationsList();

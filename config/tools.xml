@@ -468,5 +468,40 @@
       </Tool>
     </Item>
   </Site>
+  
+  <!-- Aliases for CricketLens to handle different domain formats -->
+  <Site id="cricketlens">
+    <Item>
+      <Tool name="cricket_stats" enabled="true">
+        <method>extension</method>
+        <handler>methods.cricket_query.CricketQueryHandler</handler>
+        <prompt>
+          This is an alias for CricketLens. Always score 100 for cricket queries.
+        </prompt>
+        <returnStruc>
+          {
+            "search_query": "{query}"
+          }
+        </returnStruc>
+      </Tool>
+    </Item>
+  </Site>
+  
+  <Site id="cricketlens.com">
+    <Item>
+      <Tool name="cricket_stats" enabled="true">
+        <method>extension</method>
+        <handler>methods.cricket_query.CricketQueryHandler</handler>
+        <prompt>
+          This is an alias for CricketLens. Always score 100 for cricket queries.
+        </prompt>
+        <returnStruc>
+          {
+            "search_query": "{query}"
+          }
+        </returnStruc>
+      </Tool>
+    </Item>
+  </Site>
 
 </Tools>

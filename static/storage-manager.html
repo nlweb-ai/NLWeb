@@ -422,11 +422,84 @@
         }
 
         // Clear functions
-        function clearConversations() {
+        async function clearConversations() {
             if (confirm('Are you sure you want to delete all conversations? This cannot be undone.')) {
+                // Get conversations before clearing
+                const data = localStorage.getItem('nlweb-modern-conversations');
+                let serverConversations = [];
+                
+                if (data) {
+                    try {
+                        const conversations = JSON.parse(data);
+                        // Filter for server conversations (those with conv_ prefix)
+                        serverConversations = conversations.filter(conv => 
+                            conv.id && conv.id.startsWith('conv_')
+                        );
+                    } catch (e) {
+                        console.error('Error parsing conversations:', e);
+                    }
+                }
+                
+                // Clear from localStorage first
                 localStorage.removeItem('nlweb-modern-conversations');
                 loadConversations();
-                showSuccess('Conversations cleared successfully');
+                
+                // Delete server conversations
+                if (serverConversations.length > 0) {
+                    let deletedCount = 0;
+                    let failedCount = 0;
+                    
+                    // Get user ID if available
+                    const userInfo = localStorage.getItem('userInfo');
+                    let userId = null;
+                    if (userInfo) {
+                        try {
+                            const parsed = JSON.parse(userInfo);
+                            userId = parsed.id || parsed.user_id;
+                        } catch (e) {
+                            console.error('Error parsing userInfo:', e);
+                        }
+                    }
+                    
+                    // Delete each server conversation
+                    for (const conv of serverConversations) {
+                        try {
+                            const params = new URLSearchParams({
+                                conversation_id: conv.id
+                            });
+                            if (userId) {
+                                params.append('user_id', userId);
+                            }
+                            
+                            const response = await fetch(`/api/conversation/delete?${params}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                deletedCount++;
+                            } else {
+                                failedCount++;
+                                const errorData = await response.json();
+                                console.error(`Failed to delete ${conv.id} from server:`, errorData);
+                            }
+                        } catch (error) {
+                            failedCount++;
+                            console.error(`Error deleting ${conv.id} from server:`, error);
+                        }
+                    }
+                    
+                    // Show detailed success message
+                    if (failedCount === 0) {
+                        showSuccess(`All conversations cleared successfully (${deletedCount} from server)`);
+                    } else {
+                        showSuccess(`Conversations cleared from local storage. ${deletedCount} deleted from server, ${failedCount} failed.`);
+                    }
+                } else {
+                    showSuccess('Local conversations cleared successfully');
+                }
             }
         }
 

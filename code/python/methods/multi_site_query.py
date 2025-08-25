@@ -30,7 +30,7 @@ class MultiSiteQueryHandler:
         self.handler = handler
         self.params = params
         self.query = handler.query
-        self.top_k_sites = params.get('top_k_sites', 5)
+        self.top_k_sites = params.get('top_k_sites', 7)
         self.results_per_site = params.get('results_per_site', 5)
         self.final_top_k = params.get('final_top_k', 10)
         
@@ -148,13 +148,11 @@ class MultiSiteQueryHandler:
                     # Get the score
                     score = result.get('score', 0)
                     
-                    # Only send high-scoring results immediately
+                    # Send all high-scoring results immediately (no limit)
                     if score > self.score_threshold:
-                        # Don't exceed global limit
-                        if self.total_results_sent < self.final_top_k:
-                            await self._send_result(result)
-                            sent_count += 1
-                            self.total_results_sent += 1
+                        await self._send_result(result)
+                        sent_count += 1
+                        self.total_results_sent += 1
                     else:
                         # Store lower-scoring results for later
                         self.held_results.append(result)
@@ -190,18 +188,18 @@ class MultiSiteQueryHandler:
     async def _send_sites_list(self, sites: List[Dict[str, Any]]):
         """Send intermediate message with list of all sites that will be searched."""
         if hasattr(self.handler, 'send_message'):
-            # Format site names for display
-            site_names = []
+            # Format sites with both name and domain for the UI to make clickable
+            sites_data = []
             for site in sites:
-                name = site.get('name', site.get('domain', 'Unknown'))
-                site_names.append(name)
-            
-            # Create a comma-separated list of sites
-            sites_str = ", ".join(site_names)
+                sites_data.append({
+                    'name': site.get('name', site.get('domain', 'Unknown')),
+                    'domain': site.get('domain', '')
+                })
             
             await self.handler.send_message({
                 "message_type": "asking_sites",
-                "message": sites_str
+                "sites": sites_data,
+                "query": self.query  # Include the query for the UI to use in links
             })
     
     async def _send_site_status(self, site: Dict[str, Any], index: int):
@@ -219,11 +217,14 @@ class MultiSiteQueryHandler:
     async def _send_result(self, result: Dict[str, Any]):
         """Send a single result to the browser."""
         if hasattr(self.handler, 'send_message'):
+            # Preserve the @type if it exists (e.g., CricketStatistics)
+            result_type = result.get('@type', 'Item')
+            
             # Format result for output
             formatted_result = {
                 "message_type": "result",
                 "content": [{
-                    "@type": "Item",
+                    "@type": result_type,
                     "url": result.get('url', ''),
                     "name": result.get('name', 'Untitled'),
                     "site": result.get('source_site', ''),

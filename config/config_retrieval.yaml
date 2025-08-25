@@ -1,4 +1,4 @@
-write_endpoint: azure_ai_search
+write_endpoint: nlweb_west
 
 endpoints:
 

@@ -3,7 +3,7 @@
 from aiohttp import web
 import logging
 from typing import Dict, Any, List
-from core.conversation_history import get_conversation_by_id, get_recent_conversations
+from core.conversation_history import get_conversation_by_id, get_recent_conversations, delete_conversation
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +12,7 @@ def setup_conversation_routes(app: web.Application):
     """Setup conversation API routes"""
     app.router.add_get('/conversation', get_conversation_handler)
     app.router.add_get('/userConversations', get_user_conversations_handler)
+    app.router.add_delete('/api/conversation/delete', delete_conversation_handler)
 
 
 async def get_conversation_handler(request: web.Request) -> web.Response:
@@ -90,6 +91,47 @@ async def get_user_conversations_handler(request: web.Request) -> web.Response:
         }, status=400)
     except Exception as e:
         logger.error(f"Error in get_user_conversations_handler: {e}", exc_info=True)
+        return web.json_response({
+            "error": f"Internal server error: {str(e)}"
+        }, status=500)
+
+
+async def delete_conversation_handler(request: web.Request) -> web.Response:
+    """
+    Handle DELETE /api/conversation/delete endpoint to delete a conversation.
+    
+    Query Parameters:
+        conversation_id: The ID of the conversation to delete
+        user_id: (optional) The ID of the user who owns the conversation (for validation)
+    
+    Returns:
+        JSON response with success status
+    """
+    try:
+        # Get conversation_id from query parameters
+        conversation_id = request.query.get('conversation_id')
+        user_id = request.query.get('user_id')
+        
+        if not conversation_id:
+            return web.json_response({
+                "error": "Missing required parameter: conversation_id"
+            }, status=400)
+        
+        # Delete the conversation from storage
+        success = await delete_conversation(conversation_id, user_id)
+        
+        if success:
+            return web.json_response({
+                "status": "success",
+                "message": f"Conversation {conversation_id} deleted successfully"
+            })
+        else:
+            return web.json_response({
+                "error": f"Failed to delete conversation {conversation_id}"
+            }, status=404)
+        
+    except Exception as e:
+        logger.error(f"Error in delete_conversation_handler: {e}", exc_info=True)
         return web.json_response({
             "error": f"Internal server error: {str(e)}"
         }, status=500)
