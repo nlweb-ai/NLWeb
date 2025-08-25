@@ -431,4 +431,42 @@
     </Item>
   </Site>
 
+  <!-- CricketLens site for cricket statistics and match information -->
+  <Site id="CricketLens">
+    <Item>
+      <Tool name="cricket_stats" enabled="true">
+        <method>extension</method>
+        <handler>methods.cricket_query.CricketQueryHandler</handler>
+        <example>What is the current score in the India vs Australia match?</example>
+        <example>Show me Virat Kohli's batting statistics</example>
+        <example>Who won the last World Cup?</example>
+        <example>What are the upcoming cricket matches?</example>
+        <example>Show me the IPL standings</example>
+        <example>What is Joe Root's test batting average?</example>
+        <prompt>
+          The user has the following query: {request.query}.
+          
+          This tool retrieves cricket statistics, match scores, player records, and tournament information.
+          Since the site is "CricketLens", ALL queries should use this tool to get cricket information.
+          
+          The cricket stats tool handles:
+          - Live match scores and updates
+          - Player statistics and records
+          - Team rankings and standings
+          - Tournament information and results
+          - Historical cricket data
+          - Match schedules and fixtures
+          
+          Always score 100 for this tool when site=CricketLens.
+        </prompt>
+        <returnStruc>
+          {
+            "score": "100",
+            "search_query": "the cricket-related query to search for"
+          }
+        </returnStruc>
+      </Tool>
+    </Item>
+  </Site>
+
 </Tools>

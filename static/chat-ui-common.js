@@ -17,6 +17,9 @@ export class ChatUICommon {
     this.jsonRenderer = new JsonRenderer();
     TypeRendererFactory.registerAll(this.jsonRenderer);
     TypeRendererFactory.registerRenderer(RecipeRenderer, this.jsonRenderer);
+    
+    // Register CricketStatistics renderer
+    this.jsonRenderer.registerTypeRenderer('CricketStatistics', (item) => this.renderCricketStatistics(item));
   }
 
   /**
@@ -264,7 +267,22 @@ export class ChatUICommon {
     
     switch(data.message_type) {
       case 'asking_sites':
-        if (data.message) {
+        // Handle both old format (data.message) and new format (data.sites)
+        if (data.sites && Array.isArray(data.sites)) {
+          // New format with clickable sites
+          const siteLinks = data.sites.map((site, index, array) => {
+            const query = data.query || '';
+            const encodedQuery = encodeURIComponent(query);
+            const encodedSite = encodeURIComponent(site.domain);
+            const href = `/?site=${encodedSite}&query=${encodedQuery}`;
+            // Add comma inside the link for better spacing, except for last item
+            const siteName = index < array.length - 1 ? `${site.name},` : site.name;
+            return `<a href="${href}" target="_blank" style="color: #0066cc; text-decoration: none; margin-right: 6px;">${siteName}</a>`;
+          }).join(' ');
+          messageContent = `Searching: ${siteLinks}\n\n`;
+          bubble.innerHTML = messageContent + this.renderItems(allResults);
+        } else if (data.message) {
+          // Old format fallback
           messageContent = `Searching: ${data.message}\n\n`;
           bubble.innerHTML = messageContent + this.renderItems(allResults);
         }
@@ -648,5 +666,142 @@ export class ChatUICommon {
     card.appendChild(flexContainer);
     
     return card;
+  }
+
+  /**
+   * Render Cricket Statistics with formatted table
+   */
+  renderCricketStatistics(item) {
+    const container = document.createElement('div');
+    container.className = 'cricket-stats-container';
+    container.style.cssText = 'background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 10px 0;';
+    
+    // Add title
+    if (item.name) {
+      const title = document.createElement('h3');
+      title.textContent = item.name;
+      title.style.cssText = 'color: #333; margin: 0 0 15px 0; font-size: 1.1em;';
+      container.appendChild(title);
+    }
+    
+    // Parse and render the description which contains the formatted table
+    if (item.description) {
+      const lines = item.description.split('\n');
+      let inTable = false;
+      let tableHtml = '';
+      let preContent = '';
+      let headerFound = false;
+      
+      for (const line of lines) {
+        // Skip "KEY INSIGHTS" section entirely
+        if (line.includes('=== KEY INSIGHTS')) {
+          break; // Stop processing once we hit insights section
+        }
+        
+        // Skip header lines we don't want
+        if (line.includes('=== CRICKET STATISTICS ANALYSIS ===') ||
+            line.includes('=== DATA TABLE ===') ||
+            line.startsWith('Query Type:') ||
+            line.startsWith('Total Records:') ||
+            line.startsWith('Tournament:')) {
+          continue;
+        }
+        
+        // Check if this is a table line (contains | but not just separator)
+        if (line.includes('|') && !line.match(/^[\s\-+|]+$/)) {
+          if (!inTable) {
+            // Start of table
+            if (preContent) {
+              const pre = document.createElement('div');
+              pre.style.cssText = 'margin-bottom: 15px; color: #666;';
+              pre.textContent = preContent;
+              container.appendChild(pre);
+              preContent = '';
+            }
+            inTable = true;
+            tableHtml = '<table style="width: 100%; border-collapse: collapse; background: white; border-radius: 4px; overflow: hidden;">';
+          }
+          
+          // Skip pure separator lines (only contains -, +, |, and spaces)
+          if (line.match(/^[\s\-+|]+$/)) {
+            continue;
+          }
+          
+          const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
+          if (cells.length > 0) {
+            // Only first row with actual content is header
+            const isHeader = !headerFound;
+            if (isHeader) {
+              headerFound = true;
+            }
+            
+            const cellTag = isHeader ? 'th' : 'td';
+            const rowStyle = isHeader ? 'background: #0066cc; color: white;' : 'border-bottom: 1px solid #e0e0e0;';
+            
+            tableHtml += `<tr style="${rowStyle}">`;
+            for (const cell of cells) {
+              const cellStyle = isHeader 
+                ? 'padding: 10px; text-align: left; font-weight: 600;' 
+                : 'padding: 10px; text-align: left;';
+              tableHtml += `<${cellTag} style="${cellStyle}">${this.escapeHtml(cell)}</${cellTag}>`;
+            }
+            tableHtml += '</tr>';
+          }
+        } else {
+          // Not a table line
+          if (inTable) {
+            // End of table
+            tableHtml += '</table>';
+            const tableContainer = document.createElement('div');
+            tableContainer.style.cssText = 'overflow-x: auto; margin: 15px 0;';
+            tableContainer.innerHTML = tableHtml;
+            container.appendChild(tableContainer);
+            inTable = false;
+            tableHtml = '';
+            headerFound = false;
+          }
+          
+          if (line.trim() && !line.includes('=== KEY INSIGHTS')) {
+            preContent += (preContent ? '\n' : '') + line;
+          }
+        }
+      }
+      
+      // Handle any remaining table
+      if (inTable && tableHtml) {
+        tableHtml += '</table>';
+        const tableContainer = document.createElement('div');
+        tableContainer.style.cssText = 'overflow-x: auto; margin: 15px 0;';
+        tableContainer.innerHTML = tableHtml;
+        container.appendChild(tableContainer);
+      }
+      
+      // Don't show remaining content if it's just whitespace
+      if (preContent && preContent.trim()) {
+        const post = document.createElement('div');
+        post.style.cssText = 'margin-top: 15px; color: #666; white-space: pre-wrap;';
+        post.textContent = preContent;
+        container.appendChild(post);
+      }
+    }
+    
+    // Add metadata footer if available
+    if (item.metadata) {
+      const footer = document.createElement('div');
+      footer.style.cssText = 'margin-top: 15px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 0.9em; color: #666;';
+      footer.textContent = `Source: ${item.metadata.source || 'CricketLens'}`;
+      container.appendChild(footer);
+    }
+    
+    return container;
+  }
+  
+  /**
+   * Escape HTML to prevent XSS
+   */
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 }

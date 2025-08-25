@@ -430,9 +430,7 @@ class ToolSelector:
                 
                 # Add required parameters based on tool name
                 # These are the common parameters that tools expect when skipping LLM
-                if tools[0].name == "conversation_search":
-                    result["search_query"] = query
-                elif tools[0].name == "search":
+                if tools[0].name in ["conversation_search", "search", "cricket_stats"]:
                     result["search_query"] = query
                 elif tools[0].name in ["who_and_search", "statistics_query"]:
                     # Add any default params these tools might need

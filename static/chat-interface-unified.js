@@ -88,6 +88,16 @@ export class UnifiedChatInterface {
       // Initialize connection (will use the conversation ID if set)
       await this.initConnection();
       
+      // Handle auto-query from URL parameters after DOM is fully loaded
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+          this.handleUrlAutoQuery();
+        });
+      } else {
+        // DOM is already loaded
+        this.handleUrlAutoQuery();
+      }
+      
       // Check for pending join from join.html redirect
       const pendingJoin = localStorage.getItem('pendingJoin');
       if (pendingJoin) {
@@ -185,6 +195,9 @@ export class UnifiedChatInterface {
       this.conversationManager.loadConversations(this.state.selectedSite);
       this.updateConversationsList();
       
+      // Note: Auto-query from URL params is now handled in handleUrlAutoQuery()
+      // which is called during initialization
+      
     } catch (error) {
       this.showError('Failed to initialize chat interface');
     }
@@ -231,6 +244,46 @@ export class UnifiedChatInterface {
       mobileMenuToggle.addEventListener('click', () => {
         sidebar.classList.toggle('open');
       });
+    }
+  }
+  
+  handleUrlAutoQuery() {
+    // Check if there's both a site and query parameter to auto-send
+    if (this.additionalParams.site && this.additionalParams.query) {
+      // First ensure the site is selected in the UI
+      const siteInfo = document.getElementById('chat-site-info');
+      if (siteInfo) {
+        siteInfo.textContent = `Asking ${this.state.selectedSite}`;
+      }
+      
+      // Create a new conversation
+      this.createNewChat(this.state.selectedSite);
+      
+      // Wait for the new chat UI to be created, then set the input and send
+      // createNewChat() calls showCenteredInput() which creates a NEW input element
+      // So we need to wait for that to complete before setting the value
+      setTimeout(() => {
+        // Find the input element - use the same priority as sendMessage()
+        // sendMessage checks centered-chat-input first, so we should set it there if it exists
+        const centeredInput = document.getElementById('centered-chat-input');
+        const regularInput = document.getElementById('chat-input');
+        const input = centeredInput || regularInput;
+        
+        if (input) {
+          // Set the query value
+          const decodedQuery = decodeURIComponent(this.additionalParams.query);
+          input.value = decodedQuery;
+          
+          // Also set it on both inputs to be sure
+          if (centeredInput) centeredInput.value = decodedQuery;
+          if (regularInput) regularInput.value = decodedQuery;
+          
+          // Trigger the send after another short delay to ensure value is set
+          setTimeout(() => {
+            this.sendMessage();
+          }, 200);
+        }
+      }, 100); // Wait for createNewChat to complete
     }
   }
   
@@ -982,8 +1035,10 @@ export class UnifiedChatInterface {
         title: 'New chat',
         messages: [],
         timestamp: Date.now(),
-        site: data.site || this.state.selectedSite,
-        mode: data.mode || this.state.selectedMode
+        // Always use the selected site from state, not from individual messages
+        // This ensures multi-site queries show as 'all' correctly
+        site: this.state.selectedSite,
+        mode: this.state.selectedMode
       };
       this.conversationManager.conversations.push(conversation);
     }

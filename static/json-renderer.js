@@ -62,12 +62,18 @@ export class JsonRenderer {
     if (item.schema_object && Array.isArray(item.schema_object) && item.schema_object.length > 0) {
       item.schema_object = item.schema_object[0];
     }
+    
+    // Check for @type in schema_object or directly on item
+    let type = null;
     if (item.schema_object && item.schema_object['@type']) {
-      const type = item.schema_object['@type'];
-      if (Object.prototype.hasOwnProperty.call(this.typeRenderers, type) && 
-             typeof this.typeRenderers[type] === 'function') {
-        return this.typeRenderers[type](item, this);
-      } 
+      type = item.schema_object['@type'];
+    } else if (item['@type']) {
+      type = item['@type'];
+    }
+    
+    if (type && Object.prototype.hasOwnProperty.call(this.typeRenderers, type) && 
+           typeof this.typeRenderers[type] === 'function') {
+      return this.typeRenderers[type](item, this);
     }
     
     return this.createDefaultItemHtml(item);
