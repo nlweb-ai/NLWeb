@@ -42,17 +42,25 @@ class ConversationSearchHandler():
                 await self._send_no_results_message()
                 return
                 
+            # Extract search_all_users parameter from handler query params
+            search_all_users = False
+            if hasattr(self.handler, 'query_params') and self.handler.query_params:
+                search_all_users_param = self.handler.query_params.get('search_all_users', [])
+                if search_all_users_param:
+                    search_all_users_value = search_all_users_param[0] if isinstance(search_all_users_param, list) else search_all_users_param
+                    # Handle both string 'true'/'false' and boolean values
+                    search_all_users = str(search_all_users_value).lower() in ['true', '1', 'yes']
+            
             # Extract user_id from handler query params
             user_id = None
-            if hasattr(self.handler, 'query_params') and self.handler.query_params:
-                user_id_list = self.handler.query_params.get('user_id', [])
-                if user_id_list:
-                    user_id = user_id_list[0] if isinstance(user_id_list, list) else user_id_list
+            if not search_all_users:
+                # Only restrict by user_id if not searching all users
+                if hasattr(self.handler, 'query_params') and self.handler.query_params:
+                    user_id_list = self.handler.query_params.get('user_id', [])
+                    if user_id_list:
+                        user_id = user_id_list[0] if isinstance(user_id_list, list) else user_id_list
             
-            
-            if not user_id:
-                await self._send_no_results_message()
-                return
+            logger.info(f"Searching conversation history. Query: {self.search_query}, Search all users: {search_all_users}, User ID: {user_id}")
             
             # Send intermediate message
             asyncio.create_task(self.handler.send_message({
@@ -67,12 +75,15 @@ class ConversationSearchHandler():
             storage_client = await get_storage_client()
             
             # Use the search_conversations method which does hybrid search (text + vector)
+            logger.info(f"Calling storage_client.search_conversations with user_id={user_id}")
             conversation_results = await storage_client.search_conversations(
                 query=self.search_query,
                 user_id=user_id,
                 site=None,  # Search across all sites
                 limit=50    # Get top 50 results for ranking
             )
+            
+            logger.info(f"Retrieved {len(conversation_results) if conversation_results else 0} conversation results")
             
             if not conversation_results:
                 await self._send_no_results_message()

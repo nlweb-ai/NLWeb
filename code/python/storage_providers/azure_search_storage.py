@@ -469,6 +469,8 @@ class AzureSearchStorageProvider(StorageProvider):
                 filters.append(f"site eq '{site}'")
             filter_str = " and ".join(filters) if filters else None
             
+            logger.info(f"Azure Search: query='{query}', user_id={user_id}, site={site}, filter='{filter_str}'")
+            
             # Create vectorized query
             vector_query = VectorizedQuery(
                 vector=query_embedding,
@@ -489,6 +491,8 @@ class AzureSearchStorageProvider(StorageProvider):
                 ))
             
             results = await asyncio.get_event_loop().run_in_executor(None, search_sync)
+            
+            logger.info(f"Azure Search returned {len(results)} results")
             
             # Convert to ConversationEntry objects
             conversations = []

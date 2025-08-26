@@ -593,6 +593,14 @@ export class UnifiedChatInterface {
       prev_queries: prevQueries  // Include previous queries for NLWeb context
     };
     
+    // Add search_all_users parameter if we're searching conversation history
+    if (this.state.selectedSite === 'conv_history') {
+      const searchAllUsersCheckbox = document.getElementById('search-all-users');
+      if (searchAllUsersCheckbox) {
+        message.search_all_users = searchAllUsersCheckbox.checked;
+      }
+    }
+    
     // Add any additional URL parameters
     Object.assign(message, this.additionalParams);
     
@@ -1223,6 +1231,25 @@ export class UnifiedChatInterface {
           if (siteInfo) {
             siteInfo.textContent = `Asking ${site}`;
           }
+          
+          // Handle search all users checkbox visibility
+          const bottomRow = container.querySelector('.input-box-bottom-row');
+          const existingCheckbox = container.querySelector('.search-all-users-container');
+          
+          if (site === 'conv_history' && !existingCheckbox && bottomRow) {
+            // Add checkbox if switching to conv_history
+            const checkboxContainer = document.createElement('div');
+            checkboxContainer.className = 'search-all-users-container';
+            checkboxContainer.style.cssText = 'display: flex; align-items: center; margin-right: 10px;';
+            checkboxContainer.innerHTML = `
+              <input type="checkbox" id="search-all-users" style="margin-right: 5px;">
+              <label for="search-all-users" style="font-size: 12px; color: #666; cursor: pointer;">Search all users</label>
+            `;
+            bottomRow.insertBefore(checkboxContainer, bottomRow.firstChild);
+          } else if (site !== 'conv_history' && existingCheckbox) {
+            // Remove checkbox if switching away from conv_history
+            existingCheckbox.remove();
+          }
         });
         siteDropdownItems.appendChild(item);
       });
@@ -1305,6 +1332,21 @@ export class UnifiedChatInterface {
         modeDropdown?.classList.remove('show');
       }
     });
+    
+    // Add search all users checkbox if we're in conversation history mode
+    if (this.state.selectedSite === 'conv_history') {
+      const bottomRow = container.querySelector('.input-box-bottom-row');
+      if (bottomRow) {
+        const checkboxContainer = document.createElement('div');
+        checkboxContainer.className = 'search-all-users-container';
+        checkboxContainer.style.cssText = 'display: flex; align-items: center; margin-right: 10px;';
+        checkboxContainer.innerHTML = `
+          <input type="checkbox" id="search-all-users" style="margin-right: 5px;">
+          <label for="search-all-users" style="font-size: 12px; color: #666; cursor: pointer;">Search all users</label>
+        `;
+        bottomRow.insertBefore(checkboxContainer, bottomRow.firstChild);
+      }
+    }
     
     textarea?.focus();
   }
