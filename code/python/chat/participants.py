@@ -199,11 +199,6 @@ class NLWebParticipant(BaseParticipant):
             Response message if NLWeb responds, None otherwise
         """
         try:
-            logger.info(f"NLWebParticipant processing message: {message.content[:100]}")
-            print(f"[DEBUG] NLWebParticipant message attributes: {dir(message)}")
-            print(f"[DEBUG] NLWebParticipant message data: {message.to_dict()}")
-            logger.info(f"NLWebParticipant received context with {len(context)} messages")
-            
             # Prepare query parameters for NLWebHandler
             query_params = {
                 "query": [message.content],
@@ -213,10 +208,8 @@ class NLWebParticipant(BaseParticipant):
             }
             
             # Get sites and mode from message (now top-level fields)
-            logger.info(f"NLWebParticipant checking for site/mode: has site={hasattr(message, 'site')}, site={getattr(message, 'site', None)}, mode={getattr(message, 'mode', None)}")
             sites = getattr(message, 'site', 'all')
             generate_mode = getattr(message, 'mode', 'list')
-            logger.info(f"NLWebParticipant using site: {sites}, mode: {generate_mode}")
             
             # Set sites and mode in query params
             query_params["site"] = sites if isinstance(sites, list) else [sites]
@@ -224,27 +217,18 @@ class NLWebParticipant(BaseParticipant):
             
             # Pass through search_all_users parameter for conversation history search
             search_all_users = getattr(message, 'search_all_users', None)
-            print(f"[DEBUG] NLWebParticipant checking search_all_users: value={search_all_users}, has_attr={hasattr(message, 'search_all_users')}")
             if search_all_users is not None:
                 query_params["search_all_users"] = [str(search_all_users).lower()]
-                print(f"[DEBUG] NLWebParticipant adding search_all_users to query_params: {search_all_users}")
-            
-            logger.info(f"NLWebParticipant initial query_params: {query_params}")
             
             # Use prev_queries from the message if provided
             prev_queries = getattr(message, 'prev_queries', None)
             if prev_queries:
                 query_params["prev"] = [json.dumps(prev_queries)]
-                logger.info(f"NLWebParticipant adding prev_queries from message: {prev_queries}")
             else:
                 # Fallback to building context from chat history (for backwards compatibility)
                 nlweb_context = self.context_builder.build_context(context, message)
-                logger.info(f"NLWebParticipant built context from history: prev_queries={len(nlweb_context.get('prev_queries', []))}")
                 if nlweb_context["prev_queries"]:
                     query_params["prev"] = [json.dumps(nlweb_context["prev_queries"])]
-                    logger.info(f"NLWebParticipant adding prev_queries from history: {nlweb_context['prev_queries']}")
-            
-            logger.info(f"NLWebParticipant final query_params being sent to NLWebHandler: {query_params}")
             
             # Track if we've sent any response
             response_sent = False

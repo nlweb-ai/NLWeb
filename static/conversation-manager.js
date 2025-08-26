@@ -52,12 +52,15 @@ class ConversationManager {
           // Add message to conversation
           conversationMap[convId].messages.push(msg);
           
-          // Update conversation metadata from messages
-          if (msg.site && conversationMap[convId].site === 'all') {
-            conversationMap[convId].site = msg.site;
-          }
-          if (msg.mode && conversationMap[convId].mode === 'list') {
-            conversationMap[convId].mode = msg.mode;
+          // Update conversation metadata only from user messages
+          // Assistant messages should not change the conversation's site or mode
+          if (msg.message_type === 'user') {
+            if (msg.site && conversationMap[convId].site === 'all') {
+              conversationMap[convId].site = msg.site;
+            }
+            if (msg.mode && conversationMap[convId].mode === 'list') {
+              conversationMap[convId].mode = msg.mode;
+            }
           }
           
           // Set title from first user message

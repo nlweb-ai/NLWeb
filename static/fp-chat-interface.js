@@ -643,12 +643,9 @@ class ModernChatInterface {
           this.addRememberedItem(data.item_to_remember);
         } else if (data.message_type === 'multi_site_complete') {
           // Handle multi-site query completion - rerank results to avoid too many from same site
-          console.log('multi_site_complete received, selectedSite:', this.selectedSite, 'allResults length:', allResults.length);
           if (allResults && allResults.length > 0 && this.selectedSite === 'all') {
-            console.log('Before reranking - first 3 sites:', allResults.slice(0, 3).map(r => r.site || r.siteUrl));
             // Apply reranking algorithm
             const rerankedResults = this.rerankResults(allResults);
-            console.log('After reranking - first 3 sites:', rerankedResults.slice(0, 3).map(r => r.site || r.siteUrl));
             
             // Clear and redisplay with reranked results (skip sorting since we've already reranked)
             allResults = rerankedResults;
@@ -657,8 +654,6 @@ class ModernChatInterface {
             // Add a subtle indicator that results were reranked
             const rerankMsg = `<div style="font-size: 11px; color: #888; margin-top: 10px;">✓ Results optimized for diversity (${data.total_results} total from ${data.sites_successful} sites)</div>`;
             textDiv.innerHTML += rerankMsg;
-          } else {
-            console.log('NOT reranking - conditions not met');
           }
         } else if (data.message_type === 'query_analysis') {
           // Handle query analysis which may include decontextualized query
@@ -884,11 +879,6 @@ class ModernChatInterface {
     
     // Add all remaining results in score order (they're already sorted)
     rerankedResults.push(...remainingResults);
-    
-    // Log diversity metrics for debugging
-    const topThreeSites = rerankedResults.slice(0, 3).map(r => r.site || r.siteUrl || 'unknown');
-    const uniqueTopSites = new Set(topThreeSites).size;
-    console.log(`Reranking: Top 3 results from ${uniqueTopSites} different site(s): ${topThreeSites.join(', ')}`);
     
     return rerankedResults;
   }

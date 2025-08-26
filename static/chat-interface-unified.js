@@ -546,7 +546,7 @@ export class UnifiedChatInterface {
   
   // ========== Unified Message Sending ==========
   
-  createUserMessage(content, conversation = null) {
+  createUserMessage(content, conversation = null, searchAllUsers = false) {
     // ONLY place where message IDs and conversation IDs are created
     
     // Generate conversation ID if needed
@@ -595,10 +595,7 @@ export class UnifiedChatInterface {
     
     // Add search_all_users parameter if we're searching conversation history
     if (this.state.selectedSite === 'conv_history') {
-      const searchAllUsersCheckbox = document.getElementById('search-all-users');
-      if (searchAllUsersCheckbox) {
-        message.search_all_users = searchAllUsersCheckbox.checked;
-      }
+      message.search_all_users = searchAllUsers;
     }
     
     // Add any additional URL parameters
@@ -615,6 +612,15 @@ export class UnifiedChatInterface {
     
     if (!messageText) return;
     
+    // Check search_all_users checkbox BEFORE hiding centered input
+    let searchAllUsers = false;
+    if (this.state.selectedSite === 'conv_history') {
+      const searchAllUsersCheckbox = document.getElementById('search-all-users');
+      if (searchAllUsersCheckbox) {
+        searchAllUsers = searchAllUsersCheckbox.checked;
+      }
+    }
+    
     // Clear input
     input.value = '';
     
@@ -625,7 +631,7 @@ export class UnifiedChatInterface {
     const conversation = this.conversationManager?.findConversation(this.state.conversationId);
     
     // Create the message with conversation context
-    const message = this.createUserMessage(messageText, conversation);
+    const message = this.createUserMessage(messageText, conversation, searchAllUsers);
     
     // Display and store locally
     this.handleStreamData(message, true);
@@ -1067,15 +1073,24 @@ export class UnifiedChatInterface {
     // Find or create conversation
     let conversation = this.conversationManager.findConversation(conversationId);
     if (!conversation) {
+      // When creating a conversation, use the site from user messages,
+      // otherwise fall back to state (preserves 'all' for multi-site queries)
+      let siteToUse = this.state.selectedSite;
+      let modeToUse = this.state.selectedMode;
+      
+      // If this is a user message, use its site and mode values
+      if (data.message_type === 'user') {
+        siteToUse = data.site || this.state.selectedSite;
+        modeToUse = data.mode || this.state.selectedMode;
+      }
+      
       conversation = {
         id: conversationId,
         title: 'New chat',
         messages: [],
         timestamp: Date.now(),
-        // Always use the selected site from state, not from individual messages
-        // This ensures multi-site queries show as 'all' correctly
-        site: this.state.selectedSite,
-        mode: this.state.selectedMode
+        site: siteToUse,
+        mode: modeToUse
       };
       this.conversationManager.conversations.push(conversation);
     }

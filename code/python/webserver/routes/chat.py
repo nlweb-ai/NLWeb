@@ -839,25 +839,19 @@ async def join_via_share_link_handler(request: web.Request) -> web.Response:
         # Extract messages and participants from the conversation entries
         all_messages = []
         participants_list = []
-        print(f"DEBUG: Processing {len(conv_data)} conversation entries")
         for i, entry in enumerate(conv_data):
             # Extract messages from response field
             response_str = entry.get('response', '')
-            print(f"DEBUG: Entry {i+1}: has response field: {bool(response_str)}, response length: {len(response_str) if response_str else 0}")
             if response_str:
                 try:
                     # Parse the JSON string in the response field
                     messages = json.loads(response_str)
-                    print(f"DEBUG: Parsed response - is list: {isinstance(messages, list)}, is dict: {isinstance(messages, dict)}")
                     if isinstance(messages, list):
                         all_messages.extend(messages)
-                        print(f"DEBUG: Added {len(messages)} messages from list")
                     elif isinstance(messages, dict):
                         # Response might be a single message object, not a list
                         all_messages.append(messages)
-                        print(f"DEBUG: Added single message dict")
                 except json.JSONDecodeError as e:
-                    print(f"DEBUG: Failed to parse JSON: {e}")
                     logger.warning(f"Failed to parse response field for conversation {conversation_id}")
             
             # Extract participants if present
@@ -904,8 +898,6 @@ async def join_via_share_link_handler(request: web.Request) -> web.Response:
         await ws_manager.broadcast_to_conversation(conversation_id, participant_update)
         
         # Don't send messages here - the client will join via WebSocket and get them there
-        print(f"DEBUG: Found {len(all_messages)} messages in conversation {conversation_id}")
-        print(f"DEBUG: User {user_id} will receive messages when they connect via WebSocket")
         
         # Return success response
         return web.json_response({
@@ -1148,38 +1140,25 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         # Get conversation history using conversation_history API
                         conv_data = await conversation_history.get_conversation_by_id(conversation_id, limit=50)
                         
-                        print(f"DEBUG: get_conversation_by_id returned type: {type(conv_data)}")
-                        print(f"DEBUG: get_conversation_by_id returned length: {len(conv_data) if conv_data else 0}")
-                        if conv_data:
-                            print(f"DEBUG: First entry keys: {conv_data[0].keys() if conv_data else 'N/A'}")
-                        
                         # Extract messages from the response field and send them
                         recent_messages = []
                         for i, entry in enumerate(conv_data):
                             response_str = entry.get('response', '')
-                            print(f"DEBUG: Entry {i}: has response: {bool(response_str)}, response length: {len(response_str) if response_str else 0}")
                             if response_str:
                                 try:
                                     messages = json.loads(response_str)
-                                    print(f"DEBUG: Parsed response type: {type(messages)}")
                                     if isinstance(messages, list):
                                         recent_messages.extend(messages)
-                                        print(f"DEBUG: Added {len(messages)} messages from list")
                                     elif isinstance(messages, dict):
                                         recent_messages.append(messages)
-                                        print(f"DEBUG: Added single message dict")
                                 except json.JSONDecodeError as e:
-                                    print(f"DEBUG: JSON decode error: {e}")
                                     logger.warning(f"Failed to parse response field for conversation {conversation_id}")
                         
                         # Replay conversation history for joining user
-                        
-                        print(f"DEBUG: Sending {len(recent_messages)} messages to joining user")
                         # Replay each message as individual events in timestamp order
                         for i, msg in enumerate(recent_messages):
                             # Messages are already in the correct format from the stored JSON
                             # Just send them directly
-                            print(f"DEBUG: Sending message {i+1}/{len(recent_messages)}: type={msg.get('message_type') if isinstance(msg, dict) else 'unknown'}")
                             await ws.send_json(msg)
                         
                         
