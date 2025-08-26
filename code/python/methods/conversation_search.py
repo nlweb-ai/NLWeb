@@ -44,12 +44,15 @@ class ConversationSearchHandler():
                 
             # Extract search_all_users parameter from handler query params
             search_all_users = False
+            print(f"[DEBUG] ConversationSearch - handler.query_params: {self.handler.query_params if hasattr(self.handler, 'query_params') else 'None'}")
             if hasattr(self.handler, 'query_params') and self.handler.query_params:
                 search_all_users_param = self.handler.query_params.get('search_all_users', [])
+                print(f"[DEBUG] ConversationSearch - search_all_users_param: {search_all_users_param}")
                 if search_all_users_param:
                     search_all_users_value = search_all_users_param[0] if isinstance(search_all_users_param, list) else search_all_users_param
                     # Handle both string 'true'/'false' and boolean values
                     search_all_users = str(search_all_users_value).lower() in ['true', '1', 'yes']
+                    print(f"[DEBUG] ConversationSearch - search_all_users final value: {search_all_users}")
             
             # Extract user_id from handler query params
             user_id = None
@@ -60,6 +63,7 @@ class ConversationSearchHandler():
                     if user_id_list:
                         user_id = user_id_list[0] if isinstance(user_id_list, list) else user_id_list
             
+            print(f"[DEBUG] ConversationSearch - Final params: Query: {self.search_query}, Search all users: {search_all_users}, User ID: {user_id}")
             logger.info(f"Searching conversation history. Query: {self.search_query}, Search all users: {search_all_users}, User ID: {user_id}")
             
             # Send intermediate message
