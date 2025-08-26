@@ -219,6 +219,13 @@ class NLWebParticipant(BaseParticipant):
             # Set sites and mode in query params
             query_params["site"] = sites if isinstance(sites, list) else [sites]
             query_params["generate_mode"] = [generate_mode]
+            
+            # Pass through search_all_users parameter for conversation history search
+            search_all_users = getattr(message, 'search_all_users', False)
+            if search_all_users:
+                query_params["search_all_users"] = [str(search_all_users).lower()]
+                logger.info(f"NLWebParticipant adding search_all_users: {search_all_users}")
+            
             logger.info(f"NLWebParticipant initial query_params: {query_params}")
             
             # Use prev_queries from the message if provided

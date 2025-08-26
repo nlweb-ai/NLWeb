@@ -47,6 +47,7 @@ class ChatMessage:
     site: Optional[str] = None  # Site for NLWeb queries
     mode: Optional[str] = None  # Mode for NLWeb queries (list, summarize, generate)
     prev_queries: Optional[List[Dict[str, Any]]] = None  # Previous queries for context
+    search_all_users: Optional[bool] = None  # For conversation history search
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert message to dictionary for serialization"""
@@ -64,6 +65,8 @@ class ChatMessage:
             result["mode"] = self.mode
         if self.prev_queries is not None:
             result["prev_queries"] = self.prev_queries
+        if self.search_all_users is not None:
+            result["search_all_users"] = self.search_all_users
         return result
     
     @classmethod
@@ -99,7 +102,8 @@ class ChatMessage:
             sender_info=sender_info,
             site=data.get("site"),
             mode=data.get("mode"),
-            prev_queries=data.get("prev_queries")
+            prev_queries=data.get("prev_queries"),
+            search_all_users=data.get("search_all_users")
         )
 
 
