@@ -376,9 +376,9 @@ class ConversationManager {
       const siteHeader = document.createElement('div');
       siteHeader.className = 'site-group-header';
       
-      // Add site name
+      // Add site name (cleaned up for display)
       const siteName = document.createElement('span');
-      siteName.textContent = site;
+      siteName.textContent = this.cleanSiteName(site);
       siteHeader.appendChild(siteName);
       
       // Add chevron icon
@@ -446,6 +446,20 @@ class ConversationManager {
     });
   }
 
+  // Helper method to clean up site names for display
+  cleanSiteName(site) {
+    if (!site) return site;
+    
+    // Remove common domain suffixes
+    return site
+      .replace(/\.myshopify\.com$/, '')
+      .replace(/\.com$/, '')
+      .replace(/\.org$/, '')
+      .replace(/\.net$/, '')
+      .replace(/\.io$/, '')
+      .replace(/\.co$/, '');
+  }
+  
   // Helper method to get conversations
   getConversations() {
     return this.conversations;

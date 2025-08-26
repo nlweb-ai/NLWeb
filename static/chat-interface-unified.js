@@ -439,7 +439,10 @@ export class UnifiedChatInterface {
         };
         
         this.ws.connection.onmessage = (event) => {
-          this.handleStreamData(JSON.parse(event.data));
+          const data = JSON.parse(event.data);
+          if (data.message_type === 'multi_site_complete') {
+          }
+          this.handleStreamData(data);
         };
         
         this.ws.connection.onerror = (error) => {
@@ -715,7 +718,8 @@ export class UnifiedChatInterface {
         textDiv,
         context: {
           messageContent: '',
-          allResults: []
+          allResults: [],
+          selectedSite: this.state.selectedSite || 'all'  // Ensure we always have a selectedSite
         }
       };
     }
@@ -724,6 +728,11 @@ export class UnifiedChatInterface {
   handleStreamData(data, shouldStore = true) {
     // No deduplication - multiple events can share the same message_id
     // (e.g., multiple NLWeb results belong to the same logical message)
+    
+    
+    // Debug logging for multi_site_complete
+    if (data.message_type === 'multi_site_complete') {
+    }
     
     // Track messages for sorting
     if (!this.state.messageBuffer) {
@@ -737,6 +746,11 @@ export class UnifiedChatInterface {
       // End any current streaming before showing user message
       if (this.state.currentStreaming) {
         this.endStreaming();
+      }
+      
+      // Update selectedSite from the user message if it's present
+      if (data.site) {
+        this.state.selectedSite = data.site;
       }
       
       // Extract actual message text from nested structure if needed
@@ -937,6 +951,10 @@ export class UnifiedChatInterface {
       return;
     }
     
+    // Log that we passed the message_type check
+    if (data.message_type === 'multi_site_complete') {
+    }
+    
     // Only buffer NLWeb result messages for score-based sorting within blocks
     if (this.state.currentNlwebBlock && data.message_type === 'result') {
       this.state.currentNlwebBlock.messages.push(data);
@@ -955,13 +973,24 @@ export class UnifiedChatInterface {
     
     const { textDiv, context } = this.state.currentStreaming;
     
+    
     // Use UI common to process the message
     const result = this.uiCommon.processMessageByType(data, textDiv, context);
     this.state.currentStreaming.context = result;
     
-    // Check for completion
+    // Check for completion - but don't end streaming yet if we're expecting multi_site_complete
     if (data.type === 'complete' || data.message_type === 'complete' || data.type === 'stream_end') {
-      this.endStreaming();
+      // If we're in a multi-site query (site=all), don't end streaming yet
+      // The multi_site_complete message will come after this
+      if (this.state.selectedSite !== 'all') {
+        this.endStreaming();
+      }
+    }
+    
+    // End streaming after multi_site_complete for multi-site queries
+    if (data.message_type === 'multi_site_complete') {
+      // Process is complete, now we can end streaming
+      setTimeout(() => this.endStreaming(), 100);
     }
     
     this.scrollToBottom();
