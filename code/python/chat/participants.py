@@ -200,6 +200,8 @@ class NLWebParticipant(BaseParticipant):
         """
         try:
             logger.info(f"NLWebParticipant processing message: {message.content[:100]}")
+            logger.info(f"NLWebParticipant message attributes: {dir(message)}")
+            logger.info(f"NLWebParticipant message data: {message.to_dict()}")
             logger.info(f"NLWebParticipant received context with {len(context)} messages")
             
             # Prepare query parameters for NLWebHandler
@@ -221,10 +223,11 @@ class NLWebParticipant(BaseParticipant):
             query_params["generate_mode"] = [generate_mode]
             
             # Pass through search_all_users parameter for conversation history search
-            search_all_users = getattr(message, 'search_all_users', False)
-            if search_all_users:
+            search_all_users = getattr(message, 'search_all_users', None)
+            logger.info(f"NLWebParticipant checking search_all_users: value={search_all_users}, has_attr={hasattr(message, 'search_all_users')}")
+            if search_all_users is not None:
                 query_params["search_all_users"] = [str(search_all_users).lower()]
-                logger.info(f"NLWebParticipant adding search_all_users: {search_all_users}")
+                logger.info(f"NLWebParticipant adding search_all_users to query_params: {search_all_users}")
             
             logger.info(f"NLWebParticipant initial query_params: {query_params}")
             
