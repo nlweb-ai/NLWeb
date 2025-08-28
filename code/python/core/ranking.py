@@ -83,7 +83,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             logger.debug(f"Using custom ranking prompt for site: {site}, item_type: {item_type}")
             return prompt_str, ans_struc
         
-    def __init__(self, handler, items, ranking_type=FAST_TRACK):
+    def __init__(self, handler, items, ranking_type=FAST_TRACK, level="low"):
         ll = len(items)
         if ranking_type == self.FAST_TRACK:
             self.ranking_type_str = "FAST_TRACK"
@@ -98,6 +98,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
         logger.info(f"Initializing Ranking with {ll} items, type: {self.ranking_type_str}")
         logger.info(f"Ranking {ll} items of type {self.ranking_type_str}")
         self.handler = handler
+        self.level = level
         self.items = items
         self.num_results_sent = 0
         self.rankedAnswers = []
@@ -114,7 +115,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             prompt_str, ans_struc = self.get_ranking_prompt()
             description = trim_json(json_str)
             prompt = fill_prompt(prompt_str, self.handler, {"item.description": description})
-            ranking = await ask_llm(prompt, ans_struc, level="low", query_params=self.handler.query_params)
+            ranking = await ask_llm(prompt, ans_struc, level=self.level, query_params=self.handler.query_params)
             
             # Handle both string and dictionary inputs for json_str
             schema_object = json_str if isinstance(json_str, dict) else json.loads(json_str)

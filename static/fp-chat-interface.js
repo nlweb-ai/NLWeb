@@ -650,10 +650,6 @@ class ModernChatInterface {
             // Clear and redisplay with reranked results (skip sorting since we've already reranked)
             allResults = rerankedResults;
             textDiv.innerHTML = messageContent + this.renderItems(allResults, true);
-            
-            // Add a subtle indicator that results were reranked
-            const rerankMsg = `<div style="font-size: 11px; color: #888; margin-top: 10px;">✓ Results optimized for diversity (${data.total_results} total from ${data.sites_successful} sites)</div>`;
-            textDiv.innerHTML += rerankMsg;
           }
         } else if (data.message_type === 'query_analysis') {
           // Handle query analysis which may include decontextualized query

@@ -69,7 +69,7 @@
             if (!authToken) {
                 // Not authenticated, store pending join and redirect to index for login
                 console.log('User not authenticated, redirecting to index.html for login');
-                localStorage.setItem('pendingJoin', conversationId);
+                sessionStorage.setItem('pendingJoinConversation', conversationId);
                 window.location.href = '/static/index.html';
                 return;
             }
@@ -94,7 +94,7 @@
                     if (response.status === 401) {
                         // Auth token expired or invalid
                         localStorage.removeItem('authToken');
-                        localStorage.setItem('pendingJoin', conversationId);
+                        sessionStorage.setItem('pendingJoinConversation', conversationId);
                         window.location.href = '/static/index.html';
                         return;
                     }

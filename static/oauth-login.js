@@ -267,8 +267,8 @@ class OAuthManager {
             if (pendingJoin) {
                 sessionStorage.removeItem('pendingJoinConversation');
                 
-                // Reload the page with the join parameter to trigger the join
-                window.location.href = `${window.location.pathname}?join=${pendingJoin}`;
+                // Redirect to join.html to complete the join process
+                window.location.href = `/static/join.html?conv_id=${pendingJoin}`;
             }
         }
     }
@@ -393,8 +393,8 @@ class OAuthManager {
             if (pendingJoin) {
                 sessionStorage.removeItem('pendingJoinConversation');
                 
-                // Reload the page with the join parameter to trigger the join
-                window.location.href = `${window.location.pathname}?join=${pendingJoin}`;
+                // Redirect to join.html to complete the join process
+                window.location.href = `/static/join.html?conv_id=${pendingJoin}`;
             }
         } catch (error) {
             alert('Login failed. Please try again.');

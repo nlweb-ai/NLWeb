@@ -394,9 +394,6 @@ export class ChatUICommon {
           const rerankedResults = this.rerankResults(allResults);
           allResults = rerankedResults;
           bubble.innerHTML = messageContent + this.renderItems(allResults);
-          
-          const rerankMsg = `<div style="font-size: 11px; color: #888; margin-top: 10px;">✓ Results optimized for diversity (${data.total_results} total from ${data.sites_successful} sites)</div>`;
-          bubble.innerHTML += rerankMsg;
         } else {
         }
         break;

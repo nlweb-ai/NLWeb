@@ -514,6 +514,71 @@ body {
   }
 }
 
+/* Streaming Spinner - Initial (before sites list) */
+.streaming-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e5e5;
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spinner-rotate 0.8s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* Secondary Spinner - After sites list, waiting for results */
+.streaming-spinner-secondary {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.streaming-spinner-secondary span {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: var(--primary-color);
+  border-radius: 50%;
+  animation: pulse-fade 1.4s ease-in-out infinite;
+}
+
+.streaming-spinner-secondary span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.streaming-spinner-secondary span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.streaming-spinner-secondary span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes spinner-rotate {
+  to { 
+    transform: rotate(360deg); 
+  }
+}
+
+@keyframes pulse-fade {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.streaming-message.with-spinner .message-text {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+}
+
 /* Mobile Menu Toggle */
 .mobile-menu-toggle {
   display: none;

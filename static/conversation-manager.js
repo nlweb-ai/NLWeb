@@ -14,6 +14,17 @@ class ConversationManager {
   constructor() {
     this.conversations = [];
   }
+  
+  /**
+   * Get the localStorage key based on the base domain
+   * For example: nlwm.azurewebsites.net/?site=CricketLens -> nlweb_messages_nlwm.azurewebsites.net
+   */
+  getStorageKey() {
+    // Get the base domain (host without any path or query parameters)
+    const baseDomain = window.location.host;
+    // Create a domain-specific key
+    return `nlweb_messages_${baseDomain}`;
+  }
 
   async loadConversations(selectedSite, elements) {
     // Always load conversations from localStorage
@@ -24,7 +35,21 @@ class ConversationManager {
   }
 
   loadLocalConversations() {
-    const saved = localStorage.getItem('nlweb_messages');
+    let saved = localStorage.getItem(this.getStorageKey());
+    
+    // Migration: If no domain-specific data exists, try to migrate from old key
+    if (!saved) {
+      const legacyData = localStorage.getItem('nlweb_messages');
+      if (legacyData) {
+        // Migrate data to new domain-specific key
+        localStorage.setItem(this.getStorageKey(), legacyData);
+        // Remove old key after migration
+        localStorage.removeItem('nlweb_messages');
+        saved = legacyData;
+        console.log(`Migrated conversation data to domain-specific storage: ${this.getStorageKey()}`);
+      }
+    }
+    
     this.conversations = [];
     
     if (saved) {
@@ -124,7 +149,7 @@ class ConversationManager {
     // Log what we're saving
     
     // Save all messages directly
-    localStorage.setItem('nlweb_messages', JSON.stringify(allMessages));
+    localStorage.setItem(this.getStorageKey(), JSON.stringify(allMessages));
   }
 
   loadConversation(id, chatInterface) {

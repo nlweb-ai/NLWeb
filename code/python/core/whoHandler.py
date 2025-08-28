@@ -13,6 +13,11 @@ class WhoHandler (NLWebHandler) :
     def __init__(self, query_params, http_handler): 
         # Force site to 'endpoints' for who queries
         query_params['site'] = 'nlweb_sites'
+        # Remove prev_queries context for who queries - not needed
+        if 'prev' in query_params:
+            del query_params['prev']
+        if 'prev_queries' in query_params:
+            del query_params['prev_queries']
         super().__init__(query_params, http_handler)
     
     async def send_message(self, message):
@@ -55,7 +60,7 @@ class WhoHandler (NLWebHandler) :
             
             # Wait for decontextualization to complete with timeout
             self.state.set_pre_checks_done()
-            self.fastTrackRanker = ranking.Ranking(self, items, ranking.Ranking.WHO_RANKING)
+            self.fastTrackRanker = ranking.Ranking(self, items, ranking.Ranking.WHO_RANKING, level="high")
             await self.fastTrackRanker.do()
             logger.info("Who ranking completed")
             logger.debug("Who ranking complete")

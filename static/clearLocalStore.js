@@ -23,8 +23,11 @@ function clearNLWebData() {
 
 // Function to clear only conversation data
 function clearConversationData() {
+    // Get the domain-specific storage key
+    const baseDomain = window.location.host;
     const conversationKeys = [
-        'nlweb_messages',
+        `nlweb_messages_${baseDomain}`,  // Domain-specific messages
+        'nlweb_messages',  // Legacy key for backwards compatibility
         'nlweb-remembered-items',
         'current-conversation-id'
     ];

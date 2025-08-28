@@ -68,12 +68,39 @@ export class ConversationRenderer {
         metaDiv.appendChild(siteBadge);
       }
       
-      // Add "You" to indicate this is the current user's conversation
-      const userSpan = document.createElement('span');
-      userSpan.className = 'user-info';
-      userSpan.style.cssText = 'color: #888; font-size: 13px;';
-      userSpan.textContent = 'You';
-      metaDiv.appendChild(userSpan);
+      // Add user info - show who performed this search
+      if (item.user_id) {
+        const userSpan = document.createElement('span');
+        userSpan.className = 'user-info';
+        userSpan.style.cssText = 'color: #888; font-size: 13px;';
+        
+        // Check if it's the current user
+        const currentUserInfo = localStorage.getItem('userInfo');
+        let isCurrentUser = false;
+        if (currentUserInfo) {
+          try {
+            const userInfo = JSON.parse(currentUserInfo);
+            const currentUserId = userInfo.id || userInfo.user_id;
+            isCurrentUser = (currentUserId === item.user_id);
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        }
+        
+        // Display user ID or "You" if it's the current user
+        if (isCurrentUser) {
+          userSpan.textContent = 'You';
+        } else {
+          // Extract readable part from user ID if it's an email
+          let displayName = item.user_id;
+          if (item.user_id.includes('@')) {
+            displayName = item.user_id.split('@')[0];
+          }
+          userSpan.textContent = `by ${displayName}`;
+        }
+        
+        metaDiv.appendChild(userSpan);
+      }
       
       // Add timestamp next to site
       if (schema.time_of_creation) {

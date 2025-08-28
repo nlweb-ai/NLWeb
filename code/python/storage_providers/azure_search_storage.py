@@ -269,9 +269,14 @@ class AzureSearchStorageProvider(StorageProvider):
             # Convert search results to events - just pass through the raw data
             events = []
             for result in results:
-                # Convert datetime to ISO string if present
-                if result.get("time_of_creation"):
-                    result["time_of_creation"] = result["time_of_creation"].isoformat()
+                # Convert datetime to ISO string if present and if it's not already a string
+                time_of_creation = result.get("time_of_creation")
+                if time_of_creation:
+                    if hasattr(time_of_creation, 'isoformat'):
+                        result["time_of_creation"] = time_of_creation.isoformat()
+                    else:
+                        # Already a string, keep as is
+                        result["time_of_creation"] = str(time_of_creation)
                 events.append(dict(result))
             
             # If limit is specified and we have more events, take only the N most recent
@@ -382,77 +387,6 @@ class AzureSearchStorageProvider(StorageProvider):
             logger.error(f"Failed to delete conversation: {e}")
             return False
     
-    async def get_conversation_by_id(self, conversation_id: str) -> Dict[str, Any]:
-        """
-        Retrieve all events and participants for a specific conversation.
-        
-        Args:
-            conversation_id: The conversation ID to retrieve
-            
-        Returns:
-            Dictionary containing conversation events and participants
-        """
-        try:
-            # Search for all events with this conversation_id
-            filter_str = f"conversation_id eq '{conversation_id}'"
-            
-            def search_sync():
-                return list(self.search_client.search(
-                    search_text="*",
-                    filter=filter_str,
-                    select=["conversation_id", "user_id", "site", "message_id", 
-                           "user_prompt", "response", "time_of_creation", "event_type"],
-                    order_by=["time_of_creation asc"]
-                ))
-            
-            results = await asyncio.get_event_loop().run_in_executor(None, search_sync)
-            
-            if not results:
-                return {
-                    "conversation_id": conversation_id,
-                    "participants": [],
-                    "events": []
-                }
-            
-            # Extract unique participants from the events
-            participants_dict = {}
-            events = []
-            
-            for result in results:
-                # Add event to list
-                events.append({
-                    "id": result.get("conversation_id"),
-                    "user_prompt": result.get("user_prompt"),
-                    "response": result.get("response"),
-                    "time": result.get("time_of_creation").isoformat() if result.get("time_of_creation") else None,
-                    "event_type": result.get("event_type", "message")
-                })
-                
-                # Extract user participant
-                user_id = result.get("user_id")
-                if user_id and user_id not in participants_dict:
-                    participants_dict[user_id] = {
-                        "participant_type": "USER",
-                        "id": user_id,
-                        "name": user_id  # In a real implementation, might lookup actual name
-                    }
-            
-            # Add assistant participant (always present)
-            participants_dict["assistant"] = {
-                "participant_type": "AGENT",
-                "id": "assistant",
-                "name": "Assistant"
-            }
-            
-            return {
-                "conversation_id": conversation_id,
-                "participants": list(participants_dict.values()),
-                "events": events
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to get conversation by ID: {e}")
-            raise
     
     async def search_conversations(self, query: str, user_id: Optional[str] = None, 
                                  site: Optional[str] = None, limit: int = 10) -> List[ConversationEntry]:

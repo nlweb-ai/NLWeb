@@ -98,66 +98,35 @@ export class UnifiedChatInterface {
         this.handleUrlAutoQuery();
       }
       
-      // Check for pending join from join.html redirect
-      const pendingJoin = localStorage.getItem('pendingJoin');
-      if (pendingJoin) {
-        // Check if user is logged in
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken || authToken === 'anonymous') {
-          // User is not logged in, keep pendingJoin in localStorage
-          // The login flow will handle it after authentication
-          const overlay = document.getElementById('oauthPopupOverlay');
-          if (overlay) {
-            overlay.style.display = 'flex';
+      
+      // Check if we have a pending join that requires authentication
+      const pendingJoin = sessionStorage.getItem('pendingJoinConversation');
+      if (pendingJoin && !localStorage.getItem('authToken')) {
+        // Show login popup for pending join
+        const overlay = document.getElementById('oauthPopupOverlay');
+        if (overlay) {
+          overlay.style.display = 'flex';
+          
+          // Add a message explaining why login is required
+          const popupContent = overlay.querySelector('.oauth-popup-content');
+          if (popupContent && !popupContent.querySelector('.join-login-message')) {
+            const message = document.createElement('div');
+            message.className = 'join-login-message';
+            message.style.padding = '10px';
+            message.style.background = '#f0f0f0';
+            message.style.borderRadius = '4px';
+            message.style.marginBottom = '15px';
+            message.innerHTML = '<strong>Login required to join conversation</strong><br>Please login to participate in this shared conversation.';
+            popupContent.insertBefore(message, popupContent.firstChild);
           }
-        } else {
-          // User is logged in
-          localStorage.removeItem('pendingJoin');
-          
-          // Check if conversation messages are already in localStorage
-          const allMessages = JSON.parse(localStorage.getItem('nlweb_messages') || '[]');
-          const convMessages = allMessages.filter(m => m.conversation_id === pendingJoin);
-          
-          if (convMessages.length > 0) {
-            // Conversation exists locally, just display it
-            this.state.conversationId = pendingJoin;
-            // Clear current messages
-            const messagesContainer = this.dom.messages();
-            if (messagesContainer) {
-              messagesContainer.innerHTML = '';
-            }
-            // Display each message
-            convMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-            convMessages.forEach(msg => {
-              this.handleStreamData(msg, false);
-            });
-          } else {
-            // Request conversation history from server via WebSocket
-            if (this.connectionType === 'websocket') {
-              const ws = await this.getWebSocketConnection(true);
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                // Send request for conversation history
-                ws.send(JSON.stringify({
-                  type: 'get_conversation_history',
-                  conversation_id: pendingJoin
-                }));
-                // Set the conversation ID so incoming messages are associated correctly
-                this.state.conversationId = pendingJoin;
-              }
-            }
-          }
-          
-          // Update URL to show the conversation
-          const newUrl = new URL(window.location);
-          newUrl.searchParams.set('conversation', pendingJoin);
-          window.history.replaceState({}, '', newUrl);
         }
       }
       
       // Load conversation from URL or show new
-      if (convId && !pendingJoin) {
+      if (convId) {
         // Load messages from localStorage if we have a conversation ID (and it's not from pendingJoin)
-        const allMessages = JSON.parse(localStorage.getItem('nlweb_messages') || '[]');
+        const storageKey = `nlweb_messages_${window.location.host}`;
+        const allMessages = JSON.parse(localStorage.getItem(storageKey) || '[]');
         const convMessages = allMessages.filter(m => m.conversation_id === convId);
         
         if (convMessages.length > 0) {
@@ -181,7 +150,7 @@ export class UnifiedChatInterface {
             }));
           }
         }
-      } else if (!pendingJoin) {
+      } else {
         this.showCenteredInput();
       }
       
@@ -719,10 +688,16 @@ export class UnifiedChatInterface {
   startStreaming() {
     if (!this.state.currentStreaming) {
       const bubble = document.createElement('div');
-      bubble.className = 'message assistant-message streaming-message';
+      bubble.className = 'message assistant-message streaming-message with-spinner';
       
       const textDiv = document.createElement('div');
       textDiv.className = 'message-text';
+      
+      // Add spinner element
+      const spinner = document.createElement('span');
+      spinner.className = 'streaming-spinner';
+      textDiv.appendChild(spinner);
+      
       bubble.appendChild(textDiv);
       
       this.dom.messages()?.appendChild(bubble);
@@ -730,6 +705,8 @@ export class UnifiedChatInterface {
       this.state.currentStreaming = {
         bubble,
         textDiv,
+        spinner,
+        hasReceivedContent: false,
         context: {
           messageContent: '',
           allResults: [],
@@ -985,8 +962,44 @@ export class UnifiedChatInterface {
       this.startStreaming();
     }
     
-    const { textDiv, context } = this.state.currentStreaming;
+    const { textDiv, context, spinner, hasReceivedContent, bubble } = this.state.currentStreaming;
     
+    // Handle spinner transitions for site='all' queries
+    if (this.state.selectedSite === 'all') {
+      // Remove initial spinner when sites list appears
+      if (data.message_type === 'asking_sites' && spinner && !hasReceivedContent) {
+        spinner.remove();
+        bubble.classList.remove('with-spinner');
+        this.state.currentStreaming.hasReceivedContent = true;
+        
+        // Process the sites message first
+        const result = this.uiCommon.processMessageByType(data, textDiv, context);
+        this.state.currentStreaming.context = result;
+        
+        // Add secondary spinner after sites list
+        const secondarySpinner = document.createElement('div');
+        secondarySpinner.className = 'streaming-spinner-secondary';
+        secondarySpinner.innerHTML = '<span></span><span></span><span></span>';
+        textDiv.appendChild(secondarySpinner);
+        this.state.currentStreaming.secondarySpinner = secondarySpinner;
+        return;
+      }
+      
+      // Remove secondary spinner when first result arrives
+      if (data.message_type === 'result' && this.state.currentStreaming.secondarySpinner) {
+        this.state.currentStreaming.secondarySpinner.remove();
+        delete this.state.currentStreaming.secondarySpinner;
+      }
+    } else {
+      // For non-'all' sites, remove spinner on first content
+      if (spinner && !hasReceivedContent && 
+          (data.message_type === 'result' || data.message_type === 'nlws' || 
+           data.message_type === 'summary' || data.message_type === 'asking_sites')) {
+        spinner.remove();
+        bubble.classList.remove('with-spinner');
+        this.state.currentStreaming.hasReceivedContent = true;
+      }
+    }
     
     // Use UI common to process the message
     const result = this.uiCommon.processMessageByType(data, textDiv, context);
@@ -1598,7 +1611,8 @@ export class UnifiedChatInterface {
     }
     
     // Get all messages from localStorage
-    const allMessages = JSON.parse(localStorage.getItem('nlweb_messages') || '[]');
+    const storageKey = `nlweb_messages_${window.location.host}`;
+    const allMessages = JSON.parse(localStorage.getItem(storageKey) || '[]');
     
     // Filter messages for this conversation
     const conversationMessages = allMessages.filter(msg => msg.conversation_id === conversationId);
@@ -1799,7 +1813,8 @@ export class UnifiedChatInterface {
   
   toggleDebugInfo() {
     // Get all messages from localStorage for current conversation
-    const allMessages = JSON.parse(localStorage.getItem('nlweb_messages') || '[]');
+    const storageKey = `nlweb_messages_${window.location.host}`;
+    const allMessages = JSON.parse(localStorage.getItem(storageKey) || '[]');
     
     // Filter messages for current conversation
     const conversationMessages = this.state.conversationId 
