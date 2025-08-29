@@ -291,7 +291,7 @@ class ModernChatInterface {
     this.getStreamingResponse(message);
   }
   
-  addMessage(content, type) {
+  async addMessage(content, type) {
     // Add to UI
     this.addMessageToUI(content, type, true);
     
@@ -328,7 +328,7 @@ class ModernChatInterface {
     }
     
     conversation.timestamp = Date.now();
-    this.conversationManager.saveConversations();
+    await this.conversationManager.saveConversations();
     this.updateConversationsList();
     
     // When user sends a message, we'll add debug icon to the next assistant message
@@ -1214,7 +1214,7 @@ class ModernChatInterface {
             parsedAnswers: parsedAnswers
           });
         }
-        this.conversationManager.saveConversations();
+        await this.conversationManager.saveConversations();
       }
     }
     
@@ -1489,8 +1489,8 @@ class ModernChatInterface {
     this.conversationManager.updateConversationsList(this, container);
   }
 
-  deleteConversation(conversationId) {
-    this.conversationManager.deleteConversation(conversationId, this);
+  async deleteConversation(conversationId) {
+    await this.conversationManager.deleteConversation(conversationId, this);
   }
   
   
@@ -1934,7 +1934,7 @@ class ModernChatInterface {
         const conversation = this.conversationManager.findConversation(this.currentConversationId);
         if (conversation) {
           conversation.site = site;
-          this.conversationManager.saveConversations();
+          await this.conversationManager.saveConversations();
         }
       });
       this.siteDropdownItems.appendChild(item);

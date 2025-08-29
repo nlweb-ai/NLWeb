@@ -13,48 +13,25 @@ class ConversationManager {
    */
   constructor() {
     this.conversations = [];
+    this.storage = indexedStorage; // Use IndexedDB storage
   }
   
-  /**
-   * Get the localStorage key based on the base domain
-   * For example: nlwm.azurewebsites.net/?site=CricketLens -> nlweb_messages_nlwm.azurewebsites.net
-   */
-  getStorageKey() {
-    // Get the base domain (host without any path or query parameters)
-    const baseDomain = window.location.host;
-    // Create a domain-specific key
-    return `nlweb_messages_${baseDomain}`;
-  }
+  
 
   async loadConversations(selectedSite, elements) {
-    // Always load conversations from localStorage
+    // Load conversations from IndexedDB
     // Server is only contacted when joining via share link
     // Note: selectedSite parameter is kept for backward compatibility but not used
     // All conversations are shown regardless of selected site
-    this.loadLocalConversations();
+    await this.loadLocalConversations();
   }
 
-  loadLocalConversations() {
-    let saved = localStorage.getItem(this.getStorageKey());
-    
-    // Migration: If no domain-specific data exists, try to migrate from old key
-    if (!saved) {
-      const legacyData = localStorage.getItem('nlweb_messages');
-      if (legacyData) {
-        // Migrate data to new domain-specific key
-        localStorage.setItem(this.getStorageKey(), legacyData);
-        // Remove old key after migration
-        localStorage.removeItem('nlweb_messages');
-        saved = legacyData;
-        console.log(`Migrated conversation data to domain-specific storage: ${this.getStorageKey()}`);
-      }
-    }
-    
+  async loadLocalConversations() {
     this.conversations = [];
     
-    if (saved) {
-      try {
-        const allMessages = JSON.parse(saved);
+    try {
+      // Load all messages from IndexedDB
+      const allMessages = await this.storage.getAllMessages();
         
         // Group messages by conversation_id to reconstruct conversations
         const conversationMap = {};
@@ -115,54 +92,90 @@ class ConversationManager {
         conversations.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         
         this.conversations = conversations;
-      } catch (e) {
-        this.conversations = [];
-      }
-    } else {
+    } catch (e) {
+      console.error('Error loading conversations from IndexedDB:', e);
       this.conversations = [];
     }
   }
 
 
 
-  saveConversations() {
-    // Collect all messages from all conversations
-    const allMessages = [];
-    this.conversations.forEach(conv => {
-      // Skip conversation history searches - don't save them to localStorage
-      if (conv.site === 'conv_history') {
-        return;
-      }
-      
-      if (conv.messages && conv.messages.length > 0) {
-        // Add all messages from this conversation
-        conv.messages.forEach(msg => {
-          // Ensure each message has the conversation_id
-          if (!msg.conversation_id) {
-            msg.conversation_id = conv.id;
-          }
-          allMessages.push(msg);
+  async saveConversations() {
+    try {
+      // Save each conversation and its messages to IndexedDB
+      for (const conv of this.conversations) {
+        // Skip conversation history searches
+        if (conv.site === 'conv_history') {
+          continue;
+        }
+        
+        // Save conversation metadata
+        await this.storage.saveConversation({
+          id: conv.id,
+          title: conv.title,
+          site: conv.site || 'all',
+          mode: conv.mode || 'list',
+          timestamp: conv.timestamp,
+          created_at: conv.created_at || conv.timestamp
         });
+        
+        // Save messages
+        if (conv.messages && conv.messages.length > 0) {
+          const messagesToSave = conv.messages.map(msg => {
+            // Ensure each message has required fields
+            if (!msg.conversation_id) {
+              msg.conversation_id = conv.id;
+            }
+            if (!msg.message_id) {
+              msg.message_id = msg.id || `${conv.id}_${msg.timestamp}`;
+            }
+            return msg;
+          });
+          await this.storage.saveMessages(messagesToSave);
+        }
       }
-    });
-    
-    // Log what we're saving
-    
-    // Save all messages directly
-    localStorage.setItem(this.getStorageKey(), JSON.stringify(allMessages));
+    } catch (e) {
+      console.error('Error saving conversations to IndexedDB:', e);
+    }
   }
 
-  loadConversation(id, chatInterface) {
+  async getConversationWithMessages(id) {
     // Guard against undefined or invalid IDs
     if (!id) {
-      return;
+      return null;
     }
     
     const conversation = this.conversations.find(c => c.id === id);
     if (!conversation) {
+      return null;
+    }
+    
+    // Load messages from IndexedDB if not already loaded
+    if (!conversation.messages || conversation.messages.length === 0) {
+      try {
+        conversation.messages = await this.storage.getMessages(id);
+      } catch (e) {
+        console.error('Error loading messages from IndexedDB:', e);
+        conversation.messages = [];
+      }
+    }
+    
+    return conversation;
+  }
+  
+  async loadConversation(id, chatInterface) {
+    const conversation = await this.getConversationWithMessages(id);
+    if (!conversation) {
       return;
     }
     
+    // Delegate to chat interface's own loadConversation if it has one
+    if (chatInterface.loadConversation) {
+      await chatInterface.loadConversation(id);
+      return;
+    }
+    
+    // Otherwise handle basic loading
     chatInterface.currentConversationId = id;
     
     // Check if this is a server conversation (starts with conv_) or local
@@ -176,10 +189,16 @@ class ConversationManager {
     
     // Restore the site selection for this conversation
     if (conversation.site) {
-      chatInterface.selectedSite = conversation.site;
+      // Check if using state object (UnifiedChatInterface) or direct property
+      if (chatInterface.state) {
+        chatInterface.state.selectedSite = conversation.site;
+      } else {
+        chatInterface.selectedSite = conversation.site;
+      }
       // Update the UI to reflect the site
-      if (chatInterface.elements.chatSiteInfo) {
-        chatInterface.elements.chatSiteInfo.textContent = `Asking ${conversation.site}`;
+      const siteInfo = document.getElementById('chat-site-info');
+      if (siteInfo) {
+        siteInfo.textContent = `Asking ${conversation.site}`;
       }
       // Update site selector icon if it exists
       if (chatInterface.siteSelectorIcon) {
@@ -189,7 +208,12 @@ class ConversationManager {
     
     // Restore the mode selection for this conversation
     if (conversation.mode) {
-      chatInterface.selectedMode = conversation.mode;
+      // Check if using state object (UnifiedChatInterface) or direct property
+      if (chatInterface.state) {
+        chatInterface.state.selectedMode = conversation.mode;
+      } else {
+        chatInterface.selectedMode = conversation.mode;
+      }
       // Update mode selector UI if it exists
       const modeSelectorIcon = document.getElementById('mode-selector-icon');
       if (modeSelectorIcon) {
@@ -289,11 +313,15 @@ class ConversationManager {
   }
 
   async deleteConversation(conversationId, chatInterface) {
-    // Remove from conversations array
-    this.conversations = this.conversations.filter(conv => conv.id !== conversationId);
-    
-    // Save updated list to localStorage
-    this.saveConversations();
+    try {
+      // Delete from IndexedDB
+      await this.storage.deleteConversation(conversationId);
+      
+      // Remove from conversations array
+      this.conversations = this.conversations.filter(conv => conv.id !== conversationId);
+    } catch (e) {
+      console.error('Error deleting conversation from IndexedDB:', e);
+    }
     
     // If this is a server conversation (starts with conv_), also delete from server
     if (conversationId && conversationId.startsWith('conv_')) {
@@ -444,7 +472,9 @@ class ConversationManager {
         const titleSpan = document.createElement('span');
         titleSpan.className = 'conversation-title';
         titleSpan.textContent = conv.title || 'Untitled';
-        titleSpan.addEventListener('click', () => chatInterface.loadConversation(conv.id));
+        titleSpan.addEventListener('click', async () => {
+          await this.loadConversation(conv.id, chatInterface);
+        });
         convContent.appendChild(titleSpan);
         
         convItem.appendChild(convContent);
@@ -508,6 +538,101 @@ class ConversationManager {
     const conversation = this.findConversation(id);
     if (conversation) {
       Object.assign(conversation, updates);
+    }
+  }
+
+  // Add a message to storage
+  async addMessage(conversationId, message) {
+    try {
+      // Ensure message has required fields
+      if (!message.conversation_id) {
+        message.conversation_id = conversationId;
+      }
+      
+      // Create a unique composite key for IndexedDB
+      // Use original message_id if available, otherwise generate one
+      const originalMessageId = message.message_id || message.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Create composite key: conversationId_messageId_timestamp
+      // This ensures uniqueness even for multiple result messages with same message_id
+      message.message_id = `${conversationId}_${originalMessageId}_${message.timestamp || Date.now()}`;
+      
+      // Save to IndexedDB
+      await this.storage.saveMessage(message);
+      
+      // Update in-memory conversation
+      const conversation = this.findConversation(conversationId);
+      if (conversation) {
+        if (!conversation.messages) {
+          conversation.messages = [];
+        }
+        conversation.messages.push(message);
+        
+        // Update conversation metadata
+        if (message.timestamp > conversation.timestamp) {
+          conversation.timestamp = message.timestamp;
+        }
+        
+        // Update title from first user message
+        if (message.message_type === 'user' && conversation.title === 'New chat') {
+          const content = typeof message.content === 'string' ? message.content : message.content?.content || 'New chat';
+          conversation.title = content.substring(0, 50);
+          
+          // Save updated conversation metadata
+          await this.storage.saveConversation({
+            id: conversation.id,
+            title: conversation.title,
+            site: conversation.site || 'all',
+            mode: conversation.mode || 'list',
+            timestamp: conversation.timestamp,
+            created_at: conversation.created_at || conversation.timestamp
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error adding message to IndexedDB:', e);
+    }
+  }
+
+  // Update a message in storage
+  async updateMessage(messageId, updates) {
+    try {
+      // Get the message from IndexedDB
+      const allMessages = await this.storage.getAllMessages();
+      const message = allMessages.find(m => m.message_id === messageId);
+      
+      if (message) {
+        // Update the message
+        Object.assign(message, updates);
+        await this.storage.updateMessage(message);
+        
+        // Update in-memory if conversation is loaded
+        const conversation = this.findConversation(message.conversation_id);
+        if (conversation && conversation.messages) {
+          const memoryMsg = conversation.messages.find(m => m.message_id === messageId);
+          if (memoryMsg) {
+            Object.assign(memoryMsg, updates);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error updating message in IndexedDB:', e);
+    }
+  }
+
+  // Delete a message from storage
+  async deleteMessage(messageId, conversationId) {
+    try {
+      // Delete from IndexedDB
+      await this.storage.deleteMessage(messageId);
+      
+      // Update in-memory conversation
+      const conversation = this.findConversation(conversationId);
+      if (conversation && conversation.messages) {
+        conversation.messages = conversation.messages.filter(m => m.message_id !== messageId);
+      }
+    } catch (e) {
+      console.error('Error deleting message from IndexedDB:', e);
     }
   }
 }

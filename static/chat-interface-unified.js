@@ -161,8 +161,9 @@ export class UnifiedChatInterface {
       }
       
       // Load conversation list
-      this.conversationManager.loadConversations(this.state.selectedSite);
-      this.updateConversationsList();
+      this.conversationManager.loadConversations(this.state.selectedSite).then(() => {
+        this.updateConversationsList();
+      });
       
       // Note: Auto-query from URL params is now handled in handleUrlAutoQuery()
       // which is called during initialization
@@ -804,6 +805,11 @@ export class UnifiedChatInterface {
           if (data.messages && data.messages.length > 0) {
             conversation.messages = data.messages;
             
+            // Save all messages to IndexedDB
+            data.messages.forEach(msg => {
+              this.conversationManager.addMessage(conversation.id, msg);
+            });
+            
             // Try to get a better title from the first user message
             const firstUserMsg = data.messages.find(m => m.message_type === 'user');
             if (firstUserMsg && firstUserMsg.content) {
@@ -812,7 +818,9 @@ export class UnifiedChatInterface {
           }
           
           this.conversationManager.addConversation(conversation);
-          this.conversationManager.saveConversations();
+          this.conversationManager.saveConversations().then(() => {
+            this.updateConversationsList();
+          });
         }
         
         // Load the conversation - this will replay messages and extract metadata
@@ -826,8 +834,9 @@ export class UnifiedChatInterface {
       // Don't sort - keep messages in order they were received
       
       // Save the conversation with all messages
-      this.conversationManager.saveConversations();
-      this.updateConversationsList();
+      this.conversationManager.saveConversations().then(() => {
+        this.updateConversationsList();
+      });
       return;
     }
     
@@ -1114,6 +1123,9 @@ export class UnifiedChatInterface {
     // Store the message exactly as received - no wrapping!
     conversation.messages.push(data);
     
+    // Also save to IndexedDB
+    this.conversationManager.addMessage(conversation.id, data);
+    
     // Update title if it's the first user message and title is still generic
     if (data.message_type === 'user' && 
         (conversation.title === 'New chat' || conversation.title === 'Joined Conversation')) {
@@ -1135,8 +1147,7 @@ export class UnifiedChatInterface {
       this.updateConversationsList();
     }
     
-    // Save to localStorage - for now still using the batch approach
-    // TODO: Consider IndexedDB for more efficient per-message storage
+    // Save to IndexedDB
     this.conversationManager.saveConversations();
   }
   
@@ -1610,17 +1621,33 @@ export class UnifiedChatInterface {
       container.innerHTML = '';
     }
     
-    // Get all messages from localStorage
-    const storageKey = `nlweb_messages_${window.location.host}`;
-    const allMessages = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    // Load conversation with messages from ConversationManager
+    const conversation = await this.conversationManager.getConversationWithMessages(conversationId);
+    if (!conversation) {
+      console.warn('Conversation not found:', conversationId);
+      return;
+    }
     
-    // Filter messages for this conversation
-    const conversationMessages = allMessages.filter(msg => msg.conversation_id === conversationId);
+    const conversationMessages = conversation.messages || [];
     
     // Replay each message through handleStreamData
-    conversationMessages.forEach(msg => {
+    conversationMessages.forEach((msg, index) => {
       this.handleStreamData(msg, false); // false = don't store again
     });
+    
+    // Clean up any streaming state/spinners after loading
+    if (this.state.currentStreaming) {
+      if (this.state.currentStreaming.spinner) {
+        this.state.currentStreaming.spinner.remove();
+      }
+      if (this.state.currentStreaming.secondarySpinner) {
+        this.state.currentStreaming.secondarySpinner.remove();
+      }
+      if (this.state.currentStreaming.bubble) {
+        this.state.currentStreaming.bubble.classList.remove('with-spinner');
+      }
+      this.state.currentStreaming = null;
+    }
     
     // Update the chat title from first user message if available
     const chatTitle = document.querySelector('.chat-title');
