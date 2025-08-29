@@ -27,7 +27,7 @@ function dataload(){
   _prompt_input "Please enter a site name" site_name
 
   _debug "Loading data from $rss_url site name: $site_name"
-  python -m tools.db_load "$rss_url" "$site_name"
+  python -m data_loading.db_load "$rss_url" "$site_name"
 }
 
 function init_python(){

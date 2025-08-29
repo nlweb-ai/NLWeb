@@ -97,7 +97,7 @@ These instructions assume that you have an [Azure subscription](https://go.micro
     az webapp config set --resource-group yourResourceGroup --name yourWebAppName --startup-file "startup.sh"
     ```
 
-7. Deploy code using ZIP deployment. Do this from within your cloned NLWeb folder, making sure you have set your preferred providers you will use in the 'code/config' folder before doing this.  If you are not using the 'main' branch, replace this with the branch name to use.
+7. Deploy code using ZIP deployment. Do this from within your cloned NLWeb folder, making sure you have set your preferred providers you will use in the 'code/config' folder before doing this.  If you are not using the 'main' branch, replace this with the branch name to use.  NOTE THAT THIS WILL NOT PICK UP LOCAL CHANGES - any preferred providers must be checked into the specified branch.  
 
     ```sh
     git archive --format zip --output ./app.zip main
@@ -107,7 +107,7 @@ These instructions assume that you have an [Azure subscription](https://go.micro
 8. Deploy code using ZIP deployment:
 
     ```sh
-    az webapp deployment source config-zip --resource-group yourResourceGroup --name yourWebAppName --src ./app.zip
+    az webapp deploy --resource-group yourResourceGroup --name yourWebAppName --type zip --src-path ./app.zip
     ```
 
 ## Azure WebApp Monitoring and Troubleshooting

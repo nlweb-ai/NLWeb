@@ -1,0 +1,3 @@
+# Root requirements file to help Azure Oryx build detection
+# Delegate to the real requirements in code/python
+-r code/python/requirements.txt
