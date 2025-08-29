@@ -1125,8 +1125,8 @@ export class UnifiedChatInterface {
     // Store the message exactly as received - no wrapping!
     conversation.messages.push(data);
     
-    // Also save to IndexedDB
-    this.conversationManager.addMessage(conversation.id, data);
+    // Don't save to IndexedDB immediately - let saveConversations() handle it
+    // this.conversationManager.addMessage(conversation.id, data);
     
     // Update title if it's the first user message and title is still generic
     if (data.message_type === 'user' && 
@@ -1149,8 +1149,8 @@ export class UnifiedChatInterface {
       this.updateConversationsList();
     }
     
-    // Save to IndexedDB
-    this.conversationManager.saveConversations();
+    // Don't save after every message - causes exponential duplication
+    // this.conversationManager.saveConversations();
   }
   
   endStreaming() {
@@ -1158,8 +1158,8 @@ export class UnifiedChatInterface {
       // Remove streaming class
       this.state.currentStreaming.bubble.classList.remove('streaming-message');
       
-      // Just clean up the UI state
-      // Messages are already stored by storeStreamingMessage()
+      // Save all messages to IndexedDB once streaming is complete
+      this.conversationManager.saveConversations();
       
       this.state.currentStreaming = null;
     }

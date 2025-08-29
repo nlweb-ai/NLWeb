@@ -126,10 +126,14 @@ class ConversationManager {
             if (!msg.conversation_id) {
               msg.conversation_id = conv.id;
             }
-            if (!msg.message_id) {
-              msg.message_id = msg.id || `${conv.id}_${msg.timestamp}`;
-            }
-            return msg;
+            // Always generate a unique key for IndexedDB storage
+            // This ensures every message is stored, even duplicates
+            const uniqueKey = `${conv.id}_${msg.timestamp || Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            return {
+              ...msg,
+              message_id: uniqueKey,
+              original_message_id: msg.message_id || msg.id
+            };
           });
           await this.storage.saveMessages(messagesToSave);
         }
@@ -562,8 +566,9 @@ class ConversationManager {
         original_message_id: message.message_id || message.id
       };
       
-      // Save to IndexedDB
-      await this.storage.saveMessage(messageToStore);
+      // Don't save here - messages are saved in batch by saveConversations()
+      // console.log('[IndexedDB SAVE] Single message:', messageToStore.message_type, messageToStore.content?.substring?.(0, 50));
+      // await this.storage.saveMessage(messageToStore);
       
       // Update conversation metadata only (don't push to messages array - caller handles that)
       const conversation = this.findConversation(conversationId);
