@@ -124,24 +124,18 @@ export class UnifiedChatInterface {
       
       // Load conversation from URL or show new
       if (convId) {
-        // Load messages from localStorage if we have a conversation ID (and it's not from pendingJoin)
-        const storageKey = `nlweb_messages_${window.location.host}`;
-        const allMessages = JSON.parse(localStorage.getItem(storageKey) || '[]');
-        const convMessages = allMessages.filter(m => m.conversation_id === convId);
+        console.log('[INIT] Loading conversation from URL:', convId);
+        // Load conversation from ConversationManager/IndexedDB
+        await this.conversationManager.loadConversations();
+        const conversation = this.conversationManager.findConversation(convId);
         
-        if (convMessages.length > 0) {
-          // Clear current messages
-          const messagesContainer = this.dom.messages();
-          if (messagesContainer) {
-            messagesContainer.innerHTML = '';
-          }
-          // Display each message
-          convMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-          convMessages.forEach(msg => {
-            this.handleStreamData(msg, false);
-          });
+        if (conversation) {
+          console.log('[INIT] Found local conversation, loading from IndexedDB');
+          // Load the conversation using ConversationManager
+          await this.conversationManager.loadConversation(convId, this);
         } else {
-          // No messages in localStorage - this might be a shared conversation
+          console.log('[INIT] No local conversation, requesting from server');
+          // No local conversation - this might be a shared conversation
           // Send join_conversation message to get the messages from server
           if (this.ws.connection && this.ws.connection.readyState === WebSocket.OPEN) {
             this.ws.connection.send(JSON.stringify({
@@ -410,6 +404,16 @@ export class UnifiedChatInterface {
         
         this.ws.connection.onmessage = (event) => {
           const data = JSON.parse(event.data);
+          
+          // Debug logging for received messages
+          if (data.message_type === 'user' || data.type === 'conversation_history') {
+            console.log('[WS] Received message:', {
+              type: data.message_type || data.type,
+              content: data.content ? (typeof data.content === 'string' ? data.content.substring(0, 50) : 'object') : 'none',
+              hasMessages: data.messages ? data.messages.length : 0
+            });
+          }
+          
           if (data.message_type === 'multi_site_complete') {
           }
           this.handleStreamData(data);
@@ -805,10 +809,8 @@ export class UnifiedChatInterface {
           if (data.messages && data.messages.length > 0) {
             conversation.messages = data.messages;
             
-            // Save all messages to IndexedDB
-            data.messages.forEach(msg => {
-              this.conversationManager.addMessage(conversation.id, msg);
-            });
+            // Don't save messages here - saveConversations() below will handle it
+            // This prevents duplicate storage
             
             // Try to get a better title from the first user message
             const firstUserMsg = data.messages.find(m => m.message_type === 'user');

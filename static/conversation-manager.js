@@ -544,31 +544,31 @@ class ConversationManager {
   // Add a message to storage
   async addMessage(conversationId, message) {
     try {
+      
       // Ensure message has required fields
       if (!message.conversation_id) {
         message.conversation_id = conversationId;
       }
       
-      // Create a unique composite key for IndexedDB
-      // Use original message_id if available, otherwise generate one
-      const originalMessageId = message.message_id || message.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // Always generate a unique key for IndexedDB storage
+      // This ensures every message is stored, even duplicates
+      const uniqueKey = `${conversationId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // Create composite key: conversationId_messageId_timestamp
-      // This ensures uniqueness even for multiple result messages with same message_id
-      message.message_id = `${conversationId}_${originalMessageId}_${message.timestamp || Date.now()}`;
+      // Create a copy of the message with the unique key for storage
+      // Preserve original message_id in a separate field if needed
+      const messageToStore = { 
+        ...message, 
+        message_id: uniqueKey,
+        original_message_id: message.message_id || message.id
+      };
       
       // Save to IndexedDB
-      await this.storage.saveMessage(message);
+      await this.storage.saveMessage(messageToStore);
       
-      // Update in-memory conversation
+      // Update conversation metadata only (don't push to messages array - caller handles that)
       const conversation = this.findConversation(conversationId);
       if (conversation) {
-        if (!conversation.messages) {
-          conversation.messages = [];
-        }
-        conversation.messages.push(message);
-        
-        // Update conversation metadata
+        // Update conversation timestamp
         if (message.timestamp > conversation.timestamp) {
           conversation.timestamp = message.timestamp;
         }

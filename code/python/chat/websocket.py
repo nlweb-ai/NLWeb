@@ -264,12 +264,15 @@ class WebSocketManager:
         
         # Send to all participants except excluded
         tasks = []
+        msg_type = message.get('message_type', message.get('type', 'unknown'))
+        msg_content = message.get('content', '')[:50] if message.get('content') else 'NO_CONTENT'
+        sender = message.get('sender_info', {}).get('id', 'unknown') if message.get('sender_info') else 'unknown'
+        
+        
         for user_id, connection in connections.items():
             if user_id != exclude_user_id:
-                # print(f"[WebSocket] Sending to {user_id}")
                 tasks.append(connection.send_message(message))
             else:
-                pass  # print(f"[WebSocket] Excluding {user_id} from broadcast")
         
         # Send all messages concurrently
         if tasks:

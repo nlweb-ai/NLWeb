@@ -265,6 +265,68 @@ class IndexedStorage {
 // Create singleton instance
 const indexedStorage = new IndexedStorage();
 
+// Debug function for console - dump all data
+window.dumpIndexedDB = async function() {
+  try {
+    const conversations = await indexedStorage.getAllConversations();
+    const messages = await indexedStorage.getAllMessages();
+    
+    console.log('=== INDEXEDDB DUMP ===');
+    console.log(`Total: ${conversations.length} conversations, ${messages.length} messages\n`);
+    
+    console.log('=== CONVERSATIONS ===');
+    console.table(conversations);
+    
+    console.log('\n=== MESSAGES BY CONVERSATION ===');
+    const messagesByConv = {};
+    messages.forEach(msg => {
+      if (!messagesByConv[msg.conversation_id]) {
+        messagesByConv[msg.conversation_id] = [];
+      }
+      messagesByConv[msg.conversation_id].push(msg);
+    });
+    
+    Object.keys(messagesByConv).forEach(convId => {
+      const convMessages = messagesByConv[convId];
+      console.log(`\nConversation ${convId}: ${convMessages.length} messages`);
+      convMessages.sort((a, b) => a.timestamp - b.timestamp);
+      convMessages.forEach((msg, i) => {
+        if (msg.message_type === 'user') {
+          console.log(`  [${i}] USER: ${msg.content}`);
+        } else if (msg.message_type === 'result') {
+          const items = msg.content ? msg.content.length : 0;
+          console.log(`  [${i}] RESULT: ${items} items`);
+          if (msg.content) {
+            msg.content.forEach((item, j) => {
+              console.log(`      ${j}: ${item.url || item.name || 'NO URL/NAME'}`);
+            });
+          }
+        } else {
+          console.log(`  [${i}] ${msg.message_type.toUpperCase()}: ${msg.content || ''}`);
+        }
+      });
+    });
+    
+    return { conversations, messages };
+  } catch (e) {
+    console.error('Error dumping IndexedDB:', e);
+  }
+};
+
+// Shorthand version - just show counts
+window.dbStats = async function() {
+  const conversations = await indexedStorage.getAllConversations();
+  const messages = await indexedStorage.getAllMessages();
+  console.log(`IndexedDB: ${conversations.length} conversations, ${messages.length} messages`);
+  
+  // Group messages by type
+  const messageTypes = {};
+  messages.forEach(m => {
+    messageTypes[m.message_type] = (messageTypes[m.message_type] || 0) + 1;
+  });
+  console.log('Message types:', messageTypes);
+};
+
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = indexedStorage;

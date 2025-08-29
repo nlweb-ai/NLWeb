@@ -1156,7 +1156,17 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         
                         # Replay conversation history for joining user
                         # Replay each message as individual events in timestamp order
+                        # IMPORTANT: Don't send user's own messages back to them
                         for i, msg in enumerate(recent_messages):
+                            # Check if this is a user message from the joining user
+                            sender_id = msg.get('sender_info', {}).get('id') if msg.get('sender_info') else None
+                            msg_type = msg.get('message_type') or msg.get('type')
+                            
+                            # Skip user's own messages to avoid duplicates
+                            if msg_type == 'user' and sender_id == join_user_id:
+                                print(f"[JOIN] Skipping user's own message from {sender_id}")
+                                continue
+                            
                             # Messages are already in the correct format from the stored JSON
                             # Just send them directly
                             await ws.send_json(msg)

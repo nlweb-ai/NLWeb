@@ -268,11 +268,12 @@ class ConversationManager:
         # Broadcast to WebSocket connections asynchronously (non-blocking)
         # IMPORTANT: Don't echo user messages back to the sender
         if self.websocket_manager:
+            sender_id = message.sender_info.get('id') if message.sender_info else None
             broadcast_task = asyncio.create_task(
                 self.websocket_manager.broadcast_message(
                     message.conversation_id,
                     sequenced_message.to_dict(),  # Send message directly, no wrapping
-                    exclude_user_id=message.sender_info.get('id')  # Exclude the sender
+                    exclude_user_id=sender_id  # Exclude the sender
                 )
             )
         
