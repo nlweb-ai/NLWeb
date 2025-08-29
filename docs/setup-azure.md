@@ -107,7 +107,7 @@ These instructions assume that you have an [Azure subscription](https://go.micro
 8. Deploy code using ZIP deployment:
 
     ```sh
-    az webapp deployment source config-zip --resource-group yourResourceGroup --name yourWebAppName --src ./app.zip
+    az webapp deploy --resource-group yourResourceGroup --name yourWebAppName --type zip --src-path ./app.zip
     ```
 
 ## Azure WebApp Monitoring and Troubleshooting
