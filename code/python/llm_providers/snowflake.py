@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional
 
 from core.config import CONFIG
 from llm_providers.llm_provider import LLMProvider
-from core.utils import snowflake
+from retrieval_providers.utils import snowflake
 
 logger = logging.getLogger(__name__)
 
