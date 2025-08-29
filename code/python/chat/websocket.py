@@ -272,7 +272,6 @@ class WebSocketManager:
         for user_id, connection in connections.items():
             if user_id != exclude_user_id:
                 tasks.append(connection.send_message(message))
-            else:
         
         # Send all messages concurrently
         if tasks:
