@@ -135,19 +135,17 @@ class ConversationManager {
               msg.conversation_id = conv.id;
             }
             
-            // Always generate a unique key for new messages
-            const uniqueKey = `${conv.id}_${msg.timestamp || Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            const messageToSave = {
-              ...msg,
-              message_id: uniqueKey,
-              original_message_id: msg.message_id || msg.id
-            };
+            // Use the message_id from the server - no generation needed
+            if (!msg.message_id) {
+              console.warn('Message missing message_id from server:', msg);
+              // Fallback to a simple ID if server didn't provide one
+              msg.message_id = `${conv.id}_${msg.timestamp || Date.now()}`;
+            }
             
-            messagesToSave.push(messageToSave);
+            messagesToSave.push(msg);
             
             // Mark the original message as saved
             msg.db_saved = true;
-            msg.message_id = uniqueKey; // Store the generated ID
           }
           
           // Only save if there are new messages
@@ -572,21 +570,13 @@ class ConversationManager {
         message.conversation_id = conversationId;
       }
       
-      // Always generate a unique key for IndexedDB storage
-      // This ensures every message is stored, even duplicates
-      const uniqueKey = `${conversationId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Create a copy of the message with the unique key for storage
-      // Preserve original message_id in a separate field if needed
-      const messageToStore = { 
-        ...message, 
-        message_id: uniqueKey,
-        original_message_id: message.message_id || message.id
-      };
+      // Use the message_id from the server - no generation needed
+      if (!message.message_id) {
+        console.warn('Message missing message_id from server in addMessage:', message);
+      }
       
       // Don't save here - messages are saved in batch by saveConversations()
-      // console.log('[IndexedDB SAVE] Single message:', messageToStore.message_type, messageToStore.content?.substring?.(0, 50));
-      // await this.storage.saveMessage(messageToStore);
+      // The message is added to the conversation's messages array by the caller
       
       // Update conversation metadata only (don't push to messages array - caller handles that)
       const conversation = this.findConversation(conversationId);
