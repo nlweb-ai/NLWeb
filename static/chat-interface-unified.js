@@ -1187,7 +1187,7 @@ export class UnifiedChatInterface {
             <textarea 
               id="centered-chat-input"
               class="centered-chat-input" 
-              placeholder="Ask anything..."
+              placeholder="Ask"
               rows="2"
             ></textarea>
             <button id="centered-send-button" class="centered-send-button">
