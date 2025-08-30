@@ -499,16 +499,47 @@ class ConversationManager {
         
         convItem.appendChild(convContent);
         
-        // Delete button
+        // Create tooltip container
+        const tooltip = document.createElement('div');
+        tooltip.className = 'conversation-tooltip';
+        
+        // Tooltip content
+        const tooltipContent = document.createElement('div');
+        tooltipContent.className = 'tooltip-content';
+        
+        // Full title in tooltip
+        const tooltipTitle = document.createElement('div');
+        tooltipTitle.className = 'tooltip-title';
+        tooltipTitle.textContent = conv.title || 'Untitled';
+        tooltipContent.appendChild(tooltipTitle);
+        
+        // Delete button in tooltip
         const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'conversation-delete';
+        deleteBtn.className = 'tooltip-delete';
         deleteBtn.innerHTML = '×';
         deleteBtn.title = 'Delete conversation';
         deleteBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           this.deleteConversation(conv.id, chatInterface);
         });
-        convItem.appendChild(deleteBtn);
+        tooltipContent.appendChild(deleteBtn);
+        
+        tooltip.appendChild(tooltipContent);
+        convItem.appendChild(tooltip);
+        
+        // Show/hide tooltip on hover
+        let tooltipTimeout;
+        convItem.addEventListener('mouseenter', () => {
+          clearTimeout(tooltipTimeout);
+          tooltipTimeout = setTimeout(() => {
+            tooltip.classList.add('visible');
+          }, 500); // Show after 500ms hover
+        });
+        
+        convItem.addEventListener('mouseleave', () => {
+          clearTimeout(tooltipTimeout);
+          tooltip.classList.remove('visible');
+        });
         
         conversationsContainer.appendChild(convItem);
       });

@@ -276,6 +276,83 @@ body {
   opacity: 1;
 }
 
+/* Conversation Tooltip */
+.conversation-item {
+  position: relative;
+}
+
+.conversations-container {
+  overflow: visible !important;
+}
+
+.conversation-tooltip {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 10px;
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+  pointer-events: none;
+}
+
+.conversation-tooltip.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.tooltip-content {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  max-width: 400px;
+}
+
+.tooltip-title {
+  color: var(--text-primary);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 350px;
+}
+
+.tooltip-delete {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: var(--transition);
+  flex-shrink: 0;
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 300;
+}
+
+.tooltip-delete:hover {
+  background-color: rgba(255, 0, 0, 0.1);
+  color: #ff4444;
+}
+
+/* Hide the old delete button */
+.conversation-delete {
+  display: none;
+}
+
 /* Site Groups */
 .site-group {
   margin-bottom: 20px;
