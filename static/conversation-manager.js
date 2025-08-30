@@ -51,7 +51,8 @@ class ConversationManager {
             };
           }
           
-          // Add message to conversation
+          // Add message to conversation and mark it as already saved
+          msg.db_saved = true; // Mark as saved since it came from the database
           conversationMap[convId].messages.push(msg);
           
           // Update conversation metadata only from user messages
@@ -119,23 +120,40 @@ class ConversationManager {
           created_at: conv.created_at || conv.timestamp
         });
         
-        // Save messages
+        // Save messages - only save new messages that haven't been persisted yet
         if (conv.messages && conv.messages.length > 0) {
-          const messagesToSave = conv.messages.map(msg => {
+          const messagesToSave = [];
+          
+          for (const msg of conv.messages) {
+            // Skip messages that are already saved (they have a db_saved flag)
+            if (msg.db_saved) {
+              continue;
+            }
+            
             // Ensure each message has required fields
             if (!msg.conversation_id) {
               msg.conversation_id = conv.id;
             }
-            // Always generate a unique key for IndexedDB storage
-            // This ensures every message is stored, even duplicates
+            
+            // Always generate a unique key for new messages
             const uniqueKey = `${conv.id}_${msg.timestamp || Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            return {
+            const messageToSave = {
               ...msg,
               message_id: uniqueKey,
               original_message_id: msg.message_id || msg.id
             };
-          });
-          await this.storage.saveMessages(messagesToSave);
+            
+            messagesToSave.push(messageToSave);
+            
+            // Mark the original message as saved
+            msg.db_saved = true;
+            msg.message_id = uniqueKey; // Store the generated ID
+          }
+          
+          // Only save if there are new messages
+          if (messagesToSave.length > 0) {
+            await this.storage.saveMessages(messagesToSave);
+          }
         }
       }
     } catch (e) {

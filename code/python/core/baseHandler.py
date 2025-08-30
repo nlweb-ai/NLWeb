@@ -160,8 +160,9 @@ class NLWebHandler:
         self.headersSent = False
         self.raw_messages = []
         
-        # Generate a single message_id for all messages from this handler instance
+        # Generate a base message_id and counter for unique message IDs
         self.handler_message_id = f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:9]}"
+        self.message_counter = 0  # Counter for unique message IDs
         
         # Create MessageSender helper (after handler_message_id is set)
         self.message_sender = MessageSender(self)

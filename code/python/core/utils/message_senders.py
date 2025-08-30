@@ -43,8 +43,9 @@ class MessageSender:
         """
         from core.utils.utils import get_param
         
+        # User message gets counter #0
         user_message = {
-            "message_id": self.handler.handler_message_id,
+            "message_id": f"{self.handler.handler_message_id}#0",
             "conversation_id": self.handler.conversation_id,
             "type": "message",
             "message_type": "user",
@@ -232,9 +233,11 @@ class MessageSender:
         if "timestamp" not in message:
             message["timestamp"] = int(time.time() * 1000)
         
-        # Add message_id
+        # Add message_id with counter for uniqueness
         if "message_id" not in message:
-            message["message_id"] = self.handler.handler_message_id
+            # Increment counter and generate unique ID
+            self.handler.message_counter += 1
+            message["message_id"] = f"{self.handler.handler_message_id}#{self.handler.message_counter}"
         
         # Add conversation_id
         if "conversation_id" not in message:
