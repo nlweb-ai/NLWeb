@@ -327,6 +327,9 @@ window.dbStats = async function() {
   console.log('Message types:', messageTypes);
 };
 
+// Expose to window for global access
+window.indexedStorage = indexedStorage;
+
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = indexedStorage;

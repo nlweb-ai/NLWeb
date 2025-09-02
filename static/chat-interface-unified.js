@@ -1840,15 +1840,26 @@ export class UnifiedChatInterface {
     });
   }
   
-  toggleDebugInfo() {
-    // Get all messages from localStorage for current conversation
-    const storageKey = `nlweb_messages_${window.location.host}`;
-    const allMessages = JSON.parse(localStorage.getItem(storageKey) || '[]');
+  async toggleDebugInfo() {
+    // Get all messages from IndexedDB for current conversation
+    let conversationMessages = [];
     
-    // Filter messages for current conversation
-    const conversationMessages = this.state.conversationId 
-      ? allMessages.filter(msg => msg.conversation_id === this.state.conversationId)
-      : allMessages;
+    try {
+      if (this.state.conversationId) {
+        // Get messages from IndexedDB
+        conversationMessages = await window.indexedStorage.getMessages(this.state.conversationId);
+      } else {
+        // If no conversation ID, try to get recent messages
+        const conversations = await window.indexedStorage.getConversations();
+        if (conversations && conversations.length > 0) {
+          const latestConv = conversations[0];
+          conversationMessages = await window.indexedStorage.getMessages(latestConv.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching messages from IndexedDB:', error);
+      conversationMessages = [];
+    }
     
     // Create modal or overlay to show debug info
     const existingModal = document.getElementById('debug-modal');
