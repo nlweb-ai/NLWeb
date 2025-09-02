@@ -15,6 +15,30 @@ from cloudflare import AsyncCloudflare
 
 import zon as z
 
+from bs4 import BeautifulSoup
+from markdown import markdown
+import re
+
+def markdown_to_text(markdown_string):
+    """ 
+    Converts a markdown string to plaintext 
+    
+    Taken from https://gist.github.com/lorey/eb15a7f3338f959a78cc3661fbc255fe
+    """
+
+    # md -> html -> text since BeautifulSoup can extract text cleanly
+    html = markdown(markdown_string)
+
+    # remove code snippets
+    html = re.sub(r'<pre>(.*?)</pre>', ' ', html)
+    html = re.sub(r'<code>(.*?)</code >', ' ', html)
+
+    # extract text
+    soup = BeautifulSoup(html, "html.parser")
+    text = ''.join(soup.findAll(text=True))
+
+    return text
+
 logger = get_configured_logger("cloudflare_autorag_client")
 
 searchFiltersComparisonFilter = z.record({
@@ -155,13 +179,33 @@ class CloudflareAutoRAGClient:
         def _parse_data_item(item: dict):
             url: str = item.get('filename')
 
-            contents = item.get('content', [])
-            text_json = json.dumps(contents)
+            attributes = item.get('attributes', {})
+            file_attributes = attributes.get('file', {})
 
-            name = item.get('attributes', {}).get('filename', '')
+            name = file_attributes.get('title', '')
+
+            contents = item.get('content', [])
+
+            description = markdown_to_text(''.join(map(lambda c: c['text'], contents)).replace("\n", " ")[:420])
+
+            text_json = json.dumps({
+                "@context": "http://schema.org/",
+                "@type": "Product",
+                "@id": "#social-preview",
+                "name": file_attributes.get('title', "Social Preview"),
+                "brand": {
+                    "@type": "Brand",
+                    name: "Cloudflare",
+                },
+                "description": file_attributes.get('description', description), 
+                "image": file_attributes.get('image', ''),
+            })
+
             site = url.removeprefix('https://').split('/')[0] # FIXME: this filtering scheme just returns the actual domain, not "section specific" data (like different sections related to different offerings in a documentation website)
 
-            return [url, text_json, name, site]
+            entry =  [url, text_json, name, site]
+
+            return entry
 
         return list(map(_parse_data_item, data))
 

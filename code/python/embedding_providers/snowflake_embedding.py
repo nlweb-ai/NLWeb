@@ -18,7 +18,7 @@ import httpx
 from typing import List
 
 from core.config import CONFIG
-from core.utils import snowflake
+from retrieval_providers.utils import snowflake
 
 logger = logging.getLogger(__name__)
 

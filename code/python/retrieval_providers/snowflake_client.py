@@ -3,7 +3,7 @@ import json
 from core.config import CONFIG, RetrievalProviderConfig
 from core.retriever import RetrievalClientBase
 from typing import Any, Dict, List, Optional, Tuple, Union
-from core.utils import snowflake
+from retrieval_providers.utils import snowflake
 
 class SnowflakeCortexSearchClient(RetrievalClientBase):
     """

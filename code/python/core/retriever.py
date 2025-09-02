@@ -90,7 +90,7 @@ _db_type_packages = {
     "elasticsearch": ["elasticsearch[async]>=8,<9"],
     "postgres": ["psycopg", "psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0", "pgvector>=0.4.0"],
     "shopify_mcp": ["aiohttp>=3.8.0"],
-    "cloudflare_autorag": ['cloudflare>=4.3.1', "httpx>=0.28.1", "zon>=3.0.0"],
+    "cloudflare_autorag": ['cloudflare>=4.3.1', "httpx>=0.28.1", "zon>=3.0.0", "markdown>=3.8.2", "beautifulsoup4>=4.13.4"],
     "hnswlib": ["hnswlib>=0.7.0"],
 }
 
