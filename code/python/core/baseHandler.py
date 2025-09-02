@@ -55,7 +55,6 @@ class NLWebHandler:
         # the site that is being queried
         self.site = get_param(query_params, "site", str, "all")
         
-        
         # Parse comma-separated sites
         if self.site and isinstance(self.site, str) and "," in self.site:
             self.site = [s.strip() for s in self.site.split(",") if s.strip()]
@@ -70,7 +69,7 @@ class NLWebHandler:
         self.last_answers = get_param(query_params, "last_ans", list, [])
 
         # the model that is being used
-        self.model = get_param(query_params, "model", str, "gpt-4o-mini")
+        self.model = get_param(query_params, "model", str, "gpt-4.1-mini")
 
         # the request may provide a fully decontextualized query, in which case 
         # we don't need to decontextualize the latest query.
@@ -171,16 +170,6 @@ class NLWebHandler:
         initial_user_message = self.message_sender.create_initial_user_message()
         self.raw_messages.append(initial_user_message)
         
-        logger.info(f"NLWebHandler initialized with parameters:")
-        logger.debug(f"site: {self.site}, query: {self.query}")
-        logger.debug(f"model: {self.model}, streaming: {self.streaming}")
-        logger.debug(f"generate_mode: {self.generate_mode}, conversation_id: {self.conversation_id}")
-        logger.debug(f"context_url: {self.context_url}")
-        logger.debug(f"Previous queries: {self.prev_queries}")
-        logger.debug(f"Last answers: {self.last_answers}")
-        
-        # log(f"NLWebHandler initialized with site: {self.site}, query: {self.query}, prev_queries: {self.prev_queries}, mode: {self.generate_mode}, conversation_id: {self.conversation_id}, context_url: {self.context_url}")
-
     @property 
     def is_connection_alive(self):
         return self.connection_alive_event.is_set()
@@ -207,26 +196,21 @@ class NLWebHandler:
             if (self.query_done):
                 return self.return_value
             if (not self.fastTrackWorked):
-                logger.info(f"Fast track did not work, proceeding with routing logic")
                 await self.route_query_based_on_tools()
             
             # Check if query is done regardless of whether FastTrack worked
             if (self.query_done):
-                logger.info(f"Query completed by tool handler")
                 return self.return_value
                 
-            await self.post_ranking_tasks()
+            await post_ranking.PostRanking(self).do()
             
             self.return_value["conversation_id"] = self.conversation_id
             
             # Send end-nlweb-response message at the end
             await self.message_sender.send_end_response()
             
-            logger.info(f"Query execution completed for conversation_id: {self.conversation_id}")
             return self.return_value, self.raw_messages
         except Exception as e:
-            logger.exception(f"Error in runQuery: {e}")
-            log(f"Error in runQuery: {e}")
             traceback.print_exc()
             
             # Send end-nlweb-response even on error
@@ -235,20 +219,32 @@ class NLWebHandler:
             raise
     
     async def prepare(self):
-        logger.info("Starting preparation phase")
         tasks = []
-        
-        logger.debug("Creating preparation tasks")
+
         tasks.append(asyncio.create_task(self.decontextualizeQuery().do()))
         tasks.append(asyncio.create_task(fastTrack.FastTrack(self).do()))
-        tasks.append(asyncio.create_task(analyze_query.DetectItemType(self).do()))
-        tasks.append(asyncio.create_task(analyze_query.DetectMultiItemTypeQuery(self).do()))
-        tasks.append(asyncio.create_task(analyze_query.DetectQueryType(self).do()))
-        tasks.append(asyncio.create_task(relevance_detection.RelevanceDetection(self).do()))
-        tasks.append(asyncio.create_task(memory.Memory(self).do()))
         tasks.append(asyncio.create_task(query_rewrite.QueryRewrite(self).do()))
-        tasks.append(asyncio.create_task(required_info.RequiredInfo(self).do()))
-        tasks.append(asyncio.create_task(router.ToolSelector(self).do()))
+        
+        # Check if a specific tool is requested via the 'tool' parameter
+        requested_tool = get_param(self.query_params, "tool", str, None)
+        if requested_tool:
+            # Skip tool selection and use the requested tool directly
+            # Set tool_routing_results to use the specified tool
+            self.tool_routing_results = [{
+                "tool": type('Tool', (), {'name': requested_tool, 'handler_class': None})(),
+                "score": 100,
+                "result": {"score": 100, "justification": f"Tool {requested_tool} specified in request"}
+            }]
+        else:
+            # Normal tool selection
+            tasks.append(asyncio.create_task(router.ToolSelector(self).do()))
+
+     #   tasks.append(asyncio.create_task(analyze_query.DetectItemType(self).do()))
+     #   tasks.append(asyncio.create_task(analyze_query.DetectMultiItemTypeQuery(self).do()))
+     #   tasks.append(asyncio.create_task(analyze_query.DetectQueryType(self).do()))
+     #   tasks.append(asyncio.create_task(relevance_detection.RelevanceDetection(self).do()))
+     #   tasks.append(asyncio.create_task(memory.Memory(self).do()))
+     #   tasks.append(asyncio.create_task(required_info.RequiredInfo(self).do()))
         
         try:
             if CONFIG.should_raise_exceptions():
@@ -268,11 +264,9 @@ class NLWebHandler:
         if not self.retrieval_done_event.is_set():
             # Skip retrieval for sites without embeddings
             if not site_supports_standard_retrieval(self.site):
-                logger.info(f"Skipping standard retrieval for {self.site} - handled by specialized tools")
                 self.final_retrieved_items = []
                 self.retrieval_done_event.set()
             else:
-                logger.info("Retrieval not done by fast track, performing regular retrieval")
                 items = await search(
                     self.decontextualized_query, 
                     self.site,
@@ -280,13 +274,11 @@ class NLWebHandler:
                     handler=self
                 )
                 self.final_retrieved_items = items
-                logger.debug(f"Retrieved {len(items)} items from database")
                 self.retrieval_done_event.set()
         
         logger.info("Preparation phase completed")
 
     def decontextualizeQuery(self):
-        logger.info("Determining decontextualization strategy")
         if (len(self.prev_queries) < 1):
             self.decontextualized_query = self.query
             return decontextualize.NoOpDecontextualizer(self)
@@ -304,7 +296,6 @@ class NLWebHandler:
             await ranking.Ranking(self, self.final_retrieved_items, ranking.Ranking.REGULAR_TRACK).do()
             return self.return_value
         except Exception as e:
-            logger.exception(f"Error in get_ranked_answers: {e}")
             traceback.print_exc()
             raise
 
@@ -313,6 +304,7 @@ class NLWebHandler:
 
         # Check if we have tool routing results
         if not hasattr(self, 'tool_routing_results') or not self.tool_routing_results:
+            # No tool routing results, falling back to get_ranked_answers
             await self.get_ranked_answers()
             return
 
@@ -321,34 +313,41 @@ class NLWebHandler:
         tool_name = tool.name
         params = top_tool['result']
         
+        # Selected tool: {tool_name} with score: {top_tool.get('score', 0)}
+        # Tool handler class: {tool.handler_class}
         
         # Check if tool has a handler class defined
         if tool.handler_class:
             try:                
                 # For non-search tools, clear any items that FastTrack might have populated
                 if tool_name != "search":
+                    # Clearing items for non-search tool
                     self.final_retrieved_items = []
                     self.retrieved_items = []
                 
                 # Dynamic import of handler module and class
                 module_path, class_name = tool.handler_class.rsplit('.', 1)
+                # Importing handler class
                 module = importlib.import_module(module_path)
                 handler_class = getattr(module, class_name)
                 
                 # Instantiate and execute handler
+                # Creating handler instance
                 handler_instance = handler_class(params, self)
                 
                 # Standard handler pattern with do() method
+                # Executing handler's do() method
                 await handler_instance.do()
+                # Handler completed
                     
             except Exception as e:
+                logger.error(f"ERROR executing {tool_name}: {e}")
+                import traceback
+                traceback.print_exc()
                 # Fall back to search
+                # Falling back to get_ranked_answers
                 await self.get_ranked_answers()
         else:
             # Default behavior for tools without handlers (like search)
+                # Tool has no handler class, using get_ranked_answers
                 await self.get_ranked_answers()
-
-    async def post_ranking_tasks(self):
-        logger.info("Starting post-ranking tasks")
-        await post_ranking.PostRanking(self).do()
-        logger.info("Post-ranking tasks completed")

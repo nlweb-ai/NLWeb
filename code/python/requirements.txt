@@ -79,3 +79,7 @@ PyJWT>=2.8.0
 # httpx>=0.28.1
 # cloudflare>=4.3.1
 # zon>=3.0.0
+
+# For HNSW (Hierarchical Navigable Small World)
+# Using ChromaDB's fork which has prebuilt Linux wheels
+chroma-hnswlib>=0.7.0

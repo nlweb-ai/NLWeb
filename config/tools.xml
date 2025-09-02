@@ -370,38 +370,8 @@
           }
         </returnStruc>
       </Tool>
-
-      <!-- Other tools can be disabled or configured differently for 'all' site -->
-      <Tool name="details" enabled="false">
-        <method>extension</method>
-        <handler>methods.item_details.ItemDetailsHandler</handler>
-        <prompt>
-          Details queries don't make sense when searching across all sites.
-          This tool should always score 0 for the 'all' site.
-        </prompt>
-        <returnStruc>
-          {
-            "score": "0",
-            "reason": "Details queries require a specific site context"
-          }
-        </returnStruc>
-      </Tool>
-
-      <Tool name="compare" enabled="false">
-        <method>extension</method>
-        <handler>methods.compare_items.CompareItemsHandler</handler>
-        <prompt>
-          Compare queries for specific items don't make sense when searching across all sites.
-          This tool should always score 0 for the 'all' site.
-        </prompt>
-        <returnStruc>
-          {
-            "score": "0",
-            "reason": "Compare queries require a specific site context"
-          }
-        </returnStruc>
-      </Tool>
-    </Item>
+  </Item>
+     
   </Site>
 
   <!-- Special site for searching conversation history -->

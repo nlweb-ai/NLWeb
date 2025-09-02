@@ -528,11 +528,11 @@ class ModernChatInterface {
           this.scrollToUserMessage();
         }
         
-        // Always clear temp_intermediate divs when ANY new message arrives
-        if (textDiv) {
-          const tempDivs = textDiv.querySelectorAll('.temp_intermediate');
-          tempDivs.forEach(div => div.remove());
-        }
+        // Don't clear intermediate messages - keep them for context
+        // if (textDiv) {
+        //   const tempDivs = textDiv.querySelectorAll('.temp_intermediate');
+        //   tempDivs.forEach(div => div.remove());
+        // }
         
         // Add timestamp display if enabled and timestamp exists
         if (this.showTimestamps && data.timestamp) {
@@ -548,6 +548,14 @@ class ModernChatInterface {
         
         // Handle different message types
         if (data.message_type === 'result' && data.content) {
+          // Clone existing intermediate messages before updating innerHTML
+          const intermediateClones = [];
+          const existingIntermediates = textDiv.querySelectorAll('.temp_intermediate');
+          console.log(`Found ${existingIntermediates.length} intermediate messages to preserve`);
+          existingIntermediates.forEach(elem => {
+            intermediateClones.push(elem.cloneNode(true));
+          });
+          
           // Check if it's a summary based on @type field
           if (data['@type'] === 'Summary') {
             messageContent += data.content + '\n\n';
@@ -557,6 +565,12 @@ class ModernChatInterface {
             allResults = allResults.concat(data.content);
             textDiv.innerHTML = messageContent + this.renderItems(allResults);
           }
+          
+          // Re-append the cloned intermediate messages
+          console.log(`Re-appending ${intermediateClones.length} intermediate messages`);
+          intermediateClones.forEach(clone => {
+            textDiv.appendChild(clone);
+          });
         } else if (data.message_type === 'intermediate_message') {
           // Handle intermediate messages with temp_intermediate class
           const tempContainer = document.createElement('div');
@@ -573,8 +587,8 @@ class ModernChatInterface {
             tempContainer.appendChild(textSpan);
           }
           
-          // Update textDiv to include existing content plus the temp container
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
+          // Just append the intermediate message without resetting innerHTML
+          // This preserves any existing intermediate messages
           textDiv.appendChild(tempContainer);
         } else if (data.message_type === 'ask_user' && data.message) {
           messageContent += data.message + '\n';

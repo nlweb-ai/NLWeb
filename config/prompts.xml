@@ -790,6 +790,89 @@
           }
         </returnStruc>
       </Prompt>
+
+      <Prompt ref="EnsembleItemRankingPrompt">
+        <promptString>
+          Given the user's query: "{request.query}"
+
+          And this item:
+          Name: {item.name}
+          Type: {item.type}
+          Description: {item.description}
+
+          Rate how relevant this item is for answering the user's query on a scale of 0-100.
+          Consider:
+          - Does this item directly address what the user is looking for?
+          - Is it the right type of item (e.g., restaurant vs attraction)?
+          - Does it match any specific criteria mentioned in the query?
+
+          Provide your response as a JSON object with a 'score' field containing the relevance score.
+        </promptString>
+        <returnStruc>
+          {
+            "score": "integer between 0 and 100"
+          }
+        </returnStruc>
+      </Prompt>
+
+      <Prompt ref="EnsembleBasePrompt">
+        <promptString>
+          Based on the user's request: "{request.query}"
+
+          I searched for: {ensemble.queries}
+
+          Here are the search results:
+          {ensemble.results}
+
+          Please create a cohesive recommendation that addresses the user's request.
+        </promptString>
+        <returnStruc>
+          {
+            "theme": "Brief description of the overall recommendation theme",
+            "items": [
+              {
+                "category": "Category name (e.g., Appetizer, Museum, Footwear)",
+                "name": "Specific item name", 
+                "description": "Detailed description",
+                "why_recommended": "Why this item fits the request",
+                "details": {}
+              }
+            ],
+            "overall_tips": ["Any general tips or considerations"]
+          }
+        </returnStruc>
+      </Prompt>
+
+      <Prompt ref="EnsembleGenericPrompt">
+        <promptString>
+          Based on the user's request: "{request.query}"
+
+          I searched for: {ensemble.queries}
+
+          Here are the search results:
+          {ensemble.results}
+
+          Create a cohesive set of recommendations that work well together.
+          For each item, explain why it's recommended and how it complements the other items.
+          Include the URL of the item in the 'url' field of the structured output.
+        </promptString>
+        <returnStruc>
+          {
+            "theme": "Brief description of the recommendation theme",
+            "items": [
+              {
+                "category": "Item category",
+                "name": "Specific item name",
+                "description": "Detailed description",
+                "why_recommended": "Why this item fits the request",
+                "url": "URL of the item",
+                "details": {}
+              }
+            ],
+            "overall_tips": ["General tips or considerations"]
+          }
+        </returnStruc>
+      </Prompt>
     </Item>
   </Site>
 

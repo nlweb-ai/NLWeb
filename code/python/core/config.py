@@ -97,6 +97,7 @@ class NLWebConfig:
     decontextualize_enabled: bool = True  # Enable or disable decontextualization
     required_info_enabled: bool = True  # Enable or disable required info checking
     api_keys: Dict[str, str] = field(default_factory=dict)  # API keys for external services
+    who_endpoint: str = "http://localhost:8000/who"  # Endpoint for /who requests
 
 @dataclass
 class ConversationStorageConfig:
@@ -466,6 +467,9 @@ class AppConfig:
         # Load required info enabled flag
         required_info_enabled = self._get_config_value(data.get("required_info_enabled"), True)
         
+        # Load who_endpoint from config
+        who_endpoint = self._get_config_value(data.get("who_endpoint"), "http://localhost:8000/who")
+        
         # Load headers from config
         headers = data.get("headers", {})
         
@@ -500,7 +504,8 @@ class AppConfig:
             analyze_query_enabled=analyze_query_enabled,
             decontextualize_enabled=decontextualize_enabled,
             required_info_enabled=required_info_enabled,
-            api_keys=api_keys
+            api_keys=api_keys,
+            who_endpoint=who_endpoint
         )
     
     def get_chatbot_instructions(self, instruction_type: str = "search_results") -> str:

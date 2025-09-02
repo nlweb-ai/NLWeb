@@ -27,6 +27,8 @@ class MultiSiteQueryHandler:
     """Handler for multi-site query aggregation."""
     
     def __init__(self, params, handler):
+        print(f"\n[MULTI-SITE-HANDLER] Initializing with query: {handler.query}")
+        print(f"[MULTI-SITE-HANDLER] Params: {params}")
         self.handler = handler
         self.params = params
         self.query = handler.query
@@ -48,45 +50,70 @@ class MultiSiteQueryHandler:
     
     async def do(self):
         """Main execution method called by the framework."""
+        print(f"\n[MULTI-SITE-DO] do() method called for query: {self.query}")
         try:
+            print(f"\n[MULTI-SITE] Starting multi-site query for: {self.query}")
             # Send initial status
             await self._send_status_message("Identifying relevant sites for your query...")
             
             # Get who_endpoint from config
-            who_endpoint = getattr(CONFIG, 'who_endpoint', 'http://localhost:8000/who')
-            base_url = who_endpoint.replace('/who', '')  # Extract base URL for ask queries
+            print(f"[MULTI-SITE] DEBUG: CONFIG has nlweb? {hasattr(CONFIG, 'nlweb')}")
+            if hasattr(CONFIG, 'nlweb'):
+                print(f"[MULTI-SITE] DEBUG: nlweb has who_endpoint? {hasattr(CONFIG.nlweb, 'who_endpoint')}")
+                if hasattr(CONFIG.nlweb, 'who_endpoint'):
+                    print(f"[MULTI-SITE] DEBUG: who_endpoint value = {CONFIG.nlweb.who_endpoint}")
+            who_endpoint = getattr(CONFIG.nlweb, 'who_endpoint', 'http://localhost:8000/who') if hasattr(CONFIG, 'nlweb') else 'http://localhost:8000/who'
+            # Ask queries should go to localhost where this server is running
+            ask_base_url = 'http://localhost:8000'
+            print(f"[MULTI-SITE] Using who_endpoint: {who_endpoint}")
+            print(f"[MULTI-SITE] Base URL for ask queries: {ask_base_url}")
             
             # First, collect all sites from /who endpoint
             sites_to_query = []
             site_count = 0
-            async for site in sites_from_who_streaming(base_url, self.query):
+            print(f"[MULTI-SITE] Calling sites_from_who_streaming with endpoint={who_endpoint}, query={self.query}")
+            async for site in sites_from_who_streaming(who_endpoint, self.query):
                 # Check if we've reached the limit
                 if site_count >= self.top_k_sites:
+                    print(f"[MULTI-SITE] Reached limit of {self.top_k_sites} sites, stopping collection")
                     break
                     
                 domain = site.get('domain', '')
                 if domain:
                     site_count += 1
                     sites_to_query.append(site)
+                    print(f"[MULTI-SITE] Site {site_count}: {domain} - {site.get('name', 'unnamed')} (score: {site.get('score', 0)})")
             
             # Send intermediate message with all sites that will be searched
             if sites_to_query:
+                print(f"[MULTI-SITE] Will query {len(sites_to_query)} sites")
                 await self._send_sites_list(sites_to_query)
+            else:
+                print(f"[MULTI-SITE] WARNING: No sites returned from who endpoint!")
             
             # Now query all sites asynchronously
+            print(f"[MULTI-SITE] Starting async queries to all sites...")
             for index, site in enumerate(sites_to_query, 1):
                 domain = site.get('domain', '')
+                site_query = site.get('query', self.query)
+                print(f"[MULTI-SITE] Launching query task {index} for domain: {domain}")
+                if site_query != self.query:
+                    print(f"[MULTI-SITE]   Using custom query: {site_query}")
                 
                 # Send status about this site
                 await self._send_site_status(site, index)
                 
                 # Launch async task to query this site
-                task = asyncio.create_task(self._query_site_and_stream(domain, site, base_url))
+                task = asyncio.create_task(self._query_site_and_stream(domain, site, ask_base_url))
                 self.active_tasks.append(task)
             
             # Wait for all site queries to complete
             if self.active_tasks:
-                await asyncio.gather(*self.active_tasks, return_exceptions=True)
+                print(f"[MULTI-SITE] Waiting for {len(self.active_tasks)} site queries to complete...")
+                results = await asyncio.gather(*self.active_tasks, return_exceptions=True)
+                for i, result in enumerate(results):
+                    if isinstance(result, Exception):
+                        print(f"[MULTI-SITE] Task {i+1} failed with error: {result}")
             
             # If we haven't sent enough results, send the best of the held results
             if self.total_results_sent < self.final_top_k and self.held_results:
@@ -106,12 +133,17 @@ class MultiSiteQueryHandler:
                 
             
             # Send final summary
+            print(f"[MULTI-SITE] Query complete. Sites queried: {self.sites_queried}, Successful: {self.sites_successful}, Failed: {self.sites_failed}")
+            print(f"[MULTI-SITE] Total results sent: {self.total_results_sent}")
             await self._send_final_summary()
             
             # Return empty list as results are streamed directly
             return []
             
         except Exception as e:
+            print(f"[MULTI-SITE] ERROR: {str(e)}")
+            import traceback
+            print(f"[MULTI-SITE] Traceback: {traceback.format_exc()}")
             logger.error(f"Error in multi-site query: {str(e)}", exc_info=True)
             await self._send_error_message(f"Error during multi-site query: {str(e)}")
             return []
@@ -121,15 +153,35 @@ class MultiSiteQueryHandler:
         start_time = time.time()
         self.sites_queried += 1
         
+        # Use site-specific query if provided by who service, otherwise use original query
+        site_query = site_info.get('query', self.query)
+        
+        print(f"[MULTI-SITE-QUERY] Starting query to {domain}...")
+        if site_query != self.query:
+            print(f"[MULTI-SITE-QUERY] Using site-specific query: {site_query}")
+        
         try:
             
+            # Check if this is a Shopify site based on @type and add retrieval endpoint if so
+            additional_params = {}
+            site_type = site_info.get('@type', '')
+            if 'shopify' in site_type.lower():
+                # Use shopify_mcp retrieval endpoint for Shopify sites
+                additional_params['retrieval'] = 'shopify'
+                print(f"[MULTI-SITE-QUERY] Site type is {site_type}, using shopify_mcp retrieval")
+            
+            # Add tool=search to skip tool selection and use search directly
+            additional_params['tool'] = 'search'
+            
             # Query the site using ask_nlweb_server
+            print(f"[MULTI-SITE-QUERY] Calling ask_nlweb_server with url={base_url}/ask, site={domain}, tool=search")
             results = await ask_nlweb_server(
                 f"{base_url}/ask",
-                self.query,
+                site_query,  # Use the site-specific query
                 streaming=True,  # Use streaming mode
                 site=domain,
-                top_k=self.results_per_site
+                top_k=self.results_per_site,
+                additional_params=additional_params
             )
             
             # Process results
@@ -191,10 +243,14 @@ class MultiSiteQueryHandler:
             # Format sites with both name and domain for the UI to make clickable
             sites_data = []
             for site in sites:
-                sites_data.append({
+                site_data = {
                     'name': site.get('name', site.get('domain', 'Unknown')),
                     'domain': site.get('domain', '')
-                })
+                }
+                # Include the site-specific query if different from original
+                if 'query' in site and site['query'] != self.query:
+                    site_data['query'] = site['query']
+                sites_data.append(site_data)
             
             await self.handler.send_message({
                 "message_type": "asking_sites",

@@ -69,6 +69,8 @@ class ShopifyMCPClient(RetrievalClientBase):
         if isinstance(site, list):
             site = site[0] if site else None
         
+        print(f"[SHOPIFY_MCP] search() called with query='{query}', site='{site}', num_results={num_results}")
+        
         if not site:
             logger.error("No site specified for Shopify MCP search")
             return []

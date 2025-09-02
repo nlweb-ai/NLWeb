@@ -315,13 +315,20 @@ def _extract_site_info(item: Dict[str, Any]) -> Dict[str, Any]:
         if 'site=' in url_field:
             domain = url_field.split('site=')[1].split('&')[0]
     
-    return {
+    site_info = {
         'domain': domain,
         'name': item.get('name', domain),
         'score': item.get('score', 0),
         'description': item.get('description', ''),
-        'category': schema_obj.get('category', '')
+        'category': schema_obj.get('category', ''),
+        '@type': item.get('@type', 'Item')  # Include the @type field
     }
+    
+    # Include the query field if present (for query rewriting)
+    if 'query' in item:
+        site_info['query'] = item['query']
+    
+    return site_info
 
 
 async def sites_from_who(url: str, query: str, **kwargs) -> List[Dict[str, Any]]:
@@ -349,19 +356,19 @@ async def sites_from_who(url: str, query: str, **kwargs) -> List[Dict[str, Any]]
     return sites
 
 
-async def sites_from_who_streaming(url: str, query: str, **kwargs) -> AsyncGenerator[Dict[str, Any], None]:
+async def sites_from_who_streaming(endpoint: str, query: str, **kwargs) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Query the /who endpoint and extract site information (streaming version).
     
     Args:
-        url: Base URL of the server (e.g., "http://localhost:8000")
+        endpoint: Full endpoint URL (e.g., "http://localhost:8000/who" or "https://whotoask.azurewebsites.net/who")
         query: The query string
         **kwargs: Additional parameters
         
     Yields:
         Individual simplified site objects as they arrive
     """
-    endpoint = f"{url.rstrip('/')}/who"
+    # Use the endpoint as-is
     params = {
         'query': query,
         'streaming': 'true'

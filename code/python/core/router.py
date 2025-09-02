@@ -190,6 +190,9 @@ class ToolSelector:
         if self.site_id is None:
             self.site_id = 'default'
         
+        print(f"\n[TOOL-SELECTOR] Initializing for site: {self.site_id}")
+        print(f"[TOOL-SELECTOR] Handler site value: {handler.site}")
+        
         # Load tools if not already cached
         tools_xml_path = os.path.join(CONFIG.config_directory, "tools.xml")
         self._load_tools_if_needed(tools_xml_path)
@@ -269,7 +272,9 @@ class ToolSelector:
                     # Task was cancelled, skip it
                     pass
                 except Exception as e:
-                    # Silently continue on error
+                    # Log the error but continue evaluating other tools
+                    print(f"[TOOL-SELECTOR] Error processing completed task: {str(e)}")
+                    logger.error(f"Error processing completed task: {str(e)}", exc_info=True)
                     pass
             
             # If no tool exceeded threshold, return all results
@@ -456,6 +461,7 @@ class ToolSelector:
                     })
             else:
                 # Evaluate tools with early termination strategy
+                # Evaluating tools for query
                 tool_results = await self._evaluate_tools_with_early_termination(query, tools, threshold=90)
             
             # Sort by score
@@ -524,19 +530,11 @@ class ToolSelector:
             
             result = response or {"score": 0, "justification": "No response from LLM"}
             
-            # Debug print for conversation_search tool
-            if tool.name == "conversation_search":
-                print(f"\n--- Tool Evaluation: {tool.name} ---")
-                print(f"Time taken: {elapsed_time:.3f} seconds")
-                print(f"Response: {result}")
-                print(f"Score: {result.get('score', 0)}")
-                print("-" * 40)
+            # Tool evaluation completed
             
             return {"tool": tool, "result": result, "score": result.get("score", 0)}
         except Exception as e:
-            # print(f"\n--- Tool Evaluation ERROR: {tool.name} ---")
-            # print(f"Error: {str(e)}")
-            # print("-" * 40)
+            # Tool evaluation error
             logger.error(f"Tool evaluation error for {tool.name}: {str(e)}")
             return {"tool": tool, "score": 0, "result": {"score": 0, "justification": f"Error: {str(e)}"}}
     

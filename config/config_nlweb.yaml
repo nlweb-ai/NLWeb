@@ -32,7 +32,7 @@ decontextualize_enabled: true
 required_info_enabled: true
 
 # Endpoint for /who requests to get relevant sites
-who_endpoint: "http://localhost:8000/who"
+who_endpoint: "https://whotoask.azurewebsites.net/who"
 
 # Headers for HTTP requests
 headers:

@@ -257,29 +257,29 @@ class MessageSender:
     
     async def send_message(self, message):
         """Send a message with appropriate metadata and routing."""
-        async with self.handler._send_lock:  # Protect send operation with lock
+#        async with self.handler._send_lock:  # Protect send operation with lock
             # Add metadata to all messages (both streaming and non-streaming)
-            message = self.add_message_metadata(message)
+        message = self.add_message_metadata(message)
             
-            # Always store the message (for both streaming and non-streaming)
-            self.store_message(message)
+        # Always store the message (for both streaming and non-streaming)
+        self.store_message(message)
             
-            if (self.handler.streaming and self.handler.http_handler is not None):
+        if (self.handler.streaming and self.handler.http_handler is not None):
                 # Streaming mode: also send via write_stream
                 
-                # Check if this is the first result and add time-to-first-result header
-                if message.get("message_type") == "result" and not self.handler.first_result_sent:
-                    self.handler.first_result_sent = True
-                    await self.send_time_to_first_result()
+            # Check if this is the first result and add time-to-first-result header
+            if message.get("message_type") == "result" and not self.handler.first_result_sent:
+                self.handler.first_result_sent = True
+                await self.send_time_to_first_result()
                 
-                # Send headers if not already sent
-                await self._send_headers_if_needed(is_streaming=True)
+            # Send headers if not already sent
+            await self._send_headers_if_needed(is_streaming=True)
                 
-                try:
-                    await self.handler.http_handler.write_stream(message)
-                except Exception as e:
-                    self.handler.connection_alive_event.clear()  # Use event instead of flag
-            else:
-                # Non-streaming mode: just store (already done above)
-                # Send headers if not already sent
-                await self._send_headers_if_needed(is_streaming=False)
+            try:
+                await self.handler.http_handler.write_stream(message)
+            except Exception as e:
+                self.handler.connection_alive_event.clear()  # Use event instead of flag
+        else:
+            # Non-streaming mode: just store (already done above)
+            # Send headers if not already sent
+            await self._send_headers_if_needed(is_streaming=False)

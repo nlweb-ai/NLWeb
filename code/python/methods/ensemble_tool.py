@@ -31,9 +31,12 @@ class EnsembleToolHandler:
         Main entry point following NLWeb module pattern.
         Execute multiple parallel queries and combine results using LLM.
         """
+        print(f"[ENSEMBLE] Starting ensemble tool handler")
+        print(f"[ENSEMBLE] Queries to execute: {self.queries}")
         print(f"Ensemble type: {self.ensemble_type} params: {self.handler.query_params}")
         try:
             original_query = self.handler.query
+            print(f"[ENSEMBLE] Original query: {original_query}")
             
             # Execute retrieval and ranking in parallel for each query
             ranked_results_per_query = await self._execute_parallel_retrieval_and_ranking(
@@ -46,6 +49,50 @@ class EnsembleToolHandler:
             
             # Select top results per query
             top_results = self._select_top_results_from_ranked(ranked_results_per_query, num_per_query=results_per_query)
+            
+            # Print selected results for aggregation
+            print(f"[ENSEMBLE-SELECTED] Selected {len(top_results)} results for aggregation:")
+            for i, item_data in enumerate(top_results):
+                url, json_str, name, site = item_data['item']
+                print(f"  {i+1}. {name} - {url}")
+            
+            # Send the top selected results to the browser for display
+            display_results = []
+            for item_data in top_results:
+                url, json_str, name, site = item_data['item']
+                schema_object = item_data.get('schema_object', {})
+                if not schema_object:
+                    try:
+                        schema_object = json.loads(json_str) if isinstance(json_str, str) else json_str
+                    except:
+                        schema_object = {}
+                
+                # Ensure schema_object is a dictionary
+                if isinstance(schema_object, list) and schema_object:
+                    schema_object = schema_object[0]
+                elif not isinstance(schema_object, dict):
+                    schema_object = {}
+                
+                # Create display format similar to regular search results
+                display_results.append({
+                    "@type": schema_object.get('@type', 'Item'),
+                    "name": name,
+                    "url": url,
+                    "site": site,
+                    "description": schema_object.get('description', ''),
+                    "score": item_data.get('relevance_score', 0)
+                    # Temporarily removed schema_object to avoid circular reference issue
+                })
+            
+            # Send results message to trigger display
+            if display_results:
+                print(f"[ENSEMBLE] Sending {len(display_results)} selected results for display")
+                await self.handler.send_message({
+                    "message_type": "result",
+                    "content": display_results,
+                    "conversation_id": self.handler.conversation_id
+                })
+                print(f"[ENSEMBLE] Sent results message")
             
             # Process the top results - extract JSON and add schema_object field
             trimmed_results = []
@@ -64,7 +111,21 @@ class EnsembleToolHandler:
                         item_dict = {}
                 
                 try:
+                    # Ensure item_dict is a dictionary before trimming
+                    if isinstance(item_dict, list) and item_dict:
+                        item_dict = item_dict[0]
+                    
                     trimmed_item = trim_json_hard(item_dict)
+                    
+                    # Ensure trimmed_item is a dictionary
+                    if not isinstance(trimmed_item, dict):
+                        # If it's a list, take the first item
+                        if isinstance(trimmed_item, list) and trimmed_item:
+                            trimmed_item = trimmed_item[0]
+                        else:
+                            # Fall back to the original item_dict
+                            trimmed_item = item_dict
+                    
                     # Add the full schema object to the trimmed item
                     trimmed_item['schema_object'] = item_dict
                     # Ensure URL is in the trimmed item for matching
@@ -215,25 +276,56 @@ class EnsembleToolHandler:
                 "total_items_retrieved": total_items
             }
             
-            asyncio.create_task(self.handler.send_message({
-                "message_type": "ensemble_result",
-                "@type": "EnsembleRecommendation",
-                "result": result
-            }))
+            logger.info(f"Sending ensemble result with {len(cleaned_response.get('items', []))} items")
+            
+            # Ensure the entire message is JSON serializable
+            import json
+            try:
+                message_to_send = {
+                    "message_type": "ensemble_result",
+                    "@type": "EnsembleRecommendation",
+                    "result": result
+                }
+                # Test if it's serializable
+                json.dumps(message_to_send)
+                await self.handler.send_message(message_to_send)
+            except Exception as json_error:
+                logger.error(f"Failed to serialize ensemble result: {json_error}")
+                # Send a simpler version without schema_objects
+                simple_result = {
+                    "success": True,
+                    "ensemble_type": self.ensemble_type,
+                    "recommendations": {
+                        "theme": cleaned_response.get("theme", ""),
+                        "items": [
+                            {k: v for k, v in item.items() if k != 'schema_object'}
+                            for item in cleaned_response.get("items", [])
+                        ],
+                        "overall_tips": cleaned_response.get("overall_tips", [])
+                    },
+                    "total_items_retrieved": total_items
+                }
+                await self.handler.send_message({
+                    "message_type": "ensemble_result",
+                    "@type": "EnsembleRecommendation",
+                    "result": simple_result
+                })
             
             # Mark query as done to prevent further processing
             self.handler.query_done = True
             
         except Exception as e:
             logger.error(f"Error in ensemble request: {str(e)}")
-            asyncio.create_task(self.handler.send_message({
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            await self.handler.send_message({
                 "message_type": "ensemble_result",
                 "@type": "EnsembleRecommendation",
                 "result": {
                     "success": False,
                     "error": str(e)
                 }
-            }))
+            })
     
     async def _retrieve_and_rank_for_query(self, query: str, query_idx: int, queries_count: int, query_params: Dict[str, Any], original_query: str) -> List[Dict]:
         """Retrieve and rank results for a single query."""
@@ -259,8 +351,20 @@ class EnsembleToolHandler:
                 query_params=query_params
             )
             
+            # Print raw search results
+            print(f"[ENSEMBLE-SEARCH] Raw results for '{query}': {len(results)} items")
+            for i, result_tuple in enumerate(results[:5]):  # Print first 5
+                url, json_str, name, site = result_tuple
+                print(f"  {i+1}. {name} - {url}")
+            
             # Immediately rank the results for this query
             ranked_results = await self._rank_query_results(results, original_query, query, query_idx)
+            
+            # Print ranked results
+            print(f"[ENSEMBLE-RANKED] Ranked results for '{query}': {len(ranked_results)} items")
+            for i, item in enumerate(ranked_results[:5]):  # Print top 5
+                url, json_str, name, site = item['item']
+                print(f"  {i+1}. {name} (score: {item.get('relevance_score', 0)}) - {url}")
             
             # Send top 2 ranked results as intermediate message
             if ranked_results and len(ranked_results) > 0:
@@ -474,6 +578,10 @@ class EnsembleToolHandler:
             # Get the ranking prompt from XML
             prompt_str, return_struc = find_prompt(self.handler.site, self.handler.item_type, "EnsembleItemRankingPrompt")
             
+            # Fall back to Item if prompt not found for current site/item_type
+            if not prompt_str:
+                prompt_str, return_struc = find_prompt(self.handler.site, "Item", "EnsembleItemRankingPrompt")
+            
             if not prompt_str:
                 logger.error("EnsembleItemRankingPrompt not found")
                 return 0.0
@@ -532,14 +640,26 @@ class EnsembleToolHandler:
                 # Add if not seen globally
                 if item_id and item_id not in seen_ids:
                     seen_ids.add(item_id)
-                    # Add the schema_object to the item data
-                    item['schema_object'] = item_dict
-                    selected_results.append(item)
+                    # Create a new dict instead of modifying the original
+                    result_with_schema = {
+                        'item': item['item'],
+                        'relevance_score': item.get('relevance_score', 0),
+                        'source_query_idx': item.get('source_query_idx', 0),
+                        'search_query': item.get('search_query', ''),
+                        'schema_object': item_dict
+                    }
+                    selected_results.append(result_with_schema)
                     selected_count += 1
                 elif not item_id:
                     # Include items without identifiers
-                    item['schema_object'] = item_dict
-                    selected_results.append(item)
+                    result_with_schema = {
+                        'item': item['item'],
+                        'relevance_score': item.get('relevance_score', 0),
+                        'source_query_idx': item.get('source_query_idx', 0),
+                        'search_query': item.get('search_query', ''),
+                        'schema_object': item_dict
+                    }
+                    selected_results.append(result_with_schema)
                     selected_count += 1
             
             if query_results:
@@ -567,9 +687,17 @@ class EnsembleToolHandler:
         # Get prompt from XML
         prompt_str, return_struc = find_prompt(self.handler.site, self.handler.item_type, prompt_name)
         
+        # Fall back to Item if prompt not found for current site/item_type
+        if not prompt_str:
+            prompt_str, return_struc = find_prompt(self.handler.site, "Item", prompt_name)
+        
         if not prompt_str:
             logger.warning(f"Could not find prompt {prompt_name}, using base prompt")
             prompt_str, return_struc = find_prompt(self.handler.site, self.handler.item_type, "EnsembleBasePrompt")
+            
+            # Also try Item fallback for base prompt
+            if not prompt_str:
+                prompt_str, return_struc = find_prompt(self.handler.site, "Item", "EnsembleBasePrompt")
         
         if not prompt_str:
             logger.error("No ensemble prompts found")

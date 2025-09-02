@@ -63,6 +63,16 @@ class NLWebHandlerState:
         else:
             return False
     
+    async def wait_for_prechecks(self):
+        """Wait for all critical prechecks (decontextualization and tool routing) to complete"""
+        # Wait for decontextualization
+        decon_done = await self.wait_for_decontextualization()
+        
+        # Wait for tool routing
+        tool_routing_done = await self.wait_for_tool_routing()
+        
+        return decon_done and tool_routing_done
+    
     def should_abort_fast_track(self):
         """
         Consolidate all fast track abort conditions into a single method.

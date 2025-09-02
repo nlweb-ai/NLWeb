@@ -71,6 +71,11 @@ def init():
                     )
 
                     _preloaded_modules[db_type] = CloudflareAutoRAGClient
+                elif db_type == "hnswlib":
+                    print(f"[RETRIEVER] Preloading hnswlib module for endpoint: {endpoint_name}")
+                    from retrieval_providers.hnswlib_client import HnswlibClient
+                    _preloaded_modules[db_type] = HnswlibClient
+                    print(f"[RETRIEVER] Successfully preloaded hnswlib module")
 
             except Exception as e:
                 logger.warning(f"Failed to preload {db_type} client module: {e}")
@@ -86,6 +91,7 @@ _db_type_packages = {
     "postgres": ["psycopg", "psycopg[binary]>=3.1.12", "psycopg[pool]>=3.2.0", "pgvector>=0.4.0"],
     "shopify_mcp": ["aiohttp>=3.8.0"],
     "cloudflare_autorag": ['cloudflare>=4.3.1', "httpx>=0.28.1", "zon>=3.0.0"],
+    "hnswlib": ["hnswlib>=0.7.0"],
 }
 
 # Cache for installed packages
@@ -121,6 +127,8 @@ def _ensure_package_installed(db_type: str):
                 __import__("elasticsearch")
             elif package_name == "psycopg":
                 __import__("psycopg")
+            elif package_name == "hnswlib":
+                __import__("hnswlib")
             else:
                 __import__(package_name)
             _installed_packages.add(package_name)
@@ -368,6 +376,7 @@ class VectorDBClient:
         if CONFIG.is_development_mode() and self.query_params:
             # Check for 'db' or 'retrieval_backend' parameter
             param_endpoint = self.query_params.get('db') or self.query_params.get('retrieval_backend')
+            print(f"[RETRIEVER] Development mode - param_endpoint from query_params: {param_endpoint}")
             if param_endpoint:
                 # Handle case where param_endpoint might be a list
                 if isinstance(param_endpoint, list):
@@ -430,9 +439,9 @@ class VectorDBClient:
             
             logger.info(f"VectorDBClient initialized with {len(self.enabled_endpoints)} enabled endpoints: {list(self.enabled_endpoints.keys())}")
         
-        # Validate write endpoint if configured
+        # Validate write endpoint if configured (skip for specific endpoint mode)
         self.write_endpoint = CONFIG.write_endpoint
-        if self.write_endpoint:
+        if self.write_endpoint and not endpoint_name:  # Only validate write endpoint if not in specific endpoint mode
             if self.write_endpoint not in CONFIG.retrieval_endpoints:
                 raise ValueError(f"Write endpoint '{self.write_endpoint}' not found in configuration")
             
@@ -441,7 +450,7 @@ class VectorDBClient:
                 raise ValueError(f"Write endpoint '{self.write_endpoint}' is missing required credentials")
             
             logger.info(f"Write operations will use endpoint: {self.write_endpoint}")
-        else:
+        elif not endpoint_name:
             logger.warning("No write endpoint configured - write operations will fail")
         
         self._retrieval_lock = asyncio.Lock()
@@ -487,6 +496,9 @@ class VectorDBClient:
             return True
         elif db_type == "cloudflare_autorag":
             return bool(config.api_key)
+        elif db_type == "hnswlib":
+            # HNSW requires a database path to the pre-built index
+            return bool(config.database_path)
         else:
             logger.warning(f"Unknown database type {db_type} for endpoint {name}")
             return False
@@ -557,6 +569,11 @@ class VectorDBClient:
                 elif db_type == "shopify_mcp":
                     from retrieval_providers.shopify_mcp import ShopifyMCPClient
                     client = ShopifyMCPClient(endpoint_name)
+                elif db_type == "hnswlib":
+                    print(f"[RETRIEVER] Creating hnswlib client for endpoint: {endpoint_name}")
+                    from retrieval_providers.hnswlib_client import HnswlibClient
+                    client = HnswlibClient(endpoint_name)
+                    print(f"[RETRIEVER] Successfully created hnswlib client")
                 else:
                     error_msg = f"Unsupported database type: {db_type}"
                     logger.error(error_msg)
@@ -816,10 +833,15 @@ class VectorDBClient:
                 try:
                     client = await self.get_client(endpoint_name)
                     
-                    # Check if the provider can handle this query
-                    if not await client.can_handle_query(site, **kwargs):
-                        skipped_endpoints.append(endpoint_name)
-                        continue
+                    # If only one endpoint is enabled (e.g., explicit db= parameter), skip can_handle_query check
+                    if len(self.enabled_endpoints) == 1:
+                        # Single endpoint mode - use it regardless of can_handle_query
+                        logger.info(f"Single endpoint mode for {endpoint_name}, skipping can_handle_query check")
+                    else:
+                        # Check if the provider can handle this query
+                        if not await client.can_handle_query(site, **kwargs):
+                            skipped_endpoints.append(endpoint_name)
+                            continue
                     
                     # Use search_all_sites if site is "all"
                     if site == "all":

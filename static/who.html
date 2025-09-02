@@ -260,6 +260,7 @@
         this.eventSource = null;
         this.allResults = []; // Accumulate all results for re-sorting
         this.aiResponses = []; // Keep AI responses separate
+        this.queryHistory = []; // Track query history for context
         
         // Initialize UI helper
         this.uiHelper = new ChatUICommon({
@@ -290,20 +291,50 @@
         this.queryButton.disabled = true;
         this.queryButton.textContent = 'Searching...';
         
-        // Clear previous results and reset accumulators
-        this.allResults = [];
-        this.aiResponses = [];
-        this.resultsContainer.innerHTML = `
-          <div class="loading">
-            <div class="loading-spinner"></div>
-            <div>Searching for who can help with your query...</div>
-            <div class="streaming-indicator">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
+        // Add current query to history (will be added after successful response)
+        const currentQuery = query;
+        
+        // Show query in results with previous queries for context
+        this.resultsContainer.innerHTML = '';
+        
+        // Display conversation history
+        if (this.queryHistory.length > 0) {
+          const historyDiv = document.createElement('div');
+          historyDiv.style.cssText = 'margin-bottom: 20px; padding: 10px; background: #f9f9f9; border-radius: 8px;';
+          
+          this.queryHistory.forEach((q, idx) => {
+            const queryDiv = document.createElement('div');
+            queryDiv.style.cssText = 'margin-bottom: 8px; color: #666;';
+            queryDiv.innerHTML = `<strong>Previous Q${idx + 1}:</strong> ${this.escapeHtml(q)}`;
+            historyDiv.appendChild(queryDiv);
+          });
+          
+          this.resultsContainer.appendChild(historyDiv);
+        }
+        
+        // Display current query
+        const currentQueryDiv = document.createElement('div');
+        currentQueryDiv.style.cssText = 'margin-bottom: 20px; padding: 12px; background: #e3f2fd; border-radius: 8px; font-weight: 500;';
+        currentQueryDiv.innerHTML = `<strong>Current Query:</strong> ${this.escapeHtml(currentQuery)}`;
+        this.resultsContainer.appendChild(currentQueryDiv);
+        
+        // Add loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'loading';
+        loadingDiv.innerHTML = `
+          <div class="loading-spinner"></div>
+          <div>Searching for who can help with your query...</div>
+          <div class="streaming-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
         `;
+        this.resultsContainer.appendChild(loadingDiv);
+        
+        // Reset accumulators for new results
+        this.allResults = [];
+        this.aiResponses = [];
 
         try {
           // Close any existing connection
@@ -311,11 +342,17 @@
             this.eventSource.close();
           }
 
-          // Create URL with query parameters
+          // Create URL with query parameters including previous queries
           const params = new URLSearchParams({
             query: query,
             streaming: 'true'  // Use streaming mode
           });
+          
+          // Add previous queries for context (limit to last 3 queries)
+          if (this.queryHistory.length > 0) {
+            const recentQueries = this.queryHistory.slice(-3);
+            params.append('prev_queries', JSON.stringify(recentQueries));
+          }
 
           const url = `/who?${params.toString()}`;
           
@@ -328,23 +365,29 @@
             try {
               const data = JSON.parse(event.data);
               
+              // Debug: Log received data to see what fields are present
+              console.log('Received data:', data);
+              
               // Clear loading message on first real message
               if (isFirstMessage && data.message_type !== 'complete') {
-                this.resultsContainer.innerHTML = '';
+                // Remove only the loading div, keep query history
+                const loadingDiv = this.resultsContainer.querySelector('.loading');
+                if (loadingDiv) {
+                  loadingDiv.remove();
+                }
                 isFirstMessage = false;
               }
               
               // Handle different message types
               if (data.message_type === 'complete') {
-                // Stream is complete
-                this.eventSource.close();
-                this.queryButton.disabled = false;
-                this.queryButton.textContent = 'Ask Who';
+                // Stream is complete - add query to history
+                this.queryHistory.push(currentQuery);
+                // Clear the input for next query
+                this.queryInput.value = '';
+                this.cleanup();  // Use cleanup to properly reset state
               } else if (data.message_type === 'error') {
                 this.handleError(data.error || 'An error occurred');
-                this.eventSource.close();
-                this.queryButton.disabled = false;
-                this.queryButton.textContent = 'Ask Who';
+                this.cleanup();  // Use cleanup to properly reset state
               } else if (data.message_type === 'result' && data.content) {
                 // Process streaming results
                 if (Array.isArray(data.content)) {
@@ -369,8 +412,9 @@
             console.error('EventSource error:', error);
             this.handleError('Connection error occurred');
             this.eventSource.close();
+            this.isProcessing = false;  // Reset processing flag
             this.queryButton.disabled = false;
-            this.queryButton.textContent = 'Ask Who';
+            this.queryButton.textContent = 'Search';
           };
 
         } catch (error) {
@@ -428,13 +472,25 @@
       }
 
       renderAllResults() {
-        // Clear loading message if present
-        if (this.resultsContainer.querySelector('.loading')) {
-          this.resultsContainer.innerHTML = '';
+        console.log('renderAllResults called with', this.allResults.length, 'results');
+        console.log('First result:', this.allResults[0]);
+        
+        // Remove loading message if present
+        const loadingDiv = this.resultsContainer.querySelector('.loading');
+        if (loadingDiv) {
+          loadingDiv.remove();
         }
         
-        // Clear container for re-render
-        this.resultsContainer.innerHTML = '';
+        // Find or create results section (preserve query history display)
+        let resultsSection = this.resultsContainer.querySelector('.results-section-content');
+        if (!resultsSection) {
+          resultsSection = document.createElement('div');
+          resultsSection.className = 'results-section-content';
+          this.resultsContainer.appendChild(resultsSection);
+        }
+        
+        // Clear only the results section for re-render
+        resultsSection.innerHTML = '';
         
         // Render sorted results (reranking happens in renderItems)
         if (this.allResults.length > 0) {
@@ -443,12 +499,12 @@
           headerDiv.className = 'results-header';
           headerDiv.style.cssText = 'padding: 10px 0; color: #666; font-size: 0.9em;';
           headerDiv.textContent = `Found ${this.allResults.length} site${this.allResults.length !== 1 ? 's' : ''} (ranked by relevance)`;
-          this.resultsContainer.appendChild(headerDiv);
+          resultsSection.appendChild(headerDiv);
           
           const renderedResults = this.renderItems(this.allResults);
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = renderedResults;
-          this.resultsContainer.appendChild(tempDiv.firstChild);
+          resultsSection.appendChild(tempDiv.firstChild);
         }
         
         // Append AI responses at the end
@@ -464,7 +520,7 @@
             <div class="result-snippet">${renderedContent}</div>
           `;
           
-          this.resultsContainer.appendChild(responseDiv);
+          resultsSection.appendChild(responseDiv);
         });
       }
 
@@ -483,6 +539,9 @@
         resultsContainer.className = 'search-results';
         
         sortedItems.forEach((item, index) => {
+          // Debug: Log each item to see if query field is present
+          console.log(`Item ${index + 1} (${item.name}):`, 'has query:', item.query);
+          
           // Use JsonRenderer to create the item HTML
           const itemElement = this.jsonRenderer.createJsonItemHtml(item);
           
@@ -496,6 +555,36 @@
           const titleElement = itemElement.querySelector('.json-item-name, h3, .title');
           if (titleElement) {
             titleElement.insertBefore(rankSpan, titleElement.firstChild);
+          }
+          
+          // Add custom query display if present
+          if (item.query) {
+            console.log(`Adding query display for ${item.name}: "${item.query}"`);
+            const queryDiv = document.createElement('div');
+            queryDiv.className = 'site-specific-query';
+            queryDiv.style.cssText = `
+              margin-top: 8px;
+              padding: 8px 12px;
+              background: #e8f5e9;
+              border-left: 3px solid #4caf50;
+              border-radius: 4px;
+              font-size: 0.9em;
+              color: #2e7d32;
+            `;
+            queryDiv.innerHTML = `
+              <strong>Site-specific query:</strong> "${this.escapeHtml(item.query)}"
+            `;
+            
+            // Insert after the description/snippet
+            const descElement = itemElement.querySelector('.json-item-description, .description, .snippet');
+            if (descElement) {
+              descElement.parentNode.insertBefore(queryDiv, descElement.nextSibling);
+            } else {
+              // If no description found, add after the title
+              if (titleElement) {
+                titleElement.parentNode.insertBefore(queryDiv, titleElement.nextSibling);
+              }
+            }
           }
           
           // Modify links to point to index.html with the site parameter

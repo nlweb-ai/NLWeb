@@ -43,9 +43,22 @@ The user's question is: {request.query}. The item's description is {item.descrip
                           based on how relevant the site may be to answering the user's question.
                           The user's question is: {request.query}. The site's description is {item.description}
                           
-                            """,
+                          Additionally, if this site is relevant (score > 50), provide an optimized query 
+                          that should be sent to this specific site. The query should be tailored to:
+                          - Match the site's specific domain and expertise
+                          - Extract the most relevant information from that site
+                          - Be more specific than the original query when appropriate
+                          
+                          For example, if the user asks "I need to make bread" and the site is about:
+                          - Kitchen equipment: rewrite to "bread making equipment" or "bread baking tools"
+                          - Ingredients/groceries: rewrite to "bread ingredients" or "flour yeast for bread"
+                          - Recipes: keep as "bread recipes" or just "bread"
+                          
+                          If the original query is already well-suited for the site, use the original query.
+                          """,
                             {"score" : "integer between 0 and 100", 
-                            "description" : "short description of the item"}]
+                            "description" : "short description of the item",
+                            "query" : "the optimized query to send to this site (only if score > 50)"}]
     
     CONVERSATION_SEARCH_PROMPT = ["""Assign a score between 0 and 100 to the following past conversation
                           based on how relevant it is to the user's current search query.
@@ -103,7 +116,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
         self.num_results_sent = 0
         self.rankedAnswers = []
         self.ranking_type = ranking_type
-        self._results_lock = asyncio.Lock()  # Add lock for thread-safe operations
+#        self._results_lock = asyncio.Lock()  # Add lock for thread-safe operations
 
     async def rankItem(self, url, json_str, name, site):
        
@@ -149,8 +162,8 @@ The user's question is: {request.query}. The item's description is {item.descrip
                     self.handler.connection_alive_event.clear()
                     return
             
-            async with self._results_lock:  # Use lock when modifying shared state
-                self.rankedAnswers.append(ansr)
+#            async with self._results_lock:  # Use lock when modifying shared state
+            self.rankedAnswers.append(ansr)
             logger.debug(f"Item {name} added to ranked answers")
         
         except Exception as e:
@@ -186,9 +199,24 @@ The user's question is: {request.query}. The item's description is {item.descrip
             logger.warning("Connection lost during ranking, skipping sending results")
             return
         
-        if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
-            logger.info("Fast track aborted, not sending answers")
-            return
+        # If this is FastTrack ranking, wait for prechecks to complete before sending
+        if self.ranking_type == Ranking.FAST_TRACK:
+            try:
+                prechecks_done = await asyncio.wait_for(
+                    self.handler.state.wait_for_prechecks(),
+                    timeout=5.0
+                )
+                if not prechecks_done:
+                    logger.info("Fast track aborted: prechecks not complete")
+                    return
+            except asyncio.TimeoutError:
+                logger.warning("Fast track: prechecks timed out, not sending answers")
+                return
+                
+            # Check abort conditions after prechecks
+            if self.handler.state.should_abort_fast_track():
+                logger.info("Fast track aborted, not sending answers")
+                return
               
         json_results = []
         logger.debug(f"Considering sending {len(answers)} answers (force: {force})")
@@ -200,7 +228,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 break
                 
             if self.shouldSend(result) or force:
-                json_results.append({
+                result_item = {
                     "@type": "Item",
                     "url": result["url"],
                     "name": result["name"],
@@ -209,7 +237,13 @@ The user's question is: {request.query}. The item's description is {item.descrip
                     "score": result["ranking"]["score"],
                     "description": result["ranking"]["description"],
                     "schema_object": result["schema_object"]
-                })
+                }
+                
+                # Include query field for WHO ranking if present
+                if self.ranking_type == Ranking.WHO_RANKING and "query" in result["ranking"]:
+                    result_item["query"] = result["ranking"]["query"]
+                
+                json_results.append(result_item)
                 
                 result["sent"] = True
             
