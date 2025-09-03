@@ -137,7 +137,7 @@ endpoints:
 
   # HNSW (Hierarchical Navigable Small World) for fast local vector search
   hnswlib:
-    enabled: false
+    enabled: true
     # Path to the directory containing pre-built index files
     database_path: "data/hnswlib"
     # Index name (used as prefix for index files)

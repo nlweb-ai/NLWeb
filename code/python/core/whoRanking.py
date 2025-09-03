@@ -71,6 +71,9 @@ If the original query is already well-suited for the site, use the original quer
             if "query" not in ranking:
                 ranking["query"] = self.handler.query
             
+            # Log the LLM score
+            print(f"LLM Score: {site} - {name}: {ranking.get('score', 0)} - {ranking.get('description', 'No description')}")
+            
             # Handle both string and dictionary inputs for json_str
             schema_object = json_str if isinstance(json_str, dict) else json.loads(json_str)
             
@@ -168,6 +171,15 @@ If the original query is already well-suited for the site, use the original quer
         self.handler.final_ranked_answers = ranked[:self.NUM_RESULTS_TO_SEND]
         
         logger.info(f"Filtered to {len(filtered)} results with score > 50")
+        
+        # Print final ranked results
+        print("\n=== Final WHO Ranking Results ===")
+        for i, result in enumerate(ranked[:10]):  # Show top 10
+            score = result.get('ranking', {}).get('score', 0)
+            site = result.get('site', 'unknown')
+            name = result.get('name', 'unknown')
+            desc = result.get('ranking', {}).get('description', 'No description')
+            print(f"{i+1}. [{score}] {site} - {name}: {desc}")
         
         # Send any remaining results that haven't been sent
         results_to_send = [r for r in ranked if not r['sent']][:self.NUM_RESULTS_TO_SEND - self.num_results_sent]

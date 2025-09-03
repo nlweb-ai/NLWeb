@@ -79,6 +79,13 @@ class WhoHandler (NLWebHandler) :
                 
                 self.final_retrieved_items = items
                 logger.info(f"Who ranking retrieved {len(items)} items from hnswlib")
+                
+                # Print out retrieved sites
+                print("\n=== HNSW Retrieved Sites ===")
+                for i, item in enumerate(items[:20]):  # Show top 20
+                    site = item[3] if len(item) > 3 else "unknown"
+                    name = item[2] if len(item) > 2 else "unknown"
+                    print(f"{i+1}. {site} - {name}")
             else:
                 # Use the general search method (original path)
                 logger.info("Using general search method for who query")
