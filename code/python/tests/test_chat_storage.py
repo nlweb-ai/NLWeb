@@ -9,13 +9,15 @@ from unittest.mock import Mock, AsyncMock, patch
 import time
 
 from chat.schemas import (
-    ChatMessage,
     Conversation,
     ParticipantInfo,
     ParticipantType,
-    MessageType,
-    MessageStatus,
     QueueFullError
+)
+from core.schemas import (
+    Message,
+    MessageType,
+    MessageStatus
 )
 
 # These imports will fail until we create the modules
@@ -53,7 +55,7 @@ class TestMemoryStorage:
     @pytest.mark.asyncio
     async def test_store_message(self, storage):
         """Test storing a message"""
-        message = ChatMessage(
+        message = Message(
             message_id="msg_123",
             conversation_id="conv_abc",
             sequence_id=1,
@@ -114,7 +116,7 @@ class TestMemoryStorage:
     @pytest.mark.asyncio
     async def test_message_deduplication(self, storage):
         """Test message deduplication by message_id"""
-        message = ChatMessage(
+        message = Message(
             message_id="msg_dup",
             conversation_id="conv_abc",
             sequence_id=1,
@@ -151,7 +153,7 @@ class TestMemoryStorage:
         
         # Add 3 messages (up to limit)
         for i in range(3):
-            message = ChatMessage(
+            message = Message(
                 message_id=f"msg_{i}",
                 conversation_id=conv_id,
                 sequence_id=i+1,
@@ -165,7 +167,7 @@ class TestMemoryStorage:
         
         # Fourth message should fail
         with pytest.raises(QueueFullError) as exc_info:
-            message = ChatMessage(
+            message = Message(
                 message_id="msg_4",
                 conversation_id=conv_id,
                 sequence_id=4,
@@ -189,7 +191,7 @@ class TestMemoryStorage:
         # Store messages from different humans
         humans = ["alice_123", "bob_456", "charlie_789"]
         for i, human_id in enumerate(humans):
-            message = ChatMessage(
+            message = Message(
                 message_id=f"msg_{human_id}",
                 conversation_id=conv_id,
                 sequence_id=await storage.get_next_sequence_id(conv_id),
@@ -301,7 +303,7 @@ class TestChatStorageClient:
                 client = ChatStorageClient()
                 
                 # Store a message
-                message = ChatMessage(
+                message = Message(
                     message_id="msg_123",
                     conversation_id="conv_abc",
                     sequence_id=1,
@@ -329,7 +331,7 @@ class TestConversationCache:
     def test_cache_basic_operations(self, cache):
         """Test basic cache operations"""
         conv_id = "conv_abc"
-        message = ChatMessage(
+        message = Message(
             message_id="msg_123",
             conversation_id=conv_id,
             sequence_id=1,
@@ -357,7 +359,7 @@ class TestConversationCache:
         
         # Add 150 messages (more than limit of 100)
         for i in range(150):
-            message = ChatMessage(
+            message = Message(
                 message_id=f"msg_{i}",
                 conversation_id=conv_id,
                 sequence_id=i+1,
@@ -381,7 +383,7 @@ class TestConversationCache:
         # Add 15 conversations (more than limit of 10)
         for i in range(15):
             conv_id = f"conv_{i}"
-            message = ChatMessage(
+            message = Message(
                 message_id=f"msg_{i}",
                 conversation_id=conv_id,
                 sequence_id=1,
@@ -408,7 +410,7 @@ class TestConversationCache:
         
         def add_messages(start_id):
             for i in range(10):
-                message = ChatMessage(
+                message = Message(
                     message_id=f"msg_{start_id}_{i}",
                     conversation_id=conv_id,
                     sequence_id=start_id + i,
@@ -447,7 +449,7 @@ class TestConversationCache:
         assert cache.get_metrics()["cache_hits"] == 0
         
         # Add message
-        message = ChatMessage(
+        message = Message(
             message_id="msg_123",
             conversation_id=conv_id,
             sequence_id=1,

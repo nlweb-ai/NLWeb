@@ -9,22 +9,24 @@ import json
 
 # These imports will fail until we create the schemas module
 from chat.schemas import (
-    ChatMessage,
     Conversation,
     ParticipantInfo,
     ParticipantType,
-    MessageType,
-    MessageStatus,
     QueueFullError
+)
+from core.schemas import (
+    Message,
+    MessageType,
+    MessageStatus
 )
 
 
-class TestChatMessage:
-    """Test ChatMessage dataclass"""
+class TestMessage:
+    """Test Message dataclass"""
     
     def test_create_text_message(self):
         """Test creating a basic text message"""
-        msg = ChatMessage(
+        msg = Message(
             message_id="msg_123",
             conversation_id="conv_abc",
             sequence_id=1,
@@ -45,8 +47,8 @@ class TestChatMessage:
         assert msg.status == MessageStatus.DELIVERED  # Default
         
     def test_message_immutability(self):
-        """Test that ChatMessage is frozen (immutable)"""
-        msg = ChatMessage(
+        """Test that Message is frozen (immutable)"""
+        msg = Message(
             message_id="msg_123",
             conversation_id="conv_abc",
             sequence_id=1,
@@ -63,7 +65,7 @@ class TestChatMessage:
             
     def test_nlweb_response_message(self):
         """Test creating an NLWeb AI response message"""
-        msg = ChatMessage(
+        msg = Message(
             message_id="msg_124",
             conversation_id="conv_abc",
             sequence_id=2,
@@ -80,7 +82,7 @@ class TestChatMessage:
         
     def test_system_message(self):
         """Test creating a system message"""
-        msg = ChatMessage(
+        msg = Message(
             message_id="msg_125",
             conversation_id="conv_abc",
             sequence_id=3,
@@ -96,7 +98,7 @@ class TestChatMessage:
         
     def test_message_ordering_by_sequence_id(self):
         """Test that messages can be ordered by sequence_id"""
-        msg1 = ChatMessage(
+        msg1 = Message(
             message_id="msg_1",
             conversation_id="conv_abc",
             sequence_id=3,
@@ -107,7 +109,7 @@ class TestChatMessage:
             timestamp=datetime.utcnow()
         )
         
-        msg2 = ChatMessage(
+        msg2 = Message(
             message_id="msg_2",
             conversation_id="conv_abc",
             sequence_id=1,
@@ -118,7 +120,7 @@ class TestChatMessage:
             timestamp=datetime.utcnow()
         )
         
-        msg3 = ChatMessage(
+        msg3 = Message(
             message_id="msg_3",
             conversation_id="conv_abc",
             sequence_id=2,
@@ -136,7 +138,7 @@ class TestChatMessage:
         
     def test_message_serialization(self):
         """Test message can be serialized to dict"""
-        msg = ChatMessage(
+        msg = Message(
             message_id="msg_123",
             conversation_id="conv_abc",
             sequence_id=1,

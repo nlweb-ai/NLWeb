@@ -13,12 +13,14 @@ from aiohttp.test_utils import make_mocked_request
 import aiohttp
 
 from chat.schemas import (
-    ChatMessage,
     Conversation,
     ParticipantInfo,
     ParticipantType,
-    MessageType,
     QueueFullError
+)
+from core.schemas import (
+    Message,
+    MessageType
 )
 
 # These imports will fail until we create the module

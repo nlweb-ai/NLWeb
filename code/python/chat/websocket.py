@@ -265,7 +265,14 @@ class WebSocketManager:
         # Send to all participants except excluded
         tasks = []
         msg_type = message.get('message_type', message.get('type', 'unknown'))
-        msg_content = message.get('content', '')[:50] if message.get('content') else 'NO_CONTENT'
+        # Handle content as either string or object
+        content = message.get('content', '')
+        if isinstance(content, dict):
+            msg_content = content.get('query', 'NO_CONTENT')[:50] if content.get('query') else 'NO_CONTENT'
+        elif isinstance(content, str):
+            msg_content = content[:50] if content else 'NO_CONTENT'
+        else:
+            msg_content = str(content)[:50] if content else 'NO_CONTENT'
         sender = message.get('sender_info', {}).get('id', 'unknown') if message.get('sender_info') else 'unknown'
         
         

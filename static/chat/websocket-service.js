@@ -170,9 +170,11 @@ class WebSocketService {
         const message = {
             type: 'message',
             conversation_id: this.conversationId,
-            content: content,
-            sites: sites,
-            mode: mode,
+            content: {
+                query: content,
+                site: sites.length > 0 ? sites[0] : null,  // Use first site if multiple
+                mode: mode
+            },
             participant: this.participantInfo
         };
         

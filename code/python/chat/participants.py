@@ -13,12 +13,14 @@ from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass
 
 from chat.schemas import (
-    ChatMessage,
-    MessageType,
-    MessageStatus,
     ParticipantInfo,
     ParticipantType,
     QueueFullError
+)
+from core.schemas import (
+    Message,
+    MessageType,
+    MessageStatus
 )
 from core.conversation_history import add_conversation
 from core.llm import ask_llm
@@ -41,10 +43,10 @@ class BaseParticipant(ABC):
     @abstractmethod
     async def process_message(
         self, 
-        message: ChatMessage, 
-        context: List[ChatMessage],
+        message: Message, 
+        context: List[Message],
         stream_callback: Optional[Callable] = None
-    ) -> Optional[ChatMessage]:
+    ) -> Optional[Message]:
         """
         Process an incoming message.
         
@@ -74,10 +76,10 @@ class HumanParticipant(BaseParticipant):
     
     async def process_message(
         self, 
-        message: ChatMessage, 
-        context: List[ChatMessage],
+        message: Message, 
+        context: List[Message],
         stream_callback: Optional[Callable] = None
-    ) -> Optional[ChatMessage]:
+    ) -> Optional[Message]:
         """Humans don't process messages, they send them"""
         return None
     
@@ -100,8 +102,8 @@ class NLWebContextBuilder:
     
     def build_context(
         self, 
-        messages: List[ChatMessage],
-        current_message: Optional[ChatMessage] = None
+        messages: List[Message],
+        current_message: Optional[Message] = None
     ) -> Dict[str, Any]:
         """
         Build context for NLWeb from chat messages.
@@ -182,10 +184,10 @@ class NLWebParticipant(BaseParticipant):
     
     async def process_message(
         self, 
-        message: ChatMessage, 
-        context: List[ChatMessage],
+        message: Message, 
+        context: List[Message],
         stream_callback: Optional[Callable] = None
-    ) -> Optional[ChatMessage]:
+    ) -> Optional[Message]:
         """
         Process a message through NLWebHandler.
         NLWeb decides internally whether to respond.
@@ -200,20 +202,26 @@ class NLWebParticipant(BaseParticipant):
         """
         try:
             # Prepare query parameters for NLWebHandler
+            # Check if content is a UserQuery object
+            if hasattr(message.content, 'query'):
+                # Content is a UserQuery object
+                query_text = message.content.query
+                site = message.content.site or 'all'
+                mode = message.content.mode or 'list'
+            else:
+                # Content is a plain string
+                query_text = message.content
+                site = 'all'
+                mode = 'list'
+            
             query_params = {
-                "query": [message.content],
+                "query": [query_text],
                 "user_id": [message.sender_info.get('id')],
                 "streaming": ["true"],  # Enable streaming
                 "conversation_id": [message.conversation_id],  # Pass conversation_id
+                "site": [site],
+                "generate_mode": [mode]
             }
-            
-            # Get sites and mode from message (now top-level fields)
-            sites = getattr(message, 'site', 'all')
-            generate_mode = getattr(message, 'mode', 'list')
-            
-            # Set sites and mode in query params
-            query_params["site"] = sites if isinstance(sites, list) else [sites]
-            query_params["generate_mode"] = [generate_mode]
             
             # Pass through search_all_users parameter for conversation history search
             search_all_users = getattr(message, 'search_all_users', None)
@@ -291,8 +299,13 @@ class NLWebParticipant(BaseParticipant):
             if not hasattr(handler, 'return_value') or 'content' not in handler.return_value:
                 return
             
-            # Get the accumulated results from handler.return_value
-            response = json.dumps(handler.raw_messages)
+            # Get the accumulated results from handler.messages
+            # handler.messages contains Message objects, convert them to dicts for JSON serialization
+            if handler.messages and isinstance(handler.messages[0], Message):
+                response = json.dumps([msg.to_dict() for msg in handler.messages])
+            else:
+                # Fallback - should not happen with properly initialized handler
+                response = json.dumps([])
             summary_array = []
             
             # Create summary array with titles and descriptions

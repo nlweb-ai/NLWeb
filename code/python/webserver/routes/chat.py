@@ -18,12 +18,14 @@ from chat.websocket import WebSocketManager, WebSocketConnection
 from chat.conversation import ConversationManager
 from chat.participants import HumanParticipant, NLWebParticipant, ParticipantConfig
 from chat.schemas import (
-    ChatMessage,
     Conversation,
     ParticipantInfo,
     ParticipantType,
-    MessageType,
     QueueFullError
+)
+from core.schemas import (
+    Message,
+    MessageType
 )
 from core.retriever import get_vector_db_client
 from core import conversation_history
@@ -1287,19 +1289,22 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                         print(f"User ID: {user_id}")
                         print(f"Content: {data.get('content', '')[:100]}")
                         print(f"Type: {data.get('type')}")
-                        logger.info(f"WebSocket received message from {user_id}: {data.get('content', '')[:100]}")
                         
                         # Extract site and mode from the WebSocket message
-                        # Client sends 'site' (singular), convert to list for compatibility
-                        # Just pass the message through - no manipulation!
-                        message = ChatMessage.from_dict(data)
+                        # Restructure the content to be a UserQuery with site and mode
+                        if isinstance(data.get('content'), str):
+                            # Convert plain string content to UserQuery format
+                            data['content'] = {
+                                'query': data['content'],
+                                'site': data.get('site'),
+                                'mode': data.get('mode')
+                            }
                         
-                        logger.info(f"Processing message {message.message_id} through ConversationManager")
+                        message = Message.from_dict(data)
                         
                         # Process through conversation manager
                         try:
                             processed_msg = await conv_manager.process_message(message)
-                            logger.info(f"Message processed successfully")
                             
                             # Send acknowledgment
                             await ws.send_json({
@@ -1500,9 +1505,9 @@ async def upload_conversation_handler(request: web.Request) -> web.Response:
                       f"Conv: {data.get('conversation_id', 'NO_CONV')} - "
                       f"Content: {str(data.get('content', ''))[:50]}...")
                 
-                # Convert to ChatMessage using from_dict and store
+                # Convert to Message using from_dict and store
                 # This ensures the message is properly stored in memory
-                message = ChatMessage.from_dict(data)
+                message = Message.from_dict(data)
                 await storage.store_message(message)
                 count += 1
                 

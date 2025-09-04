@@ -10,13 +10,15 @@ import time
 from typing import List, Dict, Any
 
 from chat.schemas import (
-    ChatMessage,
     Conversation,
     ParticipantInfo,
     ParticipantType,
-    MessageType,
-    MessageStatus,
     QueueFullError
+)
+from core.schemas import (
+    Message,
+    MessageType,
+    MessageStatus
 )
 from chat.participants import BaseParticipant, HumanParticipant, NLWebParticipant
 
@@ -158,7 +160,7 @@ class TestConversationManager:
         manager.add_participant("conv_abc", nlweb2)
         
         # Send message from human
-        message = ChatMessage(
+        message = Message(
             message_id="msg_123",
             conversation_id="conv_abc",
             sequence_id=0,  # Will be assigned
@@ -201,7 +203,7 @@ class TestConversationManager:
         manager.add_participant("conv_multi", nlweb)
         
         # Alice sends message
-        alice_msg = ChatMessage(
+        alice_msg = Message(
             message_id="msg_1",
             conversation_id="conv_multi",
             sequence_id=0,
@@ -222,7 +224,7 @@ class TestConversationManager:
         assert len(nlweb.messages_received) == 1
         
         # Bob sends message
-        bob_msg = ChatMessage(
+        bob_msg = Message(
             message_id="msg_2",
             conversation_id="conv_multi",
             sequence_id=0,
@@ -257,7 +259,7 @@ class TestConversationManager:
         
         # Send messages up to limit
         for i in range(3):
-            msg = ChatMessage(
+            msg = Message(
                 message_id=f"msg_{i}",
                 conversation_id="conv_limited",
                 sequence_id=0,
@@ -270,7 +272,7 @@ class TestConversationManager:
             await manager.process_message(msg)
         
         # Fourth message should fail
-        msg = ChatMessage(
+        msg = Message(
             message_id="msg_4",
             conversation_id="conv_limited",
             sequence_id=0,
@@ -305,7 +307,7 @@ class TestConversationManager:
         manager.add_participant("conv_abc", nlweb_bad)
         
         # Send message
-        message = ChatMessage(
+        message = Message(
             message_id="msg_123",
             conversation_id="conv_abc",
             sequence_id=0,
@@ -340,7 +342,7 @@ class TestConversationManager:
         manager.add_participant("conv_abc", nlweb)
         
         # Send message with tracking
-        message = ChatMessage(
+        message = Message(
             message_id="msg_123",
             conversation_id="conv_abc",
             sequence_id=0,
@@ -392,7 +394,7 @@ class TestConversationManager:
         manager.add_participant("conv_abc", participant)
         
         # Send message
-        message = ChatMessage(
+        message = Message(
             message_id="msg_123",
             conversation_id="conv_abc",
             sequence_id=0,
@@ -433,7 +435,7 @@ class TestConversationManager:
         
         # Send messages rapidly
         for i in range(5):
-            msg = ChatMessage(
+            msg = Message(
                 message_id=f"msg_{i}",
                 conversation_id="conv_queue",
                 sequence_id=0,
@@ -485,7 +487,7 @@ class TestConversationManager:
         # Send multiple messages concurrently
         messages = []
         for i in range(10):
-            msg = ChatMessage(
+            msg = Message(
                 message_id=f"msg_{i}",
                 conversation_id="conv_concurrent",
                 sequence_id=0,
@@ -520,7 +522,7 @@ class TestConversationManager:
             manager.add_participant("conv_broadcast", p)
         
         # Send message from first participant
-        message = ChatMessage(
+        message = Message(
             message_id="msg_broadcast",
             conversation_id="conv_broadcast",
             sequence_id=0,

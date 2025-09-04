@@ -12,11 +12,13 @@ from enum import Enum
 from collections import defaultdict
 
 from chat.schemas import (
-    ChatMessage,
-    MessageType,
-    MessageStatus,
     ParticipantType,
     QueueFullError
+)
+from core.schemas import (
+    Message,
+    MessageType,
+    MessageStatus
 )
 from chat.participants import BaseParticipant
 from chat.storage import SimpleChatStorageInterface
@@ -182,9 +184,9 @@ class ConversationManager:
     
     async def process_message(
         self, 
-        message: ChatMessage,
+        message: Message,
         require_ack: bool = False
-    ) -> ChatMessage:
+    ) -> Message:
         """
         Process an incoming message.
         
@@ -213,9 +215,9 @@ class ConversationManager:
     
     async def _process_message_internal(
         self, 
-        message: ChatMessage,
+        message: Message,
         require_ack: bool = False
-    ) -> ChatMessage:
+    ) -> Message:
         """
         Internal message processing logic (can be called with or without lock).
         """
@@ -224,7 +226,7 @@ class ConversationManager:
             raise ValueError(f"Unknown conversation: {message.conversation_id}")
         
         conv_state = self._conversations[message.conversation_id]
-        logger.info(f"Processing message for conversation {message.conversation_id} with {conv_state.message_count} existing messages")
+        logger.debug(f"Processing message for conversation {message.conversation_id} with {conv_state.message_count} existing messages")
         
         # Check queue limit
         if conv_state.message_count >= self.queue_size_limit:
@@ -281,7 +283,7 @@ class ConversationManager:
     
     async def _deliver_to_participants(
         self,
-        message: ChatMessage,
+        message: Message,
         conv_state: ConversationState,
         require_ack: bool = False
     ) -> Dict[str, bool]:
@@ -353,10 +355,10 @@ class ConversationManager:
     
     async def _deliver_to_participant(
         self,
-        message: ChatMessage,
+        message: Message,
         participant: BaseParticipant,
         participant_id: str,
-        context: List[ChatMessage],
+        context: List[Message],
         conv_state: ConversationState
     ) -> None:
         """
@@ -401,7 +403,7 @@ class ConversationManager:
             conv_state.active_nlweb_jobs.discard(f"{message.message_id}_{participant_id}")
             raise
     
-    async def _persist_message(self, message: ChatMessage) -> None:
+    async def _persist_message(self, message: Message) -> None:
         """
         Persist message to storage (async after delivery).
         
@@ -516,7 +518,7 @@ class ConversationManager:
         sites: Optional[List[str]] = None,
         mode: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None
-    ) -> ChatMessage:
+    ) -> Message:
         """
         Create a chat message with consistent structure.
         
@@ -533,7 +535,7 @@ class ConversationManager:
             metadata: Optional additional metadata
             
         Returns:
-            ChatMessage with proper structure and metadata
+            Message with proper structure and metadata
         """
         import uuid
         
@@ -550,7 +552,7 @@ class ConversationManager:
         
         logger.info(f"ConversationManager.create_message: sites={sites}, mode={mode}, metadata={msg_metadata}")
             
-        return ChatMessage(
+        return Message(
             message_id=f"msg_{uuid.uuid4().hex[:12]}",
             conversation_id=conversation_id,
             content=content,

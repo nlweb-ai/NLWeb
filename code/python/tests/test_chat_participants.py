@@ -9,11 +9,11 @@ from datetime import datetime
 import json
 from typing import List, Dict, Any
 
-from chat.schemas import (
-    ChatMessage,
+from chat.schemas import QueueFullError
+from core.schemas import (
+    Message,
     MessageType,
-    MessageStatus,
-    QueueFullError
+    MessageStatus
 )
 
 # These imports will fail until we create the module
@@ -53,7 +53,7 @@ class TestNLWebContextBuilder:
     def test_single_human_message(self, builder):
         """Test context with single human message"""
         messages = [
-            ChatMessage(
+            Message(
                 message_id="msg_1",
                 conversation_id="conv_abc",
                 sequence_id=1,
@@ -75,7 +75,7 @@ class TestNLWebContextBuilder:
     def test_multi_human_messages(self, builder):
         """Test context with messages from multiple humans"""
         messages = [
-            ChatMessage(
+            Message(
                 message_id="msg_1",
                 conversation_id="conv_abc",
                 sequence_id=1,
@@ -85,7 +85,7 @@ class TestNLWebContextBuilder:
                 message_type=MessageType.TEXT,
                 timestamp=datetime.utcnow()
             ),
-            ChatMessage(
+            Message(
                 message_id="msg_2",
                 conversation_id="conv_abc",
                 sequence_id=2,
@@ -95,7 +95,7 @@ class TestNLWebContextBuilder:
                 message_type=MessageType.TEXT,
                 timestamp=datetime.utcnow()
             ),
-            ChatMessage(
+            Message(
                 message_id="msg_3",
                 conversation_id="conv_abc",
                 sequence_id=3,
@@ -120,7 +120,7 @@ class TestNLWebContextBuilder:
         # Create 10 human messages
         messages = []
         for i in range(10):
-            messages.append(ChatMessage(
+            messages.append(Message(
                 message_id=f"msg_{i}",
                 conversation_id="conv_abc",
                 sequence_id=i+1,
@@ -141,7 +141,7 @@ class TestNLWebContextBuilder:
     def test_mixed_messages_with_nlweb(self, builder):
         """Test context with mixed human and NLWeb messages"""
         messages = [
-            ChatMessage(
+            Message(
                 message_id="msg_1",
                 conversation_id="conv_abc",
                 sequence_id=1,
@@ -151,7 +151,7 @@ class TestNLWebContextBuilder:
                 message_type=MessageType.TEXT,
                 timestamp=datetime.utcnow()
             ),
-            ChatMessage(
+            Message(
                 message_id="msg_2",
                 conversation_id="conv_abc",
                 sequence_id=2,
@@ -162,7 +162,7 @@ class TestNLWebContextBuilder:
                 timestamp=datetime.utcnow(),
                 metadata={"sources": ["weather.com"]}
             ),
-            ChatMessage(
+            Message(
                 message_id="msg_3",
                 conversation_id="conv_abc",
                 sequence_id=3,
@@ -189,7 +189,7 @@ class TestNLWebContextBuilder:
     def test_current_query_extraction(self, builder):
         """Test extracting current query from latest human message"""
         messages = [
-            ChatMessage(
+            Message(
                 message_id="msg_1",
                 conversation_id="conv_abc",
                 sequence_id=1,
@@ -199,7 +199,7 @@ class TestNLWebContextBuilder:
                 message_type=MessageType.TEXT,
                 timestamp=datetime.utcnow()
             ),
-            ChatMessage(
+            Message(
                 message_id="msg_2",
                 conversation_id="conv_abc",
                 sequence_id=2,
@@ -251,7 +251,7 @@ class TestNLWebParticipant:
     @pytest.mark.asyncio
     async def test_process_human_message(self, nlweb_participant, mock_nlweb_handler):
         """Test processing a message from a human"""
-        message = ChatMessage(
+        message = Message(
             message_id="msg_1",
             conversation_id="conv_abc",
             sequence_id=1,
@@ -292,7 +292,7 @@ class TestNLWebParticipant:
         """Test processing with conversation context"""
         # Previous messages
         context = [
-            ChatMessage(
+            Message(
                 message_id="msg_1",
                 conversation_id="conv_abc",
                 sequence_id=1,
@@ -302,7 +302,7 @@ class TestNLWebParticipant:
                 message_type=MessageType.TEXT,
                 timestamp=datetime.utcnow()
             ),
-            ChatMessage(
+            Message(
                 message_id="msg_2",
                 conversation_id="conv_abc",
                 sequence_id=2,
@@ -315,7 +315,7 @@ class TestNLWebParticipant:
         ]
         
         # Current message
-        message = ChatMessage(
+        message = Message(
             message_id="msg_3",
             conversation_id="conv_abc",
             sequence_id=3,
@@ -359,7 +359,7 @@ class TestNLWebParticipant:
     async def test_multi_human_context(self, nlweb_participant, mock_nlweb_handler):
         """Test NLWeb sees messages from multiple humans"""
         context = [
-            ChatMessage(
+            Message(
                 message_id="msg_1",
                 conversation_id="conv_abc",
                 sequence_id=1,
@@ -369,7 +369,7 @@ class TestNLWebParticipant:
                 message_type=MessageType.TEXT,
                 timestamp=datetime.utcnow()
             ),
-            ChatMessage(
+            Message(
                 message_id="msg_2",
                 conversation_id="conv_abc",
                 sequence_id=2,
@@ -379,7 +379,7 @@ class TestNLWebParticipant:
                 message_type=MessageType.TEXT,
                 timestamp=datetime.utcnow()
             ),
-            ChatMessage(
+            Message(
                 message_id="msg_3",
                 conversation_id="conv_abc",
                 sequence_id=3,
@@ -392,7 +392,7 @@ class TestNLWebParticipant:
         ]
         
         # Current message from Alice
-        message = ChatMessage(
+        message = Message(
             message_id="msg_4",
             conversation_id="conv_abc",
             sequence_id=4,
@@ -430,7 +430,7 @@ class TestNLWebParticipant:
     @pytest.mark.asyncio
     async def test_streaming_response(self, nlweb_participant, mock_nlweb_handler):
         """Test streaming response handling"""
-        message = ChatMessage(
+        message = Message(
             message_id="msg_1",
             conversation_id="conv_abc",
             sequence_id=1,
@@ -472,7 +472,7 @@ class TestNLWebParticipant:
     @pytest.mark.asyncio
     async def test_timeout_handling(self, nlweb_participant, mock_nlweb_handler):
         """Test timeout handling"""
-        message = ChatMessage(
+        message = Message(
             message_id="msg_1",
             conversation_id="conv_abc",
             sequence_id=1,
@@ -498,7 +498,7 @@ class TestNLWebParticipant:
     @pytest.mark.asyncio
     async def test_nlweb_decides_not_to_respond(self, nlweb_participant, mock_nlweb_handler):
         """Test when NLWeb decides not to respond"""
-        message = ChatMessage(
+        message = Message(
             message_id="msg_1",
             conversation_id="conv_abc",
             sequence_id=1,
@@ -525,7 +525,7 @@ class TestNLWebParticipant:
     @pytest.mark.asyncio
     async def test_queue_full_handling(self, nlweb_participant, mock_nlweb_handler):
         """Test handling queue full errors"""
-        message = ChatMessage(
+        message = Message(
             message_id="msg_1",
             conversation_id="conv_abc",
             sequence_id=1,
