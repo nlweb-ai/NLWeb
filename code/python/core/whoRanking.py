@@ -11,6 +11,7 @@ import asyncio
 import json
 from core.utils.json_utils import trim_json
 from misc.logger.logging_config_helper import get_configured_logger
+from core.schemas import create_assistant_result
 
 logger = get_configured_logger("who_ranking_engine")
 
@@ -30,28 +31,18 @@ class WhoRanking:
 
     def get_ranking_prompt(self, query, site_description):
         """Construct the WHO ranking prompt with the given query and site description."""
-        prompt = f"""Assign a score between 0 and 100 to the following site based on how relevant the site may be to answering the user's question.
+        prompt = f"""Assign a score between 0 and 100 to the following site based 
+        the likelihood that the site will contain an answer to the user's question.
 
 The user's question is: {query}
 
 The site's description is: {site_description}
-
-Additionally, if this site is relevant (score > 50), provide an optimized query that should be sent to this specific site. The query should be tailored to:
-- Match the site's specific domain and expertise
-- Extract the most relevant information from that site
-- Be more specific than the original query when appropriate
-
-For example, if the user asks "I need to make bread" and the site is about:
-- Kitchen equipment: rewrite to "bread making equipment" or "bread baking tools"
-- Ingredients/groceries: rewrite to "bread ingredients" or "flour yeast for bread"
-- Recipes: keep as "bread recipes" or just "bread"
-
-If the original query is already well-suited for the site, use the original query."""
+"""
         
         response_structure = {
             "score": "integer between 0 and 100",
             "description": "short description of why this site is relevant",
-            "query": "the optimized query to send to this site (only if score > 50)"
+            "query": "the optimized query to send to this site (only if score > 70)"
         }
         
         return prompt, response_structure
@@ -134,6 +125,10 @@ If the original query is already well-suited for the site, use the original quer
                 "score": result["ranking"]["score"]
             }
             
+            # Include description if available
+            if "description" in result["ranking"]:
+                result_item["description"] = result["ranking"]["description"]
+            
             # Always include query field (required for WHO ranking)
             if "query" in result["ranking"]:
                 result_item["query"] = result["ranking"]["query"]
@@ -145,8 +140,8 @@ If the original query is already well-suited for the site, use the original quer
             result["sent"] = True
         
         if json_results:
-            to_send = {"message_type": "result", "content": json_results}
-            asyncio.create_task(self.handler.send_message(to_send))
+            # Use the new schema to create and auto-send the message
+            create_assistant_result(json_results, handler=self.handler)
             self.num_results_sent += len(json_results)
             logger.info(f"Sent {len(json_results)} results, total sent: {self.num_results_sent}/{self.NUM_RESULTS_TO_SEND}")
 

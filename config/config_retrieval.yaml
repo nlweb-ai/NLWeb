@@ -137,7 +137,7 @@ endpoints:
 
   # HNSW (Hierarchical Navigable Small World) for fast local vector search
   hnswlib:
-    enabled: true
+    enabled: false
     # Path to the directory containing pre-built index files
     database_path: "data/hnswlib"
     # Index name (used as prefix for index files)
@@ -146,3 +146,15 @@ endpoints:
     db_type: hnswlib
     # Search parameter (controls speed/accuracy tradeoff at query time)
     ef_search: 50
+
+  # Bing Web Search API for real-time web search
+  bing_search:
+    enabled: true
+    # API key for Bing Web Search API
+    api_key_env: BING_API_KEY
+    # Bing API endpoint (optional, defaults to standard Bing API)
+    api_endpoint_env: BING_API_ENDPOINT
+    # Index name (not used for Bing, but kept for consistency)
+    index_name: web_search
+    # Database type
+    db_type: bing_search

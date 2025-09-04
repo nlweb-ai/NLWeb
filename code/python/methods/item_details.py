@@ -63,7 +63,7 @@ class ItemDetailsHandler():
                 # Send intermediate message
                 asyncio.create_task(self.handler.send_message({
                     "message_type": "intermediate_message",
-                    "message": f"Searching for {self.item_name}"
+                    "content": f"Searching for {self.item_name}"
                 }))
                 candidate_items = await search(
                     self.item_name, 

@@ -128,7 +128,7 @@ class ConversationSearchHandler():
             # Send intermediate message
             asyncio.create_task(self.handler.send_message({
                 "message_type": "intermediate_message",
-                "message": f"Searching conversation history for: {self.search_query}"
+                "content": f"Searching conversation history for: {self.search_query}"
             }))
             
             # Step 1: Compute embedding on the query (currently unused but may be needed for vector search)
@@ -206,7 +206,7 @@ class ConversationSearchHandler():
         """Send message when no matching conversations are found."""
         message = {
             "message_type": "no_results",
-            "message": f"No conversations found matching: {self.search_query}"
+            "content": f"No conversations found matching: {self.search_query}"
         }
         
         asyncio.create_task(self.handler.send_message(message))
@@ -215,7 +215,7 @@ class ConversationSearchHandler():
         """Temporary placeholder message until implementation is complete."""
         message = {
             "message_type": "placeholder",
-            "message": f"Conversation search for '{self.search_query}' - implementation pending",
+            "content": f"Conversation search for '{self.search_query}' - implementation pending",
             "user_id": user_id,
             "query": self.search_query
         }

@@ -10,7 +10,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
 from elasticsearch import AsyncElasticsearch
-from core.conversation_history import StorageProvider, ConversationEntry
+from core.schemas import ConversationEntry
+from core.conversation_history import StorageProvider
 from core.embedding import get_embedding
 from misc.logger.logging_config_helper import get_configured_logger
 from misc.logger.logger import LogLevel

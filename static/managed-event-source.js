@@ -141,31 +141,31 @@ export class ManagedEventSource {
         this.handleQueryAnalysis(data, chatInterface);
         break;
       case "remember":
-        // Ensure message is a string
-        if (typeof data.message === 'string') {
+        // Ensure content is a string
+        if (typeof data.content === 'string') {
           chatInterface.noResponse = false;
-          chatInterface.memoryMessage(data.message, chatInterface);
+          chatInterface.memoryMessage(data.content, chatInterface);
         }
         break;
       case "asking_sites":
-        // Ensure message is a string
-        if (typeof data.message === 'string') {
-          chatInterface.sourcesMessage = chatInterface.createIntermediateMessageHtml(data.message);
+        // Ensure content is a string
+        if (typeof data.content === 'string') {
+          chatInterface.sourcesMessage = chatInterface.createIntermediateMessageHtml(data.content);
           chatInterface.bubble.appendChild(chatInterface.sourcesMessage);
         }
         break;
       case "site_is_irrelevant_to_query":
-        // Ensure message is a string
-        if (typeof data.message === 'string') {
+        // Ensure content is a string
+        if (typeof data.content === 'string') {
           chatInterface.noResponse = false;
-          chatInterface.siteIsIrrelevantToQuery(data.message, chatInterface);
+          chatInterface.siteIsIrrelevantToQuery(data.content, chatInterface);
         }
         break;
       case "ask_user":
-        // Ensure message is a string
-        if (typeof data.message === 'string') {
+        // Ensure content is a string
+        if (typeof data.content === 'string') {
           chatInterface.noResponse = false;
-          chatInterface.askUserMessage(data.message, chatInterface);
+          chatInterface.askUserMessage(data.content, chatInterface);
         }
         break;
       case "item_details":
@@ -202,21 +202,21 @@ export class ManagedEventSource {
           // Use the same rendering as result
           const resultsHtml = chatInterface.renderItems(data.content);
           tempContainer.innerHTML = resultsHtml;
-        } else if (typeof data.message === 'string') {
+        } else if (typeof data.content === 'string') {
           // Handle text-only intermediate messages in italics
           const textDiv = document.createElement('div');
           textDiv.style.fontStyle = 'italic';
-          textDiv.textContent = data.message;
+          textDiv.textContent = data.content;
           tempContainer.appendChild(textDiv);
         }
         
         chatInterface.bubble.appendChild(tempContainer);
         break;
       case "summary":
-        // Ensure message is a string
-        if (typeof data.message === 'string') {
+        // Ensure content is a string
+        if (typeof data.content === 'string') {
           chatInterface.noResponse = false;
-          chatInterface.thisRoundSummary = chatInterface.createIntermediateMessageHtml(data.message);
+          chatInterface.thisRoundSummary = chatInterface.createIntermediateMessageHtml(data.content);
           chatInterface.resortResults();
         }
         break;
@@ -275,15 +275,15 @@ export class ManagedEventSource {
         break;
       case "no_results":
         chatInterface.noResponse = false;
-        if (typeof data.message === 'string') {
-          const noResultsMessage = chatInterface.createIntermediateMessageHtml(data.message);
+        if (typeof data.content === 'string') {
+          const noResultsMessage = chatInterface.createIntermediateMessageHtml(data.content);
           chatInterface.bubble.appendChild(noResultsMessage);
         }
         break;
       case "error":
         chatInterface.noResponse = false;
-        if (typeof data.message === 'string') {
-          const errorMessage = chatInterface.createIntermediateMessageHtml(`Error: ${data.message}`);
+        if (typeof data.content === 'string') {
+          const errorMessage = chatInterface.createIntermediateMessageHtml(`Error: ${data.content}`);
           errorMessage.style.color = '#d32f2f';
           chatInterface.bubble.appendChild(errorMessage);
         }

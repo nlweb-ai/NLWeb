@@ -232,7 +232,7 @@ class MultiSiteQueryHandler:
         """Send a status update message."""
         if hasattr(self.handler, 'send_message'):
             await self.handler.send_message({
-                "message_type": "multi_site_status",
+                "message_type": "intermediate_message",
                 "status": message,
                 "timestamp": time.time()
             })

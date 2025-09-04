@@ -244,7 +244,7 @@ Be specific and practical in your suggestions.""")
         """Send an error message to the client."""
         message = {
             "message_type": "error",
-            "message": f"Could not generate substitution suggestions: {error_msg}"
+            "content": f"Could not generate substitution suggestions: {error_msg}"
         }
         
         asyncio.create_task(self.handler.send_message(message))
@@ -253,7 +253,7 @@ Be specific and practical in your suggestions.""")
         """Send message when no recipes are found."""
         message = {
             "message_type": "no_results",
-            "message": f"No recipes found for: {self.handler.query}"
+            "content": f"No recipes found for: {self.handler.query}"
         }
         
         asyncio.create_task(self.handler.send_message(message))

@@ -172,7 +172,7 @@ class EnsembleToolHandler:
             
             asyncio.create_task(self.handler.send_message({
                 "message_type": "intermediate_message", 
-                "message": f"Found {total_items} total results:\n{query_breakdown}\n\nCombing through top results for each of these queries to answer the question..."
+                "content": f"Found {total_items} total results:\n{query_breakdown}\n\nCombing through top results for each of these queries to answer the question..."
             }))
             
             # Generate ensemble recommendations using LLM
@@ -340,7 +340,7 @@ class EnsembleToolHandler:
             # Send intermediate message for this query
             asyncio.create_task(self.handler.send_message({
                 "message_type": "intermediate_message",
-                "message": f"Looking for {query}"
+                "content": f"Looking for {query}"
             }))
             
             # Use the search abstraction from retriever.py

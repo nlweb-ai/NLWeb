@@ -270,7 +270,7 @@ export class ChatUICommon {
     
     switch(data.message_type) {
       case 'asking_sites':
-        // Handle both old format (data.message) and new format (data.sites)
+        // Handle both old format (data.content) and new format (data.sites)
         if (data.sites && Array.isArray(data.sites)) {
           // New format with clickable sites
           const siteLinks = data.sites.map((site, index, array) => {
@@ -284,9 +284,9 @@ export class ChatUICommon {
           }).join(' ');
           messageContent = `Searching: ${siteLinks}\n\n`;
           bubble.innerHTML = messageContent + this.renderItems(allResults);
-        } else if (data.message) {
+        } else if (data.content) {
           // Old format fallback
-          messageContent = `Searching: ${data.message}\n\n`;
+          messageContent = `Searching: ${data.content}\n\n`;
           bubble.innerHTML = messageContent + this.renderItems(allResults);
         }
         break;
@@ -319,8 +319,8 @@ export class ChatUICommon {
         break;
         
       case 'summary':
-        if (data.message) {
-          const summaryDiv = this.createIntermediateMessageHtml(data.message);
+        if (data.content) {
+          const summaryDiv = this.createIntermediateMessageHtml(data.content);
           bubble.innerHTML = messageContent + this.renderItems(allResults);
           bubble.appendChild(summaryDiv);
         }
@@ -364,8 +364,8 @@ export class ChatUICommon {
         if (data.content) {
           // Use the same rendering as result
           tempContainer.innerHTML = this.renderItems(data.content);
-        } else if (data.message) {
-          tempContainer.textContent = data.message;
+        } else if (data.content) {
+          tempContainer.textContent = data.content;
         }
         
         bubble.innerHTML = messageContent + this.renderItems(allResults);
@@ -373,8 +373,8 @@ export class ChatUICommon {
         break;
         
       case 'ask_user':
-        if (data.message) {
-          messageContent += data.message + '\n';
+        if (data.content) {
+          messageContent += data.content + '\n';
           bubble.innerHTML = messageContent + this.renderItems(allResults);
         }
         break;
@@ -504,8 +504,8 @@ export class ChatUICommon {
         
       default:
         // For other message types, just update if there's content
-        if (data.message) {
-          messageContent += data.message + '\n';
+        if (data.content) {
+          messageContent += data.content + '\n';
           bubble.innerHTML = messageContent + this.renderItems(allResults);
         }
     }

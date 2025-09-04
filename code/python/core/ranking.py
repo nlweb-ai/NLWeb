@@ -15,6 +15,7 @@ import json
 from core.utils.json_utils import trim_json
 from core.prompts import find_prompt, fill_prompt
 from misc.logger.logging_config_helper import get_configured_logger
+from core.schemas import create_assistant_result, create_status_message, Message, SenderType, MessageType
 
 logger = get_configured_logger("ranking_engine")
 
@@ -77,17 +78,56 @@ The user's question is: {request.query}. The item's description is {item.descrip
                           Provide a brief description highlighting why this conversation is relevant.""",
                           {"score": "integer between 0 and 100",
                            "description": "brief description of why this past conversation is relevant to the search"}]
+    
+    PRODUCT_FOCUSED_PROMPT = ["""Assign a score between 0 and 100 based on how well this product matches the user's search.
+                          
+                          Focus on product details in your description:
+                          - Product name and brand (if available)
+                          - Price or price range
+                          - Key features or specifications
+                          - Why this specific product matches the search
+                          
+                          Do NOT use phrases like "This webpage" or "This page" or "This site".
+                          Instead, directly describe the product itself.
+                          
+                          Examples of good descriptions:
+                          - "All-Clad D3 stainless steel frying pan, 12-inch, $149, triple-ply construction for even heating"
+                          - "Le Creuset enameled cast iron Dutch oven in cherry red, 5.5 quart capacity, oven-safe to 500°F"
+                          - "Breville Smart Oven Air Fryer, $399, 13 cooking functions including air fry, dehydrate, and slow cook"
+                          
+                          The user's search: {request.query}
+                          Product information: {item.description}""",
+                          {"score": "integer between 0 and 100",
+                           "description": "product-focused description with brand, price, and key features"}]
  
     RANKING_PROMPT_NAME = "RankingPrompt"
      
     def get_ranking_prompt(self):
         site = self.handler.site
         item_type = self.handler.item_type
+        
+        # Check for special ranking types first
         if (self.ranking_type == Ranking.WHO_RANKING):
             return self.WHO_RANKING_PROMPT[0], self.WHO_RANKING_PROMPT[1]
         if (self.ranking_type == Ranking.CONVERSATION_SEARCH):
             return self.CONVERSATION_SEARCH_PROMPT[0], self.CONVERSATION_SEARCH_PROMPT[1]
         
+        # Check if using Bing search or any e-commerce/product sites
+        db_param = self.handler.query_params.get('db') if hasattr(self.handler, 'query_params') else None
+        
+        # Use product-focused prompt for Bing search or known e-commerce sites
+        if db_param == 'bing_search':
+            logger.debug("Using product-focused prompt for Bing search")
+            return self.PRODUCT_FOCUSED_PROMPT[0], self.PRODUCT_FOCUSED_PROMPT[1]
+        
+        # Also use product-focused prompt for known e-commerce sites
+        if site and any(ecommerce_site in site.lower() for ecommerce_site in 
+                       ['williams-sonoma', 'amazon', 'ebay', 'walmart', 'target', 'bestbuy', 
+                        'homedepot', 'lowes', 'wayfair', 'etsy', 'shopify']):
+            logger.debug(f"Using product-focused prompt for e-commerce site: {site}")
+            return self.PRODUCT_FOCUSED_PROMPT[0], self.PRODUCT_FOCUSED_PROMPT[1]
+        
+        # Check for custom prompts
         prompt_str, ans_struc = find_prompt(site, item_type, self.RANKING_PROMPT_NAME)
         if prompt_str is None:
             logger.debug("Using default ranking prompt")
@@ -268,8 +308,8 @@ The user's question is: {request.query}. The item's description is {item.descrip
                     self.handler.fastTrackWorked = True
                     logger.info("Fast track ranking successful")
                 
-                to_send = {"message_type": "result", "content": json_results}
-                asyncio.create_task(self.handler.send_message(to_send))
+                # Use the new schema to create and auto-send the message
+                create_assistant_result(json_results, handler=self.handler)
                 self.num_results_sent += len(json_results)
                 logger.info(f"Sent {len(json_results)} results, total sent: {self.num_results_sent}/{self.NUM_RESULTS_TO_SEND}")
             except (BrokenPipeError, ConnectionResetError) as e:
@@ -289,12 +329,17 @@ The user's question is: {request.query}. The item's description is {item.descrip
             
             top_sites = sorted(sites_in_embeddings.items(), key=lambda x: x[1], reverse=True)[:3]
             top_sites_str = ", ".join([self.prettyPrintSite(x[0]) for x in top_sites])
-            message = {"message_type": "asking_sites",  "message": "Asking " + top_sites_str}
-            
             logger.info(f"Sending sites message: {top_sites_str}")
             
             try:
-                asyncio.create_task(self.handler.send_message(message))
+                # Create a custom message with asking_sites type
+                message = Message(
+                    sender_type=SenderType.SYSTEM,
+                    message_type="asking_sites",  # Custom message type
+                    content="Asking " + top_sites_str,
+                    conversation_id=self.handler.conversation_id if hasattr(self.handler, 'conversation_id') else None
+                )
+                asyncio.create_task(self.handler.send_message(message.to_dict()))
                 self.handler.sites_in_embeddings_sent = True
             except (BrokenPipeError, ConnectionResetError):
                 logger.warning("Client disconnected when sending sites message")

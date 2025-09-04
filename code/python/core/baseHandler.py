@@ -13,6 +13,8 @@ import asyncio
 import importlib
 import time
 import uuid
+from typing import List
+from core.schemas import Message
 import core.query_analysis.decontextualize as decontextualize
 import core.query_analysis.analyze_query as analyze_query
 import core.query_analysis.memory as memory   
@@ -157,7 +159,8 @@ class NLWebHandler:
 
         self.versionNumberSent = False
         self.headersSent = False
-        self.raw_messages = []
+        # Replace raw_messages with proper Message objects
+        self.messages: List['Message'] = []  # List of Message objects
         
         # Generate a base message_id and counter for unique message IDs
         self.handler_message_id = f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:9]}"
@@ -166,9 +169,9 @@ class NLWebHandler:
         # Create MessageSender helper (after handler_message_id is set)
         self.message_sender = MessageSender(self)
         
-        # Add the initial user query message to raw_messages
+        # Add the initial user query message to messages list
         initial_user_message = self.message_sender.create_initial_user_message()
-        self.raw_messages.append(initial_user_message)
+        self.messages.append(initial_user_message)
         
     @property 
     def is_connection_alive(self):
@@ -209,7 +212,8 @@ class NLWebHandler:
             # Send end-nlweb-response message at the end
             await self.message_sender.send_end_response()
             
-            return self.return_value, self.raw_messages
+            # Return both return_value and messages (converted to dicts for backward compatibility)
+            return self.return_value, [msg.to_dict() for msg in self.messages]
         except Exception as e:
             traceback.print_exc()
             

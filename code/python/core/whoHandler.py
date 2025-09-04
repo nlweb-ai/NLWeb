@@ -1,9 +1,6 @@
 from core.baseHandler import NLWebHandler
 from core.retriever import search
-from retrieval_providers.hnswlib_client import HnswlibClient
-from core.embedding import get_embedding
 from core.whoRanking import WhoRanking
-from core.config import CONFIG
 from misc.logger.logging_config_helper import get_configured_logger
 
 # Who handler is work in progress for answering questions about who
@@ -14,21 +11,9 @@ logger = get_configured_logger("who_handler")
 class WhoHandler (NLWebHandler) :
 
     def __init__(self, query_params, http_handler): 
-        # Remove site parameter - we'll search all sites
+        # Remove site parameter - we'll use nlweb_sites
         if 'site' in query_params:
             del query_params['site']
-        
-        # Check if hnswlib is enabled
-        hnswlib_config = CONFIG.retrieval_endpoints.get('hnswlib', {})
-        self.use_hnswlib = getattr(hnswlib_config, 'enabled', False)
-        
-        if self.use_hnswlib:
-            # Force hnswlib backend for who queries if enabled
-            query_params['retrieval_backend'] = 'hnswlib'
-            logger.info("Using hnswlib backend for who query")
-        else:
-            # Use default retrieval backend
-            logger.info("Using default retrieval backend for who query (hnswlib not enabled)")
             
         # Keep prev_queries if provided for context, but don't use 'prev' format
         # The who handler can use previous queries to understand follow-up questions
@@ -65,41 +50,25 @@ class WhoHandler (NLWebHandler) :
     async def runQuery(self):
 
         try:
-            if self.use_hnswlib:
-                # Use cached hnswlib client for who queries
-                hnswlib_client = HnswlibClient.get_instance(endpoint_name='hnswlib')
-                
-                # Search across all sites using search_all_sites
-                # Pass model in query_params to use the large embedding model
-                items = await hnswlib_client.search_all_sites(
-                    self.query,
-                    num_results=50,
-                    query_params={'model': 'text-embedding-3-large'}
-                )
-                
-                self.final_retrieved_items = items
-                logger.info(f"Who ranking retrieved {len(items)} items from hnswlib")
-                
-                # Print out retrieved sites
-                print("\n=== HNSW Retrieved Sites ===")
-                for i, item in enumerate(items[:20]):  # Show top 20
-                    site = item[3] if len(item) > 3 else "unknown"
-                    name = item[2] if len(item) > 2 else "unknown"
-                    print(f"{i+1}. {site} - {name}")
-            else:
-                # Use the general search method (original path)
-                logger.info("Using general search method for who query")
-                
-                # Search across all available sites
-                # Note: This will use whatever retrieval backend is configured as default
-                items = await search(
-                    self.query, 
-                    site=None,  # No specific site - search all
-                    query_params=self.query_params,
-                    num_results=50
-                )
-                self.final_retrieved_items = items
-                logger.info(f"Who ranking retrieved {len(items)} items from general search")
+            # Always use general search with nlweb_sites
+            logger.info("Using general search method with site=nlweb_sites for who query")
+            
+            # Search using the special nlweb_sites collection
+            items = await search(
+                self.query, 
+                site='nlweb_sites',  # Use the sites collection
+                query_params=self.query_params,
+                num_results=50
+            )
+            self.final_retrieved_items = items
+            logger.info(f"Who ranking retrieved {len(items)} items from nlweb_sites")
+            
+            # Print out retrieved sites
+            print("\n=== Retrieved Sites from nlweb_sites ===")
+            for i, item in enumerate(items[:20]):  # Show top 20
+                site = item[3] if len(item) > 3 else "unknown"
+                name = item[2] if len(item) > 2 else "unknown"
+                print(f"{i+1}. {site} - {name}")
             
             logger.debug(f"Who retrieval complete: {len(self.final_retrieved_items)} items retrieved")
             

@@ -8,7 +8,8 @@ import time
 import importlib
 from datetime import datetime
 
-from chat.schemas import ChatMessage, Conversation, ParticipantInfo
+from chat.schemas import Conversation, ParticipantInfo
+from core.schemas import Message
 from chat.metrics import ChatMetrics
 from core.config import CONFIG
 
@@ -17,7 +18,7 @@ class SimpleChatStorageInterface(ABC):
     """Simple abstract interface for chat storage - just store and retrieve messages"""
     
     @abstractmethod
-    async def store_message(self, message: ChatMessage) -> None:
+    async def store_message(self, message: Message) -> None:
         """
         Store a chat message.
         
@@ -32,7 +33,7 @@ class SimpleChatStorageInterface(ABC):
         conversation_id: str, 
         limit: int = 100,
         after_sequence_id: Optional[int] = None
-    ) -> List[ChatMessage]:
+    ) -> List[Message]:
         """
         Get messages for a conversation.
         
@@ -51,7 +52,7 @@ class OldChatStorageInterface(ABC):
     """Abstract interface for chat storage backends (OLD - DO NOT USE)"""
     
     @abstractmethod
-    async def store_message(self, message: ChatMessage) -> None:
+    async def store_message(self, message: Message) -> None:
         """
         Store a chat message.
         Must handle deduplication by message_id.
@@ -71,7 +72,7 @@ class OldChatStorageInterface(ABC):
         conversation_id: str, 
         limit: int = 100,
         after_sequence_id: Optional[int] = None
-    ) -> List[ChatMessage]:
+    ) -> List[Message]:
         """
         Get messages for a conversation.
         
@@ -209,7 +210,7 @@ class SimpleChatStorageClient:
         """
         self.backend = backend
     
-    async def store_message(self, message: ChatMessage) -> None:
+    async def store_message(self, message: Message) -> None:
         """Store a message"""
         await self.backend.store_message(message)
     
@@ -218,7 +219,7 @@ class SimpleChatStorageClient:
         conversation_id: str, 
         limit: int = 100,
         after_sequence_id: Optional[int] = None
-    ) -> List[ChatMessage]:
+    ) -> List[Message]:
         """Get messages for a conversation"""
         return await self.backend.get_conversation_messages(
             conversation_id, limit, after_sequence_id
@@ -286,7 +287,7 @@ class ChatStorageClient:
         
         return backend_class(backend_config)
     
-    async def store_message(self, message: ChatMessage) -> None:
+    async def store_message(self, message: Message) -> None:
         """Store a message with metrics tracking"""
         start_time = time.time()
         try:
@@ -301,7 +302,7 @@ class ChatStorageClient:
         conversation_id: str, 
         limit: int = 100,
         after_sequence_id: Optional[int] = None
-    ) -> List[ChatMessage]:
+    ) -> List[Message]:
         """Get messages with metrics tracking"""
         start_time = time.time()
         try:

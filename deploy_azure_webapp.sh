@@ -50,17 +50,6 @@ echo ""
 echo "Deployment zip created:"
 ls -lh $ZIP_FILE
 
-# Verify HNSW index files are included
-echo ""
-echo "Verifying HNSW index files are included..."
-HNSW_COUNT=$(unzip -l $ZIP_FILE | grep -c "code/python/data/hnswlib/nlweb_hnswlib")
-echo "Found $HNSW_COUNT HNSW index files"
-
-if [ $HNSW_COUNT -eq 0 ]; then
-    echo "WARNING: No HNSW index files found in zip!"
-    echo "The /who endpoint may not work correctly."
-fi
-
 # Deploy to Azure
 echo ""
 echo "Deploying to Azure Web App..."

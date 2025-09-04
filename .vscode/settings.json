@@ -1,3 +1,5 @@
 {
-    "editor.cursorStyle": "block"
+    "editor.cursorStyle": "block",
+    "python-envs.defaultEnvManager": "ms-python.python:pyenv",
+    "python-envs.pythonProjects": []
 }

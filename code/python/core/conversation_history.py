@@ -19,57 +19,10 @@ from abc import ABC, abstractmethod
 
 from core.config import CONFIG
 from core.embedding import get_embedding
+from core.schemas import ConversationEntry
 from misc.logger.logging_config_helper import get_configured_logger
-
+    
 logger = get_configured_logger("storage")
-
-@dataclass
-class ConversationEntry:
-    """
-    Represents a single conversation entry (one exchange between user and assistant).
-    """
-    user_id: str                    # User ID (if logged in) or anonymous ID
-    site: str                       # Site context for the conversation
-    message_id: str                 # Message ID to group related messages in a conversation
-    user_prompt: str                # The user's question/prompt
-    response: str                   # The assistant's response
-    time_of_creation: datetime      # Timestamp of creation
-    conversation_id: str            # Unique ID for this conversation entry
-    embedding: Optional[List[float]] = None  # Embedding vector for the conversation
-    summary: Optional[str] = None   # LLM-generated summary of the conversation
-    main_topics: Optional[List[str]] = None  # Main topics identified in the conversation
-    participants: Optional[List[Dict[str, Any]]] = None  # List of participants in the conversation
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for storage."""
-        return {
-            "user_id": self.user_id,
-            "site": self.site,
-            "message_id": self.message_id,
-            "user_prompt": self.user_prompt,
-            "response": self.response,
-            "time_of_creation": self.time_of_creation.isoformat(),
-            "conversation_id": self.conversation_id,
-            "embedding": self.embedding,
-            "summary": self.summary,
-            "main_topics": self.main_topics,
-            "participants": self.participants
-        }
-    
-    def to_json(self) -> Dict[str, Any]:
-        """Convert to JSON format for API responses."""
-        return {
-            "id": self.conversation_id,
-            "user_prompt": self.user_prompt,
-            "response": self.response,
-            "time": self.time_of_creation.isoformat()
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ConversationEntry':
-        """Create from dictionary."""
-        data["time_of_creation"] = datetime.fromisoformat(data["time_of_creation"])
-        return cls(**data)
 
 class StorageProvider(ABC):
     """Abstract base class for storage providers."""

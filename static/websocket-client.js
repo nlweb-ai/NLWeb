@@ -380,7 +380,7 @@ class ChatApplication {
     if (data.code === 'QUEUE_FULL') {
       this.showNotice('Message queue full. Please wait before sending more messages.');
     } else {
-      this.showNotice(`Server error: ${data.message}`);
+      this.showNotice(`Server error: ${data.content || data.message}`);
     }
   }
   

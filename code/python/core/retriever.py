@@ -76,6 +76,9 @@ def init():
                     from retrieval_providers.hnswlib_client import HnswlibClient
                     _preloaded_modules[db_type] = HnswlibClient
                     print(f"[RETRIEVER] Successfully preloaded hnswlib module")
+                elif db_type == "bing_search":
+                    from retrieval_providers.bing_search_client import BingSearchClient
+                    _preloaded_modules[db_type] = BingSearchClient
 
             except Exception as e:
                 logger.warning(f"Failed to preload {db_type} client module: {e}")
@@ -92,6 +95,7 @@ _db_type_packages = {
     "shopify_mcp": ["aiohttp>=3.8.0"],
     "cloudflare_autorag": ['cloudflare>=4.3.1', "httpx>=0.28.1", "zon>=3.0.0", "markdown>=3.8.2", "beautifulsoup4>=4.13.4"],
     "hnswlib": ["hnswlib>=0.7.0"],
+    "bing_search": ["httpx>=0.28.1"],  # Bing search uses httpx for API calls
 }
 
 # Cache for installed packages
@@ -499,6 +503,9 @@ class VectorDBClient:
         elif db_type == "hnswlib":
             # HNSW requires a database path to the pre-built index
             return bool(config.database_path)
+        elif db_type == "bing_search":
+            # Bing search just needs to be enabled (API key can be hardcoded or from env)
+            return True
         else:
             logger.warning(f"Unknown database type {db_type} for endpoint {name}")
             return False
@@ -574,6 +581,9 @@ class VectorDBClient:
                     from retrieval_providers.hnswlib_client import HnswlibClient
                     client = HnswlibClient(endpoint_name)
                     print(f"[RETRIEVER] Successfully created hnswlib client")
+                elif db_type == "bing_search":
+                    from retrieval_providers.bing_search_client import BingSearchClient
+                    client = BingSearchClient(endpoint_name)
                 else:
                     error_msg = f"Unsupported database type: {db_type}"
                     logger.error(error_msg)

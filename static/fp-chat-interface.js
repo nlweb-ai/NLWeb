@@ -579,22 +579,22 @@ class ModernChatInterface {
           if (data.content) {
             // Use the same rendering as result
             tempContainer.innerHTML = this.renderItems(data.content);
-          } else if (data.message) {
+          } else if (data.content) {
             // Handle text-only intermediate messages in italics
             const textSpan = document.createElement('span');
             textSpan.style.fontStyle = 'italic';
-            textSpan.textContent = data.message;
+            textSpan.textContent = data.content;
             tempContainer.appendChild(textSpan);
           }
           
           // Just append the intermediate message without resetting innerHTML
           // This preserves any existing intermediate messages
           textDiv.appendChild(tempContainer);
-        } else if (data.message_type === 'ask_user' && data.message) {
-          messageContent += data.message + '\n';
+        } else if (data.message_type === 'ask_user' && data.content) {
+          messageContent += data.content + '\n';
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
-        } else if (data.message_type === 'asking_sites' && data.message) {
-          messageContent += `Searching: ${data.message}\n\n`;
+        } else if (data.message_type === 'asking_sites' && data.content) {
+          messageContent += `Searching: ${data.content}\n\n`;
           textDiv.innerHTML = messageContent + this.renderItems(allResults);
         } else if (data.message_type === 'site_querying') {
           // Show when a site is being queried

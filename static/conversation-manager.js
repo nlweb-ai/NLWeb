@@ -57,7 +57,7 @@ class ConversationManager {
           
           // Update conversation metadata only from user messages
           // Assistant messages should not change the conversation's site or mode
-          if (msg.message_type === 'user') {
+          if ((msg.sender_type === 'user') || (msg.message_type === 'user' && !msg.sender_type)) {
             if (msg.site && conversationMap[convId].site === 'all') {
               conversationMap[convId].site = msg.site;
             }
@@ -67,7 +67,7 @@ class ConversationManager {
           }
           
           // Set title from first user message
-          if (msg.message_type === 'user' && conversationMap[convId].title === 'New chat') {
+          if (((msg.sender_type === 'user') || (msg.message_type === 'user' && !msg.sender_type)) && conversationMap[convId].title === 'New chat') {
             const content = typeof msg.content === 'string' ? msg.content : msg.content?.content || 'New chat';
             conversationMap[convId].title = content.substring(0, 50);
           }
@@ -258,12 +258,12 @@ class ConversationManager {
     
     // Rebuild context arrays from conversation history
     chatInterface.prevQueries = conversation.messages
-      .filter(m => m.message_type === 'user')
+      .filter(m => (m.sender_type === 'user') || (m.message_type === 'user' && !m.sender_type))
       .slice(-10)
       .map(m => m.content);
     
     chatInterface.lastAnswers = [];
-    const assistantMessages = conversation.messages.filter(m => m.message_type === 'assistant');
+    const assistantMessages = conversation.messages.filter(m => (m.sender_type === 'assistant') || (m.message_type === 'assistant' && !m.sender_type));
     if (assistantMessages.length > 0) {
       // Extract answers from assistant messages
       assistantMessages.slice(-20).forEach(msg => {
@@ -587,7 +587,7 @@ class ConversationManager {
         }
         
         // Update title from first user message
-        if (message.message_type === 'user' && conversation.title === 'New chat') {
+        if (((message.sender_type === 'user') || (message.message_type === 'user' && !message.sender_type)) && conversation.title === 'New chat') {
           const content = typeof message.content === 'string' ? message.content : message.content?.content || 'New chat';
           conversation.title = content.substring(0, 50);
           

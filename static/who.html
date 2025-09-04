@@ -267,8 +267,8 @@
           messagesContainer: this.resultsContainer
         });
         
-        // Initialize JsonRenderer for consistent item display
-        this.jsonRenderer = new JsonRenderer();
+        // Initialize JsonRenderer for consistent item display (with scores shown for WHO results)
+        this.jsonRenderer = new JsonRenderer({ showScores: true });
         
         this.initializeEventListeners();
       }
@@ -365,8 +365,7 @@
             try {
               const data = JSON.parse(event.data);
               
-              // Debug: Log received data to see what fields are present
-              console.log('Received data:', data);
+              // Process received data
               
               // Clear loading message on first real message
               if (isFirstMessage && data.message_type !== 'complete') {
@@ -472,8 +471,6 @@
       }
 
       renderAllResults() {
-        console.log('renderAllResults called with', this.allResults.length, 'results');
-        console.log('First result:', this.allResults[0]);
         
         // Remove loading message if present
         const loadingDiv = this.resultsContainer.querySelector('.loading');
@@ -539,9 +536,6 @@
         resultsContainer.className = 'search-results';
         
         sortedItems.forEach((item, index) => {
-          // Debug: Log each item to see if query field is present
-          console.log(`Item ${index + 1} (${item.name}):`, 'has query:', item.query);
-          
           // Use JsonRenderer to create the item HTML
           const itemElement = this.jsonRenderer.createJsonItemHtml(item);
           
@@ -552,14 +546,13 @@
           rankSpan.style.cssText = 'color: #666; font-size: 0.9em; margin-right: 8px;';
           
           // Find the title element and prepend rank
-          const titleElement = itemElement.querySelector('.json-item-name, h3, .title');
+          const titleElement = itemElement.querySelector('.item-title-link, .json-item-name, h3, .title');
           if (titleElement) {
             titleElement.insertBefore(rankSpan, titleElement.firstChild);
           }
           
           // Add custom query display if present
           if (item.query) {
-            console.log(`Adding query display for ${item.name}: "${item.query}"`);
             const queryDiv = document.createElement('div');
             queryDiv.className = 'site-specific-query';
             queryDiv.style.cssText = `
@@ -576,13 +569,14 @@
             `;
             
             // Insert after the description/snippet
-            const descElement = itemElement.querySelector('.json-item-description, .description, .snippet');
+            const descElement = itemElement.querySelector('.item-description, .json-item-description, .description, .snippet');
             if (descElement) {
               descElement.parentNode.insertBefore(queryDiv, descElement.nextSibling);
             } else {
-              // If no description found, add after the title
-              if (titleElement) {
-                titleElement.parentNode.insertBefore(queryDiv, titleElement.nextSibling);
+              // If no description found, add after the title row
+              const titleRow = itemElement.querySelector('.item-title-row');
+              if (titleRow) {
+                titleRow.parentNode.insertBefore(queryDiv, titleRow.nextSibling);
               }
             }
           }

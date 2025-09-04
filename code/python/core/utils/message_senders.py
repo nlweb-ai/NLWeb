@@ -10,8 +10,10 @@ extracted from NLWebHandler to improve code organization and maintainability.
 
 import asyncio
 import time
-from typing import Dict, Any, Optional
+from datetime import datetime
+from typing import Dict, Any, Optional, Union, List
 from core.config import CONFIG
+from core.schemas import Message, SenderType, MessageType
 
 API_VERSION = "0.1"
 
@@ -35,30 +37,36 @@ class MessageSender:
     
     def create_initial_user_message(self):
         """
-        Create the initial user query message for raw_messages.
+        Create the initial user query message as a Message object.
         This message represents the user's original query.
         
         Returns:
-            Dict containing the user message in the expected format
+            Message object containing the user message
         """
         from core.utils.utils import get_param
+        from core.schemas import UserQuery
         
-        # User message gets counter #0
-        user_message = {
-            "message_id": f"{self.handler.handler_message_id}#0",
-            "conversation_id": self.handler.conversation_id,
-            "type": "message",
-            "message_type": "user",
-            "content": self.handler.query,
-            "timestamp": int(time.time() * 1000),
-            "sender_info": {
+        # Create UserQuery for the content
+        user_query = UserQuery(
+            query=self.handler.query,
+            site=self.handler.site,
+            mode=self.handler.generate_mode,
+            prev_queries=self.handler.prev_queries
+        )
+        
+        # Create the Message object
+        user_message = Message(
+            message_id=f"{self.handler.handler_message_id}#0",
+            conversation_id=self.handler.conversation_id,
+            sender_type=SenderType.USER,
+            message_type=MessageType.QUERY,
+            content=user_query,
+            timestamp=datetime.utcnow().isoformat(),
+            sender_info={
                 "id": self.handler.oauth_id or get_param(self.handler.query_params, "user_id", str, ""),
                 "name": get_param(self.handler.query_params, "user_name", str, "User")
-            },
-            "site": self.handler.site,
-            "mode": self.handler.generate_mode,
-            "prev_queries": self.handler.prev_queries
-        }
+            }
+        )
         
         return user_message
     
@@ -156,14 +164,35 @@ class MessageSender:
                 self.handler.connection_alive_event.clear()
                 raise
     
-    def store_message(self, message):
+    def store_message(self, message: Union[Dict[str, Any], Message]):
         """
         Store message in return_value for both streaming and non-streaming cases.
+        Messages are now stored as Message objects in handler.messages.
         
         Args:
-            message: The message to store
+            message: The message to store (dict or Message object)
         """
-        self.handler.raw_messages.append(message)
+        # Convert dict to Message object if needed
+        if isinstance(message, dict):
+            # Try to create a Message object from the dict
+            try:
+                message_obj = Message.from_dict(message)
+            except:
+                # If conversion fails, create a basic Message with the dict as content
+                message_obj = Message(
+                    sender_type=SenderType.SYSTEM,
+                    message_type=message.get("message_type", MessageType.STATUS),
+                    content=message.get("content", message),
+                    conversation_id=message.get("conversation_id") or getattr(self.handler, 'conversation_id', None)
+                )
+        else:
+            message_obj = message
+            message = message_obj.to_dict()  # Keep dict form for legacy code
+        
+        # Store the Message object in the new messages list
+        self.handler.messages.append(message_obj)
+        
+        # Legacy support: also update return_value with dict form
         message_type = message.get("message_type")
         
         if message_type == "result":

@@ -10,6 +10,7 @@ export class JsonRenderer {
   constructor(options = {}) {
     this.options = {
       colorize: true,
+      showScores: false,  // Default to not showing scores
       ...options
     };
     
@@ -192,6 +193,39 @@ export class JsonRenderer {
     titleLink.className = 'item-title-link';
     titleRow.appendChild(titleLink);
 
+    // Add score badge if available and showScores is enabled
+    if (this.options.showScores && item.score !== undefined && item.score !== null) {
+      const scoreBadge = document.createElement('span');
+      scoreBadge.className = 'item-score-badge';
+      
+      // Determine color based on score value
+      let backgroundColor, textColor;
+      const score = parseFloat(item.score);
+      if (score >= 80) {
+        backgroundColor = '#4caf50'; // Green for high scores
+        textColor = 'white';
+      } else if (score >= 60) {
+        backgroundColor = '#ff9800'; // Orange for medium scores
+        textColor = 'white';
+      } else {
+        backgroundColor = '#f44336'; // Red for low scores
+        textColor = 'white';
+      }
+      
+      scoreBadge.style.cssText = `
+        display: inline-block;
+        margin-left: 10px;
+        padding: 2px 8px;
+        background-color: ${backgroundColor};
+        color: ${textColor};
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: bold;
+        vertical-align: middle;
+      `;
+      scoreBadge.textContent = Math.round(score);
+      titleRow.appendChild(scoreBadge);
+    }
    
     contentDiv.appendChild(titleRow);
   }

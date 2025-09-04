@@ -8,7 +8,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from chat.schemas import ChatMessage
+from core.schemas import Message
 from chat.storage import SimpleChatStorageInterface
 
 
@@ -34,7 +34,7 @@ class MemoryStorage(SimpleChatStorageInterface):
         self.storage_path = Path(config.get('storage_path', 'data/chat_storage'))
         
         # Storage structures
-        self._messages: List[ChatMessage] = []
+        self._messages: List[Message] = []
         
         # Load existing data from disk if available
         if self.persist_to_disk:
@@ -43,7 +43,7 @@ class MemoryStorage(SimpleChatStorageInterface):
             # Load data synchronously during init
             asyncio.create_task(self._load_from_disk())
     
-    async def store_message(self, message: ChatMessage) -> None:
+    async def store_message(self, message: Message) -> None:
         """
         Store a message - simply append to list and file.
         
@@ -65,7 +65,7 @@ class MemoryStorage(SimpleChatStorageInterface):
         conversation_id: str, 
         limit: int = 100,
         after_sequence_id: Optional[int] = None
-    ) -> List[ChatMessage]:
+    ) -> List[Message]:
         """
         Get messages for a conversation - filter from the list.
         
@@ -101,7 +101,7 @@ class MemoryStorage(SimpleChatStorageInterface):
                 with open(msg_file, 'w') as f:
                     pass  # Empty file
     
-    async def _append_message_to_disk(self, message: ChatMessage) -> None:
+    async def _append_message_to_disk(self, message: Message) -> None:
         """Append message to messages.jsonl file"""
         try:
             msg_file = self.storage_path / 'messages.jsonl'
@@ -129,7 +129,7 @@ class MemoryStorage(SimpleChatStorageInterface):
                         line = line.strip()
                         if line:  # Skip empty lines
                             msg_data = json.loads(line)
-                            message = ChatMessage.from_dict(msg_data)
+                            message = Message.from_dict(msg_data)
                             self._messages.append(message)
             
         except Exception as e:

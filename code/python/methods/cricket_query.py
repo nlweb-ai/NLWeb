@@ -12,6 +12,7 @@ Backwards compatibility is not guaranteed at this time.
 import asyncio
 from misc.logger.logging_config_helper import get_configured_logger
 from methods.cricketLens import query_cricket_stats
+from core.schemas import create_status_message, create_error_message, Message, SenderType, MessageType
 
 logger = get_configured_logger("cricket_query")
 
@@ -39,10 +40,10 @@ class CricketQueryHandler():
                 return
             
             # Send intermediate message
-            asyncio.create_task(self.handler.send_message({
-                "message_type": "intermediate_message",
-                "message": f"Searching cricket statistics for: {self.cricket_query}"
-            }))
+            create_status_message(
+                f"Searching cricket statistics for: {self.cricket_query}",
+                handler=self.handler
+            )
             
             # Query the cricket API - returns formatted string
             formatted_response = await query_cricket_stats(self.cricket_query)
@@ -98,25 +99,29 @@ class CricketQueryHandler():
         await self.handler.send_message(result_message)
         
         # Also send a completion message
-        await self.handler.send_message({
-            "message_type": "completion",
-            "message": "Cricket statistics retrieved successfully"
-        })
+        completion_msg = Message(
+            sender_type=SenderType.SYSTEM,
+            message_type="completion",
+            content="Cricket statistics retrieved successfully",
+            conversation_id=self.handler.conversation_id if hasattr(self.handler, 'conversation_id') else None
+        )
+        await self.handler.send_message(completion_msg.to_dict())
     
     async def _send_no_results_message(self):
         """Send message when no cricket data is found."""
-        message = {
-            "message_type": "no_results",
-            "message": f"No cricket statistics found for: {self.cricket_query}"
-        }
-        
-        asyncio.create_task(self.handler.send_message(message))
+        # Create no_results message
+        message = Message(
+            sender_type=SenderType.SYSTEM,
+            message_type=MessageType.NO_RESULTS,
+            content=f"No cricket statistics found for: {self.cricket_query}",
+            conversation_id=self.handler.conversation_id if hasattr(self.handler, 'conversation_id') else None
+        )
+        asyncio.create_task(self.handler.send_message(message.to_dict()))
     
     async def _send_error_message(self):
         """Send error message when API call fails."""
-        message = {
-            "message_type": "error",
-            "message": "Unable to retrieve cricket statistics. Please try again later."
-        }
-        
-        asyncio.create_task(self.handler.send_message(message))
+        # Create error message and auto-send
+        create_error_message(
+            "Unable to retrieve cricket statistics. Please try again later.",
+            handler=self.handler
+        )

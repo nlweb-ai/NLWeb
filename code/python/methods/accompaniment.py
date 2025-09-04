@@ -76,7 +76,7 @@ class AccompanimentHandler():
         """Send message when no matching accompaniments are found."""
         message = {
             "message_type": "no_results",
-            "message": f"Could not find any {self.search_query} that would pair well with {self.main_item}."
+            "content": f"Could not find any {self.search_query} that would pair well with {self.main_item}."
         }
         
         asyncio.create_task(self.handler.send_message(message))

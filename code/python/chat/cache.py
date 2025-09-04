@@ -7,7 +7,8 @@ from collections import OrderedDict, deque
 import threading
 from datetime import datetime
 
-from chat.schemas import ChatMessage, ParticipantInfo
+from chat.schemas import ParticipantInfo
+from core.schemas import Message
 
 
 class ConversationCache:
@@ -37,7 +38,7 @@ class ConversationCache:
         self._cache_hits = 0
         self._cache_misses = 0
     
-    def add_message(self, conversation_id: str, message: ChatMessage) -> None:
+    def add_message(self, conversation_id: str, message: Message) -> None:
         """
         Add a message to the cache.
         Thread-safe operation.
@@ -62,7 +63,7 @@ class ConversationCache:
             # Update queue size
             self._queue_sizes[conversation_id] = self._queue_sizes.get(conversation_id, 0) + 1
     
-    def get_messages(self, conversation_id: str, limit: Optional[int] = None) -> Optional[List[ChatMessage]]:
+    def get_messages(self, conversation_id: str, limit: Optional[int] = None) -> Optional[List[Message]]:
         """
         Get messages for a conversation.
         Thread-safe operation.
