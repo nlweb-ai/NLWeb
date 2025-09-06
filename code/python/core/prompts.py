@@ -21,6 +21,10 @@ prompt_runner_logger = get_configured_logger("prompt_runner")
 
 
 BASE_NS = "http://nlweb.ai/base"
+SITE_TAG = "{" + BASE_NS + "}Site"
+PROMPT_TAG = "{" + BASE_NS + "}Prompt"
+PROMPT_STRING_TAG = "{" + BASE_NS + "}promptString"
+RETURN_STRUC_TAG = "{" + BASE_NS + "}returnStruc"
 
 # This file deals with getting the right prompt for a given
 # type, site and prompt-name. 
@@ -194,12 +198,6 @@ def find_prompt(site, item_type, prompt_name):
     if cached_values is not None:
         logger.debug(f"Returning cached prompt for '{prompt_name}'")
         return cached_values
-
-    BASE_NS = "http://nlweb.ai/base"
-    SITE_TAG = "{" + BASE_NS + "}Site"
-    PROMPT_TAG = "{" + BASE_NS + "}Prompt"
-    PROMPT_STRING_TAG = "{" + BASE_NS + "}promptString"
-    RETURN_STRUC_TAG = "{" + BASE_NS + "}returnStruc"
     
     # First, try to find a Site element matching the site parameter
     site_element = None
@@ -271,7 +269,7 @@ def get_prompt_variables_from_file(xml_file_path):
         
         def process_element(element):
             # Check if current element is a promptString
-            if element.tag == '{http://nlweb.ai/base}promptString':
+            if element.tag == PROMPT_STRING_TAG:
                 prompt_text = element.text
                 if prompt_text:
                     variables = extract_variables_from_prompt(prompt_text)

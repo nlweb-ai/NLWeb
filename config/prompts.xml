@@ -128,7 +128,7 @@
       <promptString>
         Analyze the following query from the user.
         Is the user asking for only one kind of item or are they asking for multiple kinds of items.
-        If they are asking for multiple kinds of items, construct indepenent queries for each of the 
+        If they are asking for multiple kinds of items, construct independent queries for each of the 
         kinds of items, separated by semicolons. The user's query is: {request.query}.
       </promptString>
       <returnStruc>
@@ -401,11 +401,11 @@
           "memory_request": "The memory request, if any"
         }
       </returnStruc>
-     </Prompt>
+    </Prompt>
 
 
 
- <Prompt ref="ItemMatchingPrompt">
+    <Prompt ref="ItemMatchingPrompt">
       <promptString>
         The user is looking for some details about: {request.item_name} and the users query is: {request.query}.
         Assign a score between 0 and 100 for whether the following item description
@@ -431,7 +431,7 @@
       </returnStruc>
     </Prompt>
 
-        <Prompt ref="RankingPrompt">
+    <Prompt ref="RankingPrompt">
       <promptString>
         Assign a score between 0 and 100 to the following item
         based on how relevant it is to the user's question. Use your knowledge from other sources, about the item, to make a judgement. 
