@@ -18,7 +18,7 @@ import time
 from misc.logger.logging_config_helper import get_configured_logger
 from core.llm import ask_llm
 from core.config import CONFIG
-from core.prompts import fill_prompt, get_site_element
+from core.prompts import fill_prompt
 logger = get_configured_logger("tool_selector")
 
 @dataclass
