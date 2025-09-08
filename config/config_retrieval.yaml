@@ -1,4 +1,4 @@
-write_endpoint: nlweb_west
+write_endpoint: qdrant_local
 
 endpoints:
 
@@ -53,6 +53,13 @@ endpoints:
     db_type: shopify_mcp
     # Note: mcp_endpoint will be dynamically set based on the site being queried
     name: Shopify MCP Search
+
+  cloudflare_autorag:
+    enabled: false
+    api_key_env: CLOUDFLARE_API_TOKEN
+    api_endpoint_env: CLOUDFLARE_AUTORAG_ENDPOINT
+    index_name: CLOUDFLARE_RAG_ID_ENV
+    db_type: cloudflare_autorag
 
   # Milvus is still under development and not yet supported. 
   milvus:
@@ -127,25 +134,6 @@ endpoints:
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
     db_type: snowflake_cortex_search
-
-  cloudflare_autorag:
-    enabled: true
-    api_key_env: CLOUDFLARE_API_TOKEN
-    api_endpoint_env: CLOUDFLARE_AUTORAG_ENDPOINT
-    index_name: CLOUDFLARE_RAG_ID_ENV
-    db_type: cloudflare_autorag
-
-  # HNSW (Hierarchical Navigable Small World) for fast local vector search
-  hnswlib:
-    enabled: false
-    # Path to the directory containing pre-built index files
-    database_path: "data/hnswlib"
-    # Index name (used as prefix for index files)
-    index_name: nlweb_hnswlib
-    # Database type
-    db_type: hnswlib
-    # Search parameter (controls speed/accuracy tradeoff at query time)
-    ef_search: 50
 
   # Bing Web Search API for real-time web search
   bing_search:
