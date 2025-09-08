@@ -1,30 +1,11 @@
 preferred_provider: azure_openai
 
 providers:
-  openai:
-    api_key_env: OPENAI_API_KEY
-    api_endpoint_env: OPENAI_ENDPOINT
-    model: text-embedding-3-small
-
-  gemini:
-    api_key_env: GEMINI_API_KEY
-    model: gemini-embedding-exp-03-07
-
   azure_openai:
     api_key_env: AZURE_OPENAI_API_KEY
     api_endpoint_env: AZURE_OPENAI_ENDPOINT
     api_version_env: "2024-10-21"  # Specific API version for embeddings
     model: text-embedding-3-small
-
-  snowflake:
-    api_key_env: SNOWFLAKE_PAT
-    api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
-    api_version_env: "2024-10-01"
-    model: snowflake-arctic-embed-m-v1.5
-  
-  ollama:
-    api_endpoint_env: OLLAMA_URL
-    model: qwen3:0.6b
 
   elasticsearch:
     # Elasticsearch endpoint (localhost or remote URL with Elastic Cloud/Serverless)
@@ -40,3 +21,18 @@ providers:
         num_allocations: 1
         num_threads: 1
         model_id: .multilingual-e5-small_linux-x86_64
+
+  gemini:
+    api_key_env: GEMINI_API_KEY
+    model: gemini-embedding-exp-03-07
+
+  openai:
+    api_key_env: OPENAI_API_KEY
+    api_endpoint_env: OPENAI_ENDPOINT
+    model: text-embedding-3-small
+
+  snowflake:
+    api_key_env: SNOWFLAKE_PAT
+    api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
+    api_version_env: "2024-10-01"
+    model: snowflake-arctic-embed-m-v1.5

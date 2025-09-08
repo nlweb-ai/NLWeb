@@ -2,17 +2,17 @@ write_endpoint: qdrant_local
 
 endpoints:
 
-  nlweb_west:
-    enabled: false
-    api_key_env: NLWEB_WEST_API_KEY
-    api_endpoint_env: NLWEB_WEST_ENDPOINT
-    index_name: embeddings1536
-    db_type: azure_ai_search
-
   azure_ai_search:
     enabled: true
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
+    index_name: embeddings1536
+    db_type: azure_ai_search
+
+  nlweb_west:
+    enabled: false
+    api_key_env: NLWEB_WEST_API_KEY
+    api_endpoint_env: NLWEB_WEST_ENDPOINT
     index_name: embeddings1536
     db_type: azure_ai_search
 
@@ -47,12 +47,12 @@ endpoints:
     index_name: embeddings1536
     db_type: azure_ai_search
 
-  # Shopify MCP endpoint for product search across Shopify stores
-  shopify:
+  cloudflare_autorag:
     enabled: false
-    db_type: shopify_mcp
-    # Note: mcp_endpoint will be dynamically set based on the site being queried
-    name: Shopify MCP Search
+    api_key_env: CLOUDFLARE_API_TOKEN
+    api_endpoint_env: CLOUDFLARE_AUTORAG_ENDPOINT
+    index_name: CLOUDFLARE_RAG_ID_ENV
+    db_type: cloudflare_autorag
 
   # Milvus is still under development and not yet supported. 
   milvus:
@@ -121,16 +121,16 @@ endpoints:
     # Specify the database type
     db_type: qdrant
 
+  # Shopify MCP endpoint for product search across Shopify stores
+  shopify:
+    enabled: false
+    db_type: shopify_mcp
+    # Note: mcp_endpoint will be dynamically set based on the site being queried
+    name: Shopify MCP Search
+
   snowflake_cortex_search_1:
     enabled: false
     api_key_env: SNOWFLAKE_PAT
     api_endpoint_env: SNOWFLAKE_ACCOUNT_URL
     index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
     db_type: snowflake_cortex_search
-
-  cloudflare_autorag:
-    enabled: true
-    api_key_env: CLOUDFLARE_API_TOKEN
-    api_endpoint_env: CLOUDFLARE_AUTORAG_ENDPOINT
-    index_name: CLOUDFLARE_RAG_ID_ENV
-    db_type: cloudflare_autorag
