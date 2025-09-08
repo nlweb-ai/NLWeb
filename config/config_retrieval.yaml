@@ -3,14 +3,14 @@ write_endpoint: qdrant_local
 endpoints:
 
   nlweb_west:
-    enabled: true
+    enabled: false
     api_key_env: NLWEB_WEST_API_KEY
     api_endpoint_env: NLWEB_WEST_ENDPOINT
     index_name: embeddings1536
     db_type: azure_ai_search
 
   azure_ai_search:
-    enabled: false
+    enabled: true
     api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
     index_name: embeddings1536
@@ -137,7 +137,7 @@ endpoints:
 
   # Bing Web Search API for real-time web search
   bing_search:
-    enabled: true
+    enabled: false
     # API key for Bing Web Search API
     api_key_env: BING_API_KEY
     # Bing API endpoint (optional, defaults to standard Bing API)
