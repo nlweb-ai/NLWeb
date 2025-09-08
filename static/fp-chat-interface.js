@@ -8,6 +8,7 @@ import { TypeRendererFactory } from './type-renderers.js';
 import { RecipeRenderer } from './recipe-renderer.js';
 import { MapDisplay } from './display_map.js';
 import { ConversationManager } from './conversation-manager.js';
+import eventBus from './chat/event-bus.js';
 
 class ModernChatInterface {
   constructor(options = {}) {
@@ -287,8 +288,19 @@ class ModernChatInterface {
     this.elements.chatInput.value = '';
     this.elements.chatInput.style.height = 'auto';
     
-    // Get response
-    this.getStreamingResponse(message);
+    // Check connection mode toggle
+    const connectionToggle = document.getElementById('connectionModeToggle');
+    const useWebSocket = connectionToggle ? connectionToggle.checked : false;
+    
+    if (useWebSocket) {
+      // Use existing WebSocket service
+      const sites = this.selectedSite !== 'all' ? [this.selectedSite] : [];
+      const mode = this.selectedMode || 'list';
+      websocketService.sendMessage(message, sites, mode);
+    } else {
+      // Use SSE path
+      this.getStreamingResponse(message);
+    }
   }
   
   async addMessage(content, type) {
@@ -495,11 +507,6 @@ class ModernChatInterface {
     // Use native EventSource directly
     this.eventSource = new EventSource(url);
     
-    let firstChunk = true;
-    let firstResultShown = false;
-    let messageContent = '';
-    let allResults = [];
-    
     // Clear debug messages for new request
     this.debugMessages = [];
     
@@ -514,301 +521,50 @@ class ModernChatInterface {
           timestamp: new Date().toISOString()
         });
         
-        if (firstChunk) {
-          // Clear loading dots
-          textDiv.innerHTML = '';
-          firstChunk = false;
+        // Convert SSE format to WebSocket event format
+        const wsMessage = {
+          type: 'ai_response',
+          message_type: data.message_type || data.type || 'unknown',
+          content: data.content || data.answer || data.message || data.results,
+          items: data.items || data.results,
+          conversation_id: this.currentConversationId,
+          timestamp: data.timestamp || Date.now(),
+          sender_info: {
+            id: 'nlweb_assistant',
+            name: 'NLWeb Assistant'
+          },
+          // Preserve all original fields
+          ...data
+        };
+        
+        // Emit the same events that WebSocket would emit
+        eventBus.emit('websocket:ai_response', wsMessage);
+        
+        // Also emit specific message type event (like WebSocket does)
+        if (wsMessage.message_type) {
+          eventBus.emit(`websocket:ai_response:${wsMessage.message_type}`, wsMessage);
         }
         
-        // Scroll to user message when first actual result appears
-        if (!firstResultShown && (data.message_type === 'fast_track' || 
-            (data.message_type === 'content' && data.content) || 
-            (data.items && data.items.length > 0))) {
-          firstResultShown = true;
-          this.scrollToUserMessage();
-        }
-        
-        // Don't clear intermediate messages - keep them for context
-        // if (textDiv) {
-        //   const tempDivs = textDiv.querySelectorAll('.temp_intermediate');
-        //   tempDivs.forEach(div => div.remove());
-        // }
-        
-        // Add timestamp display if enabled and timestamp exists
-        if (this.showTimestamps && data.timestamp) {
-          const date = new Date(data.timestamp);
-          const timeStr = date.toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit'
-          });
-          messageContent += `<span style="font-size: 11px; color: #888; font-family: monospace;">[${timeStr}]</span> `;
-        }
-        
-        // Handle different message types
-        if (data.message_type === 'result' && data.content) {
-          // Clone existing intermediate messages before updating innerHTML
-          const intermediateClones = [];
-          const existingIntermediates = textDiv.querySelectorAll('.temp_intermediate');
-          console.log(`Found ${existingIntermediates.length} intermediate messages to preserve`);
-          existingIntermediates.forEach(elem => {
-            intermediateClones.push(elem.cloneNode(true));
-          });
-          
-          // Check if it's a summary based on @type field
-          if (data['@type'] === 'Summary') {
-            messageContent += data.content + '\n\n';
-            textDiv.innerHTML = messageContent + this.renderItems(allResults);
-          } else {
-            // Accumulate all results instead of replacing
-            allResults = allResults.concat(data.content);
-            textDiv.innerHTML = messageContent + this.renderItems(allResults);
-          }
-          
-          // Re-append the cloned intermediate messages
-          console.log(`Re-appending ${intermediateClones.length} intermediate messages`);
-          intermediateClones.forEach(clone => {
-            textDiv.appendChild(clone);
-          });
-        } else if (data.message_type === 'intermediate_message') {
-          // Handle intermediate messages with temp_intermediate class
-          const tempContainer = document.createElement('div');
-          tempContainer.className = 'temp_intermediate';
-          
-          if (data.content) {
-            // Use the same rendering as result
-            tempContainer.innerHTML = this.renderItems(data.content);
-          } else if (data.content) {
-            // Handle text-only intermediate messages in italics
-            const textSpan = document.createElement('span');
-            textSpan.style.fontStyle = 'italic';
-            textSpan.textContent = data.content;
-            tempContainer.appendChild(textSpan);
-          }
-          
-          // Just append the intermediate message without resetting innerHTML
-          // This preserves any existing intermediate messages
-          textDiv.appendChild(tempContainer);
-        } else if (data.message_type === 'ask_user' && data.content) {
-          messageContent += data.content + '\n';
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
-        } else if (data.message_type === 'asking_sites' && data.content) {
-          messageContent += `Searching: ${data.content}\n\n`;
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
-        } else if (data.message_type === 'site_querying') {
-          // Show when a site is being queried
-          const queryingMsg = `→ Querying ${data.site_name || data.site} (${data.index}/${data.total})...\n`;
-          messageContent += queryingMsg;
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
-        } else if (data.message_type === 'site_complete') {
-          // Show intermediate message when a site completes
-          const siteMsg = `✓ ${data.site}: ${data.results_count} results found\n`;
-          messageContent += siteMsg;
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
-        } else if (data.message_type === 'site_error') {
-          // Show error message for failed sites (but only if not a common "no endpoints" error)
-          if (!data.error || !data.error.includes('No valid endpoints')) {
-            const errorMsg = `✗ ${data.site}: Failed to retrieve results\n`;
-            messageContent += errorMsg;
-            textDiv.innerHTML = messageContent + this.renderItems(allResults);
-          }
-        } else if (data.message_type === 'decontextualized_query') {
-          // Display the decontextualized query if different from original
-          if (data.decontextualized_query && data.original_query && 
-              data.decontextualized_query !== data.original_query) {
-            const decontextMsg = `<div style="font-style: italic; color: #666; margin-bottom: 10px;">Query interpreted as: "${data.decontextualized_query}"</div>`;
-            messageContent = decontextMsg + messageContent;
-            textDiv.innerHTML = messageContent + this.renderItems(allResults);
-          }
-        } else if (data.message_type === 'item_details') {
-          // Handle item_details message type
-          // Map details to description for proper rendering
-          let description = data.details;
-          
-          // If details is an object (like nutrition info), format it as a string
-          if (typeof data.details === 'object' && data.details !== null) {
-            description = Object.entries(data.details)
-              .map(([key, value]) => `${key}: ${value}`)
-              .join(', ');
-          }
-          
-          const mappedData = {
-            ...data,
-            description: description
-          };
-          
-          // Add to results array
-          allResults.push(mappedData);
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
-        } else if (data.message_type === 'ensemble_result') {
-          // Handle ensemble result message type
-          if (data.result && data.result.recommendations) {
-            const ensembleHtml = this.renderEnsembleResult(data.result);
-            textDiv.innerHTML = messageContent + ensembleHtml + this.renderItems(allResults);
-          }
-        } else if (data.message_type === 'remember' && data.item_to_remember) {
-          // Handle remember message
-          const rememberMsg = `<div style="background-color: #e8f4f8; padding: 10px; border-radius: 6px; margin-bottom: 10px; color: #0066cc;">I will remember that</div>`;
-          messageContent = rememberMsg + messageContent;
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
-          
-          // Add to remembered items
-          this.addRememberedItem(data.item_to_remember);
-        } else if (data.message_type === 'multi_site_complete') {
-          // Handle multi-site query completion - rerank results to avoid too many from same site
-          if (allResults && allResults.length > 0 && this.selectedSite === 'all') {
-            // Apply reranking algorithm
-            const rerankedResults = this.rerankResults(allResults);
-            
-            // Clear and redisplay with reranked results (skip sorting since we've already reranked)
-            allResults = rerankedResults;
-            textDiv.innerHTML = messageContent + this.renderItems(allResults, true);
-          }
-        } else if (data.message_type === 'query_analysis') {
-          // Handle query analysis which may include decontextualized query
-          if (data.decontextualized_query && query && 
-              data.decontextualized_query !== query) {
-            const decontextMsg = `<div style="font-style: italic; color: #666; margin-bottom: 10px;">Query interpreted as: "${data.decontextualized_query}"</div>`;
-            messageContent = decontextMsg + messageContent;
-            textDiv.innerHTML = messageContent + this.renderItems(allResults);
-          }
-          
-          // Also check for item_to_remember in query_analysis
-          if (data.item_to_remember) {
-            const rememberMsg = `<div style="background-color: #e8f4f8; padding: 10px; border-radius: 6px; margin-bottom: 10px; color: #0066cc;">I will remember that: "${data.item_to_remember}"</div>`;
-            messageContent = rememberMsg + messageContent;
-            textDiv.innerHTML = messageContent + this.renderItems(allResults);
-            
-            // Add to remembered items
-            this.addRememberedItem(data.item_to_remember);
-          }
-
-        } else if (data.message_type === 'api_key') {
-          // API key handling removed (Google Maps no longer used)
-          
-        } else if (data.message_type === 'nlws') {
-          // Handle NLWS message type (Natural Language Web Search synthesized response)
-          
-          // Update the answer if provided
-          if (data.answer && typeof data.answer === 'string') {
-            messageContent = data.answer + '\n\n';
-          }
-          
-          // Update the items if provided
-          if (data.items && Array.isArray(data.items)) {
-            allResults = data.items;
-          }
-          
-          // Always update the display with current answer and items
-          textDiv.innerHTML = messageContent + this.renderItems(allResults);
-          
-        } else if (data.message_type === 'chart_result') {
-          // Handle chart result (web components)
-          
-          if (data.html) {
-            // Create container for the chart
-            const chartContainer = document.createElement('div');
-            chartContainer.className = 'chart-result-container';
-            chartContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px; min-height: 400px;';
-            
-            // Parse the HTML to extract just the web component (remove script tags)
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(data.html, 'text/html');
-            
-            // Find all datacommons elements
-            const datacommonsElements = doc.querySelectorAll('[datacommons-scatter], [datacommons-bar], [datacommons-line], [datacommons-pie], [datacommons-map], datacommons-scatter, datacommons-bar, datacommons-line, datacommons-pie, datacommons-map');
-            
-            // Append each web component directly
-            datacommonsElements.forEach(element => {
-              // Clone the element to ensure we get all attributes
-              const clonedElement = element.cloneNode(true);
-              chartContainer.appendChild(clonedElement);
-            });
-            
-            // If no datacommons elements found, try to add the raw HTML (excluding scripts)
-            if (datacommonsElements.length === 0) {
-              const allElements = doc.body.querySelectorAll('*:not(script)');
-              allElements.forEach(element => {
-                chartContainer.appendChild(element.cloneNode(true));
-              });
-            }
-            
-            // Append the chart to the message content
-            textDiv.innerHTML = messageContent + this.renderItems(allResults);
-            textDiv.appendChild(chartContainer);
-            
-            
-            // Force re-initialization of Data Commons components if available
-            if (window.datacommons && window.datacommons.init) {
-              setTimeout(() => {
-                window.datacommons.init();
-              }, 100);
-            }
-          }
-
-        } else if (data.message_type === 'results_map') {
-          // Handle results map
-          
-          if (data.locations && Array.isArray(data.locations) && data.locations.length > 0) {
-            
-            // Create container for the map
-            const mapContainer = document.createElement('div');
-            mapContainer.className = 'results-map-container';
-            mapContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px;';
-            
-            // Create the map div
-            const mapDiv = document.createElement('div');
-            mapDiv.id = 'results-map-' + Date.now();
-            mapDiv.style.cssText = 'width: 100%; height: 250px; border-radius: 6px;';
-            
-            // Add a title
-            const mapTitle = document.createElement('h3');
-            mapTitle.textContent = 'Result Locations';
-            mapTitle.style.cssText = 'margin: 0 0 10px 0; color: #333; font-size: 1.1em;';
-            
-            mapContainer.appendChild(mapTitle);
-            mapContainer.appendChild(mapDiv);
-            
-            // Prepend map BEFORE the results
-            textDiv.innerHTML = ''; // Clear existing content
-            textDiv.appendChild(mapContainer); // Add map first
-            
-            // Then add the message content and results
-            const contentDiv = document.createElement('div');
-            contentDiv.innerHTML = messageContent + this.renderItems(allResults);
-            textDiv.appendChild(contentDiv);
-            
-            
-            // Initialize the map using the imported MapDisplay class
-            MapDisplay.initializeResultsMap(mapDiv, data.locations);
-          } else {
-          }
-
-        } else if (data.message_type === 'complete' || data.message_type === 'end-nlweb-response') {
-          // Scroll back to user message after NLWeb finishes
-          setTimeout(() => {
-            this.scrollToUserMessage();
-          }, 100);
+        // Handle completion
+        if (data.message_type === 'complete' || data.message_type === 'end-nlweb-response') {
+          eventBus.emit('websocket:stream_complete', wsMessage);
           this.endStreaming();
-          return; // Exit early to avoid setting content on null
+          return;
         }
         
-        // Only update content if streaming message still exists
-        if (this.currentStreamingMessage) {
-          this.currentStreamingMessage.content = messageContent;
-          this.currentStreamingMessage.allResults = allResults;
-        }
       } catch (e) {
       }
     };
     
     this.eventSource.onerror = (error) => {
-      this.endStreaming();
+      // Emit error event
+      eventBus.emit('websocket:error', {
+        type: 'error',
+        message: 'Sorry, an error occurred while processing your request.',
+        conversation_id: this.currentConversationId
+      });
       
-      if (firstChunk) {
-        textDiv.innerHTML = 'Sorry, an error occurred while processing your request.';
-      }
+      this.endStreaming();
     };
     
     this.eventSource.onopen = () => {

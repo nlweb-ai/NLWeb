@@ -755,10 +755,104 @@ body {
   color: var(--accent-color, #6B46C1);
 }
 
+/* Connection Mode Toggle */
+.connection-toggle {
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.connection-toggle:hover {
+  opacity: 1;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  border-radius: 20px;
+  transition: 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+
+input:checked + .toggle-slider {
+  background-color: #6c757d;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(24px);
+}
+
+.toggle-label-left,
+.toggle-label-right {
+  font-size: 8px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.toggle-label-left {
+  opacity: 0.9;
+  transition: opacity 0.3s;
+}
+
+.toggle-label-right {
+  opacity: 0.6;
+  transition: opacity 0.3s;
+}
+
+input:checked + .toggle-slider .toggle-label-left {
+  opacity: 0.6;
+}
+
+input:checked + .toggle-slider .toggle-label-right {
+  opacity: 0.9;
+}
+
 /* Responsive overrides */
 @media (max-width: 768px) {
   .messages-container,
   .chat-input-wrapper {
     padding: 16px;
+  }
+  
+  .connection-toggle {
+    order: -1;
   }
 }

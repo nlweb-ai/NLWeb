@@ -242,7 +242,7 @@ export class JsonRenderer {
     
     const visibleUrlLink = document.createElement("a");
     // Link to the site-specific search page
-    visibleUrlLink.href = `/?site=${encodeURIComponent(siteName)}`;
+    visibleUrlLink.href = `/ask?site=${encodeURIComponent(siteName)}`;
     // Use textContent for safe insertion
     visibleUrlLink.textContent = siteName;
     visibleUrlLink.className = 'item-site-link';

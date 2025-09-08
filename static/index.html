@@ -61,6 +61,16 @@
           <span class="chat-site-info" id="chat-site-info">Asking all</span>
         </div>
         <div class="chat-header-right">
+          <!-- Connection Mode Toggle (hidden) -->
+          <div class="connection-toggle" title="Toggle between WebSocket and SSE" style="display: none;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="connectionModeToggle" checked>
+              <span class="toggle-slider">
+                <span class="toggle-label-left">SSE</span>
+                <span class="toggle-label-right">WS</span>
+              </span>
+            </label>
+          </div>
           <button class="share-button" id="shareBtn" title="Share conversation">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>

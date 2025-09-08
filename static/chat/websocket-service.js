@@ -172,7 +172,7 @@ class WebSocketService {
             conversation_id: this.conversationId,
             content: {
                 query: content,
-                site: sites.length > 0 ? sites[0] : null,  // Use first site if multiple
+                site: sites.length > 0 ? sites[0] : 'all',  // Use 'all' for multi-site queries
                 mode: mode
             },
             participant: this.participantInfo
