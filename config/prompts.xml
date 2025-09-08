@@ -185,6 +185,8 @@
         Provide a short description of the item that is relevant to the user's question, without mentioning the user's question.
         Provide an explanation of the relevance of the item to the user's question, without mentioning the user's question or the score or explicitly mentioning the term relevance.
         If the score is below 75, in the description, include the reason why it is still relevant.
+        The description you generate should be in the same language as the item's description.
+          
         The user's question is: {request.query}. The item's description is {item.description}
       </promptString>
       <returnStruc>
@@ -203,6 +205,9 @@
         If the score is above 50, provide a short description of the item highlighting the relevance to the user's question, without mentioning the user's question.
         Provide an explanation of the relevance of the item to the user's question, without mentioning the user's question or the score or explicitly mentioning the term relevance.
         If the score is below 75, in the description, include the reason why it is still relevant.
+        The description you generate should be in the same language as the item's description.
+          
+
         The user's question is: \"{request.query}\". The item's description in schema.org format is \"{item.description}\".
       </promptString>
       <returnStruc>
@@ -763,6 +768,8 @@
           
           Consider that this result is being compared against results from multiple different sites,
           so factor in the credibility and relevance of the source site as well.
+
+          The description you generate should be in the same language as the item's description.
           
           The user's question is: "{request.query}". 
           The item's description is: "{item.description}".
