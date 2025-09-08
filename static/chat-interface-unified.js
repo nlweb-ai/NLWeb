@@ -550,21 +550,23 @@ export class UnifiedChatInterface {
       });
     }
     
-    // Create complete message object
+    // Create complete message object with structured content
     const message = {
       message_id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       conversation_id: this.state.conversationId,
       type: 'message',
       message_type: 'user',
-      content: content,
+      content: {
+        query: content,
+        site: this.state.selectedSite,
+        mode: this.state.selectedMode,
+        prev_queries: prevQueries  // Include previous queries for NLWeb context
+      },
       timestamp: Date.now(),
       sender_info: {
         id: userId,
         name: userName
-      },
-      site: this.state.selectedSite,
-      mode: this.state.selectedMode,
-      prev_queries: prevQueries  // Include previous queries for NLWeb context
+      }
     };
     
     // Add search_all_users parameter if we're searching conversation history
@@ -1433,7 +1435,13 @@ export class UnifiedChatInterface {
     
     const textDiv = document.createElement('div');
     textDiv.className = 'message-text';
-    textDiv.textContent = content;
+    
+    // Extract query from content if it's an object (for user messages)
+    let displayContent = content;
+    if (typeof content === 'object' && content.query) {
+      displayContent = content.query;
+    }
+    textDiv.textContent = displayContent;
     bubble.appendChild(textDiv);
     
     this.dom.messages()?.appendChild(bubble);

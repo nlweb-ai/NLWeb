@@ -59,7 +59,7 @@ class PrevQueryDecontextualizer(NoOpDecontextualizer):
             return
         
         response = await self.run_prompt(self.DECONTEXTUALIZE_QUERY_PROMPT_NAME, 
-                                         level="high", verbose=False)
+                                         level="high", verbose=True)
         logger.info(f"response: {response}")
         if response is None:
             logger.info("No response from decontextualizer")

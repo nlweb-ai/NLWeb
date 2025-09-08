@@ -1286,20 +1286,8 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
                                     print(f"[AUTO-JOIN] Creating NLWebParticipant")
                                     nlweb = NLWebParticipant(nlweb_handler, config)
                                     conv_manager.add_participant(conversation_id, nlweb)
-                        print(f"User ID: {user_id}")
-                        print(f"Content: {data.get('content', '')[:100]}")
-                        print(f"Type: {data.get('type')}")
                         
-                        # Extract site and mode from the WebSocket message
-                        # Restructure the content to be a UserQuery with site and mode
-                        if isinstance(data.get('content'), str):
-                            # Convert plain string content to UserQuery format
-                            data['content'] = {
-                                'query': data['content'],
-                                'site': data.get('site'),
-                                'mode': data.get('mode')
-                            }
-                        
+                        # Frontend now sends properly structured messages with content field
                         message = Message.from_dict(data)
                         
                         # Process through conversation manager

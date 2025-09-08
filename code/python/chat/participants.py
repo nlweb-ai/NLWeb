@@ -201,43 +201,6 @@ class NLWebParticipant(BaseParticipant):
             Response message if NLWeb responds, None otherwise
         """
         try:
-            # Prepare query parameters for NLWebHandler
-            # Check if content is a UserQuery object
-            if hasattr(message.content, 'query'):
-                # Content is a UserQuery object
-                query_text = message.content.query
-                site = message.content.site or 'all'
-                mode = message.content.mode or 'list'
-            else:
-                # Content is a plain string
-                query_text = message.content
-                site = 'all'
-                mode = 'list'
-            
-            query_params = {
-                "query": [query_text],
-                "user_id": [message.sender_info.get('id')],
-                "streaming": ["true"],  # Enable streaming
-                "conversation_id": [message.conversation_id],  # Pass conversation_id
-                "site": [site],
-                "generate_mode": [mode]
-            }
-            
-            # Pass through search_all_users parameter for conversation history search
-            search_all_users = getattr(message, 'search_all_users', None)
-            if search_all_users is not None:
-                query_params["search_all_users"] = [str(search_all_users).lower()]
-            
-            # Use prev_queries from the message if provided
-            prev_queries = getattr(message, 'prev_queries', None)
-            if prev_queries:
-                query_params["prev"] = [json.dumps(prev_queries)]
-            else:
-                # Fallback to building context from chat history (for backwards compatibility)
-                nlweb_context = self.context_builder.build_context(context, message)
-                if nlweb_context["prev_queries"]:
-                    query_params["prev"] = [json.dumps(nlweb_context["prev_queries"])]
-            
             # Track if we've sent any response
             response_sent = False
             conversation_id = message.conversation_id
@@ -256,8 +219,10 @@ class NLWebParticipant(BaseParticipant):
                         asyncio.create_task(websocket_manager.broadcast_message(conversation_id, data))
             
             chunk_capture = ChunkCapture()
-          
-            handler = self.nlweb_handler(query_params, chunk_capture)
+            
+            # Use the new class method to create handler from message
+            # This encapsulates all message parsing logic within NLWebHandler
+            handler = self.nlweb_handler.from_message(message, chunk_capture)
             results = await handler.runQuery()
             
             # If we streamed the response, create a message for storage

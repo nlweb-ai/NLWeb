@@ -46,7 +46,6 @@ class NLWebHandler:
         import time
         logger.info("Initializing NLWebHandler")
         
-        
         self.http_handler = http_handler
         self.query_params = query_params
         
@@ -172,6 +171,67 @@ class NLWebHandler:
         # Add the initial user query message to messages list
         initial_user_message = self.message_sender.create_initial_user_message()
         self.messages.append(initial_user_message)
+    
+    @classmethod
+    def from_message(cls, message, http_handler):
+        """
+        Create NLWebHandler from a Message object.
+        Extracts all necessary parameters from the message structure.
+        
+        Args:
+            message: Message object with UserQuery content
+            http_handler: HTTP handler for streaming responses
+        
+        Returns:
+            NLWebHandler instance configured from the message
+        """
+        import json
+        
+        # Initialize query_params dict
+        query_params = {}
+        
+        # Extract from message content (UserQuery object or dict)
+        content = message.content
+        if hasattr(content, 'query'):
+            # UserQuery object
+            query_params["query"] = [content.query]
+            query_params["site"] = [content.site] if content.site else ["all"]
+            query_params["generate_mode"] = [content.mode] if content.mode else ["list"]
+            if content.prev_queries:
+                query_params["prev"] = [json.dumps(content.prev_queries)]
+        elif isinstance(content, dict):
+            # Dict with query structure
+            query_params["query"] = [content.get('query', '')]
+            query_params["site"] = [content.get('site', 'all')]
+            query_params["generate_mode"] = [content.get('mode', 'list')]
+            if content.get('prev_queries'):
+                query_params["prev"] = [json.dumps(content['prev_queries'])]
+        else:
+            # Plain string content (fallback)
+            query_params["query"] = [str(content)]
+            query_params["site"] = ["all"]
+            query_params["generate_mode"] = ["list"]
+        
+        # Extract from message metadata
+        if message.sender_info:
+            query_params["user_id"] = [message.sender_info.get('id', '')]
+            query_params["oauth_id"] = [message.sender_info.get('id', '')]
+        
+        # Add conversation tracking
+        if message.conversation_id:
+            query_params["conversation_id"] = [message.conversation_id]
+        
+        # Add streaming flag (always true for WebSocket/chat)
+        query_params["streaming"] = ["true"]
+        
+        # Extract any additional parameters from message metadata
+        if hasattr(message, 'metadata') and message.metadata:
+            # Pass through search_all_users if present
+            if 'search_all_users' in message.metadata:
+                query_params["search_all_users"] = [str(message.metadata['search_all_users']).lower()]
+        
+        # Create and return NLWebHandler instance
+        return cls(query_params, http_handler)
         
     @property 
     def is_connection_alive(self):

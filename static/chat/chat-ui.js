@@ -317,8 +317,12 @@ export class ChatUI {
             return `<div class="message-text">${rendered}</div>`;
         }
         
-        // Regular user message - render as text
-        const rendered = secureRenderer.renderText(message.content || '');
+        // Regular user message - extract query from content if it's an object
+        let textContent = message.content || '';
+        if (typeof textContent === 'object' && textContent.query) {
+            textContent = textContent.query;
+        }
+        const rendered = secureRenderer.renderText(textContent);
         return `<div class="message-text">${rendered}</div>`;
     }
 
@@ -520,7 +524,12 @@ export class ChatUI {
             // Update existing message content
             const contentElement = messageElement.querySelector('.message-content');
             if (contentElement) {
-                const rendered = secureRenderer.renderText(update.content);
+                // Extract query from content if it's an object
+                let textContent = update.content || '';
+                if (typeof textContent === 'object' && textContent.query) {
+                    textContent = textContent.query;
+                }
+                const rendered = secureRenderer.renderText(textContent);
                 contentElement.innerHTML = `<div class="message-text">${rendered}</div>`;
             }
         }

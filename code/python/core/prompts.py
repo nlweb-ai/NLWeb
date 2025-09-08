@@ -217,14 +217,23 @@ def find_prompt(site, item_type, prompt_name):
     
     # If site element found, search for matching Type element within it
     for candidate_root in candidate_roots:
-        for child in candidate_root:
-            if (super_class_of(item_type, child.tag)):
-                children = child.findall(PROMPT_TAG)
-                
-                for pe in children:
-                    if pe.get("ref") == prompt_name:
-                        prompt_element = pe
-                        break
+        # First check for prompts directly at root level
+        root_prompts = candidate_root.findall(PROMPT_TAG)
+        for pe in root_prompts:
+            if pe.get("ref") == prompt_name:
+                prompt_element = pe
+                break
+        
+        # If not found at root, search within Type elements
+        if prompt_element is None:
+            for child in candidate_root:
+                if (super_class_of(item_type, child.tag)):
+                    children = child.findall(PROMPT_TAG)
+                    
+                    for pe in children:
+                        if pe.get("ref") == prompt_name:
+                            prompt_element = pe
+                            break
     
     if prompt_element is not None:
         prompt_text = prompt_element.find(PROMPT_STRING_TAG).text
@@ -307,6 +316,31 @@ class PromptRunner:
     def get_prompt(self, prompt_name):
         item_type = self.handler.item_type
         site = self.handler.site
+        
+        # Hardcoded PrevQueryDecontextualizer prompt
+        if prompt_name == 'PrevQueryDecontextualizer':
+            prompt_str = """The user is querying the site {request.site} which has {site.itemType}s.
+        Rewrite the query, incorporating the context of the previous queries and answers.
+        Keep the decontextualized query short and do not reference the site. 
+
+        If the query very clearly does not reference earlier queries, 
+        don't change the query. Err on the side of incorporating the context of the 
+        previous queries. If you are not sure whether this is a brand new query, 
+        or follow up, it is likely a follow up. Try your best to incorporate the 
+        context from the previous queries.
+
+        The user's query is: {request.rawQuery}. 
+        Previous queries were: {request.previousQueries}."""
+            
+            ans_struc = {
+                "requires_decontextualization": "True or False",
+                "decontextualized_query": "The rewritten query, if decontextualization is required"
+            }
+            return prompt_str, ans_struc
+        
+        # For other decontextualization prompts, use 'default' site to find root-level prompts
+        if 'Decontextualizer' in prompt_name:
+            site = 'default'
         
         prompt_str, ans_struc = find_prompt(site, item_type, prompt_name)
 
