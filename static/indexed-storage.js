@@ -3,6 +3,8 @@
  * Provides async storage with no size limits
  */
 
+import { Message } from './schemas.js';
+
 class IndexedStorage {
   constructor() {
     this.dbName = 'NLWebDB_v1';
@@ -31,14 +33,7 @@ class IndexedStorage {
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
 
-        // Create conversations store
-        if (!db.objectStoreNames.contains('conversations')) {
-          const convStore = db.createObjectStore('conversations', { keyPath: 'id' });
-          convStore.createIndex('timestamp', 'timestamp', { unique: false });
-          convStore.createIndex('site', 'site', { unique: false });
-        }
-
-        // Create messages store
+        // Create messages store only - conversations are reconstructed from messages
         if (!db.objectStoreNames.contains('messages')) {
           const msgStore = db.createObjectStore('messages', { keyPath: 'message_id' });
           msgStore.createIndex('conversation_id', 'conversation_id', { unique: false });
@@ -60,62 +55,13 @@ class IndexedStorage {
   }
 
   /**
-   * Save a conversation
-   */
-  async saveConversation(conversation) {
-    const db = await this.ensureDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['conversations'], 'readwrite');
-      const store = transaction.objectStore('conversations');
-      const request = store.put(conversation);
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  /**
-   * Get all conversations
-   */
-  async getAllConversations() {
-    const db = await this.ensureDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['conversations'], 'readonly');
-      const store = transaction.objectStore('conversations');
-      const request = store.getAll();
-
-      request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  /**
-   * Get a specific conversation
-   */
-  async getConversation(conversationId) {
-    const db = await this.ensureDB();
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['conversations'], 'readonly');
-      const store = transaction.objectStore('conversations');
-      const request = store.get(conversationId);
-
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
-
-  /**
-   * Delete a conversation
+   * Delete a conversation (removes all messages for this conversation)
    */
   async deleteConversation(conversationId) {
     const db = await this.ensureDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['conversations', 'messages'], 'readwrite');
+      const transaction = db.transaction(['messages'], 'readwrite');
       
-      // Delete conversation
-      const convStore = transaction.objectStore('conversations');
-      convStore.delete(conversationId);
-
       // Delete all messages for this conversation
       const msgStore = transaction.objectStore('messages');
       const index = msgStore.index('conversation_id');
@@ -142,7 +88,10 @@ class IndexedStorage {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['messages'], 'readwrite');
       const store = transaction.objectStore('messages');
-      const request = store.put(message);
+      
+      // Convert Message object to plain object if needed
+      const messageData = message instanceof Message ? message.toDict() : message;
+      const request = store.put(messageData);
 
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
@@ -159,7 +108,9 @@ class IndexedStorage {
       const store = transaction.objectStore('messages');
       
       messages.forEach(message => {
-        store.put(message);
+        // Convert Message object to plain object if needed
+        const messageData = message instanceof Message ? message.toDict() : message;
+        store.put(messageData);
       });
 
       transaction.oncomplete = () => resolve();
@@ -179,9 +130,14 @@ class IndexedStorage {
       const request = index.getAll(conversationId);
 
       request.onsuccess = () => {
-        const messages = request.result || [];
-        // Sort by timestamp
-        messages.sort((a, b) => a.timestamp - b.timestamp);
+        const rawMessages = request.result || [];
+        // Convert to Message objects and sort by timestamp
+        const messages = rawMessages.map(data => Message.fromDict(data));
+        messages.sort((a, b) => {
+          const timeA = new Date(a.timestamp).getTime();
+          const timeB = new Date(b.timestamp).getTime();
+          return timeA - timeB;
+        });
         resolve(messages);
       };
       request.onerror = () => reject(request.error);
@@ -199,9 +155,14 @@ class IndexedStorage {
       const request = store.getAll();
 
       request.onsuccess = () => {
-        const messages = request.result || [];
-        // Sort by timestamp
-        messages.sort((a, b) => a.timestamp - b.timestamp);
+        const rawMessages = request.result || [];
+        // Convert to Message objects and sort by timestamp
+        const messages = rawMessages.map(data => Message.fromDict(data));
+        messages.sort((a, b) => {
+          const timeA = new Date(a.timestamp).getTime();
+          const timeB = new Date(b.timestamp).getTime();
+          return timeA - timeB;
+        });
         resolve(messages);
       };
       request.onerror = () => reject(request.error);
@@ -227,6 +188,7 @@ class IndexedStorage {
    * Update a message
    */
   async updateMessage(message) {
+    // Accepts either Message object or plain object
     return this.saveMessage(message); // put() will update if exists
   }
 
@@ -236,9 +198,8 @@ class IndexedStorage {
   async clearAll() {
     const db = await this.ensureDB();
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['conversations', 'messages'], 'readwrite');
+      const transaction = db.transaction(['messages'], 'readwrite');
       
-      transaction.objectStore('conversations').clear();
       transaction.objectStore('messages').clear();
 
       transaction.oncomplete = () => resolve();
@@ -268,14 +229,10 @@ const indexedStorage = new IndexedStorage();
 // Debug function for console - dump all data
 window.dumpIndexedDB = async function() {
   try {
-    const conversations = await indexedStorage.getAllConversations();
     const messages = await indexedStorage.getAllMessages();
     
     console.log('=== INDEXEDDB DUMP ===');
-    console.log(`Total: ${conversations.length} conversations, ${messages.length} messages\n`);
-    
-    console.log('=== CONVERSATIONS ===');
-    console.table(conversations);
+    console.log(`Total: ${messages.length} messages\n`);
     
     console.log('\n=== MESSAGES BY CONVERSATION ===');
     const messagesByConv = {};
@@ -315,9 +272,8 @@ window.dumpIndexedDB = async function() {
 
 // Shorthand version - just show counts
 window.dbStats = async function() {
-  const conversations = await indexedStorage.getAllConversations();
   const messages = await indexedStorage.getAllMessages();
-  console.log(`IndexedDB: ${conversations.length} conversations, ${messages.length} messages`);
+  console.log(`IndexedDB: ${messages.length} messages`);
   
   // Group messages by type
   const messageTypes = {};
