@@ -131,7 +131,7 @@ endpoints:
 
   # Bing Web Search API for real-time web search
   bing_search:
-    enabled: false
+    enabled: true
     # API key for Bing Web Search API
     api_key_env: BING_API_KEY
     # Bing API endpoint (optional, defaults to standard Bing API)

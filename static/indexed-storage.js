@@ -226,6 +226,13 @@ class IndexedStorage {
 // Create singleton instance
 const indexedStorage = new IndexedStorage();
 
+// Export for use in modules
+export { indexedStorage, IndexedStorage };
+
+// Also expose globally for backward compatibility
+window.indexedStorage = indexedStorage;
+window.IndexedStorage = IndexedStorage;
+
 // Debug function for console - dump all data
 window.dumpIndexedDB = async function() {
   try {
@@ -283,10 +290,5 @@ window.dbStats = async function() {
   console.log('Message types:', messageTypes);
 };
 
-// Expose to window for global access
-window.indexedStorage = indexedStorage;
-
-// Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = indexedStorage;
-}
+// Export default for ES6 modules
+export default indexedStorage;

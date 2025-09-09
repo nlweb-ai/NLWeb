@@ -1922,7 +1922,23 @@ export class UnifiedChatInterface {
     
     // Format and display messages
     try {
-      content.textContent = JSON.stringify(conversationMessages, null, 2);
+      // Convert Message objects to plain objects if needed
+      const plainMessages = conversationMessages.map(msg => {
+        // If it's a Message object, convert to plain object
+        if (msg && typeof msg.toDict === 'function') {
+          return msg.toDict();
+        }
+        // If it's already a string (raw JSON), parse it first
+        if (typeof msg === 'string') {
+          try {
+            return JSON.parse(msg);
+          } catch {
+            return msg;
+          }
+        }
+        return msg;
+      });
+      content.textContent = JSON.stringify(plainMessages, null, 2);
     } catch (e) {
       content.textContent = 'Error formatting messages: ' + e.message;
     }
@@ -1934,7 +1950,21 @@ export class UnifiedChatInterface {
     copyBtn.textContent = 'Copy to Clipboard';
     copyBtn.style.cssText = 'margin-top: 10px; padding: 8px 16px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer;';
     copyBtn.onclick = () => {
-      navigator.clipboard.writeText(JSON.stringify(conversationMessages, null, 2));
+      // Use the same plainMessages conversion for copy
+      const plainMessages = conversationMessages.map(msg => {
+        if (msg && typeof msg.toDict === 'function') {
+          return msg.toDict();
+        }
+        if (typeof msg === 'string') {
+          try {
+            return JSON.parse(msg);
+          } catch {
+            return msg;
+          }
+        }
+        return msg;
+      });
+      navigator.clipboard.writeText(JSON.stringify(plainMessages, null, 2));
       copyBtn.textContent = 'Copied!';
       setTimeout(() => { copyBtn.textContent = 'Copy to Clipboard'; }, 2000);
     };
