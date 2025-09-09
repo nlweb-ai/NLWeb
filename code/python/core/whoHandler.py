@@ -63,12 +63,6 @@ class WhoHandler (NLWebHandler) :
             self.final_retrieved_items = items
             logger.info(f"Who ranking retrieved {len(items)} items from nlweb_sites")
             
-            # Print out retrieved sites
-            print("\n=== Retrieved Sites from nlweb_sites ===")
-            for i, item in enumerate(items[:20]):  # Show top 20
-                site = item[3] if len(item) > 3 else "unknown"
-                name = item[2] if len(item) > 2 else "unknown"
-                print(f"{i+1}. {site} - {name}")
             
             logger.debug(f"Who retrieval complete: {len(self.final_retrieved_items)} items retrieved")
             

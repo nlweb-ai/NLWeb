@@ -562,7 +562,7 @@ export class UnifiedChatInterface {
         mode: this.state.selectedMode,
         prev_queries: prevQueries  // Include previous queries for NLWeb context
       },
-      timestamp: Date.now(),
+      timestamp: new Date().toISOString(),
       sender_info: {
         id: userId,
         name: userName
@@ -747,8 +747,8 @@ export class UnifiedChatInterface {
       }
       
       // Update selectedSite from the user message if it's present
-      if (data.site) {
-        this.state.selectedSite = data.site;
+      if (data.content?.site) {
+        this.state.selectedSite = data.content.site;
       }
       
       // Extract actual message text from nested structure if needed
@@ -1106,8 +1106,8 @@ export class UnifiedChatInterface {
       
       // If this is a user message, use its site and mode values
       if (data.message_type === 'user') {
-        siteToUse = data.site || this.state.selectedSite;
-        modeToUse = data.mode || this.state.selectedMode;
+        siteToUse = data.content?.site || this.state.selectedSite;
+        modeToUse = data.content?.mode || this.state.selectedMode;
       }
       
       conversation = {
@@ -1135,8 +1135,8 @@ export class UnifiedChatInterface {
         (conversation.title === 'New chat' || conversation.title === 'Joined Conversation')) {
       // Extract the actual message text for the title
       let messageText = data.content;
-      if (typeof data.content === 'object' && data.content !== null && data.content.content) {
-        messageText = data.content.content;
+      if (typeof data.content === 'object' && data.content !== null) {
+        messageText = data.content.query || data.content.content || data.content;
       }
       if (typeof messageText === 'string') {
         conversation.title = messageText.substring(0, 50);
@@ -1675,17 +1675,17 @@ export class UnifiedChatInterface {
     // Restore site and mode settings from first user message
     const firstUserMsg = conversationMessages.find(msg => msg.message_type === 'user');
     if (firstUserMsg) {
-      if (firstUserMsg.site) {
-        this.state.selectedSite = firstUserMsg.site;
+      if (firstUserMsg.content?.site) {
+        this.state.selectedSite = firstUserMsg.content.site;
         
         // Update the "Asking..." text in the header
         const siteInfo = document.getElementById('chat-site-info');
         if (siteInfo) {
-          siteInfo.textContent = `Asking ${firstUserMsg.site}`;
+          siteInfo.textContent = `Asking ${firstUserMsg.content.site}`;
         }
       }
-      if (firstUserMsg.mode) {
-        this.state.selectedMode = firstUserMsg.mode;
+      if (firstUserMsg.content?.mode) {
+        this.state.selectedMode = firstUserMsg.content.mode;
       }
     }
     
