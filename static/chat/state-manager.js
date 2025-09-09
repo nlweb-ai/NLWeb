@@ -52,9 +52,16 @@ class StateManager {
             return;
         }
         
+        // Normalize sites field - handle both 'site' (singular) and 'sites' (plural)
+        let sites = conversation.sites;
+        if (!sites && conversation.site) {
+            sites = [conversation.site];
+        }
+        
         // Initialize conversation structure
         const conversationData = {
             ...conversation,
+            sites: sites || [],  // Ensure sites is always an array
             messages: conversation.messages || [],
             participants: conversation.participants || [],
             created_at: conversation.created_at || new Date().toISOString(),
@@ -68,8 +75,8 @@ class StateManager {
         this.participantTrackers.set(conversation.id, tracker);
         
         // Update site metadata
-        if (conversation.sites && conversation.sites.length > 0) {
-            conversation.sites.forEach(site => {
+        if (conversationData.sites && conversationData.sites.length > 0) {
+            conversationData.sites.forEach(site => {
                 this.updateSiteUsage(site);
             });
         }

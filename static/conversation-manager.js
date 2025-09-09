@@ -1,3 +1,5 @@
+import { Message } from './schemas.js';
+
 class ConversationManager {
   /**
    * Field Name Standardization for Timestamps:
@@ -27,6 +29,7 @@ class ConversationManager {
   }
 
   async loadLocalConversations() {
+   
     this.conversations = [];
     
     try {
@@ -45,37 +48,32 @@ class ConversationManager {
               id: convId,
               messages: [],
               timestamp: msg.timestamp,
-              site: msg.site || 'all',
-              mode: msg.mode || 'list',
+              site: msg.content?.site || 'all',
+              mode: msg.content?.mode || 'list',
               title: 'New chat'
             };
           }
           
-          // Add message to conversation and mark it as already saved
-          msg.db_saved = true; // Mark as saved since it came from the database
-          conversationMap[convId].messages.push(msg);
+          // Convert Message object to plain object for backward compatibility with rest of the code
+          const msgData = msg.toDict();
+          msgData.db_saved = true; // Mark as saved since it came from the database
+          conversationMap[convId].messages.push(msgData);
           
           // Update conversation metadata only from user messages
           // Assistant messages should not change the conversation's site or mode
-          if ((msg.sender_type === 'user') || (msg.message_type === 'user' && !msg.sender_type)) {
-            if (msg.site && conversationMap[convId].site === 'all') {
-              conversationMap[convId].site = msg.site;
-            }
-            if (msg.mode && conversationMap[convId].mode === 'list') {
-              conversationMap[convId].mode = msg.mode;
-            }
+          if (msg.sender_type === 'user' || msg.message_type == 'user') {
+            const msgSite = msg.content?.site;
+            const msgMode = msg.content?.mode;
+            const msgQuery = msg.content?.query;
+            if (msgSite) conversationMap[convId].site = msgSite;
+            if (msgMode) conversationMap[convId].mode = msgMode;
+            if (msgQuery) conversationMap[convId].title = msgQuery.substring(0, 50);
           }
-          
-          // Set title from first user message
-          if (((msg.sender_type === 'user') || (msg.message_type === 'user' && !msg.sender_type)) && conversationMap[convId].title === 'New chat') {
-            const content = typeof msg.content === 'string' ? msg.content : msg.content?.content || 'New chat';
-            conversationMap[convId].title = content.substring(0, 50);
-          }
-          
           // Update timestamp to be the latest message
           if (msg.timestamp > conversationMap[convId].timestamp) {
             conversationMap[convId].timestamp = msg.timestamp;
           }
+       //   console.log(conversationMap[convId]);
         });
         
         // Convert map to array
@@ -103,22 +101,12 @@ class ConversationManager {
 
   async saveConversations() {
     try {
-      // Save each conversation and its messages to IndexedDB
+      // Save messages from each conversation to IndexedDB
       for (const conv of this.conversations) {
         // Skip conversation history searches
         if (conv.site === 'conv_history') {
           continue;
         }
-        
-        // Save conversation metadata
-        await this.storage.saveConversation({
-          id: conv.id,
-          title: conv.title,
-          site: conv.site || 'all',
-          mode: conv.mode || 'list',
-          timestamp: conv.timestamp,
-          created_at: conv.created_at || conv.timestamp
-        });
         
         // Save messages - only save new messages that haven't been persisted yet
         if (conv.messages && conv.messages.length > 0) {
@@ -142,7 +130,9 @@ class ConversationManager {
               msg.message_id = `${conv.id}_${msg.timestamp || Date.now()}`;
             }
             
-            messagesToSave.push(msg);
+            // Convert to Message object before saving
+            const messageObj = Message.fromDict(msg);
+            messagesToSave.push(messageObj);
             
             // Mark the original message as saved
             msg.db_saved = true;
@@ -575,6 +565,9 @@ class ConversationManager {
         console.warn('Message missing message_id from server in addMessage:', message);
       }
       
+      // Note: We don't save the message here - it's saved in batch by saveConversations()
+      // The message object will be converted to Message class when saved
+      
       // Don't save here - messages are saved in batch by saveConversations()
       // The message is added to the conversation's messages array by the caller
       
@@ -588,18 +581,9 @@ class ConversationManager {
         
         // Update title from first user message
         if (((message.sender_type === 'user') || (message.message_type === 'user' && !message.sender_type)) && conversation.title === 'New chat') {
-          const content = typeof message.content === 'string' ? message.content : message.content?.content || 'New chat';
+          const content = typeof message.content === 'string' ? message.content : (message.content?.query || message.content?.content || 'New chat');
           conversation.title = content.substring(0, 50);
-          
-          // Save updated conversation metadata
-          await this.storage.saveConversation({
-            id: conversation.id,
-            title: conversation.title,
-            site: conversation.site || 'all',
-            mode: conversation.mode || 'list',
-            timestamp: conversation.timestamp,
-            created_at: conversation.created_at || conversation.timestamp
-          });
+          // Title update is now handled in memory only - will be reconstructed from messages on next load
         }
       }
     } catch (e) {

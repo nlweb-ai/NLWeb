@@ -3,18 +3,12 @@ write_endpoint: qdrant_local
 endpoints:
 
   nlweb_west:
-    enabled: false
+    enabled: true
     api_key_env: NLWEB_WEST_API_KEY
     api_endpoint_env: NLWEB_WEST_ENDPOINT
     index_name: embeddings1536
     db_type: azure_ai_search
 
-  azure_ai_search:
-    enabled: true
-    api_key_env: AZURE_VECTOR_SEARCH_API_KEY
-    api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
-    index_name: embeddings1536
-    db_type: azure_ai_search
 
   azure_ai_search_backup:
     enabled: false
