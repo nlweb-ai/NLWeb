@@ -6,7 +6,7 @@ default_storage: qdrant_local
 
 # Storage endpoints configuration
 storage_endpoints:
-  
+
   # Azure AI Search storage
   azure_search:
     enabled: false
@@ -79,7 +79,6 @@ storage_endpoints:
     # Vector dimensions
     vector_dimensions: 1536
 
-  # Local Qdrant storage
   qdrant_local:
     enabled: true
     type: qdrant
