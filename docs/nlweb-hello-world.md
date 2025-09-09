@@ -80,7 +80,7 @@ These instructions assume that you have Python 3.10+ installed locally.
 
     ```sh
     # Run from code/python folder
-    python app-file.py
+    python app-aiohttp.py
     ```
 
 9. Go to http://localhost:8000/
