@@ -40,11 +40,7 @@ class BingSearchClient(RetrievalClientBase):
         
         # Get API key and endpoint
         self.api_key = self.endpoint_config.api_key
-        if not self.api_key:
-            # Fallback to hardcoded API key for testing
-            self.api_key = "B30A330127C50C2C84DA51AF2F70256BE5C8FC40"
-            logger.warning("Using hardcoded API key for Bing Search")
-        
+      
         # Get API endpoint or use default
         self.api_endpoint = self.endpoint_config.api_endpoint
         if not self.api_endpoint:

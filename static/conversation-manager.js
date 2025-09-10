@@ -1,4 +1,5 @@
 import { Message } from './schemas.js';
+import indexedStorage from './indexed-storage.js';
 
 class ConversationManager {
   /**
@@ -55,7 +56,7 @@ class ConversationManager {
           }
           
           // Convert Message object to plain object for backward compatibility with rest of the code
-          const msgData = msg.toDict();
+          const msgData = msg instanceof Message ? msg.toDict() : msg;
           msgData.db_saved = true; // Mark as saved since it came from the database
           conversationMap[convId].messages.push(msgData);
           
@@ -636,3 +637,4 @@ class ConversationManager {
 
 // Export the class
 export { ConversationManager };
+export default ConversationManager;

@@ -35,7 +35,7 @@ from core.utils.message_senders import MessageSender
 from misc.logger.logger import get_logger, LogLevel
 from misc.logger.logging_config_helper import get_configured_logger
 from core.config import CONFIG
-
+import time
 logger = get_configured_logger("nlweb_handler")
 
 API_VERSION = "0.1"
@@ -43,9 +43,8 @@ API_VERSION = "0.1"
 class NLWebHandler:
 
     def __init__(self, query_params, http_handler): 
-        import time
-        logger.info("Initializing NLWebHandler")
-        
+      
+        print(query_params)
         self.http_handler = http_handler
         self.query_params = query_params
         

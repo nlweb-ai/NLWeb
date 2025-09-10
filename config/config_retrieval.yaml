@@ -148,3 +148,15 @@ endpoints:
     index_name: SNOWFLAKE_CORTEX_SEARCH_SERVICE
     db_type: snowflake_cortex_search
 
+
+  # Bing Web Search API for real-time web search
+  bing_search:
+    enabled: false
+    # API key for Bing Web Search API
+    api_key_env: BING_API_KEY
+    # Bing API endpoint (optional, defaults to standard Bing API)
+    api_endpoint_env: BING_API_ENDPOINT
+    # Index name (not used for Bing, but kept for consistency)
+    index_name: web_search
+    # Database type
+    db_type: bing_search
