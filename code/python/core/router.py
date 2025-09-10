@@ -395,6 +395,43 @@ class ToolSelector:
                 await self.handler.state.precheck_step_done(self.STEP_NAME)
                 return
             
+            # Check if site is "all" and aggregation is disabled - default to search
+            if (self.handler.site == "all" and not CONFIG.is_aggregation_enabled()):
+                logger.info("Site is 'all' and aggregation is disabled, defaulting to search tool")
+                # Find the search tool
+                tools = self.get_tools_by_type("Item")  # Search is typically an Item-level tool
+                search_tool = next((t for t in tools if t.name == 'search'), None)
+                
+                if search_tool:
+                    # Create a default search result
+                    query = self.handler.decontextualized_query or self.handler.query
+                    self.handler.tool_routing_results = [{
+                        "tool": search_tool,
+                        "score": 100,
+                        "result": {
+                            "score": 100, 
+                            "justification": "Default to search for site='all' with aggregation disabled",
+                            "search_query": query
+                        }
+                    }]
+                    
+                    # Send debug message if in debug mode
+                    if getattr(self.handler, 'debug_mode', False):
+                        elapsed_time = time.time() - self.handler.init_time
+                        await self.handler.send_message({
+                            "message_type": "tool_selection",
+                            "selected_tool": "search",
+                            "score": 100,
+                            "parameters": {"score": 100, "justification": "Site='all' with aggregation disabled"},
+                            "query": query,
+                            "time_elapsed": f"{elapsed_time:.3f}s",
+                            "llm_skipped": True
+                        })
+                else:
+                    logger.warning("Search tool not found, continuing with normal tool selection")
+                
+                await self.handler.state.precheck_step_done(self.STEP_NAME)
+                return
 
             # Skip tool selection if generate_mode is summarize or generate
             generate_mode = getattr(self.handler, 'generate_mode', 'none')

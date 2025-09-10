@@ -31,6 +31,10 @@ decontextualize_enabled: true
 # When set to false, the system will not check if required information is present before processing queries
 required_info_enabled: true
 
+# Enable or disable aggregation functionality
+# When set to false, the system will not perform aggregation operations
+aggregation_enabled: false
+
 # Endpoint for /who requests to get relevant sites
 who_endpoint: "https://whotoask.azurewebsites.net/who"
 

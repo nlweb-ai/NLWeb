@@ -96,6 +96,7 @@ class NLWebConfig:
     analyze_query_enabled: bool = False  # Enable or disable query analysis
     decontextualize_enabled: bool = True  # Enable or disable decontextualization
     required_info_enabled: bool = True  # Enable or disable required info checking
+    aggregation_enabled: bool = False  # Enable or disable aggregation functionality
     api_keys: Dict[str, str] = field(default_factory=dict)  # API keys for external services
     who_endpoint: str = "http://localhost:8000/who"  # Endpoint for /who requests
 
@@ -467,6 +468,9 @@ class AppConfig:
         # Load required info enabled flag
         required_info_enabled = self._get_config_value(data.get("required_info_enabled"), True)
         
+        # Load aggregation enabled flag
+        aggregation_enabled = self._get_config_value(data.get("aggregation_enabled"), False)
+        
         # Load who_endpoint from config
         who_endpoint = self._get_config_value(data.get("who_endpoint"), "http://localhost:8000/who")
         
@@ -504,6 +508,7 @@ class AppConfig:
             analyze_query_enabled=analyze_query_enabled,
             decontextualize_enabled=decontextualize_enabled,
             required_info_enabled=required_info_enabled,
+            aggregation_enabled=aggregation_enabled,
             api_keys=api_keys,
             who_endpoint=who_endpoint
         )
@@ -613,6 +618,10 @@ class AppConfig:
     def is_required_info_enabled(self) -> bool:
         """Check if required info checking is enabled."""
         return self.nlweb.required_info_enabled if hasattr(self, 'nlweb') else True
+    
+    def is_aggregation_enabled(self) -> bool:
+        """Check if aggregation functionality is enabled."""
+        return self.nlweb.aggregation_enabled if hasattr(self, 'nlweb') else False
     
     def load_sites_config(self, path: str = "sites.xml"):
         """Load site configurations from XML file."""
