@@ -14,6 +14,7 @@ Backwards compatibility is not guaranteed at this time.
 from core.retriever import search
 import core.ranking as ranking
 from misc.logger.logging_config_helper import get_configured_logger
+from core.config import CONFIG
 import asyncio
 
 logger = get_configured_logger("fast_track")
@@ -23,6 +24,12 @@ NO_STANDARD_RETRIEVAL_SITES = ["datacommons", "all", "conv_history", "CricketLen
 
 def site_supports_standard_retrieval(site):
     """Check if a site supports standard vector database retrieval"""
+    
+    # If site is "all" and aggregation is disabled, treat it as supporting standard retrieval
+    if site == "all" and not CONFIG.is_aggregation_enabled():
+        logger.debug("Site is 'all' with aggregation disabled - treating as standard retrieval")
+        return True
+    
     return site not in NO_STANDARD_RETRIEVAL_SITES
 
 class FastTrack:

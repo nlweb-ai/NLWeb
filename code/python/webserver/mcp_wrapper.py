@@ -187,6 +187,23 @@ class MCPHandler:
             }
         })
         
+        # Add who tool if who endpoint is enabled
+        if CONFIG.is_who_endpoint_enabled():
+            available_tools.append({
+                "name": "who",
+                "description": "Find the most relevant sites to answer a query by asking the who endpoint",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The question to find relevant sites for"
+                        }
+                    },
+                    "required": ["query"]
+                }
+            })
+        
         # TODO: Add additional NLWeb tools here when router integration is ready
         
         return {"tools": available_tools}
@@ -319,11 +336,11 @@ class MCPHandler:
             handler = NLWebHandler(query_params, capture_chunk)
             try:
                 print(f"=== CALLING handler.runQuery() ===")
-                # Add a 10-second timeout for MCP requests
-                result = await asyncio.wait_for(handler.runQuery(), timeout=10.0)
+                # Add a 30-second timeout for MCP requests
+                result = await asyncio.wait_for(handler.runQuery(), timeout=30.0)
                 print(f"=== HANDLER RETURNED: {result} ===")
             except asyncio.TimeoutError:
-                logger.warning("MCP tool call timed out after 10 seconds")
+                logger.warning("MCP tool call timed out after 30 seconds")
                 return {
                     "content": [
                         {
@@ -376,6 +393,118 @@ class MCPHandler:
                         {
                             "type": "text",
                             "text": f"Error retrieving sites: {str(e)}"
+                        }
+                    ],
+                    "isError": True
+                }
+        
+        elif tool_name == "who":
+            # Handle the who tool if enabled
+            if not CONFIG.is_who_endpoint_enabled():
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "The 'who' endpoint is disabled in the configuration"
+                        }
+                    ],
+                    "isError": True
+                }
+            
+            # Get the query from arguments
+            query = arguments.get("query", "")
+            if not query:
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Query parameter is required for the 'who' tool"
+                        }
+                    ],
+                    "isError": True
+                }
+            
+            try:
+                from core.whoHandler import WhoHandler
+                
+                # Set up query params for who handler
+                who_query_params = {"query": [query]}
+                
+                # Create a response accumulator
+                response_content = []
+                
+                class ChunkCapture:
+                    async def write_stream(self, data, end_response=False):
+                        # Convert data to string
+                        if isinstance(data, dict):
+                            chunk = json.dumps(data)
+                        elif isinstance(data, bytes):
+                            chunk = data.decode('utf-8')
+                        else:
+                            chunk = str(data)
+                        response_content.append(chunk)
+                
+                capture_chunk = ChunkCapture()
+                
+                # Process the query using WhoHandler with a timeout
+                handler = WhoHandler(who_query_params, capture_chunk)
+                try:
+                    # Add a 30-second timeout for WHO requests (they can take longer)
+                    await asyncio.wait_for(handler.runQuery(), timeout=30.0)
+                    # Give a small delay to ensure async send_message tasks complete
+                    await asyncio.sleep(0.1)
+                except asyncio.TimeoutError:
+                    logger.warning("WHO tool call timed out after 30 seconds")
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Request timed out. The WHO query is taking longer than expected. Please try a simpler query."
+                            }
+                        ],
+                        "isError": True
+                    }
+                
+                # Join all chunks
+                full_response = ''.join(response_content)
+                
+                # Debug logging
+                logger.info(f"WHO handler captured {len(response_content)} chunks")
+                logger.info(f"Total response length: {len(full_response)} characters")
+                if not full_response:
+                    logger.warning("WHO handler returned empty response!")
+                    # Check if results are in handler's final_ranked_answers
+                    if hasattr(handler, 'final_ranked_answers') and handler.final_ranked_answers:
+                        logger.info(f"Found {len(handler.final_ranked_answers)} results in handler.final_ranked_answers")
+                        # Format the results properly
+                        results = []
+                        for item in handler.final_ranked_answers[:10]:  # Top 10 results
+                            result = {
+                                "name": item.get("name", "Unknown"),
+                                "url": item.get("url", ""),
+                                "score": item.get("ranking", {}).get("score", 0),
+                                "description": item.get("ranking", {}).get("description", "")
+                            }
+                            results.append(result)
+                        full_response = json.dumps({"results": results}, indent=2)
+                
+                # Return MCP-formatted response
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": full_response if full_response else "No relevant sites found for your query."
+                        }
+                    ],
+                    "isError": False
+                }
+            except Exception as e:
+                logger.error(f"Error invoking who handler: {str(e)}")
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"Error invoking who handler: {str(e)}"
                         }
                     ],
                     "isError": True
