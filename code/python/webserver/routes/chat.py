@@ -49,6 +49,9 @@ def setup_chat_routes(app: web.Application):
     # WebSocket endpoint - general connection, not tied to specific conversation
     app.router.add_get('/chat/ws', websocket_handler)
     
+    # SSE endpoint - accepts full messages like WebSocket
+    app.router.add_get('/chat/sse', sse_message_handler)
+    
     # Health check
     app.router.add_get('/health/chat', chat_health_handler)
     
@@ -1356,6 +1359,145 @@ async def websocket_handler(request: web.Request) -> web.WebSocketResponse:
         print(f"WebSocket closed for {user_id}")
     
     return ws
+
+
+async def sse_message_handler(request: web.Request) -> web.StreamResponse:
+    """
+    SSE endpoint that accepts full message objects like WebSocket.
+    Simply wraps the WebSocket message processing logic with SSE transport.
+    
+    GET /chat/sse?message={json_encoded_message}
+    """
+    try:
+        print(f"\n=== SSE MESSAGE HANDLER ===")
+        print(f"Request URL: {request.url}")
+        
+        # Parse the message from query parameter
+        message_param = request.query.get('message')
+        if not message_param:
+            print(f"ERROR: No message parameter found")
+            return web.json_response({'error': 'message parameter is required'}, status=400)
+        
+        print(f"Message param length: {len(message_param)}")
+        data = json.loads(message_param)
+        print(f"Parsed message data: {json.dumps(data, indent=2)}")
+        conversation_id = data.get('conversation_id')
+        print(f"Conversation ID: {conversation_id}")
+        print(f"===========================\n")
+        
+        # Create SSE response
+        response = web.StreamResponse(
+            status=200,
+            headers={
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no'
+            }
+        )
+        await response.prepare(request)
+        
+        # Get managers from app
+        conv_manager = request.app.get('conversation_manager')
+        
+        # Extract user info from message
+        sender_info = data.get('sender_info', {})
+        user_id = sender_info.get('id', f'anon_{uuid.uuid4().hex[:8]}')
+        user_name = sender_info.get('name', user_id.split('@')[0])
+        
+        # Use exact same auto-join logic as WebSocket (lines 1247-1291)
+        conv_state = conv_manager._conversations.get(conversation_id)
+        if not conv_state or user_id not in conv_state.participants:
+            human = HumanParticipant(user_id, user_name)
+            conv_manager.add_participant(conversation_id, human)
+            
+            # Add AI participant if needed
+            has_ai_participant = any(
+                isinstance(p, NLWebParticipant) 
+                for p in (conv_state.participants.values() if conv_state else [])
+            )
+            
+            if not has_ai_participant:
+                nlweb_handler = request.app.get('nlweb_handler')
+                if nlweb_handler:
+                    config = ParticipantConfig(
+                        timeout=20,
+                        human_messages_context=5,
+                        nlweb_messages_context=1
+                    )
+                    nlweb = NLWebParticipant(nlweb_handler, config)
+                    conv_manager.add_participant(conversation_id, nlweb)
+        
+        # SSE stream callback wrapper with completion tracking
+        class SSEStreamWrapper:
+            def __init__(self, response, conversation_id):
+                self.response = response
+                self.conversation_id = conversation_id
+                self.nlweb_complete = asyncio.Event()  # Track when NLWeb finishes
+                print(f"[SSEStreamWrapper] Created for conversation {conversation_id}")
+
+            async def broadcast_message(self, conv_id, data):
+                print(f"[SSEStreamWrapper] broadcast_message called: conv_id={conv_id}, my_conv_id={self.conversation_id}")
+                if conv_id == self.conversation_id:
+                    try:
+                        sse_data = f"data: {json.dumps(data)}\n\n"
+                        print(f"[SSEStreamWrapper] Writing SSE data: {sse_data[:100]}...")
+                        await self.response.write(sse_data.encode())
+                        print(f"[SSEStreamWrapper] SSE data written successfully")
+
+                        # Check if this is the end of NLWeb response
+                        if isinstance(data, dict) and data.get('message_type') == 'end-nlweb-response':
+                            print(f"[SSEStreamWrapper] NLWeb response complete, setting event")
+                            self.nlweb_complete.set()
+                    except Exception as e:
+                        print(f"[SSEStreamWrapper] ERROR writing SSE data: {e}")
+                        logger.error(f"Error writing SSE data: {e}")
+        
+        sse_wrapper = SSEStreamWrapper(response, conversation_id)
+        
+        # Process message exactly like WebSocket (lines 1294-1304)
+        message = Message.from_dict(data)
+        print(f"[SSE] Created Message object: {message.message_id}")
+        
+        try:
+            print(f"[SSE] Calling conv_manager.process_message with SSE wrapper...")
+            # Pass the SSE wrapper as the stream_callback
+            processed_msg = await conv_manager.process_message(message, stream_callback=sse_wrapper)
+            print(f"[SSE] Message processed: {processed_msg.message_id if processed_msg else 'None'}")
+            
+            # Send acknowledgment
+            ack_msg = f'data: {{"type": "message_ack", "message_id": "{processed_msg.message_id}"}}\n\n'
+            print(f"[SSE] Sending acknowledgment: {ack_msg}")
+            await response.write(ack_msg.encode())
+            
+        except QueueFullError:
+            print(f"[SSE] Queue full error")
+            await response.write(b'data: {"type": "error", "error": "queue_full", "message": "Conversation queue is full. Please wait.", "code": 429}\n\n')
+        except Exception as e:
+            print(f"[SSE] Error processing message: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # Wait for NLWeb to complete processing (with timeout)
+        print(f"[SSE] Waiting for NLWeb to complete...")
+        try:
+            await asyncio.wait_for(sse_wrapper.nlweb_complete.wait(), timeout=30.0)
+            print(f"[SSE] NLWeb processing complete")
+        except asyncio.TimeoutError:
+            print(f"[SSE] NLWeb processing timeout after 30 seconds")
+            # Send timeout notification
+            await response.write(b'data: {"type": "timeout", "message": "Response timeout"}\n\n')
+
+        # Send final completion
+        print(f"[SSE] Sending completion message")
+        await response.write(b'data: {"message_type": "complete"}\n\n')
+
+        print(f"[SSE] Returning response")
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in SSE message handler: {e}", exc_info=True)
+        return web.json_response({'error': 'Internal server error'}, status=500)
 
 
 async def chat_health_handler(request: web.Request) -> web.Response:

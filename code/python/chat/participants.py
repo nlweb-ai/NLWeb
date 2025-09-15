@@ -204,13 +204,13 @@ class NLWebParticipant(BaseParticipant):
             # Track if we've sent any response
             response_sent = False
             conversation_id = message.conversation_id
-            websocket_manager = stream_callback  # stream_callback is the websocket manager
+            websocket_manager = stream_callback  # stream_callback can be websocket manager or SSE wrapper
             
             class ChunkCapture:
                 async def write_stream(self, data, end_response=False):
                     nonlocal response_sent
                     
-                    # Stream directly to WebSocket if we have a manager (async)
+                    # Stream directly if we have a manager/wrapper (async)
                     if websocket_manager:
                         response_sent = True
                         

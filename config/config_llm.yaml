@@ -30,8 +30,8 @@ endpoints:
     api_key_env: GEMINI_API_KEY
     llm_type: gemini
     models:
-      high: gemini-2.0-flash
-      low: gemini-2.0-flash
+      high: gemini-2.5-pro
+      low: gemini-2.0-flash-lite
 
   huggingface:
     api_key_env: HF_TOKEN

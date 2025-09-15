@@ -3,23 +3,9 @@ write_endpoint: qdrant_local
 endpoints:
 
 #Azure endpoints
-  azure_ai_search:
-    enabled: true
-    api_key_env: AZURE_VECTOR_SEARCH_API_KEY
-    api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
-    index_name: embeddings1536
-    db_type: azure_ai_search
-
-  azure_ai_search_backup:
-    enabled: false
-    api_key_env: AZURE_VECTOR_SEARCH_API_KEY_BACKUP
-    api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT_BACKUP
-    index_name: embeddings1536
-    db_type: azure_ai_search
-    name: NLWeb_Crawl_Backup
-
+  
   nlweb_west:
-    enabled: false
+    enabled: true
     api_key_env: NLWEB_WEST_API_KEY
     api_endpoint_env: NLWEB_WEST_ENDPOINT
     index_name: embeddings1536
@@ -27,7 +13,7 @@ endpoints:
 
   # Bing Web Search API for real-time web search
   bing_search:
-    enabled: false
+    enabled: true
     # API key for Bing Web Search API
     api_key_env: BING_API_KEY
     # Bing API endpoint (optional, defaults to standard Bing API)
@@ -136,7 +122,7 @@ endpoints:
 
   # Shopify MCP endpoint for product search across Shopify stores
   shopify:
-    enabled: false
+    enabled: true
     db_type: shopify_mcp
     # Note: mcp_endpoint will be dynamically set based on the site being queried
     name: Shopify MCP Search

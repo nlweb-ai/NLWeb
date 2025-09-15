@@ -3,7 +3,6 @@
  */
 
 import { ConversationManager } from './conversation-manager.js';
-import { ManagedEventSource } from './managed-event-source.js';
 import { ChatUICommon } from './chat-ui-common.js';
 
 export class UnifiedChatInterface {
@@ -144,9 +143,8 @@ export class UnifiedChatInterface {
             }));
           }
         }
-      } else {
-        this.showCenteredInput();
       }
+      // Don't show centered input by default - keep messages area empty
       
       // Update the UI to show the selected site from URL params
       const siteInfo = document.getElementById('chat-site-info');
@@ -416,7 +414,7 @@ export class UnifiedChatInterface {
           
           if (data.message_type === 'multi_site_complete') {
           }
-          this.handleStreamData(data);
+          this.handleStreamData(data, true);  // true = store messages
         };
         
         this.ws.connection.onerror = (error) => {
@@ -626,7 +624,9 @@ export class UnifiedChatInterface {
   }
   
   async sendThroughConnection(message) {
-    // Just send the message as-is - no modification
+    console.log('[UnifiedChatInterface] sendThroughConnection called, connectionType:', this.connectionType);
+    console.log('[UnifiedChatInterface] message:', message);
+    // Send the message as-is for both WebSocket and SSE
     
     if (this.connectionType === 'websocket') {
       // Get or create WebSocket connection
@@ -639,46 +639,66 @@ export class UnifiedChatInterface {
         this.state.messageQueue.push(message);
       }
     } else {
-      // For SSE, pass all message properties except some internal ones
-      const { content, message_id, timestamp, message_type, type, sender_info, prev_queries, ...sseParams } = message;
-      
-      this.connectSSE(content, {
-        ...sseParams,  // Include all additional parameters
-        user_id: this.state.userId,
-        streaming: 'true'
-      });
+      console.log('[UnifiedChatInterface] Using SSE path, calling connectSSE');
+      // For SSE, send the complete message to /chat/sse endpoint
+      this.connectSSE(message);
     }
   }
   
-  connectSSE(query, params) {
+  connectSSE(message) {
+    console.log('[UnifiedChatInterface] connectSSE called with message:', message);
+    // Send complete message to /chat/sse endpoint via GET (same as WebSocket but different transport)
     const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
     const urlParams = new URLSearchParams({
-      q: query,
-      ...params
+      message: JSON.stringify(message)
     });
-    
-    const url = `${baseUrl}/ask?${urlParams}`;
-    const eventSource = new ManagedEventSource(url, {
-      maxRetries: 3,
-      retryDelay: 1000
-    });
-    
-    // Don't start streaming UI here - wait for actual data
-    
-    eventSource.handleMessage = (data) => {
-      this.handleStreamData(data);
+
+    const url = `${baseUrl}/chat/sse?${urlParams}`;
+    console.log('[UnifiedChatInterface] SSE URL:', url.substring(0, 100) + '...');
+
+    // Use native EventSource API directly
+    const eventSource = new EventSource(url);
+
+    eventSource.onopen = () => {
+      console.log('[UnifiedChatInterface] SSE connection opened');
     };
-    
-    eventSource.onComplete = () => {
-      this.endStreaming();
+
+    eventSource.onmessage = (event) => {
+      console.log('[UnifiedChatInterface] SSE onmessage triggered!');
+      console.log('[UnifiedChatInterface] SSE raw event data:', event.data);
+      try {
+        const data = JSON.parse(event.data);
+        console.log('[UnifiedChatInterface] SSE parsed message:', data);
+        console.log('[UnifiedChatInterface] Message type:', data.message_type || data.type);
+        // Route through the same handleStreamData as WebSocket
+        console.log('[UnifiedChatInterface] Calling handleStreamData...');
+        this.handleStreamData(data, true);  // true = store messages
+        console.log('[UnifiedChatInterface] handleStreamData returned');
+      } catch (e) {
+        console.error('[UnifiedChatInterface] Error parsing SSE data:', e, 'Raw data:', event.data);
+      }
     };
-    
-    eventSource.onError = (error) => {
-      this.showError('Failed to get response. Please try again.');
-      this.endStreaming();
+
+    eventSource.onerror = (error) => {
+      // SSE connections normally close after completion - this is not an error
+      if (eventSource.readyState === EventSource.CLOSED) {
+        console.log('[UnifiedChatInterface] SSE connection closed normally');
+      } else {
+        console.log('[UnifiedChatInterface] SSE connection ended');
+      }
+
+      // Immediately close to prevent any reconnection attempts
+      eventSource.close();
+
+      // Only show error if we didn't get a proper completion
+      if (!this.state.currentStreaming || !this.state.currentStreaming.hasReceivedContent) {
+        this.showError('Failed to get response. Please try again.');
+        this.endStreaming();
+      }
     };
-    
-    eventSource.connect();
+
+    // Store reference so we can close it if needed
+    this.currentEventSource = eventSource;
   }
   
   flushMessageQueue() {
@@ -694,21 +714,34 @@ export class UnifiedChatInterface {
   
   startStreaming() {
     if (!this.state.currentStreaming) {
+      console.log('[UnifiedChatInterface] Starting streaming...');
+      const messagesContainer = this.dom.messages();
+      console.log('[UnifiedChatInterface] Messages container:', messagesContainer);
+
+      if (!messagesContainer) {
+        console.error('[UnifiedChatInterface] ERROR: messages-container element not found!');
+        // Try to find it directly
+        const directFind = document.getElementById('messages-container');
+        console.log('[UnifiedChatInterface] Direct find result:', directFind);
+        return;
+      }
+
       const bubble = document.createElement('div');
       bubble.className = 'message assistant-message streaming-message with-spinner';
-      
+
       const textDiv = document.createElement('div');
       textDiv.className = 'message-text';
-      
+
       // Add spinner element
       const spinner = document.createElement('span');
       spinner.className = 'streaming-spinner';
       textDiv.appendChild(spinner);
-      
+
       bubble.appendChild(textDiv);
-      
-      this.dom.messages()?.appendChild(bubble);
-      
+
+      messagesContainer.appendChild(bubble);
+      console.log('[UnifiedChatInterface] Streaming bubble appended to DOM');
+
       this.state.currentStreaming = {
         bubble,
         textDiv,
@@ -751,16 +784,12 @@ export class UnifiedChatInterface {
         this.state.selectedSite = data.content.site;
       }
       
-      // Extract actual message text from nested structure if needed
+      // Extract actual message text from nested structure
       let messageText = data.content;
       let sender_info = data.sender_info;
-      if (typeof data.content === 'object' && data.content !== null && data.content.content) {
-        // Content is nested - extract the actual text
-        messageText = data.content.content;
-        // Also extract sender_info from nested structure if present
-        if (data.content.sender_info) {
-          sender_info = data.content.sender_info;
-        }
+      if (typeof data.content === 'object' && data.content !== null) {
+        // Extract query from content object
+        messageText = data.content.query;
       }
       
       // Display user message with sender info
@@ -1418,12 +1447,12 @@ export class UnifiedChatInterface {
       if (type === 'user') {
         // For user messages, check if it's the current user
         if (sender_info && sender_info.id === this.state.userId) {
-          senderDiv.textContent = 'You';
+          senderDiv.textContent = '';
         } else if (sender_info && sender_info.id) {
           senderDiv.textContent = sender_info.id;
         } else {
           // If no sender info, assume it's the current user (for messages they just sent)
-          senderDiv.textContent = 'You';
+          senderDiv.textContent = '';
         }
       } else {
         // Assistant messages

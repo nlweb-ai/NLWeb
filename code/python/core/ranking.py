@@ -117,23 +117,13 @@ The user's question is: {request.query}. The item's description is {item.descrip
         
         # Use product-focused prompt for Bing search or known e-commerce sites
         if db_param == 'bing_search':
-            logger.debug("Using product-focused prompt for Bing search")
             return self.PRODUCT_FOCUSED_PROMPT[0], self.PRODUCT_FOCUSED_PROMPT[1]
-        
-        # Also use product-focused prompt for known e-commerce sites
-        if site and any(ecommerce_site in site.lower() for ecommerce_site in 
-                       ['williams-sonoma', 'amazon', 'ebay', 'walmart', 'target', 'bestbuy', 
-                        'homedepot', 'lowes', 'wayfair', 'etsy', 'shopify']):
-            logger.debug(f"Using product-focused prompt for e-commerce site: {site}")
-            return self.PRODUCT_FOCUSED_PROMPT[0], self.PRODUCT_FOCUSED_PROMPT[1]
-        
+       
         # Check for custom prompts
         prompt_str, ans_struc = find_prompt(site, item_type, self.RANKING_PROMPT_NAME)
         if prompt_str is None:
-            logger.debug("Using default ranking prompt")
             return self.RANKING_PROMPT[0], self.RANKING_PROMPT[1]
         else:
-            logger.debug(f"Using custom ranking prompt for site: {site}, item_type: {item_type}")
             return prompt_str, ans_struc
         
     def __init__(self, handler, items, ranking_type=FAST_TRACK, level="low"):
@@ -336,7 +326,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 message = Message(
                     sender_type=SenderType.SYSTEM,
                     message_type="asking_sites",  # Custom message type
-                    content="Asking " + top_sites_str,
+                    content=top_sites_str,
                     conversation_id=self.handler.conversation_id if hasattr(self.handler, 'conversation_id') else None
                 )
                 asyncio.create_task(self.handler.send_message(message.to_dict()))

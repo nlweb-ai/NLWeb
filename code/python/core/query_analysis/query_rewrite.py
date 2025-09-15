@@ -10,6 +10,7 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 from core.prompts import PromptRunner
+from core.fastTrack import site_supports_standard_retrieval
 import asyncio
 from misc.logger.logging_config_helper import get_configured_logger
 
@@ -31,6 +32,9 @@ class QueryRewrite(PromptRunner):
         The results are stored in handler.rewritten_queries.
         """
         # Wait for decontextualization to complete since we need the decontextualized query
+        if not site_supports_standard_retrieval(self.handler.site):
+            await self.handler.state.precheck_step_done(self.STEP_NAME)
+        
         await self.handler.state._decon_event.wait()
         
         logger.info(f"Starting query rewrite for: {self.handler.decontextualized_query}")

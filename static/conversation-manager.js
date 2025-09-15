@@ -68,7 +68,10 @@ class ConversationManager {
             const msgQuery = msg.content?.query;
             if (msgSite) conversationMap[convId].site = msgSite;
             if (msgMode) conversationMap[convId].mode = msgMode;
-            if (msgQuery) conversationMap[convId].title = msgQuery.substring(0, 50);
+            // Use the query as title if available
+            if (msgQuery && msgQuery !== '') {
+              conversationMap[convId].title = msgQuery.substring(0, 50);
+            }
           }
           // Update timestamp to be the latest message
           if (msg.timestamp > conversationMap[convId].timestamp) {
@@ -124,13 +127,12 @@ class ConversationManager {
               msg.conversation_id = conv.id;
             }
             
-            // Use the message_id from the server - no generation needed
+            // Only save messages that have IDs
             if (!msg.message_id) {
-              console.warn('Message missing message_id from server:', msg);
-              // Fallback to a simple ID if server didn't provide one
-              msg.message_id = `${conv.id}_${msg.timestamp || Date.now()}`;
+              // Skip messages without IDs (like 'complete' messages)
+              continue;
             }
-            
+
             // Convert to Message object before saving
             const messageObj = Message.fromDict(msg);
             messagesToSave.push(messageObj);

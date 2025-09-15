@@ -6,6 +6,7 @@
     <title>NLWeb Dropdown Chat - Integration Example</title>
     
     <!-- Include the dropdown chat CSS -->
+    <link rel="stylesheet" href="common-chat-styles.css">
     <link rel="stylesheet" href="nlweb-dropdown-chat.css">
     
     <!-- Page-specific styles -->
@@ -371,8 +372,16 @@
                 setStatus('Loading NLWebDropdownChat module...', 'info');
                 console.log('Starting initialization...');
                 
+                // Check if container exists before import
+                const container = document.getElementById('recipe-search-container');
+                console.log('Container element exists:', !!container);
+                if (!container) {
+                    throw new Error('Container element not found');
+                }
+                
                 const { NLWebDropdownChat } = await import('./nlweb-dropdown-chat.js');
                 console.log('Module loaded successfully');
+                console.log('NLWebDropdownChat constructor:', typeof NLWebDropdownChat);
                 
                 setStatus('Creating chat instance...', 'info');
                 
@@ -381,28 +390,45 @@
                     containerId: 'recipe-search-container',
                     site: 'seriouseats',
                     placeholder: 'Search for recipes...',
-                    endpoint: window.location.origin
+                    endpoint: window.location.origin,
+                    inputId: 'recipe-chat-input'  // Optional: specify a custom input ID
                 });
                 
-                console.log('Chat instance created');
+                console.log('Chat instance created:', chat);
+                console.log('Chat properties:', {
+                    config: chat.config,
+                    container: !!chat.container,
+                    searchInput: !!chat.searchInput,
+                    chatInterface: !!chat.chatInterface
+                });
                 
                 // Make it available for debugging
                 window.nlwebChat = chat;
                 
-                // Wait for full initialization
-                setTimeout(() => {
+                // Monitor initialization progress
+                let checkCount = 0;
+                const checkInterval = setInterval(() => {
+                    checkCount++;
+                    console.log(`[Check ${checkCount}] Chat interface status:`, {
+                        chatInterface: !!chat.chatInterface,
+                        searchInput: !!chat.searchInput,
+                        dropdownResults: !!chat.dropdownResults
+                    });
+                    
                     if (chat.chatInterface) {
+                        clearInterval(checkInterval);
                         setStatus('✓ Dropdown chat initialized successfully!', 'success');
                         console.info('Chat interface ready:', {
                             conversationManager: !!chat.chatInterface.conversationManager,
                             currentConversationId: chat.chatInterface.currentConversationId,
                             selectedSite: chat.chatInterface.selectedSite
                         });
-                    } else {
-                        setStatus('⚠ Chat interface initialization pending...', 'warning');
-                        console.warn('Chat interface not yet initialized');
+                    } else if (checkCount >= 20) { // Stop after 10 seconds
+                        clearInterval(checkInterval);
+                        setStatus('✗ Chat interface failed to initialize after 10 seconds', 'error');
+                        console.error('Chat interface initialization timeout');
                     }
-                }, 2000);
+                }, 500);
                 
             } catch (error) {
                 setStatus(`✗ Failed to initialize: ${error.message}`, 'error');

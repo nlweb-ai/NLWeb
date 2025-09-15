@@ -33,7 +33,7 @@ required_info_enabled: true
 
 # Enable or disable aggregation functionality
 # When set to false, the system will not perform aggregation operations
-aggregation_enabled: false
+aggregation_enabled: true
 
 # Enable or disable the who endpoint
 # When set to false, the system will not make requests to the who endpoint

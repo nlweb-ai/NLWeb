@@ -44,7 +44,9 @@ class NLWebHandler:
 
     def __init__(self, query_params, http_handler): 
       
-        print(query_params)
+        print(f"\n=== NLWebHandler INIT ===")
+        print(f"Query params: {query_params}")
+        print(f"=========================\n")
         self.http_handler = http_handler
         self.query_params = query_params
         
@@ -63,7 +65,9 @@ class NLWebHandler:
         self.query = get_param(query_params, "query", str, "")
 
         # the previous queries that the user has entered
-        self.prev_queries = get_param(query_params, "prev", list, [])
+        raw_prev_queries = get_param(query_params, "prev", list, [])
+        # Extract just the query text from previous queries
+        self.prev_queries = self._extract_query_texts(raw_prev_queries)
 
         # the last answers (title and url) from previous queries
         self.last_answers = get_param(query_params, "last_ans", list, [])
@@ -231,6 +235,68 @@ class NLWebHandler:
         
         # Create and return NLWebHandler instance
         return cls(query_params, http_handler)
+    
+    def _extract_query_texts(self, raw_prev_queries):
+        """
+        Extract just the query text from previous queries.
+        Handles both simple string lists and complex nested structures.
+        """
+        if not raw_prev_queries:
+            return []
+        
+        query_texts = []
+        
+        for item in raw_prev_queries:
+            if isinstance(item, str):
+                # Try to parse as JSON if it looks like JSON
+                if item.strip().startswith('[') or item.strip().startswith('{'):
+                    try:
+                        import json
+                        parsed = json.loads(item)
+                        # Recursively extract from parsed JSON
+                        extracted = self._extract_from_parsed(parsed)
+                        query_texts.extend(extracted)
+                    except json.JSONDecodeError:
+                        # If not JSON, just add the string
+                        query_texts.append(item)
+                else:
+                    query_texts.append(item)
+            elif isinstance(item, dict):
+                # Extract query from dict structure
+                if 'query' in item:
+                    if isinstance(item['query'], dict) and 'query' in item['query']:
+                        query_texts.append(item['query']['query'])
+                    elif isinstance(item['query'], str):
+                        query_texts.append(item['query'])
+            elif isinstance(item, list):
+                # Recursively extract from list
+                extracted = self._extract_from_parsed(item)
+                query_texts.extend(extracted)
+        
+        return query_texts
+    
+    def _extract_from_parsed(self, parsed):
+        """Helper to extract query texts from parsed JSON structures."""
+        query_texts = []
+        
+        if isinstance(parsed, list):
+            for item in parsed:
+                if isinstance(item, dict):
+                    if 'query' in item:
+                        if isinstance(item['query'], dict) and 'query' in item['query']:
+                            query_texts.append(item['query']['query'])
+                        elif isinstance(item['query'], str):
+                            query_texts.append(item['query'])
+                elif isinstance(item, str):
+                    query_texts.append(item)
+        elif isinstance(parsed, dict):
+            if 'query' in parsed:
+                if isinstance(parsed['query'], dict) and 'query' in parsed['query']:
+                    query_texts.append(parsed['query']['query'])
+                elif isinstance(parsed['query'], str):
+                    query_texts.append(parsed['query'])
+        
+        return query_texts
         
     @property 
     def is_connection_alive(self):

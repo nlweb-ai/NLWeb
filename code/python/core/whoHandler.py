@@ -58,16 +58,29 @@ class WhoHandler (NLWebHandler) :
                 self.query, 
                 site='nlweb_sites',  # Use the sites collection
                 query_params=self.query_params,
-                num_results=50
+                num_results=25
             )
             self.final_retrieved_items = items
-            logger.info(f"Who ranking retrieved {len(items)} items from nlweb_sites")
+            print(f"\n=== WHO HANDLER: Retrieved {len(items)} items from nlweb_sites ===")
             
+            # Print just the site names
+            print("\nRetrieved sites:")
+            site_names = []
+            for item in items:
+                if isinstance(item, tuple) and len(item) >= 3:
+                    name = item[2]  # name is the third element
+                    site_names.append(name)
+            
+            # Print unique site names
+            unique_sites = sorted(set(site_names))
+            for i, name in enumerate(unique_sites, 1):
+                print(f"  {i}. {name}")
+            print("=" * 60)
             
             logger.debug(f"Who retrieval complete: {len(self.final_retrieved_items)} items retrieved")
             
             # Use simplified WHO ranking - no decontextualization needed
-            self.ranker = WhoRanking(self, self.final_retrieved_items, level="high")
+            self.ranker = WhoRanking(self, self.final_retrieved_items)
             await self.ranker.do()
             
             logger.info("Who ranking completed")

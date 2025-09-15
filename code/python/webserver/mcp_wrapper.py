@@ -516,7 +516,6 @@ class MCPHandler:
 
 # Global MCP handler instance
 mcp_handler = MCPHandler()
-print(f"=== GLOBAL MCP HANDLER CREATED: id={id(mcp_handler)} ===")
 
 async def handle_mcp_request(query_params, body, send_response, send_chunk, streaming=False):
     """

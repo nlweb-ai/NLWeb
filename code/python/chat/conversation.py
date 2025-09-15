@@ -185,7 +185,8 @@ class ConversationManager:
     async def process_message(
         self, 
         message: Message,
-        require_ack: bool = False
+        require_ack: bool = False,
+        stream_callback = None
     ) -> Message:
         """
         Process an incoming message.
@@ -193,6 +194,7 @@ class ConversationManager:
         Args:
             message: The message to process
             require_ack: Whether to require delivery acknowledgments
+            stream_callback: Optional callback for streaming responses (WebSocket manager or SSE wrapper)
             
         Returns:
             The message with assigned sequence ID and delivery status
@@ -209,14 +211,15 @@ class ConversationManager:
         
         try:
             # No locking for now - just process the message
-            return await self._process_message_internal(message, require_ack)
+            return await self._process_message_internal(message, require_ack, stream_callback)
         except Exception as e:
             raise
     
     async def _process_message_internal(
-        self, 
+        self,
         message: Message,
-        require_ack: bool = False
+        require_ack: bool = False,
+        stream_callback = None
     ) -> Message:
         """
         Internal message processing logic (can be called with or without lock).
@@ -255,7 +258,8 @@ class ConversationManager:
         delivery_task = asyncio.create_task(self._deliver_to_participants(
             sequenced_message,
             conv_state,
-            require_ack
+            require_ack,
+            stream_callback
         ))
         
         # Note: We're not awaiting delivery - it happens asynchronously
@@ -285,7 +289,8 @@ class ConversationManager:
         self,
         message: Message,
         conv_state: ConversationState,
-        require_ack: bool = False
+        require_ack: bool = False,
+        stream_callback = None
     ) -> Dict[str, bool]:
         """
         Deliver message to all participants except sender.
@@ -323,7 +328,8 @@ class ConversationManager:
                     participant,
                     participant_id,
                     context,
-                    conv_state
+                    conv_state,
+                    stream_callback
                 )
                 delivery_tasks.append((participant_id, task))
             elif require_ack:
@@ -359,7 +365,8 @@ class ConversationManager:
         participant: BaseParticipant,
         participant_id: str,
         context: List[Message],
-        conv_state: ConversationState
+        conv_state: ConversationState,
+        stream_callback = None
     ) -> None:
         """
         Deliver message to a single participant.
@@ -379,8 +386,10 @@ class ConversationManager:
                 conv_state.active_nlweb_jobs.add(f"{message.message_id}_{participant_id}")
                 logger.info(f"ConversationManager calling AI participant {participant_id} for message {message.message_id}")
                 
-                # Process message - pass websocket manager for streaming
-                response = await participant.process_message(message, context, self.websocket_manager)
+                # Process message - pass stream callback (WebSocket manager or SSE wrapper)
+                # Use the provided stream_callback, or fall back to websocket_manager
+                callback = stream_callback or self.websocket_manager
+                response = await participant.process_message(message, context, callback)
                 
                 # If participant generated a response, process it
                 if response:
@@ -395,7 +404,8 @@ class ConversationManager:
             else:
                 # For human participants, process_message returns None
                 # This is kept for consistency but does nothing
-                await participant.process_message(message, context, self.websocket_manager)
+                callback = stream_callback or self.websocket_manager
+                await participant.process_message(message, context, callback)
                 
         except Exception as e:
             logger.error(f"Failed to deliver to {participant_id}: {e}")
