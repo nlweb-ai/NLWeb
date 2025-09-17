@@ -155,20 +155,23 @@ export class NLWebDropdownChat {
             // Store the initialized flag
             this.chatInitialized = false;
             
-            // Override methods to work with our structure
-            this.setupChatInterfaceOverrides();
+            // Set the site for the chat interface
+            this.chatInterface.state.selectedSite = this.config.site;
             
             // Initialize event handlers
             this.setupEventHandlers();
-            
-            // Set up the messages container
-            const messagesContainer = document.getElementById('chat-messages');
-            if (!messagesContainer) {
-                // Create a hidden messages container that UnifiedChatInterface expects
-                const hiddenMessages = document.createElement('div');
-                hiddenMessages.id = 'chat-messages';
-                hiddenMessages.style.display = 'none';
-                document.body.appendChild(hiddenMessages);
+
+            // Set up the overrides for chat interface methods
+            this.setupChatInterfaceOverrides();
+
+            // Point UnifiedChatInterface to our visible messages container
+            const existingChatMessages = document.getElementById('chat-messages');
+            if (!existingChatMessages) {
+                // Create a wrapper div with the ID that UnifiedChatInterface expects
+                // But make it point to our visible container
+                const wrapper = document.createElement('div');
+                wrapper.id = 'chat-messages';
+                this.messagesContainer.appendChild(wrapper);
             }
         } catch (error) {
             console.error('[NLWebDropdown] Error in initializeChatInterface:', error);
@@ -182,64 +185,64 @@ export class NLWebDropdownChat {
             this.chatInterface.createNewChat = (searchInputId, site) => {
                 originalCreateNewChat(searchInputId, site || this.config.site);
                 
-                const conversation = this.chatInterface.conversationManager.findConversation(
-                    this.chatInterface.currentConversationId
-                );
-                if (conversation) {
-                    if (!conversation.site) {
-                        conversation.site = this.config.site;
-                    }
-                    if (!conversation.timestamp) {
-                        conversation.timestamp = Date.now();
-                    }
-                    this.chatInterface.conversationManager.saveConversations();
-                }
+                // Let UnifiedChatInterface handle all conversation management
             };
         }
         
         // Override sendMessage to show dropdown when called
         if (this.chatInterface.sendMessage) {
             const originalSendMessage = this.chatInterface.sendMessage.bind(this.chatInterface);
-            this.chatInterface.sendMessage = () => {
+            this.chatInterface.sendMessage = (message) => {
                 this.showDropdown();
 
-                // Call the original sendMessage which will construct the proper message
-                originalSendMessage();
+                // Call the original sendMessage - pass the message parameter through
+                originalSendMessage(message);
 
-                // Force save after sending
-                if (this.chatInterface.conversationManager) {
-                    this.chatInterface.conversationManager.saveConversations();
-                }
+                // UnifiedChatInterface handles saving
 
                 const chatInputContainer = this.container.querySelector(`.${this.config.cssPrefix}-chat-input-container`);
                 if (chatInputContainer) {
                     chatInputContainer.style.display = 'block';
                 }
 
-                this.updateConversationsList();
+                // Don't update conversation list after sending - not needed
             };
         }
         
-        // Override addMessageBubble (UnifiedChatInterface uses this instead of addMessage)
-        if (this.chatInterface.addMessageBubble) {
-            const originalAddMessageBubble = this.chatInterface.addMessageBubble.bind(this.chatInterface);
-            this.chatInterface.addMessageBubble = (content, type, sender_info) => {
-                const result = originalAddMessageBubble(content, type, sender_info);
-                
-                // Access conversations through conversationManager
-                const conversation = this.chatInterface.conversationManager.findConversation(
-                    this.chatInterface.currentConversationId
-                );
-                if (conversation) {
-                    if (conversation.site !== this.config.site) {
-                        conversation.site = this.config.site;
-                    }
-                    if (!conversation.timestamp) {
-                        conversation.timestamp = Date.now();
-                    }
-                    this.chatInterface.conversationManager.saveConversations();
+
+        // Override handleStreamData to add progressive scrolling
+        if (this.chatInterface.handleStreamData) {
+            const originalHandleStreamData = this.chatInterface.handleStreamData.bind(this.chatInterface);
+            this.chatInterface.handleStreamData = (data, shouldStore) => {
+                const result = originalHandleStreamData(data, shouldStore);
+
+                // After each message is processed, check if we need to scroll
+                if (this.messagesContainer) {
+                    // Use setTimeout to let DOM update
+                    setTimeout(() => {
+                        const userMessages = this.messagesContainer.querySelectorAll('.user-message');
+                        if (userMessages.length > 0) {
+                            const lastUserMessage = userMessages[userMessages.length - 1];
+                            const rect = lastUserMessage.getBoundingClientRect();
+                            const containerRect = this.messagesContainer.getBoundingClientRect();
+
+                            // If user message is below the viewport, scroll to make it visible
+                            if (rect.bottom > containerRect.bottom) {
+                                // Scroll just enough to show the user message
+                                lastUserMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                            }
+                            // If user message is visible but below the top 30%, scroll up progressively
+                            else if (rect.top > containerRect.top + (containerRect.height * 0.3)) {
+                                // Scroll a bit to move user message up
+                                this.messagesContainer.scrollBy({
+                                    top: 50,
+                                    behavior: 'smooth'
+                                });
+                            }
+                        }
+                    }, 100);
                 }
-                
+
                 return result;
             };
         }
@@ -258,18 +261,14 @@ export class NLWebDropdownChat {
     setupEventHandlers() {
         // Search input
         if (this.searchInput) {
-            console.log('[NLWebDropdown] Adding keypress listener to searchInput');
             this.searchInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
-                    console.log('[NLWebDropdown] Enter pressed, calling handleSearch');
                     e.preventDefault();
                     this.handleSearch();
                 }
             });
-        } else {
-            console.error('[NLWebDropdown] searchInput is null - cannot add event handler');
         }
-        
+
         // History icon
         if (this.historyIcon) {
             this.historyIcon.addEventListener('click', (e) => {
@@ -282,25 +281,29 @@ export class NLWebDropdownChat {
         // Chat input and send button
         const chatInput = this.container.querySelector(`.${this.config.cssPrefix}-chat-input`);
         const sendButton = this.container.querySelector(`.${this.config.cssPrefix}-send-button`);
-        
+
         if (chatInput && sendButton) {
-            // Ensure elements object exists
-            if (!this.chatInterface.elements) {
-                this.chatInterface.elements = {};
-            }
-            // Override the chat interface elements
-            this.chatInterface.elements.chatInput = chatInput;
-            this.chatInterface.elements.sendButton = sendButton;
-            
+
             sendButton.addEventListener('click', () => {
                 const message = chatInput.value.trim();
                 if (message) {
-                    this.chatInterface.sendMessage(message);
+                    // UnifiedChatInterface will handle conversation creation
+                    // Just set up the input element for it to read
+                    // Create or update that element with our message
+                    let hiddenInput = document.getElementById('chat-input');
+                    if (!hiddenInput) {
+                        hiddenInput = document.createElement('textarea');
+                        hiddenInput.id = 'chat-input';
+                        hiddenInput.style.display = 'none';
+                        document.body.appendChild(hiddenInput);
+                    }
+                    hiddenInput.value = message;
+                    this.chatInterface.sendMessage();
                     chatInput.value = '';
                     chatInput.style.height = 'auto';
                 }
             });
-            
+
             chatInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -342,53 +345,31 @@ export class NLWebDropdownChat {
 
         this.searchInput.value = '';
 
-        // Clear existing results before starting new search
-        if (this.messagesContainer) {
-            this.messagesContainer.innerHTML = '';
+        // Don't clear messages if we have an existing conversation
+        // Only clear if starting a new conversation
+        if (!this.chatInterface?.state?.conversationId) {
+            if (this.messagesContainer) {
+                this.messagesContainer.innerHTML = '';
+            }
         }
 
         this.showDropdown();
 
         if (!this.chatInterface) {
-            console.error('[NLWebDropdown] chatInterface is null');
             return;
         }
 
-        // Initialize the chat interface on first use
-        if (!this.chatInitialized) {
-            console.log('[NLWebDropdown] Initializing chat interface on first query');
-            console.log('[NLWebDropdown] Pre-init state:', {
-                state: this.chatInterface.state,
-                ws: !!this.chatInterface.ws,
-                wsConnection: !!this.chatInterface.ws?.connection
-            });
+        // Chat interface is already initialized in initializeChatInterface()
+        // Don't call init() again as it resets the conversations array!
 
-            // Ensure the site is set before initialization
-            this.chatInterface.state.selectedSite = this.config.site;
-
-            // Call the init method that UnifiedChatInterface expects
-            await this.chatInterface.init();
-
-            this.chatInitialized = true;
-            console.log('[NLWebDropdown] Chat interface initialized');
-            console.log('[NLWebDropdown] Post-init state:', {
-                state: this.chatInterface.state,
-                ws: !!this.chatInterface.ws,
-                wsConnection: !!this.chatInterface.ws?.connection,
-                conversationManager: !!this.chatInterface.conversationManager
-            });
-        }
-
-        // Always create a new conversation for top search bar queries
-        const conversationId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-        this.chatInterface.state.conversationId = conversationId;
+        // Set the site for the search
         this.chatInterface.state.selectedSite = this.config.site;
 
         // End any existing streaming
         if (this.chatInterface.state.currentStreaming) {
             this.chatInterface.endStreaming();
         }
-        
+
         // Set the input value that UnifiedChatInterface.sendMessage() will read
         let input = document.getElementById('centered-chat-input') || document.getElementById('chat-input');
         if (!input) {
@@ -398,12 +379,24 @@ export class NLWebDropdownChat {
             document.body.appendChild(input);
         }
         input.value = query;
-        
-        console.log('[NLWebDropdown] Sending query:', query);
-        console.log('[NLWebDropdown] Input value set to:', input.value);
-        
+
         // Call sendMessage without parameters - it will read from the DOM and construct the proper message
         this.chatInterface.sendMessage();
+
+        // Show the chat input container for follow-up questions
+        const chatInputContainer = this.container.querySelector(`.${this.config.cssPrefix}-chat-input-container`);
+        if (chatInputContainer) {
+            chatInputContainer.style.display = 'block';
+        }
+
+        // After sending message, scroll to show the user message
+        setTimeout(() => {
+            const messages = this.messagesContainer.querySelectorAll('.user-message');
+            const lastUserMessage = messages[messages.length - 1];
+            if (lastUserMessage) {
+                lastUserMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }
+        }, 100);
     }
     
     toggleConversationsPanel() {
@@ -419,24 +412,12 @@ export class NLWebDropdownChat {
     }
     
     updateConversationsList() {
-        // First, temporarily filter conversations to only show this site's conversations
-        const originalConversations = this.chatInterface.conversationManager.conversations;
-        const siteFilteredConversations = originalConversations.filter(conv =>
-            conv.site === this.config.site && conv.messages && conv.messages.length > 0
-        );
-
-        // Temporarily replace the conversations array with filtered version
-        this.chatInterface.conversationManager.conversations = siteFilteredConversations;
-
-        // Use the shared conversation list rendering from conversation-manager.js
-        // This ensures consistent UI and behavior across both interfaces
+        // Just update the UI - don't manipulate conversation data
+        // Let the conversation manager handle its own data
         this.chatInterface.conversationManager.updateConversationsList(
             this.chatInterface,
             this.dropdownConversationsList
         );
-
-        // Restore the original conversations array
-        this.chatInterface.conversationManager.conversations = originalConversations;
 
         // Override click handlers for dropdown-specific behavior
         const convItems = this.dropdownConversationsList.querySelectorAll('.conversation-item');
@@ -529,12 +510,12 @@ export class NLWebDropdownChat {
     closeDropdown() {
         this.dropdownResults.classList.remove('show');
         this.dropdownConversationsPanel.classList.remove('show');
-        
+
         const chatInputContainer = this.container.querySelector(`.${this.config.cssPrefix}-chat-input-container`);
         if (chatInputContainer) {
             chatInputContainer.style.display = 'none';
         }
-        
+
         if (this.messagesContainer) {
             const closeButton = this.messagesContainer.querySelector(`.${this.config.cssPrefix}-close`);
             this.messagesContainer.innerHTML = '';
@@ -542,10 +523,9 @@ export class NLWebDropdownChat {
                 this.messagesContainer.appendChild(closeButton);
             }
         }
-        
-        if (this.chatInterface) {
-            this.chatInterface.createNewChat(null, this.config.site);
-        }
+
+        // Don't create a new chat when closing - preserve the conversation
+        // The user might want to continue the conversation later
     }
     
     // Public API methods
