@@ -150,7 +150,10 @@ The user's question is: {request.query}. The item's description is {item.descrip
 #        self._results_lock = asyncio.Lock()  # Add lock for thread-safe operations
 
     async def rankItem(self, url, json_str, name, site):
-       
+
+        # Debug: Print site information
+        print(f"[rankItem] Processing item - URL: {url}, Site: {site}, Handler.site: {getattr(self.handler, 'site', 'NO SITE ATTR')}")
+
         if (self.ranking_type == Ranking.FAST_TRACK and self.handler.state.should_abort_fast_track()):
             logger.info("Fast track aborted, skipping item ranking")
             logger.info("Aborting fast track")
