@@ -16,7 +16,7 @@ from core.utils.json_utils import trim_json
 from core.prompts import find_prompt, fill_prompt
 from misc.logger.logging_config_helper import get_configured_logger
 from core.schemas import create_assistant_result, create_status_message, Message, SenderType, MessageType
-
+from core.utils.utils import record_llm_call
 logger = get_configured_logger("ranking_engine")
 
 
@@ -140,6 +140,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
             self.ranking_type_str = "UNKNOWN"
         logger.info(f"Initializing Ranking with {ll} items, type: {self.ranking_type_str}")
         logger.info(f"Ranking {ll} items of type {self.ranking_type_str}")
+        logger.info(f"Starting ranking of {ll} items (type: {self.ranking_type_str})")
         self.handler = handler
         self.level = level
         self.items = items
@@ -173,8 +174,10 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 'name': name,
                 'ranking': ranking,
                 'schema_object': schema_object,
-                'sent': False,
+                'sent': False
             }
+
+            record_llm_call(ansr, prompt_str, self.handler.query)
             
             # Check if required_item_type is specified and filter based on @type
             if self.handler.required_item_type is not None:
@@ -205,14 +208,17 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 raise  # Re-raise in testing/development mode
 
     def shouldSend(self, result):
+        # Get max_results from handler, or use default
+        max_results = getattr(self.handler, 'max_results', self.NUM_RESULTS_TO_SEND)
+
         # Don't send if we've already reached the limit
-        if self.num_results_sent >= self.NUM_RESULTS_TO_SEND:
-            logger.debug(f"Not sending {result['name']} - already at limit ({self.num_results_sent}/{self.NUM_RESULTS_TO_SEND})")
+        if self.num_results_sent >= max_results:
+            logger.debug(f"Not sending {result['name']} - already at limit ({self.num_results_sent}/{max_results})")
             return False
-            
+
         should_send = False
         # Allow sending if we're still well below the limit
-        if (self.num_results_sent < self.NUM_RESULTS_TO_SEND - 3):
+        if (self.num_results_sent < max_results - 3):
             should_send = True
         else:
             # Near the limit - only send if this result is better than something we already sent
@@ -220,8 +226,8 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 if r["sent"] == True and r["ranking"]["score"] < result["ranking"]["score"]:
                     should_send = True
                     break
-        
-        logger.debug(f"Should send result {result['name']}? {should_send} (sent: {self.num_results_sent}/{self.NUM_RESULTS_TO_SEND})")
+
+        logger.debug(f"Should send result {result['name']}? {should_send} (sent: {self.num_results_sent}/{max_results})")
         return should_send
     
     async def sendAnswers(self, answers, force=False):
@@ -250,11 +256,14 @@ The user's question is: {request.query}. The item's description is {item.descrip
               
         json_results = []
         logger.debug(f"Considering sending {len(answers)} answers (force: {force})")
-        
+
+        # Get max_results from handler, or use default
+        max_results = getattr(self.handler, 'max_results', self.NUM_RESULTS_TO_SEND)
+
         for result in answers:
             # Additional safety check - never exceed the limit even when forced
-            if self.num_results_sent + len(json_results) >= self.NUM_RESULTS_TO_SEND:
-                logger.info(f"Stopping at {len(json_results)} results to avoid exceeding limit of {self.NUM_RESULTS_TO_SEND}")
+            if self.num_results_sent + len(json_results) >= max_results:
+                logger.info(f"Stopping at {len(json_results)} results to avoid exceeding limit of {max_results}")
                 break
                 
             if self.shouldSend(result) or force:
@@ -288,11 +297,11 @@ The user's question is: {request.query}. The item's description is {item.descrip
             
             try:
                 # Final safety check before sending
-                if self.num_results_sent + len(json_results) > self.NUM_RESULTS_TO_SEND:
+                if self.num_results_sent + len(json_results) > max_results:
                     # Trim the results to not exceed the limit
-                    allowed_count = self.NUM_RESULTS_TO_SEND - self.num_results_sent
+                    allowed_count = max_results - self.num_results_sent
                     json_results = json_results[:allowed_count]
-                    logger.warning(f"Trimmed results to {len(json_results)} to stay within limit of {self.NUM_RESULTS_TO_SEND}")
+                    logger.warning(f"Trimmed results to {len(json_results)} to stay within limit of {max_results}")
                 
                 if (self.ranking_type == Ranking.FAST_TRACK):
                     self.handler.fastTrackWorked = True
@@ -301,7 +310,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
                 # Use the new schema to create and auto-send the message
                 create_assistant_result(json_results, handler=self.handler)
                 self.num_results_sent += len(json_results)
-                logger.info(f"Sent {len(json_results)} results, total sent: {self.num_results_sent}/{self.NUM_RESULTS_TO_SEND}")
+                logger.info(f"Sent {len(json_results)} results, total sent: {self.num_results_sent}/{max_results}")
             except (BrokenPipeError, ConnectionResetError) as e:
                 logger.error(f"Client disconnected while sending answers: {str(e)}")
                 log(f"Client disconnected while sending answers: {str(e)}")
@@ -337,6 +346,7 @@ The user's question is: {request.query}. The item's description is {item.descrip
     
     async def do(self):
         logger.info(f"Starting ranking process with {len(self.items)} items")
+        logger.info(f"Processing {len(self.items)} items for ranking")
         tasks = []
         for url, json_str, name, site in self.items:
             if self.handler.connection_alive_event.is_set():  # Only add new tasks if connection is still alive
@@ -365,26 +375,31 @@ The user's question is: {request.query}. The item's description is {item.descrip
             logger.info("Fast track aborted after ranking tasks completed")
             return
     
-        filtered = [r for r in self.rankedAnswers if r['ranking']['score'] > 51]
+        # Use min_score from handler if available, otherwise default to 51
+        min_score_threshold = getattr(self.handler, 'min_score', 51)
+        # Use max_results from handler if available, otherwise use NUM_RESULTS_TO_SEND
+        max_results = getattr(self.handler, 'max_results', self.NUM_RESULTS_TO_SEND)
+        filtered = [r for r in self.rankedAnswers if r['ranking']['score'] > min_score_threshold]
         ranked = sorted(filtered, key=lambda x: x['ranking']["score"], reverse=True)
-        self.handler.final_ranked_answers = ranked[:self.NUM_RESULTS_TO_SEND]
-        
-        logger.info(f"Filtered to {len(filtered)} results with score > 51")
+        self.handler.final_ranked_answers = ranked[:max_results]
+
+        logger.info(f"Filtered to {len(filtered)} results with score > {min_score_threshold}")
+        logger.info(f"Filtered {len(self.rankedAnswers)} results to {len(filtered)} with score > {min_score_threshold}, returning top {len(self.handler.final_ranked_answers)}")
         logger.debug(f"Top 3 results: {[(r['name'], r['ranking']['score']) for r in ranked[:3]]}")
 
         results = [r for r in self.rankedAnswers if r['sent'] == False]
-        if (self.num_results_sent > self.NUM_RESULTS_TO_SEND):
+        if (self.num_results_sent > max_results):
             logger.info(f"Already sent {self.num_results_sent} results, returning without sending more")
             return
        
         # Sort by score in descending order
         sorted_results = sorted(results, key=lambda x: x['ranking']["score"], reverse=True)
-        good_results = [x for x in sorted_results if x['ranking']["score"] > 51]
+        good_results = [x for x in sorted_results if x['ranking']["score"] > min_score_threshold]
 
         # Calculate how many more results we can send
-        remaining_slots = self.NUM_RESULTS_TO_SEND - self.num_results_sent
+        remaining_slots = max_results - self.num_results_sent
         if remaining_slots <= 0:
-            logger.info(f"Already sent {self.num_results_sent} results, at or above limit of {self.NUM_RESULTS_TO_SEND}")
+            logger.info(f"Already sent {self.num_results_sent} results, at or above limit of {max_results}")
             return
             
         if len(good_results) >= remaining_slots:
