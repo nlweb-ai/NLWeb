@@ -15,7 +15,7 @@ class SnowflakeCortexSearchClient:
     def __init__(self, endpoint_name: Optional[str] = None):
         self._cfg = CONFIG.retrieval_endpoints[endpoint_name]
 
-    async def deleted_documents_by_site(self, site: str, **kwargs) -> int:
+    async def delete_documents_by_site(self, site: str, **kwargs) -> int:
         raise NotImplementedError("Not implemented yet, requires translation to a DELETE statement in Snowflake")
 
     async def upload_documents(self, documents: List[Dict[str, Any]], **kwargs) -> int:
