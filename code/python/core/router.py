@@ -38,7 +38,7 @@ def init():
     # Load tools from config directory for default site
     tools_xml_path = os.path.join(CONFIG.config_directory, "tools.xml")
     site_id = 'default'
-    
+
     logger.info(f"Loading tools from {tools_xml_path} for site '{site_id}'")
     tools = _load_tools_from_file(tools_xml_path, site_id)
     cache_key = (tools_xml_path, site_id)

@@ -53,6 +53,13 @@ endpoints:
       index_options:
         type: int8_hnsw # byte quantization for efficient storage
 
+  # Shopify MCP endpoint for product search across Shopify stores
+  shopify:
+    enabled: true
+    db_type: shopify_mcp
+    # Note: mcp_endpoint will be dynamically set based on the site being queried
+    name: Shopify MCP Search
+
   # Milvus is still under development and not yet supported. 
   milvus:
     enabled: false

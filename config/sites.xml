@@ -16,6 +16,82 @@
   
   <Site name="datacommons">
     <itemType>Statistics</itemType>
-    <description>Data Commons - statistical data and metrics from various public datasets</description>
+    <description>Data Commons - statistical data about places, demographics, economics, and more</description>
+  </Site>
+
+  <!-- Shopify Sites -->
+  <Site name="miyakeceramics.com">
+    <itemType>Product</itemType>
+    <description>Miyake Ceramics - Japanese ceramics and pottery</description>
+  </Site>
+
+  <Site name="ikebanavase.com">
+    <itemType>Product</itemType>
+    <description>Ikebana Vase - Japanese flower arrangement vases</description>
+  </Site>
+
+  <Site name="shop.japanese-food-craftsman.com">
+    <itemType>Product</itemType>
+    <description>Japanese Food Craftsman - Japanese culinary products and tools</description>
+  </Site>
+
+  <Site name="musubikiln.com">
+    <itemType>Product</itemType>
+    <description>Musubi Kiln - Japanese pottery and ceramics</description>
+  </Site>
+
+  <Site name="omakase-forest.com">
+    <itemType>Product</itemType>
+    <description>Omakase Forest - Curated Japanese products</description>
+  </Site>
+
+  <Site name="kutani-ware.jp">
+    <itemType>Product</itemType>
+    <description>Kutani Ware - Traditional Japanese Kutani porcelain</description>
+  </Site>
+
+  <Site name="www.saranyc.com">
+    <itemType>Product</itemType>
+    <description>Sara NYC - Japanese and artisanal products</description>
+  </Site>
+
+  <Site name="kiichin.com">
+    <itemType>Product</itemType>
+    <description>Kiichin - Japanese kitchen and dining products</description>
+  </Site>
+
+  <Site name="masuhome.com">
+    <itemType>Product</itemType>
+    <description>Masu Home - Japanese home goods and lifestyle products</description>
+  </Site>
+
+  <Site name="mocad-shop.com">
+    <itemType>Product</itemType>
+    <description>MOCAD Shop - Museum of Contemporary Art Detroit shop</description>
+  </Site>
+
+  <Site name="usa.kayanoya.com">
+    <itemType>Product</itemType>
+    <description>Kayanoya USA - Japanese seasonings and condiments</description>
+  </Site>
+
+  <Site name="kettl.co">
+    <itemType>Product</itemType>
+    <description>Kettl - Japanese tea and tea accessories</description>
+  </Site>
+
+  <Site name="wazatokyo.com">
+    <itemType>Product</itemType>
+    <description>Waza Tokyo - Japanese crafts and artisanal products</description>
+  </Site>
+
+  <Site name="hashipottery.com">
+    <itemType>Product</itemType>
+    <description>Hashi Pottery - Japanese pottery and ceramics</description>
+  </Site>
+
+  <Site name="www.hotnsaucy.co">
+    <itemType>Product</itemType>
+    <description>Hot N Saucy - Hot sauces and condiments</description>
   </Site>
 </Sites>

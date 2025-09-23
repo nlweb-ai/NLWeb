@@ -1099,7 +1099,7 @@ def get_vector_db_client(endpoint_name: Optional[str] = None,
 
 
 
-async def search(query: str, 
+async def search(query: str,
                 site: str = "all",
                 num_results: int = 50,
                 endpoint_name: Optional[str] = None,

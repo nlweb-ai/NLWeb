@@ -34,10 +34,9 @@ class QueryRewrite(PromptRunner):
         # Wait for decontextualization to complete since we need the decontextualized query
         if not site_supports_standard_retrieval(self.handler.site):
             await self.handler.state.precheck_step_done(self.STEP_NAME)
-        
+
         await self.handler.state._decon_event.wait()
-        
-       
+
         
         try:
             # Run the query rewrite prompt
@@ -66,7 +65,7 @@ class QueryRewrite(PromptRunner):
                     self.handler.rewritten_queries = [self.handler.decontextualized_query]
                 else:
                     # Limit to 5 queries maximum
-                    self.handler.rewritten_queries = valid_queries
+                    self.handler.rewritten_queries = valid_queries[:5]
                     print(f"Generated {len(self.handler.rewritten_queries)} rewritten queries: {self.handler.rewritten_queries}")
             
             # Send a message to the client about the rewritten queries
@@ -75,6 +74,7 @@ class QueryRewrite(PromptRunner):
                     "message_type": "query_rewrite",
                     "original_query": self.handler.decontextualized_query,
                     "rewritten_queries": self.handler.rewritten_queries,
+                    "query_id": getattr(self.handler, 'query_id', None)
                 }
                 asyncio.create_task(self.handler.send_message(message))
                 
