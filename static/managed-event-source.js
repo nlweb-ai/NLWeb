@@ -756,28 +756,65 @@ export class ManagedEventSource {
     
     console.log('HTML content to insert:', data.html);
     
-    // Create container for the chart
-    const chartContainer = document.createElement('div');
-    chartContainer.className = 'chart-result-container';
-    chartContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px;';
+    // Function to process and display the chart
+    const processChart = () => {
+      // Create container for the chart
+      const chartContainer = document.createElement('div');
+      chartContainer.className = 'chart-result-container';
+      chartContainer.style.cssText = 'margin: 15px 0; padding: 15px; background-color: #f8f9fa; border-radius: 8px;';
+      
+      // Parse the HTML to extract just the web components (remove script tags from innerHTML)
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(data.html, 'text/html');
+      
+      // Find all datacommons elements
+      const datacommonsElements = doc.querySelectorAll('datacommons-scatter, datacommons-bar, datacommons-line, datacommons-pie, datacommons-map, datacommons-highlight, datacommons-ranking');
+      
+      console.log('Found', datacommonsElements.length, 'Data Commons elements');
+      
+      // Append each web component directly
+      datacommonsElements.forEach(element => {
+        const clonedElement = element.cloneNode(true);
+        chartContainer.appendChild(clonedElement);
+        console.log('Added web component:', clonedElement.tagName, clonedElement.outerHTML);
+      });
+      
+      // If no datacommons elements found, add all non-script elements
+      if (datacommonsElements.length === 0) {
+        console.log('No Data Commons elements found, adding all non-script elements');
+        const allElements = doc.body.querySelectorAll('*:not(script)');
+        allElements.forEach(element => {
+          chartContainer.appendChild(element.cloneNode(true));
+        });
+      }
+      
+      console.log('Container element created:', chartContainer);
+      
+      // Append to chat interface
+      chatInterface.bubble.appendChild(chartContainer);
+      
+      console.log('Chart container appended to bubble');
+    };
     
-    // Parse and inject the HTML content
-    // The HTML should contain the Data Commons web component and script tag
-    // SECURITY NOTE: This HTML comes from the backend and should be sanitized server-side
-    // It contains Data Commons web components that require specific HTML structure
-    chartContainer.innerHTML = data.html;
-    
-    console.log('Container element created:', chartContainer);
-    console.log('Container innerHTML after setting:', chartContainer.innerHTML);
-    
-    // Append to chat interface
-    chatInterface.bubble.appendChild(chartContainer);
-    
-    console.log('Chart container appended to bubble');
-    console.log('Bubble contents:', chatInterface.bubble.innerHTML);
-    
-    // The Data Commons script should automatically initialize the web component
-    // when it's added to the DOM
+    // Check if Data Commons script is already loaded
+    if (!window.datacommons && !document.querySelector('script[src*="datacommons.org/datacommons.js"]')) {
+      console.log('Data Commons script not loaded, loading now...');
+      const script = document.createElement('script');
+      script.src = 'https://datacommons.org/datacommons.js';
+      script.onload = () => {
+        console.log('Data Commons script loaded successfully');
+        processChart();
+      };
+      script.onerror = () => {
+        console.error('Failed to load Data Commons script');
+        // Still try to process the chart even if script fails to load
+        processChart();
+      };
+      document.head.appendChild(script);
+    } else {
+      console.log('Data Commons script already loaded, processing chart immediately');
+      processChart();
+    }
   }
 
   /**
