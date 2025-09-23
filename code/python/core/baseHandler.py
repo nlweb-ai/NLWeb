@@ -105,6 +105,13 @@ class NLWebHandler:
         # should we just list the results or try to summarize the results or use the results to generate an answer
         # Valid values are "none","summarize" and "generate"
         self.generate_mode = get_param(query_params, "generate_mode", str, "none")
+
+        # Minimum score threshold for ranking - results below this score will be filtered out
+        self.min_score = get_param(query_params, "min_score", int, 51)
+
+        # Maximum number of results to return to the user
+        self.max_results = get_param(query_params, "max_results", int, 10)
+
         # the items that have been retrieved from the vector database, could be before decontextualization.
         # See below notes on fasttrack
         self.retrieved_items = []

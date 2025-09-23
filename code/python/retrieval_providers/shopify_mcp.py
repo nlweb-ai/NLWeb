@@ -191,7 +191,7 @@ class ShopifyMCPClient(RetrievalClientBase):
                     except Exception as json_error:
                         # If JSON parsing fails, then it's really not JSON
                         text = await response.text()
-                        logger.error(f"Failed to parse response as JSON. Content-Type: {content_type}")
+                        print(f"Failed to parse response as JSON. Content-Type: {content_type}")
                         return []
                     
                     # Check for JSON-RPC error
@@ -217,13 +217,14 @@ class ShopifyMCPClient(RetrievalClientBase):
                     
                     # Otherwise try direct format
                     formatted = self._format_results(mcp_result, site)
+
                     return formatted
                     
         except asyncio.TimeoutError:
-            logger.error("Shopify MCP request timed out")
+            print("Shopify MCP request for {query} @ {site} timed out")
             return []
         except Exception as e:
-            logger.error(f"Shopify MCP request failed: {str(e)}")
+            print(f"Shopify MCP request for {query} @ {site} failed: {str(e)}")
             return []
     
     def _format_results(self, mcp_result: Dict, site: str) -> List[List[str]]:

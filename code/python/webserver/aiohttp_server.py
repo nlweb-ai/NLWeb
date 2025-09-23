@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import logging    
+import logging
 # We need to set up logging at the very beginning
 logging.basicConfig(
     level=logging.INFO,
@@ -19,6 +19,8 @@ from typing import Optional, Dict, Any
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core.utils.utils import set_recording_llm_calls
+
 # Check operating system to optimize port reuse
 reuse_port_supported = sys.platform != "win32"  # True for Linux/macOS, False for Windows
 
@@ -36,6 +38,7 @@ class AioHTTPServer:
         self.app: Optional[web.Application] = None
         self.runner: Optional[web.AppRunner] = None
         self.site: Optional[web.TCPSite] = None
+        self.record_file: Optional[str] = None
         
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Load configuration from YAML file"""
@@ -341,33 +344,42 @@ class AioHTTPServer:
             await self.app.cleanup()
 
 
-async def main():
-    """Main entry point"""
-    
+async def main(record_file=None):
+    """Main entry point
+
+    Args:
+        record_file: Optional file path to record requests/responses for debugging
+    """
+
     # Suppress verbose HTTP client logging from OpenAI SDK
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
-    
+
     # Suppress Azure SDK HTTP logging
     logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
     logging.getLogger("azure").setLevel(logging.WARNING)
-    
+
     # Suppress aiohttp access logs
     logging.getLogger("aiohttp.access").setLevel(logging.WARNING)
-    
+
     # Suppress webserver middleware logging
     logging.getLogger("webserver.middleware.logging_middleware").setLevel(logging.WARNING)
-    
+
     # Suppress chat system logging
     logging.getLogger("webserver.routes.chat").setLevel(logging.WARNING)
     logging.getLogger("chat.conversation").setLevel(logging.WARNING)
     logging.getLogger("chat.participants").setLevel(logging.WARNING)
     logging.getLogger("chat.websocket").setLevel(logging.WARNING)
-    
+
     # Create and start server
     server = AioHTTPServer()
-    
+    server.record_file = record_file
+
+    if record_file:
+        logger.info(f"Recording requests/responses to: {record_file}")
+        set_recording_llm_calls(record_file)
+
     try:
         await server.start()
     except Exception as e:
@@ -378,4 +390,11 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import argparse
+
+    parser = argparse.ArgumentParser(description='NLWeb aiohttp server')
+    parser.add_argument('--record-file', dest='record_file',
+                        help='File path to record requests/responses for debugging')
+    args = parser.parse_args()
+
+    asyncio.run(main(record_file=args.record_file))

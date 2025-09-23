@@ -40,9 +40,7 @@ def init_prompts(files=["prompts.xml"]):
         # Create full path by joining the config directory with the filename
         file_path = os.path.join(CONFIG.config_directory, file)
         try:
-            logger.debug(f"Loading prompt file: {file_path}")
             prompt_roots.append(ET.parse(file_path).getroot())
-            logger.debug(f"Successfully loaded prompt file: {file}")
         except Exception as e:
             logger.error(f"Failed to load prompt file '{file}': {str(e)}")
             raise
@@ -50,24 +48,17 @@ def init_prompts(files=["prompts.xml"]):
 
 def super_class_of(child_class, parent_class):
     if parent_class == child_class:
-        logger.debug(f"Class match: {child_class} == {parent_class}")
         return True
     if parent_class == "{" + BASE_NS + "}Item" :
-        logger.debug(f"Universal parent class matched: {parent_class}")
         return True
-    logger.debug(f"No class relationship: {child_class} is not a subclass of {parent_class}")
     return False
 
 prompt_var_cache = {}
 def get_prompt_variables_from_prompt(prompt):
     if prompt in prompt_var_cache:
-        logger.debug(f"Using cached variables for prompt (length: {len(prompt)})")
         return prompt_var_cache[prompt]
-    
-    logger.debug(f"Extracting variables from prompt (length: {len(prompt)})")
     variables = extract_variables_from_prompt(prompt)
     prompt_var_cache[prompt] = variables
-    logger.debug(f"Found {len(variables)} variables: {variables}")
     return variables
 
 def extract_variables_from_prompt(prompt):
@@ -91,12 +82,9 @@ def extract_variables_from_prompt(prompt):
         
         # Move start position
         start = end + 1
-    
-    logger.debug(f"Extracted variables: {variables}")
     return variables
 
 def get_prompt_variable_value(variable, handler):
-    logger.debug(f"Getting value for variable: {variable}")
     
     site = handler.site
     query = handler.query
@@ -149,16 +137,11 @@ def get_prompt_variable_value(variable, handler):
         logger.warning(f"Unknown variable: {variable}")
         value = ""
     
-    logger.debug(f"Variable '{variable}' = '{str(value)[:100]}{'...' if len(str(value)) > 100 else ''}'")
-    
-    
     return value
 
 def fill_prompt(prompt_str, handler, pr_dict={}):
-    logger.debug(f"Filling prompt template (length: {len(prompt_str)})")
     try:
         variables = get_prompt_variables_from_prompt(prompt_str)
-        logger.debug(f"Found {len(variables)} variables to fill")
         for variable in variables:
             if (variable in pr_dict):
                 value = pr_dict[variable]
@@ -169,8 +152,6 @@ def fill_prompt(prompt_str, handler, pr_dict={}):
                 value = str(value)
                 
             prompt_str = prompt_str.replace("{" + variable + "}", value)
-        
-        logger.debug(f"Prompt filled successfully (final length: {len(prompt_str)})")
         return prompt_str
     except Exception as e:
         logger.error(f"Error filling prompt: {str(e)}")
@@ -182,60 +163,68 @@ cached_prompts = {}
 def get_cached_values(site, item_type, prompt_name):
     cache_key = (site, item_type, prompt_name)
     if cache_key in cached_prompts:
-        logger.debug(f"Cache hit for prompt: {cache_key}")
         return cached_prompts[cache_key]
-    logger.debug(f"Cache miss for prompt: {cache_key}")
     return None
 
 def find_prompt(site, item_type, prompt_name):  
-    if (site):
+    if site and isinstance(site, list):
         site = site[0]
     if (prompt_roots == []):
-        logger.debug("Prompt roots not initialized, initializing now")
         init_prompts()
     
     cached_values = get_cached_values(site, item_type, prompt_name)
     if cached_values is not None:
-        logger.debug(f"Returning cached prompt for '{prompt_name}'")
         return cached_values
     
     # First, try to find a Site element matching the site parameter
     site_element = None
     prompt_element = None
-    
-    logger.debug(f"Searching for site element with ref='{site}'")
+    default_site_element = None
+    default_item_type_element = []
+    item_type_element = []
+    prompt_element = None
+
     for root_element in prompt_roots:
-        for site_element in root_element.findall(SITE_TAG):
-            if site_element.get("ref") == site:
+        for se in root_element.findall(SITE_TAG):
+            se_site = se.get("id")
+            if se_site == site :
+                site_element = se
                 break
+            if se_site == "default":
+                default_site_element = se
+
+    if (not site_element and default_site_element):
+        site_element = default_site_element
     
-    candidate_roots = []
-    if site_element is not None:
-        candidate_roots.append(site_element)
-    else:
-        candidate_roots = prompt_roots
-    
-    # If site element found, search for matching Type element within it
-    for candidate_root in candidate_roots:
-        # First check for prompts directly at root level
-        root_prompts = candidate_root.findall(PROMPT_TAG)
-        for pe in root_prompts:
+    if (not site_element):
+        return None, None
+
+  
+    for child in site_element:
+        if child.tag == "{" + BASE_NS + "}Item":
+            default_item_type_element.append(child)
+        elif child.tag == "{" + BASE_NS + "}item_type":
+            item_type_element.append(child)
+            
+    for elt in default_item_type_element:
+        item_type_element.append(elt)
+       
+    for elt in item_type_element:
+        prompts = elt.findall(PROMPT_TAG)
+        # Debug: prompts found for site and item_type
+        for pe in prompts:
+            # Debug: prompt reference
             if pe.get("ref") == prompt_name:
                 prompt_element = pe
                 break
+            if (prompt_element):
+                break
+            
         
-        # If not found at root, search within Type elements
-        if prompt_element is None:
-            for child in candidate_root:
-                if (super_class_of(item_type, child.tag)):
-                    children = child.findall(PROMPT_TAG)
-                    
-                    for pe in children:
-                        if pe.get("ref") == prompt_name:
-                            prompt_element = pe
-                            break
-    
-    if prompt_element is not None:
+    if (not prompt_element):
+        # Debug: prompt not found
+        return None, None
+    else:
         prompt_text = prompt_element.find(PROMPT_STRING_TAG).text
         return_struc_element = prompt_element.find(RETURN_STRUC_TAG)
         
@@ -254,10 +243,7 @@ def find_prompt(site, item_type, prompt_name):
         
         cached_prompts[(site, item_type, prompt_name)] = (prompt_text, return_struc)
         return prompt_text, return_struc
-    else:
-        logger.warning(f"Prompt '{prompt_name}' not found for site='{site}', item_type='{item_type}'")
-        cached_prompts[(site, item_type, prompt_name)] = (None, None)
-        return None, None
+    
 
 
 def get_prompt_variables_from_file(xml_file_path):
@@ -395,5 +381,5 @@ class PromptRunner:
                 raise Exception(f"LLM call failed for prompt '{prompt_name}': {type(e).__name__}: {str(e)}") from e
             else:
                 # In production mode, log and return None
-                print(f"ERROR in run_prompt: {type(e).__name__}: {str(e)}")
+                logger.error(f"ERROR in run_prompt: {type(e).__name__}: {str(e)}")
                 return None

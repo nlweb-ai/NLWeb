@@ -109,6 +109,9 @@ async def get_azure_embedding(
     
     logger.debug(f"Generating Azure OpenAI embedding with model: {model}")
     logger.debug(f"Text length: {len(text)} chars")
+
+    if (len(text) > 20000):
+        text = text[:20000]
     
     try:
         response = await client.embeddings.create(
@@ -162,10 +165,17 @@ async def get_azure_batch_embeddings(
     
     logger.debug(f"Generating Azure OpenAI batch embeddings with model: {model}")
     logger.debug(f"Batch size: {len(texts)} texts")
+
+    trimmed_texts = []
+    for elt in texts:
+        if (len(elt) > 12000):
+            trimmed_texts.append(elt[:12000])
+        else:
+            trimmed_texts.append(elt)
     
     try:
         response = await client.embeddings.create(
-            input=texts,
+            input=trimmed_texts,
             model=model
         )
         

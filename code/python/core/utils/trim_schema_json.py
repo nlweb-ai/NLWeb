@@ -12,6 +12,9 @@ skip_types = ["ListItem", "ItemList", "Organization", "BreadcrumbList", "Breadcr
 
 skip_properties = ["publisher", "mainEntityOfPage"]
 
+#ugly hack
+leaf_types = ["Recipe", "Product"]
+
 def should_skip_item(site, item):
     if item is None:
         return True
@@ -38,25 +41,41 @@ def should_skip_item(site, item):
 # 6. If the propery is review and the value is a list, go through each item in the list
 # and pick the reviewBody of upto 3 reviews, with the longest reviews
 
-def trim_schema_json_list(schema_json, site):
-    trimmed_items = []
+def trim_schema_json_graph(schema_json, site):
+    trimmed_items = []    
+    pruned = []
+    for item in schema_json:
+        if (not should_skip_item(site, item) and "@type" in item):
+            item_type = item["@type"]
+            if (item_type in leaf_types):
+                ss = trim_schema_json(item, site)
+                return [trim_schema_json(item, site)]
     for item in schema_json:
         trimmed_item = trim_schema_json(item, site)
         if trimmed_item is not None:
             trimmed_items.append(trimmed_item)
     return trimmed_items or None
 
+
 def trim_schema_json(schema_json, site):
     if schema_json is None:
         return None
-    if isinstance(schema_json, list):
-        return trim_schema_json_list(schema_json, site)
     elif (isinstance(schema_json, dict) and "@graph" in schema_json):
-        trimmed_items = trim_schema_json_list(schema_json["@graph"], site)
+        trimmed_items = trim_schema_json_graph(schema_json["@graph"], site)
         if (len(trimmed_items) > 0):
             #schema_json["@graph"] = trimmed_items
             return trimmed_items
         else:   
+            return None
+    elif isinstance(schema_json, list):
+        trimmed_items = []
+        for item in schema_json:
+            elt = trim_schema_json(item, site)
+            if (elt):
+                trimmed_items.append(elt)
+        if (len(trimmed_items) > 0):
+            return trimmed_items
+        else:
             return None
     elif isinstance(schema_json, dict):
         if (should_skip_item(site, schema_json)):

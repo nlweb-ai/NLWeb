@@ -50,25 +50,36 @@ export class UnifiedChatInterface {
   
   async init() {
     try {
+      // Preload IndexedDB if requested (for full page, not dropdown)
+      if (this.options.preloadStorage) {
+        // Import and initialize IndexedDB in background (non-blocking)
+        import('./indexed-storage.js').then(module => {
+          module.indexedStorage.init()
+            .catch(err => {
+              console.warn('IndexedDB preload failed (non-critical):', err);
+            });
+        });
+      }
+
       // Update user ID from auth info if available (before any connections)
       // This ensures we use the OAuth user ID if logged in
       this.state.userId = this.getOrCreateUserId();
-      
+
       // Set up event listeners
       this.bindEvents();
-      
+
       // Listen for auth state changes to update user ID
       window.addEventListener('authStateChanged', () => {
         const previousUserId = this.state.userId;
         this.state.userId = this.getOrCreateUserId();
-        
+
         // If WebSocket is connected and user ID changed, might need to reconnect
         if (this.ws.connection && previousUserId !== this.state.userId) {
           this.ws.connection.close();
           this.connectWebSocket();
         }
       });
-      
+
       // Load sites from API (non-blocking - fire and forget)
       // Always load sites asynchronously without blocking
       // Commented out to reduce unnecessary sites requests
@@ -91,13 +102,21 @@ export class UnifiedChatInterface {
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
           this.handleUrlAutoQuery();
+          // Show centered input for new sessions without conversation or auto-query
+          if (!this.state.conversationId && !this.additionalParams.query) {
+            this.showCenteredInput();
+          }
         });
       } else {
         // DOM is already loaded
         this.handleUrlAutoQuery();
+        // Show centered input for new sessions without conversation or auto-query
+        if (!this.state.conversationId && !this.additionalParams.query) {
+          this.showCenteredInput();
+        }
       }
-      
-      
+
+
       // Check if we have a pending join that requires authentication
       const pendingJoin = sessionStorage.getItem('pendingJoinConversation');
       if (pendingJoin && !localStorage.getItem('authToken')) {
@@ -123,17 +142,14 @@ export class UnifiedChatInterface {
       
       // Load conversation from URL or show new
       if (convId) {
-        console.log('[INIT] Loading conversation from URL:', convId);
         // Load conversation from ConversationManager/IndexedDB
         await this.conversationManager.loadConversations();
         const conversation = this.conversationManager.findConversation(convId);
         
         if (conversation) {
-          console.log('[INIT] Found local conversation, loading from IndexedDB');
           // Load the conversation using ConversationManager
           await this.conversationManager.loadConversation(convId, this);
         } else {
-          console.log('[INIT] No local conversation, requesting from server');
           // No local conversation - this might be a shared conversation
           // Send join_conversation message to get the messages from server
           if (this.ws.connection && this.ws.connection.readyState === WebSocket.OPEN) {
@@ -152,10 +168,15 @@ export class UnifiedChatInterface {
         siteInfo.textContent = `Asking ${this.state.selectedSite}`;
       }
       
-      // Load conversation list
-      this.conversationManager.loadConversations(this.state.selectedSite).then(() => {
-        this.updateConversationsList();
-      });
+      // Load conversation list only for full page, not for dropdown
+      // Dropdown loads conversations on demand when opened
+      if (!this.options.skipAutoInit) {
+        // For full page (index.html), don't filter by site; for dropdown, filter by selected site
+        const siteFilter = this.options.preloadStorage ? null : this.state.selectedSite;
+        this.conversationManager.loadConversations(siteFilter).then(() => {
+          this.updateConversationsList();
+        });
+      }
       
       // Note: Auto-query from URL params is now handled in handleUrlAutoQuery()
       // which is called during initialization
@@ -405,11 +426,6 @@ export class UnifiedChatInterface {
           
           // Debug logging for received messages
           if (data.message_type === 'user' || data.type === 'conversation_history') {
-            console.log('[WS] Received message:', {
-              type: data.message_type || data.type,
-              content: data.content ? (typeof data.content === 'string' ? data.content.substring(0, 50) : 'object') : 'none',
-              hasMessages: data.messages ? data.messages.length : 0
-            });
           }
           
           if (data.message_type === 'multi_site_complete') {
@@ -536,12 +552,18 @@ export class UnifiedChatInterface {
     if (conversation && conversation.messages) {
       // Extract previous user queries from conversation history
       const userMessages = conversation.messages
-        .filter(m => m.message_type === 'user')
+        .filter(m => m.message_type === 'user' || m.sender_type === 'human')
         .slice(-5);  // Keep last 5 user messages for context
-      
+
       userMessages.forEach(msg => {
+        // Extract the actual query text from the message
+        let queryText = msg.content;
+        if (typeof msg.content === 'object' && msg.content.query) {
+          queryText = msg.content.query;
+        }
+
         prevQueries.push({
-          query: msg.content,
+          query: queryText,
           user_id: msg.sender_info?.id || userId,
           timestamp: new Date(msg.timestamp).toISOString()
         });
@@ -578,13 +600,22 @@ export class UnifiedChatInterface {
     return message;
   }
   
-  sendMessage() {
-    // Get input from either centered or normal input
-    const input = document.getElementById('centered-chat-input') || 
-                  document.getElementById('chat-input');
-    const messageText = input?.value.trim();
-    
-    if (!messageText) return;
+  sendMessage(passedMessage) {
+
+    // If a message was passed directly, use it
+    let messageText;
+    if (passedMessage) {
+      messageText = passedMessage;
+    } else {
+      // Get input from either centered or normal input
+      const input = document.getElementById('centered-chat-input') ||
+                    document.getElementById('chat-input');
+      messageText = input?.value.trim();
+    }
+
+    if (!messageText) {
+      return;
+    }
     
     // Check search_all_users checkbox BEFORE hiding centered input
     let searchAllUsers = false;
@@ -594,12 +625,17 @@ export class UnifiedChatInterface {
         searchAllUsers = searchAllUsersCheckbox.checked;
       }
     }
-    
-    // Clear input
-    input.value = '';
-    
-    // Hide centered input if visible
-    this.hideCenteredInput();
+
+    // Clear input only if we read from DOM
+    if (!passedMessage) {
+      const input = document.getElementById('centered-chat-input') ||
+                    document.getElementById('chat-input');
+      if (input) {
+        input.value = '';
+      }
+      // Hide centered input if visible
+      this.hideCenteredInput();
+    }
     
     // Get current conversation for context
     const conversation = this.conversationManager?.findConversation(this.state.conversationId);
@@ -624,8 +660,6 @@ export class UnifiedChatInterface {
   }
   
   async sendThroughConnection(message) {
-    console.log('[UnifiedChatInterface] sendThroughConnection called, connectionType:', this.connectionType);
-    console.log('[UnifiedChatInterface] message:', message);
     // Send the message as-is for both WebSocket and SSE
     
     if (this.connectionType === 'websocket') {
@@ -639,14 +673,12 @@ export class UnifiedChatInterface {
         this.state.messageQueue.push(message);
       }
     } else {
-      console.log('[UnifiedChatInterface] Using SSE path, calling connectSSE');
       // For SSE, send the complete message to /chat/sse endpoint
       this.connectSSE(message);
     }
   }
   
   connectSSE(message) {
-    console.log('[UnifiedChatInterface] connectSSE called with message:', message);
     // Send complete message to /chat/sse endpoint via GET (same as WebSocket but different transport)
     const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
     const urlParams = new URLSearchParams({
@@ -654,37 +686,24 @@ export class UnifiedChatInterface {
     });
 
     const url = `${baseUrl}/chat/sse?${urlParams}`;
-    console.log('[UnifiedChatInterface] SSE URL:', url.substring(0, 100) + '...');
 
     // Use native EventSource API directly
     const eventSource = new EventSource(url);
 
-    eventSource.onopen = () => {
-      console.log('[UnifiedChatInterface] SSE connection opened');
-    };
+    eventSource.onopen = () => {};
 
     eventSource.onmessage = (event) => {
-      console.log('[UnifiedChatInterface] SSE onmessage triggered!');
-      console.log('[UnifiedChatInterface] SSE raw event data:', event.data);
       try {
         const data = JSON.parse(event.data);
-        console.log('[UnifiedChatInterface] SSE parsed message:', data);
-        console.log('[UnifiedChatInterface] Message type:', data.message_type || data.type);
         // Route through the same handleStreamData as WebSocket
-        console.log('[UnifiedChatInterface] Calling handleStreamData...');
         this.handleStreamData(data, true);  // true = store messages
-        console.log('[UnifiedChatInterface] handleStreamData returned');
       } catch (e) {
-        console.error('[UnifiedChatInterface] Error parsing SSE data:', e, 'Raw data:', event.data);
       }
     };
 
     eventSource.onerror = (error) => {
       // SSE connections normally close after completion - this is not an error
-      if (eventSource.readyState === EventSource.CLOSED) {
-        console.log('[UnifiedChatInterface] SSE connection closed normally');
-      } else {
-        console.log('[UnifiedChatInterface] SSE connection ended');
+      if (eventSource.readyState !== EventSource.CLOSED) {
       }
 
       // Immediately close to prevent any reconnection attempts
@@ -714,15 +733,9 @@ export class UnifiedChatInterface {
   
   startStreaming() {
     if (!this.state.currentStreaming) {
-      console.log('[UnifiedChatInterface] Starting streaming...');
       const messagesContainer = this.dom.messages();
-      console.log('[UnifiedChatInterface] Messages container:', messagesContainer);
 
       if (!messagesContainer) {
-        console.error('[UnifiedChatInterface] ERROR: messages-container element not found!');
-        // Try to find it directly
-        const directFind = document.getElementById('messages-container');
-        console.log('[UnifiedChatInterface] Direct find result:', directFind);
         return;
       }
 
@@ -740,7 +753,6 @@ export class UnifiedChatInterface {
       bubble.appendChild(textDiv);
 
       messagesContainer.appendChild(bubble);
-      console.log('[UnifiedChatInterface] Streaming bubble appended to DOM');
 
       this.state.currentStreaming = {
         bubble,
@@ -1132,13 +1144,13 @@ export class UnifiedChatInterface {
       // otherwise fall back to state (preserves 'all' for multi-site queries)
       let siteToUse = this.state.selectedSite;
       let modeToUse = this.state.selectedMode;
-      
+
       // If this is a user message, use its site and mode values
       if (data.message_type === 'user') {
         siteToUse = data.content?.site || this.state.selectedSite;
         modeToUse = data.content?.mode || this.state.selectedMode;
       }
-      
+
       conversation = {
         id: conversationId,
         title: 'New chat',
@@ -1148,6 +1160,7 @@ export class UnifiedChatInterface {
         mode: modeToUse
       };
       this.conversationManager.conversations.push(conversation);
+    } else {
     }
     
     // Don't check for duplicates - multiple events can share the same message_id
@@ -1182,16 +1195,29 @@ export class UnifiedChatInterface {
     
     // Don't save after every message - causes exponential duplication
     // this.conversationManager.saveConversations();
+
   }
   
   endStreaming() {
     if (this.state.currentStreaming) {
+      // Check if no content was received and display a message
+      const { context, textDiv, hasReceivedContent } = this.state.currentStreaming;
+
+      // Check if we have no results and no meaningful content
+      const hasNoResults = context && context.allResults && context.allResults.length === 0;
+      const hasNoContent = !hasReceivedContent || (textDiv && textDiv.textContent.trim() === '');
+
+      if (hasNoResults && hasNoContent) {
+        // Display "No answers found" message
+        textDiv.innerHTML = '<div style="color: #666; font-style: italic;">No answers were found for your query.</div>';
+      }
+
       // Remove streaming class
       this.state.currentStreaming.bubble.classList.remove('streaming-message');
-      
+
       // Save all messages to IndexedDB once streaming is complete
       this.conversationManager.saveConversations();
-      
+
       this.state.currentStreaming = null;
     }
   }
@@ -1475,7 +1501,7 @@ export class UnifiedChatInterface {
     
     this.dom.messages()?.appendChild(bubble);
     this.scrollToBottom();
-    
+
     return bubble;
   }
   
@@ -1647,6 +1673,30 @@ export class UnifiedChatInterface {
     return userId;
   }
   
+  // Debug function to print conversation message types
+  debugConversation(conversationId) {
+    const conversation = this.conversationManager?.findConversation(conversationId || this.state.conversationId);
+    if (!conversation) {
+      console.log('No conversation found for ID:', conversationId || this.state.conversationId);
+      return;
+    }
+
+    console.log('=== CONVERSATION DEBUG ===');
+    console.log('Conversation ID:', conversation.id);
+    console.log('Total messages:', conversation.messages.length);
+    console.log('Message types:');
+    conversation.messages.forEach((msg, idx) => {
+      console.log(`  [${idx}] type: "${msg.type}", message_type: "${msg.message_type}", sender_type: "${msg.sender_type}"`);
+      if (msg.message_type === 'user') {
+        const query = typeof msg.content === 'object' ? msg.content.query : msg.content;
+        console.log(`       Query: "${query}"`);
+      }
+    });
+
+    const userMessages = conversation.messages.filter(m => m.message_type === 'user');
+    console.log(`Found ${userMessages.length} user messages`);
+  }
+
   async loadConversation(conversationId) {
     this.state.conversationId = conversationId;
     this.updateURL();
@@ -1663,7 +1713,6 @@ export class UnifiedChatInterface {
     // Load conversation with messages from ConversationManager
     const conversation = await this.conversationManager.getConversationWithMessages(conversationId);
     if (!conversation) {
-      console.warn('Conversation not found:', conversationId);
       return;
     }
     
@@ -1894,7 +1943,6 @@ export class UnifiedChatInterface {
         }
       }
     } catch (error) {
-      console.error('Error fetching messages from IndexedDB:', error);
       conversationMessages = [];
     }
     
@@ -2028,3 +2076,12 @@ export class UnifiedChatInterface {
 
 // Export for use in HTML
 window.UnifiedChatInterface = UnifiedChatInterface;
+
+// Global debug helper
+window.debugConv = function() {
+  if (window.nlwebChat && window.nlwebChat.chatInterface) {
+    window.nlwebChat.chatInterface.debugConversation();
+  } else {
+    console.log('Chat interface not found. Try window.nlwebChat.chatInterface');
+  }
+};

@@ -1,13 +1,60 @@
 #!/bin/bash
 
 # Azure Web App deployment script
+
+# Function to display usage
+usage() {
+    echo "Usage: $0 --app-name <webapp-name> --resource-group <resource-group>"
+    echo ""
+    echo "Options:"
+    echo "  -a, --app-name        Azure Web App name (required)"
+    echo "  -r, --resource-group  Azure Resource Group name (required)"
+    echo "  -h, --help           Show this help message"
+    echo ""
+    echo "Example:"
+    echo "  $0 --app-name myapp --resource-group MyResourceGroup"
+    echo "  $0 -a myapp -r MyResourceGroup"
+    exit 1
+}
+
+# Parse command line arguments
+WEBAPP_NAME=""
+RESOURCE_GROUP=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -a|--app-name)
+            WEBAPP_NAME="$2"
+            shift 2
+            ;;
+        -r|--resource-group)
+            RESOURCE_GROUP="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            usage
+            ;;
+    esac
+done
+
+# Validate required arguments
+if [ -z "$WEBAPP_NAME" ] || [ -z "$RESOURCE_GROUP" ]; then
+    echo "Error: Both --app-name and --resource-group are required."
+    echo ""
+    usage
+fi
+
+# Generate zip file name with app name and timestamp
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+ZIP_FILE="${WEBAPP_NAME}_deploy_${TIMESTAMP}.zip"
+
 echo "========================================="
 echo "Azure Web App Deployment Script"
 echo "========================================="
-
-WEBAPP_NAME="whotoask"
-RESOURCE_GROUP="NLW_rvg"
-ZIP_FILE="nlwm.zip"
 
 # Remove old zip if exists
 echo "Removing old deployment zip..."
@@ -47,7 +94,7 @@ zip -r $ZIP_FILE . \
 
 # Show zip file size
 echo ""
-echo "Deployment zip created:"
+echo "Deployment zip created: $ZIP_FILE"
 ls -lh $ZIP_FILE
 
 # Deploy to Azure
@@ -55,6 +102,7 @@ echo ""
 echo "Deploying to Azure Web App..."
 echo "  Web App: $WEBAPP_NAME"
 echo "  Resource Group: $RESOURCE_GROUP"
+echo "  Zip File: $ZIP_FILE"
 echo ""
 
 az webapp deployment source config-zip \

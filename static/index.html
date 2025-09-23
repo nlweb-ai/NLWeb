@@ -233,9 +233,10 @@
     }
     
     // Initialize chat interface with connection type and additional parameters
-    new UnifiedChatInterface({ 
+    new UnifiedChatInterface({
       connectionType: connectionType,
-      additionalParams: additionalParams
+      additionalParams: additionalParams,
+      preloadStorage: true  // Enable IndexedDB preloading for full page
     });
   </script>
   <script src="/static/oauth-login.js"></script>

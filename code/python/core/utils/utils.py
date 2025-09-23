@@ -1,6 +1,6 @@
 
 from core.config import CONFIG
-
+import json
 recipe_sites = ['seriouseats', 'hebbarskitchen', 'latam_recipes',
                 'woksoflife', 'cheftariq',  'spruce', 'nytimes']
 
@@ -68,3 +68,20 @@ def get_param(query_params, param_name, param_type=str, default_value=None):
 
 def log(message):
     print(message)
+
+llm_recording_file = None
+recording_llm_calls = None
+
+def set_recording_llm_calls (file_str):
+    global recording_llm_calls
+    recording_llm_calls = file_str
+
+def record_llm_call (ans_str, prompt, query):
+    global llm_recording_file
+    if (recording_llm_calls):
+        if (not llm_recording_file):
+            llm_recording_file = open(recording_llm_calls, "w")
+        ans_str["prompt"] = prompt
+        ans_str["query"] = query
+        llm_recording_file.write(json.dumps(ans_str) + "\n")
+        llm_recording_file.flush()

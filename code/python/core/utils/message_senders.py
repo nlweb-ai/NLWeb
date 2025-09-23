@@ -288,6 +288,9 @@ class MessageSender:
         """Send a message with appropriate metadata and routing."""
 #        async with self.handler._send_lock:  # Protect send operation with lock
             # Add metadata to all messages (both streaming and non-streaming)
+        # Debug: message type
+        message_type = message.get('message_type', 'unknown')
+        # print(f"[MessageSender] Sending message type: {message_type}")
         message = self.add_message_metadata(message)
             
         # Always store the message (for both streaming and non-streaming)

@@ -217,7 +217,7 @@
 <body>
   <div class="app-container">
     <div class="header">
-      <h1>NLWeb Who Query</h1>
+      <h1>Agent Finder</h1>
       <p>Find out who can help with your query</p>
     </div>
 
@@ -599,12 +599,34 @@
             const isShopify = item['@type'] === 'ShopifyStore' || item.type === 'ShopifyStore';
             
             // Build the URL with parameters
-            let indexUrl = `/static/index.html?site=${encodeURIComponent(siteDomain)}`;
-            if (isShopify) {
-              // Add retrieval_backend parameter to force Shopify MCP retrieval
-              indexUrl += '&retrieval_backend=shopify';
+            let indexUrl = `/?site=${encodeURIComponent(siteDomain)}`;
+
+            // Add the current query (the one the user searched with)
+            const currentQuery = this.queryInput.value.trim();
+            if (currentQuery) {
+              indexUrl += `&query=${encodeURIComponent(currentQuery)}`;
             }
-            
+
+            // Add site-specific query if different from main query
+            if (item.query && item.query !== currentQuery) {
+              // Store site-specific query as a separate parameter
+              indexUrl += `&site_query=${encodeURIComponent(item.query)}`;
+            }
+
+            // Add retrieval/backend parameter if needed
+            if (isShopify) {
+              // Add retrieval parameter to force Shopify MCP retrieval
+              indexUrl += '&retrieval=shopify';
+            }
+
+            // Add tool parameter to skip tool selection
+            indexUrl += '&tool=search';
+
+            // Add any database parameter if present
+            if (item.db || item.database) {
+              indexUrl += `&db=${encodeURIComponent(item.db || item.database)}`;
+            }
+
             // Find all links in the element
             const links = itemElement.querySelectorAll('a');
             links.forEach(link => {
@@ -612,7 +634,7 @@
               if (link.href && !link.href.startsWith('mailto:') && !link.href.startsWith('tel:')) {
                 // Create new link to index.html with site parameter using the domain
                 link.href = indexUrl;
-                link.target = '_blank'; // Open in new tab
+                link.target = '_blank'; // Open in new tab/window
                 link.title = `Open chat with ${siteName}`;
               }
             });
@@ -621,7 +643,7 @@
             if (titleElement && !titleElement.querySelector('a')) {
               const titleLink = document.createElement('a');
               titleLink.href = indexUrl;
-              titleLink.target = '_blank';
+              titleLink.target = '_blank'; // Open in new tab/window
               titleLink.title = `Open chat with ${siteName}`;
               titleLink.style.cssText = 'color: inherit; text-decoration: none;';
               titleLink.innerHTML = titleElement.innerHTML;
