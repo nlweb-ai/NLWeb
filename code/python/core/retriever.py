@@ -849,7 +849,8 @@ class VectorDBClient:
                         logger.info(f"Single endpoint mode for {endpoint_name}, skipping can_handle_query check")
                     else:
                         # Check if the provider can handle this query
-                        if not await client.can_handle_query(site, **kwargs):
+                        # Pass query_params along with other kwargs
+                        if not await client.can_handle_query(site, query_params=self.query_params, **kwargs):
                             skipped_endpoints.append(endpoint_name)
                             continue
                     

@@ -65,6 +65,33 @@ class BingSearchClient(RetrievalClientBase):
             
         return endpoint_config
     
+    async def can_handle_query(self, site: Union[str, List[str]], **kwargs) -> bool:
+        """
+        Check if Bing Search can handle a query for the given site(s).
+        Bing is a fallback and should only be used when explicitly requested via db parameter.
+
+        Args:
+            site: Site identifier or list of sites
+            **kwargs: Additional parameters including query_params
+
+        Returns:
+            True only if db parameter is explicitly set to 'bing' or 'bing_search'
+        """
+        # Check if db parameter is explicitly set to use Bing
+        query_params = kwargs.get('query_params', {})
+        db_param = query_params.get('db')
+
+        # Handle case where db_param might be a list
+        if isinstance(db_param, list) and len(db_param) > 0:
+            db_param = db_param[0]
+
+        # Only handle query if explicitly requested via db parameter
+        if db_param and db_param in ['bing', 'bing_search']:
+            return True
+
+        # Otherwise, Bing should not handle this query (it's a fallback)
+        return False
+
     def _extract_domain_from_url(self, url: str) -> str:
         """Extract domain from URL for site identification."""
         try:
@@ -350,6 +377,7 @@ class BingSearchClient(RetrievalClientBase):
             # Use rewritten queries if available and multiple queries exist
             if rewritten_queries and len(rewritten_queries) > 1:
                 logger.info(f"Using {len(rewritten_queries)} rewritten queries for Bing search: {rewritten_queries}")
+                print(f"[BING_SEARCH] Using {len(rewritten_queries)} rewritten queries for original: '{query}'")
                 
                 # Calculate results per query to maintain total count
                 results_per_query = max(1, num_results // len(rewritten_queries))
@@ -451,20 +479,21 @@ class BingSearchClient(RetrievalClientBase):
         
         try:
             logger.info(f"Searching Bing for: {search_query} (limit: {num_results})")
-            
+
             # Make request to Bing API
             async with httpx.AsyncClient() as client:
                 response = await client.get(self.api_endpoint, params=params, timeout=30.0)
                 response.raise_for_status()
-                
+
                 data = response.json()
-                
+
                 # Extract web pages from response
                 web_pages = data.get("webPages", {})
                 results = web_pages.get("value", [])
-                
+
                 logger.info(f"Bing returned {len(results)} results")
-                
+                print(f"[BING_SEARCH] Query '{search_query}': {len(results)} results")
+
                 # Convert to NLWeb format
                 nlweb_results = []
                 for result in results[:num_results]:

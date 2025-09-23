@@ -96,7 +96,9 @@ class ShopifyMCPClient(RetrievalClientBase):
         # Use rewritten queries if available and multiple queries exist
         if rewritten_queries and len(rewritten_queries) > 1:
             logger.info(f"Using {len(rewritten_queries)} rewritten queries for Shopify search: {rewritten_queries}")
-            
+            print(f"[SHOPIFY_MCP] Original query: '{query}'")
+            print(f"[SHOPIFY_MCP] Using {len(rewritten_queries)} rewritten queries: {rewritten_queries}")
+
             # Calculate results per query to maintain total count
             results_per_query = max(1, num_results // len(rewritten_queries))
             remainder = num_results % len(rewritten_queries)
@@ -133,12 +135,12 @@ class ShopifyMCPClient(RetrievalClientBase):
     async def _search_single_query(self, query: str, site: str, num_results: int) -> List[List[str]]:
         """
         Internal method to search with a single query.
-        
+
         Args:
             query: The search query string
             site: Site identifier
             num_results: Maximum number of results to return
-            
+
         Returns:
             List of search results formatted as [url, schema_json, name, site]
         """
@@ -211,6 +213,8 @@ class ShopifyMCPClient(RetrievalClientBase):
                                     # Parse the text as JSON
                                     search_data = json.loads(content_item['text'])
                                     formatted = self._format_results(search_data, site)
+                                    # Print query and results on one line
+                                    print(f"[SHOPIFY_MCP] Query '{query}' to {site}: {len(formatted)} results")
                                     return formatted
                                 except json.JSONDecodeError:
                                     logger.error(f"Failed to parse search results from content text")
@@ -218,13 +222,16 @@ class ShopifyMCPClient(RetrievalClientBase):
                     # Otherwise try direct format
                     formatted = self._format_results(mcp_result, site)
 
+                    # Print query and results on one line
+                    print(f"[SHOPIFY_MCP] Query '{query}' to {site}: {len(formatted)} results")
+
                     return formatted
                     
         except asyncio.TimeoutError:
-            print("Shopify MCP request for {query} @ {site} timed out")
+            print(f"[SHOPIFY_MCP] Query '{query}' to {site}: 0 results (timeout)")
             return []
         except Exception as e:
-            print(f"Shopify MCP request for {query} @ {site} failed: {str(e)}")
+            print(f"[SHOPIFY_MCP] Query '{query}' to {site}: 0 results (error: {str(e)})")
             return []
     
     def _format_results(self, mcp_result: Dict, site: str) -> List[List[str]]:
