@@ -212,6 +212,24 @@
         transform: scale(1.2);
       }
     }
+
+    .sample-queries-list {
+      padding: 30px;
+    }
+
+    .sample-query-item {
+      padding: 10px 0;
+      color: #666;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: color 0.2s;
+      line-height: 1.6;
+    }
+
+    .sample-query-item:hover {
+      color: #7c4a3a;
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -223,10 +241,10 @@
 
     <div class="query-section">
       <div class="query-input-wrapper">
-        <input 
-          type="text" 
-          class="query-input" 
-          id="queryInput" 
+        <input
+          type="text"
+          class="query-input"
+          id="queryInput"
           placeholder="Enter your query..."
           autocomplete="off"
         >
@@ -236,9 +254,7 @@
 
     <div class="results-section">
       <div class="results-container" id="resultsContainer">
-        <div class="no-results">
-          Enter a query above to find who can help
-        </div>
+        <!-- Sample queries will be loaded here dynamically from sample-queries.js -->
       </div>
     </div>
   </div>
@@ -247,28 +263,49 @@
   <script type="module">
     import { ChatUICommon } from '/static/chat-ui-common.js';
     import { JsonRenderer } from '/static/json-renderer.js';
-    
+    import { SAMPLE_QUERIES } from '/static/sample-queries.js';
+
     class WhoQueryInterface {
       constructor() {
         this.queryInput = document.getElementById('queryInput');
         this.queryButton = document.getElementById('queryButton');
         this.resultsContainer = document.getElementById('resultsContainer');
-        
+
         this.isProcessing = false;
         this.eventSource = null;
         this.allResults = []; // Accumulate all results for re-sorting
         this.aiResponses = []; // Keep AI responses separate
         this.queryHistory = []; // Track query history for context
-        
+
         // Initialize UI helper
         this.uiHelper = new ChatUICommon({
           messagesContainer: this.resultsContainer
         });
-        
+
         // Initialize JsonRenderer for consistent item display (with scores shown for WHO results)
         this.jsonRenderer = new JsonRenderer({ showScores: true });
-        
+
+        // Initialize sample queries from imported array
+        this.initializeSampleQueries();
+
         this.initializeEventListeners();
+      }
+
+      initializeSampleQueries() {
+        // Generate the sample queries HTML from the imported array
+        const sampleQueriesHtml = `
+          <div class="sample-queries-list">
+            <p style="color: #999; margin-bottom: 16px; font-size: 0.9rem;">Try these example queries:</p>
+            ${SAMPLE_QUERIES.map(query => `
+              <div class="sample-query-item" data-query="${query}">
+                ${query.charAt(0).toUpperCase() + query.slice(1)}
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        // Set the initial content of results container
+        this.resultsContainer.innerHTML = sampleQueriesHtml;
       }
 
       initializeEventListeners() {
@@ -278,6 +315,15 @@
             e.preventDefault();
             this.handleQuery();
           }
+        });
+
+        // Add click handlers for sample query items
+        document.querySelectorAll('.sample-query-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const query = item.getAttribute('data-query');
+            this.queryInput.value = query;
+            this.handleQuery();
+          });
         });
       }
 

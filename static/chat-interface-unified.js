@@ -10,6 +10,7 @@ export class UnifiedChatInterface {
     this.connectionType = options.connectionType || 'sse';
     this.options = options;
     this.additionalParams = options.additionalParams || {};  // Store additional URL params
+    this.sampleQueries = options.sampleQueries || {};  // Store sample queries configuration
     
     // Core state
     this.state = {
@@ -1288,9 +1289,15 @@ export class UnifiedChatInterface {
           </div>
         </div>
       </div>
+      <div class="sample-queries-container" id="sample-queries-container">
+        <!-- Sample queries will be populated here -->
+      </div>
     `;
-    
+
     this.dom.messages()?.appendChild(container);
+
+    // Populate sample queries if no query has been issued yet
+    this.populateSampleQueries();
     
     // Auto-resize textarea
     const textarea = container.querySelector('textarea');
@@ -1510,10 +1517,81 @@ export class UnifiedChatInterface {
     errorDiv.className = 'error-message';
     errorDiv.textContent = message;
     this.dom.messages()?.appendChild(errorDiv);
-    
+
     setTimeout(() => errorDiv.remove(), 5000);
   }
-  
+
+  populateSampleQueries() {
+    const container = document.getElementById('sample-queries-container');
+    if (!container || !this.sampleQueries) return;
+
+    // Flatten the structure to create site: query pairs
+    const allQueries = [];
+    for (const [site, queries] of Object.entries(this.sampleQueries)) {
+      queries.forEach(query => {
+        allQueries.push({ site, query });
+      });
+    }
+
+    // Shuffle the array using Fisher-Yates algorithm
+    for (let i = allQueries.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allQueries[i], allQueries[j]] = [allQueries[j], allQueries[i]];
+    }
+
+    // Take only the first 10 queries
+    const selectedQueries = allQueries.slice(0, 10);
+
+    // Generate HTML for sample queries
+    let html = '<div class="sample-queries-list">';
+    html += '<p style="color: #aaa; margin-bottom: 8px; font-size: 0.8rem;">Try these example queries:</p>';
+
+    selectedQueries.forEach(({ site, query }) => {
+      html += `<div class="sample-query-item" data-site="${site}" data-query="${query}">`;
+      html += `<span style="color: #999;">${site}:</span> `;
+      html += `<span style="color: #999;">${query}</span>`;
+      html += `</div>`;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    // Add click handlers to sample queries
+    container.querySelectorAll('.sample-query-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const site = item.getAttribute('data-site');
+        const query = item.getAttribute('data-query');
+
+        // Set the site
+        this.state.selectedSite = site;
+
+        // Update the "Asking..." text in the header
+        const siteInfo = document.getElementById('chat-site-info');
+        if (siteInfo) {
+          siteInfo.textContent = `Asking ${site}`;
+        }
+
+        // Update site selector UI if visible
+        const siteDropdownItems = document.getElementById('site-dropdown-items');
+        if (siteDropdownItems) {
+          siteDropdownItems.querySelectorAll('.site-dropdown-item').forEach(i => {
+            i.classList.toggle('selected', i.dataset.site === site);
+          });
+        }
+
+        // Set the query in the input
+        const input = document.getElementById('centered-chat-input') || document.getElementById('chat-input');
+        if (input) {
+          input.value = query;
+        }
+
+        // Trigger the send as if user pressed the button
+        // This will properly clear the input and hide centered input
+        this.sendMessage();
+      });
+    });
+  }
+
   selectMode(mode) {
     this.state.selectedMode = mode;
     
