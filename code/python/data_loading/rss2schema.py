@@ -244,73 +244,150 @@ def parse_rss_2_0(root: ET.Element, feed_url: Optional[str] = None) -> List[Dict
         print("Warning: No channel element found in RSS feed")
         return result
     
-    # Extract podcast (feed) information
-    podcast_title = safe_get_text(channel.find('title'))
-    podcast_description = safe_get_text(channel.find('description'))
-    podcast_link = safe_get_text(channel.find('link'))
-    podcast_language = safe_get_text(channel.find('language'))
+    # Extract feed information
+    title = safe_get_text(channel.find('title'))
+    description = safe_get_text(channel.find('description'))
+    link = safe_get_text(channel.find('link'))
+    language = safe_get_text(channel.find('language'))
     
     # Extract image
-    podcast_image = None
+    image_obj = None
     image_elem = channel.find('image')
     if image_elem is not None:
         image_url = safe_get_text(image_elem.find('url'))
         if image_url:
-            podcast_image = {"@type": "ImageObject", "url": fix_url(image_url)}
+            image_obj = {"@type": "ImageObject", "url": fix_url(image_url)}
     
     # iTunes image (higher quality)
     for ns_prefix, ns_uri in NAMESPACES.items():
         if ns_prefix == 'itunes':
             itunes_image = channel.find(f".//{{{ns_uri}}}image")
             if itunes_image is not None and 'href' in itunes_image.attrib:
-                podcast_image = {"@type": "ImageObject", "url": fix_url(itunes_image.get('href'))}
+                image_obj = {"@type": "ImageObject", "url": fix_url(itunes_image.get('href'))}
     
-    # Create basic podcast series schema
-    podcast_series = {
-        "@type": "PodcastSeries",
-        "name": podcast_title,
-        "description": podcast_description,
-        "url": fix_url(podcast_link) or feed_url or ""
+    # Create container schema for the feed
+    schema = {
+        "@type": "WebSite",
+        "name": title,
+        "description": description,
+        "url": fix_url(link) or feed_url or ""
     }
     
-    if podcast_image:
-        podcast_series["image"] = podcast_image
+    if image_obj:
+        schema["image"] = image_obj
     
-    if podcast_language:
-        podcast_series["inLanguage"] = podcast_language
+    if language:
+        schema["inLanguage"] = language
     
-    # Process each item (episode)
+    # Process each item
     for item in channel.findall('item'):
         try:
             # Basic fields
-            title = safe_get_text(item.find('title'))
+            title       = safe_get_text(item.find('title'))
             description = safe_get_text(item.find('description'))
-            pub_date = safe_get_text(item.find('pubDate'))
+            pub_date    = safe_get_text(item.find('pubDate'))
             
-            # URL (critical field)
-            url = extract_best_url(item, feed_url)
-            
-            if not url and not title:
-                # Skip items without any identifiable information
-                continue
-            
-            # Create episode schema
+            # <articleType> (default "Article")
+            art_type_elem    = item.find('articleType')
+            article_type_raw = art_type_elem.text.strip() if art_type_elem is not None and art_type_elem.text else "Article"
+
+            # split CSV → list; single value stays string
+            article_types = [t.strip() for t in article_type_raw.split(',') if t.strip()]
+            article_type  = article_types if len(article_types) > 1 else article_types[0]
+            # ------------------------------------------------------------
+            # Build the Article object **first** so we can write into it 
+            # ------------------------------------------------------------
             episode = {
-                "@type": "PodcastEpisode",
-                "name": title,
-                "description": description,
+                "@type"        : article_type,
+                "name"         : title,
+                "description"  : description,
                 "datePublished": pub_date
             }
             
+            # Language
+            lang_elem = item.find('language')
+            if lang_elem is not None and lang_elem.text:
+                episode["inLanguage"] = lang_elem.text.strip()
+                
+            # <content:encoded>  -> articleBody
+            content_encoded = item.find('{http://purl.org/rss/1.0/modules/content/}encoded')
+            if content_encoded is not None and content_encoded.text:
+                episode["articleBody"] = content_encoded.text
+
+            # <dc:creator> -> author 
+            creator = item.find('{http://purl.org/dc/elements/1.1/}creator')
+            author_type_elem = item.find('authorType')
+            author_type      = author_type_elem.text.strip() if author_type_elem is not None and author_type_elem.text else "Organization"
+
+            if creator is not None and creator.text:
+                episode["author"] = {
+                    "@type": "Person" if author_type.lower() == "person" else "Organization",
+                    "name" : creator.text.strip()
+                }
+                    
+            # <articleSection> tag (leaf category) → articleSection
+            sec_elem = item.find('articleSection')
+            if sec_elem is not None and sec_elem.text:
+                episode["articleSection"] = sec_elem.text.strip()
+
+            # <category> tags → about[] (all categories/tags)
+            cats = [c.text.strip() for c in item.findall('category') if c.text]
+            if cats:
+                episode["about"] = cats
+                # Fallback: if articleSection wasn’t filled by the tag, use first category
+                if "articleSection" not in episode:
+                    episode["articleSection"] = cats[0]
+
+            # <midSection> and <parentSection> → isPartOf (nested)
+            mid_elem    = item.find('midSection')
+            parent_elem = item.find('parentSection')
+            mid_name    = mid_elem.text.strip()    if mid_elem    is not None and mid_elem.text    else None
+            parent_name = parent_elem.text.strip() if parent_elem is not None and parent_elem.text else None
+
+            if mid_name and parent_name:
+                episode["isPartOf"] = {
+                    "@type": "CreativeWorkSeries",
+                    "name":  mid_name,
+                    "isPartOf": {
+                        "@type": "CreativeWorkSeries",
+                        "name": parent_name
+                    }
+                }
+            elif parent_name:
+                episode["isPartOf"] = {
+                    "@type": "CreativeWorkSeries",
+                    "name": parent_name
+                }
+
+            # <featuredImage> -> image (as an ImageObject)
+            feat_img = item.find('featuredImage')
+            if feat_img is not None and feat_img.text:
+                episode["image"] = {
+                    "@type": "ImageObject",
+                    "url": fix_url(feat_img.text.strip())
+                }
+                
+            # <keywords> tag -> keywords[]
+            kw_elem = item.find('keywords')
+            if kw_elem is not None and kw_elem.text:
+                episode["keywords"] = list(dict.fromkeys(
+                    w.strip() for w in kw_elem.text.split(',') if w.strip()
+                ))
+
+            # URL (critical field)
+            url = extract_best_url(item, feed_url)
             if url:
                 episode["url"] = url
+            elif not title:
+                # Nothing identifiable – skip this <item>
+                continue
             
-            # Add GUID if available
+            # GUID → identifier (optional but useful)
             guid = extract_guid(item)
             if guid and guid != url:
                 episode["identifier"] = guid
             
-            # Add enclosure (audio file)
+            # Enclosure (audio file)
             enclosure = item.find('enclosure')
             if enclosure is not None:
                 enclosure_url = enclosure.get('url')
@@ -334,7 +411,7 @@ def parse_rss_2_0(root: ET.Element, feed_url: Optional[str] = None) -> List[Dict
                     
                     episode["associatedMedia"] = audio_object
             
-            # Add iTunes specific fields
+            # iTunes-specific fields
             for ns_prefix, ns_uri in NAMESPACES.items():
                 if ns_prefix == 'itunes':
                     # Duration
@@ -363,7 +440,7 @@ def parse_rss_2_0(root: ET.Element, feed_url: Optional[str] = None) -> List[Dict
                         except ValueError:
                             pass
             
-            # Add image if available
+            # iTunes image (per-item)
             for ns_prefix, ns_uri in NAMESPACES.items():
                 if ns_prefix == 'itunes':
                     itunes_image = item.find(f".//{{{ns_uri}}}image")
@@ -373,8 +450,8 @@ def parse_rss_2_0(root: ET.Element, feed_url: Optional[str] = None) -> List[Dict
                             "url": fix_url(itunes_image.get('href'))
                         }
             
-            # Add podcast series reference
-            episode["partOf"] = podcast_series
+            # Reference the feed container
+            episode["partOf"] = schema
             
             # Add to result
             result.append(episode)
@@ -414,9 +491,9 @@ def parse_atom(root: ET.Element, feed_url: Optional[str] = None) -> List[Dict[st
     
     feed_link = fix_url(feed_link or "")
     
-    # Create podcast series schema
-    podcast_series = {
-        "@type": "PodcastSeries",
+    # Create container schema for the feed
+    schema = {
+        "@type": "WebSite",
         "name": feed_title,
         "description": feed_subtitle,
         "url": feed_link
@@ -452,7 +529,7 @@ def parse_atom(root: ET.Element, feed_url: Optional[str] = None) -> List[Dict[st
                 # Skip entries without any identifiable information
                 continue
             
-            # Create episode schema
+            # Create item schema
             episode = {
                 "@type": "PodcastEpisode",
                 "name": title,
@@ -493,8 +570,8 @@ def parse_atom(root: ET.Element, feed_url: Optional[str] = None) -> List[Dict[st
                         episode["associatedMedia"] = audio_object
                         break
             
-            # Add podcast series reference
-            episode["partOf"] = podcast_series
+            # Reference the feed container
+            episode["partOf"] = schema
             
             # Add to result
             result.append(episode)
