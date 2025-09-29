@@ -4,7 +4,7 @@ providers:
   azure_openai:
     api_key_env: AZURE_OPENAI_API_KEY
     api_endpoint_env: AZURE_OPENAI_ENDPOINT
-    api_version_env: "2024-10-21"  # Specific API version for embeddings
+    api_version_env: "2024-02-01"  # Specific API version for embeddings
     model: text-embedding-3-small
 
   elasticsearch:

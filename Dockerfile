@@ -3,7 +3,14 @@ FROM python:3.13-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc python3-dev && \
+    apt-get install -y --no-install-recommends \
+        gcc \
+        g++ \
+        python3-dev \
+        build-essential \
+        cmake \
+        make \
+        git && \
     pip install --no-cache-dir --upgrade pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -19,29 +26,39 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Stage 2: Runtime stage
 FROM python:3.13-slim
 
-# Apply security updates
+# Install runtime dependencies and apply security updates
 RUN apt-get update && \
-   apt-get install -y --no-install-recommends --only-upgrade \
-       $(apt-get --just-print upgrade | grep "^Inst" | grep -i securi | awk '{print $2}') && \
-   apt-get clean && \
-   rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+        libgomp1 \
+        libgcc-s1 && \
+    apt-get install -y --no-install-recommends --only-upgrade \
+        $(apt-get --just-print upgrade | grep "^Inst" | grep -i securi | awk '{print $2}') && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Create a non-root user and set permissions
+# Create a non-root user
 RUN groupadd -r nlweb && \
-    useradd -r -g nlweb -d /app -s /bin/bash nlweb && \
-    chown -R nlweb:nlweb /app
-
-USER nlweb
+    useradd -r -g nlweb -d /app -s /bin/bash nlweb
 
 # Copy application code
 COPY code/ /app/
 COPY static/ /app/static/
+COPY config/ /app/config/
 
 # Copy installed packages from builder stage
 COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Create data directories and set permissions as root
+RUN mkdir -p /app/data /app/data/json_with_embeddings /app/logs && \
+    # Copy static files to expected location for static route resolution
+    cp -r /app/static /static && \
+    chown -R nlweb:nlweb /app && \
+    chmod -R 755 /app/data /app/logs
+
+USER nlweb
 
 # Expose the port the app runs on
 EXPOSE 8000

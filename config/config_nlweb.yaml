@@ -40,7 +40,7 @@ aggregation_enabled: true
 who_endpoint_enabled: true
 
 # Endpoint for /who requests to get relevant sites
-who_endpoint: "https://whotoask.azurewebsites.net/who"
+who_endpoint: "http://localhost:8000/who"
 
 # Headers for HTTP requests
 headers:

@@ -239,7 +239,7 @@
   </Recipe>
 
   <Item>
-    <Tool name="ensemble">
+    <Tool name="ensemble" enabled="true">
       <method>code</method>
       <handler>methods.ensemble_tool.EnsembleToolHandler</handler>
       <example>Give me an appetizer, main and dessert for an Asian fusion dinner</example>
