@@ -46,6 +46,8 @@ class PgVectorClient(RetrievalClientBase):
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
+        super().__init__()  # Initialize the base class with caching
+        
         self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         self._conn_lock = asyncio.Lock()
         self._pool = None
@@ -62,6 +64,7 @@ class PgVectorClient(RetrievalClientBase):
 
         self.pg_raw_config = self._get_config_from_postgres_connection_string(self.api_endpoint)
         
+
         self.host = self.pg_raw_config.get("host")
         self.port = self.pg_raw_config.get("port", 5432)  # Default PostgreSQL port
         self.dbname = self.pg_raw_config.get("database") 
@@ -354,7 +357,6 @@ class PgVectorClient(RetrievalClientBase):
                     
                     # Build and execute the query
                     query = f"""
-        super().__init__()  # Initialize the base class with caching
                         INSERT INTO {self.table_name} (id, url, name, schema_json, site, embedding)
                         VALUES {', '.join(placeholders)}
                         ON CONFLICT (id) DO UPDATE SET
