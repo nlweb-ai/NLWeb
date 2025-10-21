@@ -42,7 +42,7 @@ export OPENAI_API_KEY=your-openai-key
 
 ### Set Your Config Files
 
-Update your config files (located in the config folder) to make sure your preferred providers match your .env file or environment variables so they are calling the correct resources. There are three files that may need changes.
+Update your config files (located in the config folder) to make sure your preferred providers match your .env file or environment variables to call the correct resources. There are three files that may need changes.
 
 - **config_llm.yaml**: Update the first line to the LLM provider you set in the .env file.  By default it is Azure OpenAI.  You can also adjust the models you call here by updating the models noted.  By default, we are assuming 4.1 and 4.1-mini.
 - **config_embedding.yaml**: Update the first line to your preferred embedding provider.  By default it is Azure OpenAI, using text-embedding-3-small.
