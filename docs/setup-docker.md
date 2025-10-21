@@ -150,7 +150,7 @@ For example:
 docker-compose exec nlweb python -m data_loading.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
 ```
 
-Note that the above will only work if you have set your 'write' endpoint as mentioned and provided an admin/write API key or enviornment variable. If your 'write' endpoint is set to a retrieval endpoint that is either not configured or has a read-only key, this will fail.
+Note that the above will only work if you have set your 'write' endpoint as mentioned and provided an admin/write API key or environment variable. If your 'write' endpoint is set to a retrieval endpoint that is either not configured or has a read-only key, this will fail.
 
 ### Using Docker Run
 
