@@ -46,7 +46,7 @@ Update your config files (located in the config folder) to make sure your prefer
 
 - **config_llm.yaml**: Update the first line to the LLM provider you set in the .env file.  By default it is Azure OpenAI.  You can also adjust the models you call here by updating the models noted.  By default, we are assuming 4.1 and 4.1-mini.
 - **config_embedding.yaml**: Update the first line to your preferred embedding provider.  By default it is Azure OpenAI, using text-embedding-3-small.
-- **config_retrieval.yaml**: We will use qdrant_local for this exercise.  By default, this is set to write to qdrant_local and you can see the qdrant_local retrieval endpoint is enabled to 'true' in the following list of possible endpoints, as is Azure AI Search using the nlweb_west endpoint.  As you can see, you may have more than one retrival backend, but only one 'write' endpoint. You can see with the Azure AI search example how to add several databases of the same type.
+- **config_retrieval.yaml**: We will use qdrant_local for this exercise.  By default, this is set to write to qdrant_local and you can see the qdrant_local retrieval endpoint is enabled to 'true' in the following list of possible endpoints, as is Azure AI Search using the nlweb_west endpoint.  As you can see, you may have more than one retrieval backend, but only one 'write' endpoint. You can see with the Azure AI search example how to add several databases of the same type.
 
 ## Building the Docker Image
 
