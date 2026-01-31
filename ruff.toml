@@ -1,0 +1,61 @@
+# =============================================================================
+# Ruff - Linter & Formatter Configuration for NLWeb
+# =============================================================================
+# Ruff replaces flake8, isort, black , pyupgrade, and more in a single tool.
+# Docs: https://docs.astral.sh/Ruff
+# =============================================================================
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+# Directories to exclude from linting
+extend-exclude = [
+    ".git",
+    ".github",
+    ".hypothesis",
+    ".vscode",
+    "__pycache__",
+    "data",
+    "static",
+    "images",
+    "demo",
+    "node_modules",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+# Start conservatively - expand as the codebase matures
+select = [
+    "E",        # pycodestyle errors
+    "W",        # pycodestyle warnings
+    "F",        # pyflakes
+    "I",        # isort (import ordering)
+    "UP",       # pyupgrade
+    "B",        # flake8-bugbear
+    "SIM",      # flake8-simplify
+    "RUF",      # Ruff-specific rules
+]
+
+# Ignore rules that conflict with existing code style or are too noisy initially
+ignore = [
+    "E501",     # line too long - handled by formatter
+    "B008",     # function call in default arg - common in FastAPI/aiohttp patterns
+    "SIM108",   # ternary operator - can reduce readability
+    "RUF012",   # mutable class variable - too many false positives in config classes
+    "UP007",    # Use X | Y for union types - keep Optional for 3.10 compatibility
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can have unused imports (fixtures), magic values, etc.
+"tests/**/*.py" = ["F401", "F811"]
+"code/**/testing/**/*.py" = ["F401", "F811"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["code", "core", "llm", "embedding", "retrieval", "config"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

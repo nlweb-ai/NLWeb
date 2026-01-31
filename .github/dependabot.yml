@@ -1,0 +1,43 @@
+# ==============================================================================
+# Dependabot - Automated Dependency Updates
+# ==============================================================================
+# Keeps Python (pip) and GitHub Actions dependencies up to date.
+# PRs are created weekly with grouped updates to reduce noise.
+# ==============================================================================
+
+version: 2
+
+updates:
+# -- Python (pip) ---------------------------------------------------------------
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    reviewers:
+      - nlweb-ai/maintainers
+    labels:
+      - dependencies
+      - python
+    groups:
+      # Group minor + patch updates together to reduce PR noise
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+
+  # -- GitHub Actions ----------------------------------------------------------------
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      actions-updates:
+        patterns:
+          - "*"
