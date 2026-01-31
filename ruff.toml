@@ -1,7 +1,7 @@
 # =============================================================================
 # Ruff - Linter & Formatter Configuration for NLWeb
 # =============================================================================
-# Ruff replaces flake8, isort, black , pyupgrade, and more in a single tool.
+# Ruff replaces flake8, isort, black, pyupgrade, and more in a single tool.
 # Docs: https://docs.astral.sh/Ruff
 # =============================================================================
 
@@ -52,7 +52,7 @@ ignore = [
 "code/**/testing/**/*.py" = ["F401", "F811"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["code", "core", "llm", "embedding", "retrieval", "config"]
+known-first-party = ["code", "core", "chat"]
 
 [tool.ruff.format]
 quote-style = "double"

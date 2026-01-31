@@ -16,7 +16,7 @@ updates:
       day: monday
     open-pull-requests-limit: 10
     reviewers:
-      - nlweb-ai/maintainers
+      - microsoft/nlweb-maintainers
     labels:
       - dependencies
       - python

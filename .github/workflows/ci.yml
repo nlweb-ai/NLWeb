@@ -56,7 +56,7 @@ jobs:
         run: ruff format --check .
 
       - name: Type check with mypy
-        run: mypy code --ignore-missing-imports
+        run: mypy code/python --ignore-missing-imports
         continue-on-error: true
 
   # ====================================================================================================
@@ -77,7 +77,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ====================================================================================================
-  # 3. unit & Integration Tests (matrix: Python 3.10 /  3.11 / 3.12)
+  # 3. Unit & Integration Tests (matrix: Python 3.10 / 3.11 / 3.12)
   # ====================================================================================================
   test:
     name: "Tests - Python ${{ matrix.python-version }}"
@@ -86,7 +86,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - name: Checkout
@@ -101,7 +101,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements.txt', 'requirements-test.txt', 'code/requirements.txt') }}
+          key: pip-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements.txt', 'requirements-test.txt', 'code/python/requirements.txt') }}
           restore-keys: |
             pip-${{ runner.os }}-${{ matrix.python-version }}
 
@@ -110,11 +110,11 @@ jobs:
           python -m pip install --upgrade pip
           # Core project dependencies
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f code/requirements.txt ]; then pip install -r code/requirements.txt; fi
+          if [ -f code/requirements.txt ]; then pip install -r code/python/requirements.txt; fi
           # Test dependencies
           if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
-          # Ensure pytest and coverage are available
-          pip install pytest pytest-cov pytest-asyncio hypothesis
+          # Ensure hypothesis is available without overriding pinned pytest packages
+          pip install hypothesis
 
       - name: Run tests with coverage
         env:
@@ -126,7 +126,7 @@ jobs:
           python -m pytest tests/ \
             --tb=short \
             -q \
-            --cov=code \
+            --cov=code/python \
             --cov-report=xml:coverage.xml \
             --cov-report=term-missing
 
