@@ -343,34 +343,63 @@ class NLWebParticipant(BaseParticipant):
             if hasattr(handler, 'site') and handler.site == 'conv_history':
                 logger.info("Skipping storage for conversation history search")
                 return
-            
-            # Check if handler has return_value with content
-            if not hasattr(handler, 'return_value') or 'content' not in handler.return_value:
+
+            # Check if handler has any ranked answers to store
+            if not hasattr(handler, 'final_ranked_answers') or not handler.final_ranked_answers:
                 return
-            
-            # Get the accumulated results from handler.messages
-            # handler.messages contains Message objects, convert them to dicts for JSON serialization
-            if handler.messages and isinstance(handler.messages[0], Message):
-                response = json.dumps([msg.to_dict() for msg in handler.messages])
-            else:
-                # Fallback - should not happen with properly initialized handler
-                response = json.dumps([])
+
+            # Serialize the ranked answers as the response
+            response = json.dumps([
+                {
+                    'name': item.get('name', ''),
+                    'url': item.get('url', ''),
+                    'ranking': item.get('ranking', {}),
+                }
+                for item in handler.final_ranked_answers
+            ])
             summary_array = []
-            
-            # Create summary array with titles and descriptions
-            for item in handler.return_value['content']:
-                title = item.get('name', '') 
-                description = item.get('description', '') 
-            
+
+            # Create summary array from final_ranked_answers
+            # Each item is a dict with 'name', 'url', 'ranking', 'schema_object'
+            for item in handler.final_ranked_answers:
+                title = item.get('name', '')
+                # Extract description from schema_object if available
+                schema_obj = item.get('schema_object', {})
+                description = ''
+                if isinstance(schema_obj, dict):
+                    description = schema_obj.get('description', '')
+
                 summary_array.append({
                     'title': title,
                     'description': description
                 })
-            
-            # Generate summary and embedding in parallel
+
             decontextualized_query = handler.decontextualized_query if hasattr(handler, 'decontextualized_query') else handler.query
-            summary_result, embedding = await self.createSummaryAndEmbedding(summary_array, decontextualized_query)
-            
+
+            # In summarize mode, handler.summary is already available as a string
+            if hasattr(handler, 'summary') and handler.summary:
+                summary_result = {
+                    'summary': handler.summary,
+                    'main_topics': []
+                }
+                # Still generate the embedding
+                embedding_text = " ".join([
+                    f"{item['title']} {item['description']}"
+                    for item in summary_array
+                    if item['title'] or item['description']
+                ])
+                try:
+                    embedding = await get_embedding(
+                        text=embedding_text[:2000],
+                        timeout=10
+                    )
+                except Exception as e:
+                    logger.error(f"Error generating embedding: {e}")
+                    embedding = None
+            else:
+                # Generate summary and embedding in parallel
+                summary_result, embedding = await self.createSummaryAndEmbedding(summary_array, decontextualized_query)
+
             # Store the conversation with summary and embedding
             await add_conversation(
                 user_id=user_id,
@@ -385,7 +414,7 @@ class NLWebParticipant(BaseParticipant):
                 participants=summary_result.get('participants') if summary_result else None
             )
             logger.info(f"Stored conversation with summary for user {user_id} in conversation {conversation_id}")
-            
+
         except Exception as e:
             logger.error(f"Error storing conversation: {e}")
             # Don't fail the request if storage fails
