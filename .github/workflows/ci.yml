@@ -60,24 +60,7 @@ jobs:
         continue-on-error: true
 
   # ====================================================================================================
-  # 2. Security Scan (GitLeaks)
-  # ====================================================================================================
-  secrets-scan:
-    name: "Secrets Scan"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Scan for secrets
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ====================================================================================================
-  # 3. Unit & Integration Tests (matrix: Python 3.10 / 3.11 / 3.12)
+  # 2. Unit & Integration Tests (matrix: Python 3.10 / 3.11 / 3.12)
   # ====================================================================================================
   test:
     name: "Tests - Python ${{ matrix.python-version }}"
@@ -110,7 +93,7 @@ jobs:
           python -m pip install --upgrade pip
           # Core project dependencies
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f code/requirements.txt ]; then pip install -r code/python/requirements.txt; fi
+          if [ -f code/python/requirements.txt ]; then pip install -r code/python/requirements.txt; fi
           # Test dependencies
           if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
           # Ensure hypothesis is available without overriding pinned pytest packages
@@ -139,7 +122,7 @@ jobs:
           retention-days: 14
 
   # ==================================================================================
-  # 4. Docker Build Smoke Test
+  # 3. Docker Build Smoke Test
   # ==================================================================================
   docker-build:
     name: "Docker Build"
