@@ -5,7 +5,7 @@
 # Docs: https://docs.astral.sh/Ruff
 # =============================================================================
 
-
+[ruff]
 target-version = "py310"
 line-length = 120
 
@@ -24,7 +24,7 @@ extend-exclude = [
     "*.egg-info",
 ]
 
-[lint]
+[ruff.lint]
 # Start conservatively - expand as the codebase matures
 select = [
     "E",        # pycodestyle errors
@@ -46,15 +46,15 @@ ignore = [
     "UP007",    # Use X | Y for union types - keep Optional for 3.10 compatibility
 ]
 
-[lint.per-file-ignores]
+[ruff.lint.per-file-ignores]
 # Tests can have unused imports (fixtures), magic values, etc.
 "tests/**/*.py" = ["F401", "F811"]
 "code/**/testing/**/*.py" = ["F401", "F811"]
 
-[lint.isort]
+[ruff.lint.isort]
 known-first-party = ["code", "core", "chat"]
 
-[format]
+[ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
