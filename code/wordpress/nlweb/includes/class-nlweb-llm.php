@@ -31,17 +31,31 @@ class NLWeb_LLM {
         $model    = ( 'high' === $level ) ? $settings['model_high'] : $settings['model_low'];
 
         if ( empty( $api_key ) || empty( $model ) ) {
+            error_log( sprintf(
+                'NLWeb_LLM::ask configuration error: missing API key or model (provider: %s, level: %s).',
+                $provider ?? 'unknown',
+                $level
+            ) );
             return array();
         }
 
         $request = self::build_request( $provider, $api_key, $model, $prompt, $schema, $settings['api_endpoint'], $timeout );
         if ( ! $request ) {
+            error_log( sprintf(
+                'NLWeb_LLM::ask request build failed (provider: %s, model: %s).',
+                $provider ?? 'unknown',
+                $model ?? 'unknown'
+            ) );
             return array();
         }
 
         $response = wp_remote_post( $request['url'], $request['args'] );
 
         if ( is_wp_error( $response ) ) {
+            error_log( sprintf(
+                'NLWeb_LLM::ask HTTP request failed: %s',
+                $response->get_error_message()
+            ) );
             return array();
         }
 
@@ -130,6 +144,29 @@ class NLWeb_LLM {
                     . wp_json_encode( $schema );
 
         switch ( $provider ) {
+
+            case 'openai':
+                $url = $endpoint ?: 'https://api.openai.com/v1/chat/completions';
+                return array(
+                    'url'  => $url,
+                    'args' => array(
+                        'timeout' => $timeout,
+                        'headers' => array(
+                            'Content-Type'  => 'application/json',
+                            'Authorization' => "Bearer $api_key",
+                        ),
+                        'body' => wp_json_encode( array(
+                            'model'    => $model,
+                            'messages' => array(
+                                array( 'role' => 'system', 'content' => $system_msg ),
+                                array( 'role' => 'user',   'content' => $prompt ),
+                            ),
+                            'response_format' => array( 'type' => 'json_object' ),
+                            'max_tokens'      => 512,
+                            'temperature'     => 0,
+                        ) ),
+                    ),
+                );
 
             case 'openrouter':
                 $url = $endpoint ?: 'https://openrouter.ai/api/v1/chat/completions';
@@ -223,6 +260,7 @@ class NLWeb_LLM {
 
         $text = '';
         switch ( $provider ) {
+            case 'openai':
             case 'openrouter':
                 $text = $data['choices'][0]['message']['content'] ?? '';
                 break;

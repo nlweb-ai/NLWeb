@@ -17,8 +17,8 @@
     --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-/* Hide WordPress page title on pages with NLWeb search */
-.page .wp-block-post-title {
+/* Hide WordPress page title on pages that use the NLWeb search full-page layout */
+.nlweb-fullpage-layout .wp-block-post-title {
     display: none !important;
 }
 

@@ -109,7 +109,12 @@ class NLWeb_Retriever {
                     return $graph;
                 }
             } catch ( \Exception $e ) {
-                // Yoast internals changed — fall through.
+                error_log( sprintf(
+                    'NLWeb_Retriever: Yoast schema extraction failed for post ID %d: %s',
+                    isset( $post->ID ) ? $post->ID : 0,
+                    $e->getMessage()
+                ) );
+                // Yoast internals changed — fall through to other schema sources.
             }
         }
 

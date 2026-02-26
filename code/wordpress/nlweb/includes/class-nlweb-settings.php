@@ -25,8 +25,8 @@ class NLWeb_Settings {
             'llm_provider'  => 'openai',          // openai | anthropic | gemini
             'api_key'       => '',
             'api_endpoint'  => '',                 // optional — for Azure, custom endpoints
-            'model_high'    => 'gpt-4.1-mini',    // used for ranking
-            'model_low'     => 'gpt-4.1-mini',    // used for decontextualization
+            'model_high'    => 'gpt-4o-mini',     // used for ranking
+            'model_low'     => 'gpt-4o-mini',     // used for decontextualization
 
             /* -- Retrieval ------------------------------------------- */
             'post_types'         => array( 'post', 'page' ),

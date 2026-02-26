@@ -126,7 +126,7 @@ class NLWeb_Ranker {
             return $json_str;  // not valid JSON — send as-is
         }
 
-        // If it's a list, take first element.
+        // If it's an array, take the first element.
         if ( isset( $obj[0] ) ) {
             $obj = $obj[0];
         }

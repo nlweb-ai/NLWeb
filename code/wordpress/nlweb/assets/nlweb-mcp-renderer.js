@@ -57,7 +57,7 @@ class MCPAppRenderer {
         // Create sandboxed iframe
         this.iframe = document.createElement('iframe');
         this.iframe.className = 'nlweb-mcp-app-frame';
-        this.iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin');
+        this.iframe.setAttribute('sandbox', 'allow-scripts allow-forms');
         this.iframe.style.width = '100%';
         this.iframe.style.height = '100%';
         this.iframe.style.border = 'none';
@@ -174,22 +174,16 @@ class MCPAppRenderer {
      */
     setupMessageListener() {
         window.addEventListener('message', (event) => {
-            // Security: Check event.origin and event.source to ensure the message
-            // comes from a trusted origin and the expected iframe (if available).
-            if (!event || !event.origin) {
+            // Security: Check event.source to ensure the message comes from our iframe.
+            if (this.iframe && this.iframe.contentWindow && event.source !== this.iframe.contentWindow) {
                 return;
             }
 
-            // If allowedOrigins is configured, require the event.origin to match.
-            if (Array.isArray(this.allowedOrigins) && this.allowedOrigins.length > 0) {
+            // If we don't have an iframe yet, check origin against allowedOrigins.
+            if (!this.iframe && Array.isArray(this.allowedOrigins) && this.allowedOrigins.length > 0) {
                 if (!this.allowedOrigins.includes(event.origin)) {
                     return;
                 }
-            }
-
-            // If we have an iframe reference, ensure the message comes from it.
-            if (this.iframe && this.iframe.contentWindow && event.source !== this.iframe.contentWindow) {
-                return;
             }
 
             const { type, id, toolName, params, intent, state } = event.data || {};

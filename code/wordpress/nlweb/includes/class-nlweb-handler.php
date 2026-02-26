@@ -154,7 +154,7 @@ class NLWeb_Handler {
             'top_score' => ! empty( $ranked ) ? $ranked[0]['score'] : null,
         );
 
-        /* ---- 4. Optionally summarize ------------------------------ */
+        /* ---- 5. Optionally summarize ------------------------------ */
 
         $summary = null;
         if ( 'summarize' === $this->generate_mode && ! empty( $ranked ) ) {

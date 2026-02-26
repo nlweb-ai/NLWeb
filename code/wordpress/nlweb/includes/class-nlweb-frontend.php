@@ -63,8 +63,10 @@ class NLWeb_Frontend {
      */
     public static function render_search_box( $atts ) {
         $atts = shortcode_atts( array(
-            'placeholder' => 'Message NLWeb...',
-            'title'       => 'NLWeb AI Search',
+            'placeholder'   => 'Message NLWeb...',
+            'title'         => 'NLWeb AI Search',
+            'empty_title'   => '💬 Start a Conversation',
+            'empty_message' => 'Ask a question about this site\'s content.',
         ), $atts );
 
         ob_start();
@@ -75,14 +77,8 @@ class NLWeb_Frontend {
             <div id="nlweb-conversation" class="nlweb-conversation">
                 <!-- Empty state shown on page load -->
                 <div class="nlweb-empty-state">
-                    <h3>🎬 Discover Sci-Fi Movies</h3>
-                    <p>Ask me anything about science fiction films, actors, directors, or themes.</p>
-                    <div class="nlweb-suggestions">
-                        <div class="nlweb-suggestion-chip" data-query="time travel movies from the 1980s">🕐 Time Travel 80s</div>
-                        <div class="nlweb-suggestion-chip" data-query="alien invasion films from the 1950s">👽 Alien Invasions</div>
-                        <div class="nlweb-suggestion-chip" data-query="movies directed by Spielberg">🎥 Spielberg Films</div>
-                        <div class="nlweb-suggestion-chip" data-query="dystopian future movies">🌆 Dystopian Futures</div>
-                    </div>
+                    <h3><?php echo esc_html( $atts['empty_title'] ); ?></h3>
+                    <p><?php echo esc_html( $atts['empty_message'] ); ?></p>
                 </div>
             </div>
 
