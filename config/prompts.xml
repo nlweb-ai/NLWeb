@@ -225,9 +225,9 @@
         based on useful it might be to answering the user's question. 
         The user's question is: \"{request.query}\".
         The item in schema.org format is: \"{item.description}\".         
-        If the query is related to finding a nearby Item, the score must be 100.
-        If the query is related to finding a nearby Item, and the query specifies the user's location, extract the 'location' (town, city or region) from the user's query.
-        If the query is related to finding a nearby Item, and the query DOES NOT specify the user's location, do not extract a location.
+        If the query is related to where to find an Item, the score must be 100.
+        If the query is related to where to find an Item, and the query specifies the user's location, extract the 'location' (town, city or region) from the user's query.
+        If the query is related to where to find an Item, and the query DOES NOT specify the user's location, do not extract a location.
 
         Examples:
         User Query: "I am in Hyderabad. Where is the closest hospital?"

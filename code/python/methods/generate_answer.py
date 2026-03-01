@@ -214,13 +214,15 @@ class GenerateAnswer(NLWebHandler):
             for url, json_str, name, site in top_embeddings:
                 tasks.append(asyncio.create_task(self.rankItem(url, json_str, name, site)))
 
-                       
             logger.debug(f"Running {len(tasks)} ranking tasks concurrently")
 
             await asyncio.gather(*tasks, return_exceptions=True)
 
             # Once first-pass ranking is done, check if we should do distance-based ranking
 
+            allowEmptyAnswers = False
+            promptName = self.SYNTHESIZE_PROMPT_NAME
+            
             distanceRankingResponse = await PromptRunner(self).run_prompt(self.DISTANCE_RANKING_PROMPT_NAME)
  
             if (distanceRankingResponse):
@@ -234,7 +236,9 @@ class GenerateAnswer(NLWebHandler):
                     location = distanceRankingResponse.get("location")
 
                     if not location:
-                        self.final_ranked_answers = []  # Clear ranked answers if we can't do distance ranking       
+                        self.final_ranked_answers = []  # Clear ranked answers if we can't do distance ranking    
+                        promptName = self.SYNTHESIZE_PROMPT_NAME_NO_LOCATION  # Use no-location prompt for synthesis
+                        allowEmptyAnswers = True  # Allow empty answers if we can't do distance ranking   
                         
                     else:                        
                         countryRegion = distanceRankingResponse.get("countryRegion")
@@ -250,10 +254,8 @@ class GenerateAnswer(NLWebHandler):
 
             # Synthesize the answer from ranked items
 
-            logger.info("Ranking completed, synthesizing answer")
-
-            #await self.synthesizeAnswer()
-            await self.synthesizeAnswer(True, self.SYNTHESIZE_PROMPT_NAME_NO_LOCATION)  # Pass True to allow empty answers if distance ranking fails
+            logger.info("Ranking completed, synthesizing answer")            
+            await self.synthesizeAnswer(allowEmptyAnswers, promptName)  
 
 
         except Exception as e:
