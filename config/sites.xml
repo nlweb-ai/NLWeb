@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Sites>
   <Site name="sos-sms">
-    <itemType>https://schema.org/Accommodation</itemType>
-    <itemType>https://schema.org/CivicStructure</itemType>
-    <itemType>https://schema.org/ContactPoint</itemType>
-    <itemType>https://schema.org/EmergencyService</itemType>
-    <itemType>https://schema.org/Event</itemType>            
-    <itemType>https://schema.org/MedicalCondition</itemType>    
-    <itemType>https://schema.org/SpecialAnnouncement</itemType>
-    <description>Survivor information - comprehensive information for survivors of emergencies and disasters</description>
+    <itemType>Accommodation</itemType>
+    <itemType>CivicStructure</itemType>
+    <itemType>ContactPoint</itemType>
+    <itemType>EmergencyService</itemType>
+    <itemType>Event</itemType>            
+    <itemType>MedicalCondition</itemType>    
+    <itemType>SpecialAnnouncement</itemType>
+    <description>Information for Survivors of the Pakistan Flood Disaster</description>
   </Site>
 </Sites>
