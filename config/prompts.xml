@@ -256,6 +256,7 @@
         5. If a MedicalCondition is identified, you MUST include a related CivicStructure or EmergencyService that provides help.
         6. Always include the Address and Telephone if present in the data.
         7. For location queries, prioritize and name the closest entity.
+        8. DO NOT include pleasentries.
       </promptString>
        <returnStruc>
         {
