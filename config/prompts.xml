@@ -37,6 +37,7 @@
         The user's query is: {request.rawQuery}. 
         Previous queries were: {request.previousQueries}.
        
+					
 					<!-- Previous answers (title + url)provided were: {request.prevAnswers}. -->
 				</promptString>
 				<returnStruc>
@@ -206,16 +207,20 @@
 			</Prompt>
 			<Prompt ref="RankingPromptForGenerate">
 				<promptString>
-        Assign a score between 0 and 100 to the following item
-        based on useful it might be to answering the user's question. 
-        The user's question is: \"{request.query}\".
-        The item in schema.org format is: \"{item.description}\". Include a 
-        short description of the item in the description field.
+        Evaluate the relevance of the following Data Object to the provided Search Query.
+        
+        Search Query: \"{request.query}\"
+        Data Object (Schema.org): \"{item.description}\"
+
+        Task:
+        1. Analyze the attributes of the Data Object.
+        2. Assign a numerical Relevance Score (0-100) based on how accurately the Data Object satisfies the criteria within the Search Query.
+        3. Provide a brief, objective summary of the Data Object's features in the description field.
       </promptString>
 				<returnStruc>
         {
           "score" : "integer between 0 and 100",
-          "description" : "short description of the item"
+          "description" : "objective summary of the object"
         }
       </returnStruc>
 			</Prompt>
@@ -244,41 +249,41 @@
           "countryRegion": "Pakistan"          
         }
       </returnStruc>
+			</Prompt>		
+			<Prompt ref="SynthesizePromptForGenerate">
+				<promptString>
+    Synthesize a factual, service-oriented answer for: '{request.query}' using only the provided items: {request.answers}.
+    
+    MANDATORY REQUIREMENTS:
+    1. Single block of text only.
+    2. Language MUST match the query.
+    3. STRICT MAX 320 characters.
+    4. NO URLs allowed.
+    5. For queries regarding safety, accommodation, or MedicalConditions, prioritize listing the relevant Accommodation, CivicStructure or EmergencyService from the data.
+    6. Always include the Address and Telephone if present in the data.        
+    7. DO NOT include pleasantries or subjective commentary.
+    8. If the data contains no relevant matches, or if a response cannot be generated, set the answer to "Sorry, I don't know." in the matching language.
+  </promptString>
+				<returnStruc>
+    {
+      "answer" : "string",
+      "urls" : "urls of the items included in the answer"
+    }
+  </returnStruc>
 			</Prompt>
-		<Prompt ref="SynthesizePromptForGenerate">
-        <promptString>
-        Synthesize an answer for: '{request.query}' using items: {request.answers}.
-        MANDATORY REQUIREMENTS:
-        1. Single block of text only.
-        2. Language MUST match the query.
-        3. STRICT MAX 320 characters.
-        4. NO URLs allowed.
-        5. If a MedicalCondition is identified, you MUST include a related CivicStructure or EmergencyService that provides help.
-        6. Always include the Address and Telephone if present in the data.
-        7. For location queries, prioritize and name the closest entity.
-        8. DO NOT include pleasentries.
-      </promptString>
-       <returnStruc>
-        {
-          "answer" : "string",
-          "urls" : "urls of the items included in the answer"
-        }
-      </returnStruc>
-      </Prompt>
-
-      <Prompt ref="SynthesizePromptForGenerateNoLocation">
-        <promptString>
+			<Prompt ref="SynthesizePromptForGenerateNoLocation">
+				<promptString>
         Synthesize an answer for this query: '{request.query}'
         MANDATORY REQUIREMENTS:
         1. The answer must be "Where are you now?"
         2. Language MUST match the query.                
       </promptString>
-       <returnStruc>
+				<returnStruc>
         {
           "answer" : "string"        
         }
       </returnStruc>
-      </Prompt>
+			</Prompt>
 			<Prompt ref="SummarizeResultsPrompt">
 				<promptString>
         Given the following items, summarize the results as an answer to the user's question. `

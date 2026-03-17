@@ -412,7 +412,8 @@ class GenerateAnswer(NLWebHandler):
             
             json_results = []
             description_tasks = []
-            answer = response["answer"]
+                        
+            answer = response.get("answer", "Something has gone wrong")
             
             # Create initial message with just the answer
             message = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": answer, "items": json_results}
