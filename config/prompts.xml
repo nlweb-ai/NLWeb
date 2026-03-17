@@ -138,14 +138,14 @@
         What is the kind of item the query is likely seeking with this query: {request.query}
         
         Common item types include:
-        - Recipe (for cooking, food preparation)
-        - Movie (for films, cinema)
-        - Product (for items to purchase)
-        - Restaurant (for dining establishments)
-        - Statistics (for demographic data, population statistics, economic indicators about places like counties, cities, states)
-        - Item (for general items that don't fit other categories)
-        
-        If the query is asking about statistical data like population, median income, demographics, or economic indicators for geographic locations, return "Statistics".
+        - Accommodation (Emergency Accommodation, Survivor Camp, etc)
+        - CivicStructure (for Hospitals, Clinics, Government Buildings, etc)
+        - ContactPoint (for helplines and other important phone numbers)
+        - EmergencyService (for Police, Fire, Ambulance, etc)
+        - Event (for important events like aid, food and water distribution, etc)
+        - MedicalCondition (for health-related information)
+        - SpecialAnnouncement (for important announcements from authorities)  
+        - Item (for general items that don't fit other categories)                
       </promptString>
 				<returnStruc>
         {
@@ -205,7 +205,24 @@
         }
       </returnStruc>
 			</Prompt>
-			<Prompt ref="RankingPromptForGenerate">
+
+      	<Prompt ref="RankingPromptForGenerate">
+				<promptString>
+        Assign a score between 0 and 100 to the following item
+        based on useful it might be to answering the user's question. 
+        The user's question is: \"{request.query}\".
+        The item in schema.org format is: \"{item.description}\". Include a 
+        short description of the item in the description field.
+      </promptString>
+				<returnStruc>
+        {
+          "score" : "integer between 0 and 100",
+          "description" : "objective summary of the object"
+        }
+      </returnStruc>
+			</Prompt>
+
+			<!-- <Prompt ref="RankingPromptForGenerate">
 				<promptString>
         Evaluate the relevance of the following Data Object to the provided Search Query.
         
@@ -223,7 +240,7 @@
           "description" : "objective summary of the object"
         }
       </returnStruc>
-			</Prompt>
+			</Prompt> -->
 			<Prompt ref="DistanceRankingPromptForGenerate">
 				<promptString>
         Assign a score between 0 and 100 to the following item
@@ -250,7 +267,48 @@
         }
       </returnStruc>
 			</Prompt>		
-			<Prompt ref="SynthesizePromptForGenerate">
+
+        <Prompt ref="SynthesizePromptForGenerate">
+      <promptString>
+        Synthesize a factual, service-oriented answer for: '{request.query}' using only the provided items: {request.answers}.
+        MANDATORY REQUIREMENTS:
+        1. The answer field should be a single block of text only.
+        2. The language of the answer MUST match the query.
+        3. The answer must be STRICTLY limited to 320 characters MAXIMUM.
+        4. NO URLs allowed in the answer field.
+        5. If a MedicalCondition is identified, you MUST include a related CivicStructure or EmergencyService that provides help.
+        6. Always include the Address and Telephone if present in the data.        
+        7. DO NOT include pleasentries.                      
+      </promptString>
+      <returnStruc>
+        {
+          "answer" : "string",
+          "urls" : "urls of the items included in the answer"
+        }
+      </returnStruc>
+    </Prompt>
+
+    	<!-- <Prompt ref="SynthesizePromptForGenerate">
+        <promptString>
+        Synthesize an answer for: '{request.query}' using items: {request.answers}.
+        MANDATORY REQUIREMENTS:
+        1. Single block of text only.
+        2. Language MUST match the query.
+        3. STRICT MAX 320 characters.
+        4. NO URLs allowed.
+        5. If a MedicalCondition is identified, you MUST include a related CivicStructure or EmergencyService that provides help.
+        6. Always include the Address and Telephone if present in the data.        
+        7. DO NOT include pleasentries.        
+      </promptString>
+       <returnStruc>
+        {
+          "answer" : "string",
+          "urls" : "urls of the items included in the answer"
+        }
+      </returnStruc>
+      </Prompt> -->
+
+			<!-- <Prompt ref="SynthesizePromptForGenerate">
 				<promptString>
     Synthesize a factual, service-oriented answer for: '{request.query}' using only the provided items: {request.answers}.
     
@@ -270,7 +328,7 @@
       "urls" : "urls of the items included in the answer"
     }
   </returnStruc>
-			</Prompt>
+			</Prompt> -->
 			<Prompt ref="SynthesizePromptForGenerateNoLocation">
 				<promptString>
         Synthesize an answer for this query: '{request.query}'
