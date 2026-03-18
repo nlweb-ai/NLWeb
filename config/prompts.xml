@@ -138,13 +138,12 @@
         What is the kind of item the query is likely seeking with this query: {request.query}
         
         Common item types include:
-        - Accommodation (Emergency Accommodation, Survivor Camp, etc)
+        - Accommodation (for Emergency Accommodation, Survivor Camp, etc)
         - CivicStructure (for Hospitals, Clinics, Government Buildings, etc)
-        - ContactPoint (for helplines and other important phone numbers)
+        - ContactPoint (for helplines)
         - EmergencyService (for Police, Fire, Ambulance, etc)
         - Event (for important events like aid, food and water distribution, etc)
-        - MedicalCondition (for health-related information)
-        - SpecialAnnouncement (for important announcements from authorities)  
+        - MedicalCondition (for health-related information)        
         - Item (for general items that don't fit other categories)                
       </promptString>
 				<returnStruc>
@@ -220,27 +219,7 @@
           "description" : "objective summary of the object"
         }
       </returnStruc>
-			</Prompt>
-
-			<!-- <Prompt ref="RankingPromptForGenerate">
-				<promptString>
-        Evaluate the relevance of the following Data Object to the provided Search Query.
-        
-        Search Query: \"{request.query}\"
-        Data Object (Schema.org): \"{item.description}\"
-
-        Task:
-        1. Analyze the attributes of the Data Object.
-        2. Assign a numerical Relevance Score (0-100) based on how accurately the Data Object satisfies the criteria within the Search Query.
-        3. Provide a brief, objective summary of the Data Object's features in the description field.
-      </promptString>
-				<returnStruc>
-        {
-          "score" : "integer between 0 and 100",
-          "description" : "objective summary of the object"
-        }
-      </returnStruc>
-			</Prompt> -->
+			</Prompt>		
 			<Prompt ref="DistanceRankingPromptForGenerate">
 				<promptString>
         Assign a score between 0 and 100 to the following item
@@ -286,49 +265,7 @@
           "urls" : "urls of the items included in the answer"
         }
       </returnStruc>
-    </Prompt>
-
-    	<!-- <Prompt ref="SynthesizePromptForGenerate">
-        <promptString>
-        Synthesize an answer for: '{request.query}' using items: {request.answers}.
-        MANDATORY REQUIREMENTS:
-        1. Single block of text only.
-        2. Language MUST match the query.
-        3. STRICT MAX 320 characters.
-        4. NO URLs allowed.
-        5. If a MedicalCondition is identified, you MUST include a related CivicStructure or EmergencyService that provides help.
-        6. Always include the Address and Telephone if present in the data.        
-        7. DO NOT include pleasentries.        
-      </promptString>
-       <returnStruc>
-        {
-          "answer" : "string",
-          "urls" : "urls of the items included in the answer"
-        }
-      </returnStruc>
-      </Prompt> -->
-
-			<!-- <Prompt ref="SynthesizePromptForGenerate">
-				<promptString>
-    Synthesize a factual, service-oriented answer for: '{request.query}' using only the provided items: {request.answers}.
-    
-    MANDATORY REQUIREMENTS:
-    1. Single block of text only.
-    2. Language MUST match the query.
-    3. STRICT MAX 320 characters.
-    4. NO URLs allowed.
-    5. For queries regarding safety, accommodation, or MedicalConditions, prioritize listing the relevant Accommodation, CivicStructure or EmergencyService from the data.
-    6. Always include the Address and Telephone if present in the data.        
-    7. DO NOT include pleasantries or subjective commentary.
-    8. If the data contains no relevant matches, or if a response cannot be generated, set the answer to "Sorry, I don't know." in the matching language.
-  </promptString>
-				<returnStruc>
-    {
-      "answer" : "string",
-      "urls" : "urls of the items included in the answer"
-    }
-  </returnStruc>
-			</Prompt> -->
+    </Prompt>    	
 			<Prompt ref="SynthesizePromptForGenerateNoLocation">
 				<promptString>
         Synthesize an answer for this query: '{request.query}'
