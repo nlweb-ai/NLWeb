@@ -146,7 +146,7 @@ export class NLWebDropdownChat {
             // Create chat interface instance with skipAutoInit
             this.chatInterface = new UnifiedChatInterface({
                 skipAutoInit: true,
-                connectionType: 'websocket',  // Use WebSocket for dropdown
+                connectionType: 'sse',
                 additionalParams: {
                     site: this.config.site
                 }

@@ -8,7 +8,7 @@ This document describes the lightweight proxy that converts NLWeb’s `/ask` res
 
 - **Preserve existing clients** – the NLWeb UI and tooling can keep calling `http://<nlweb-host>:8000/ask` and receive the legacy message list.
 - **Expose AppSDK-compatible output** – AppSDK or any new consumer can call the adapter on port `8100` and get the transformed payload.
-- **Isolation** – transformation logic lives in a tiny service (`code/python/webserver/appsdk_adapter_server.py`) that you can deploy, scale, or retire independently.
+- **Isolation** – transformation logic lives in a tiny service (`AskAgent/python/webserver/appsdk_adapter_server.py`) that you can deploy, scale, or retire independently.
 
 ---
 
@@ -41,13 +41,13 @@ Key behaviors:
 
 1. **Start the NLWeb server (unchanged):**
    ```bash
-   cd /path/to/NLWeb/code/python
+   cd /path/to/NLWeb/AskAgent/python
    python -m webserver.aiohttp_server
    ```
 
 2. **Launch the adapter in a second shell:**
    ```bash
-   cd /path/to/NLWeb/code/python
+   cd /path/to/NLWeb/AskAgent/python
    APPSDK_ADAPTER_PORT=8100 \
    NLWEB_BASE_URL=http://localhost:8000 \
    python -m webserver.appsdk_adapter_server
@@ -117,10 +117,10 @@ The adapter uses a shared `aiohttp.ClientSession` with a 60s timeout. HTTP heade
 
 ## Testing
 
-Unit tests covering the adapter helpers live in `code/python/tests/test_appsdk_adapter.py`. Run them (after installing pytest) with:
+Unit tests covering the adapter helpers live in `AskAgent/python/tests/test_appsdk_adapter.py`. Run them (after installing pytest) with:
 
 ```bash
-python -m pytest code/python/tests/test_appsdk_adapter.py
+python -m pytest AskAgent/python/tests/test_appsdk_adapter.py
 ```
 
 This verifies the filtering logic and error payload formatting used by the adapter service.

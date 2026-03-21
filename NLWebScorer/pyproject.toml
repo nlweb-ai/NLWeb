@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nlweb-scorer"
+version = "0.1.0"
+description = "ModernBERT + Neural GAM scorer for NLWeb relevance ranking"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.2.0",
+    "transformers>=4.40.0",
+    "scipy>=1.12.0",
+    "pyyaml>=6.0",
+    "numpy>=1.26.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "scikit-learn>=1.4.0"]

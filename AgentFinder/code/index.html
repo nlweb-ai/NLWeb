@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WHO Handler - Site Finder</title>
+  <style>
+    /* Reset and base styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #7c4a3a 0%, #a0604c 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      color: #333;
+    }
+
+    /* Container */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      padding: 30px;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      color: #666;
+      font-size: 1.1rem;
+    }
+
+    /* Search Section */
+    .search-section {
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .search-wrapper {
+      display: flex;
+      gap: 12px;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 14px 20px;
+      font-size: 16px;
+      border: 2px solid #e1e8ed;
+      border-radius: 10px;
+      outline: none;
+      transition: all 0.3s;
+    }
+
+    .search-input:focus {
+      border-color: #7c4a3a;
+      box-shadow: 0 0 0 3px rgba(124, 74, 58, 0.1);
+    }
+
+    .search-button {
+      padding: 14px 32px;
+      background: linear-gradient(135deg, #7c4a3a 0%, #a0604c 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      min-width: 120px;
+    }
+
+    .search-button:hover:not(:disabled) {
+      opacity: 0.9;
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(124, 74, 58, 0.3);
+    }
+
+    .search-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Results Section */
+    .results-section {
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      flex: 1;
+      overflow-y: auto;
+      min-height: 400px;
+    }
+
+    /* Loading State */
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #7c4a3a;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      color: #666;
+      font-size: 1.1rem;
+    }
+
+    /* Results */
+    .result-item {
+      background: white;
+      border: 1px solid #e1e8ed;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      transition: all 0.3s;
+    }
+
+    .result-item:hover {
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .result-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #333;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .result-title:hover {
+      color: #7c4a3a;
+    }
+
+    .result-score {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      background: linear-gradient(135deg, #7c4a3a 0%, #a0604c 100%);
+      color: white;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .result-description {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .result-url {
+      color: #999;
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+
+    .result-url:hover {
+      color: #7c4a3a;
+    }
+
+    /* Sample Queries */
+    .sample-queries {
+      padding: 40px;
+    }
+
+    .sample-queries-header {
+      color: #999;
+      margin-bottom: 24px;
+      font-size: 1rem;
+    }
+
+    .sample-query {
+      padding: 12px 0;
+      color: #666;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .sample-query:hover {
+      color: #7c4a3a;
+      padding-left: 10px;
+      background: linear-gradient(90deg, rgba(124, 74, 58, 0.05) 0%, transparent 100%);
+    }
+
+    /* Error State */
+    .error {
+      background: #fee;
+      border: 1px solid #fcc;
+      border-radius: 8px;
+      padding: 16px;
+      color: #c00;
+      margin: 20px 0;
+    }
+
+    /* Empty State */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state svg {
+      width: 100px;
+      height: 100px;
+      margin-bottom: 20px;
+      opacity: 0.3;
+    }
+
+    /* Rank Badge */
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: #f0f0f0;
+      border-radius: 50%;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #666;
+      margin-right: 8px;
+    }
+
+    .rank-badge.top-3 {
+      background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Agent Finder</h1>
+      <p>Find out who can help with your query</p>
+    </div>
+
+    <div class="search-section">
+      <div class="search-wrapper">
+        <input
+          type="text"
+          class="search-input"
+          id="searchInput"
+          placeholder="Enter your question..."
+          autocomplete="off"
+        >
+        <button class="search-button" id="searchButton">Search</button>
+      </div>
+    </div>
+
+    <div class="results-section" id="results">
+      <!-- Initial sample queries will be shown here -->
+      <div class="sample-queries" id="sampleQueries">
+        <div class="sample-queries-header">Try these example queries (25 randomly selected from 390+ tested queries):</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Complete set of 390+ sample queries from the original sample-who-queries.js
+    const SAMPLE_QUERIES = [
+      "Single origin Ethiopian coffee with fruity notes for pour over brewing",
+      "Fair trade organic coffee beans for espresso with dark chocolate undertones",
+      "Decaffeinated coffee that still has rich flavor for evening drinking",
+      "Cold brew coffee concentrate that works well with oat milk",
+      "Light roast coffee from Kenya with bright acidity and berry notes",
+      "Organic coffee subscription with rotating single origin selections",
+      "Coffee beans suitable for French press with bold earthy flavors",
+      "Micro-lot coffee from small farms in Guatemala with caramel sweetness",
+      "Loose leaf oolong tea with floral notes for afternoon tea service",
+      "Organic herbal tea blend for relaxation and better sleep",
+      "High quality matcha powder for traditional tea ceremonies",
+      "Chai tea with strong spice profile and low sugar content",
+      "White tea with delicate flavor and antioxidant properties",
+      "Pu-erh tea aged for several years with complex earthy taste",
+      "Green tea from Japan with umami flavor for cold brewing",
+      "English breakfast tea blend strong enough for milk and sugar",
+      "Blue glaze for making japanese pottery",
+      "Food-safe pottery glazes that work well with cone 6 firing",
+      "Handmade ceramic bowls with rustic aesthetic for soup serving",
+      "Porcelain clay suitable for throwing delicate tea cups on the wheel",
+      "Pottery tools for trimming and shaping bowls on the wheel",
+      "Underglazes in earth tones for detailed ceramic decoration",
+      "Raku clay and supplies for outdoor firing techniques",
+      "Kiln shelves and furniture for cone 10 stoneware firing",
+      "Organic cotton fabric in earth tones for quilting projects",
+      "Waterproof ripstop nylon for making outdoor gear and backpacks",
+      "Vintage-style floral print fabric for 1950s dress reproduction",
+      "Interfacing and stabilizers for professional garment construction",
+      "Japanese selvedge denim for crafting raw denim jeans",
+      "Silk charmeuse fabric in jewel tones for evening wear sewing",
+      "Wool felt in bright colors for craft projects and applique",
+      "Double gauze cotton muslin for making soft baby clothing",
+      "Whole spices for making authentic garam masala from scratch",
+      "High quality saffron threads for paella and risotto dishes",
+      "Smoked paprika and chipotle powder for southwestern marinades",
+      "Vanilla beans and extract for baking French pastries",
+      "Cardamom pods and cinnamon sticks for chai tea blending",
+      "Dried chilies including ancho and guajillo for mole sauce",
+      "Mediterranean herbs like oregano and thyme from Greece",
+      "Japanese spices including shichimi togarashi and yuzu kosho",
+      "Full grain vegetable tanned leather for crafting durable belts",
+      "Minimalist leather wallet with RFID protection for everyday carry",
+      "Leather working tools and supplies for beginner saddle stitching",
+      "Vintage leather messenger bag that develops character with age",
+      "Italian leather in cognac brown for making dress shoes",
+      "Leather conditioner and care products for maintaining patina",
+      "Chrome tanned leather suitable for upholstery projects",
+      "Exotic leathers like ostrich or alligator for luxury goods",
+      "Natural face oils for mature skin with anti-aging properties",
+      "Mineral sunscreen that doesn't leave white cast on darker skin tones",
+      "Beard oil with cedarwood and sandalwood scent for daily grooming",
+      "Organic lip balm with beeswax and shea butter for winter protection",
+      "Retinol serum for reducing fine lines and improving texture",
+      "Vitamin C serum with stable L-ascorbic acid for brightening",
+      "Clay masks with kaolin and bentonite for deep pore cleansing",
+      "Hyaluronic acid moisturizer for plump hydrated skin",
+      "Handmade leather moccasins with sheepskin lining for indoor wear",
+      "Minimalist running shoes with wide toe box for natural gait",
+      "Waterproof hiking boots with good ankle support for mountain trails",
+      "Classic leather dress shoes that can be resoled and repaired",
+      "Slip-on canvas sneakers in neutral colors for casual wear",
+      "Work boots with steel toe protection and electrical hazard rating",
+      "Ballet flats in soft leather with cushioned insoles for comfort",
+      "Athletic sandals with arch support for hiking and water activities",
+      "Beeswax candles with natural cotton wicks that burn clean",
+      "Handwoven wool blankets in traditional patterns for cold weather",
+      "Cast iron skillets that come pre-seasoned for cooking",
+      "Wooden cutting boards made from sustainable end-grain maple",
+      "Linen tablecloths in natural colors for formal dining",
+      "Handmade pottery dinnerware sets with organic shapes",
+      "French copper cookware with tin lining for even heating",
+      "Japanese knives in high carbon steel with traditional handles",
+      "Artisan sourdough bread with crispy crust and open crumb structure",
+      "Raw honey from single flower sources with unique flavor profiles",
+      "Aged balsamic vinegar from Modena for finishing dishes",
+      "Small batch hot sauce with habanero and fruit for complex heat",
+      "Handmade pasta including pappardelle and tagliatelle",
+      "Aged cheese from small dairies with natural rinds",
+      "Extra virgin olive oil from single estate Greek groves",
+      "Smoked salmon cured with dill and brown sugar",
+      "Ultralight camping gear for long distance backpacking trips",
+      "Merino wool base layers that regulate temperature and resist odor",
+      "Fishing lures designed for catching bass in freshwater lakes",
+      "Climbing chalk and accessories for indoor bouldering sessions",
+      "Down sleeping bags rated for winter mountaineering conditions",
+      "Backpacking stoves that work with multiple fuel types",
+      "Trekking poles with adjustable length and shock absorption",
+      "Dry bags in various sizes for kayaking and canoe camping",
+      "Professional grade watercolor paints with high pigment concentration",
+      "Acid-free archival paper for preserving pen and ink drawings",
+      "Natural bristle brushes for oil painting with fine detail work",
+      "Screen printing supplies for making multi-color fabric designs",
+      "Acrylic paints in heavy body formula for impasto techniques",
+      "Canvas panels pre-primed with gesso for oil painting",
+      "Graphite pencils ranging from 9H to 9B for detailed sketching",
+      "Artist quality colored pencils with lightfast pigments",
+      "Handcrafted leather journals with deckle edge paper for writing",
+      "Fountain pens with gold nibs for smooth daily writing",
+      "Archival quality ink in various colors for calligraphy",
+      "Vintage typewriters in working condition for analog writing",
+      "Brass bookmarks with intricate designs for collectors",
+      "Hardcover blank journals with lay-flat binding for sketching",
+      "Leather pen cases that hold multiple writing instruments",
+      "Japanese washi tape in decorative patterns for planners",
+      "Handmade soap using cold process method with essential oils",
+      "Shaving brushes with badger hair for traditional wet shaving",
+      "Safety razors with adjustable blade gap for different hair types",
+      "Aftershave balm with witch hazel and aloe for sensitive skin",
+      "Natural deodorant without aluminum or synthetic fragrances",
+      "Bar shampoo and conditioner for zero waste hair care",
+      "Konjac sponges infused with charcoal for gentle exfoliation",
+      "Bamboo toothbrushes with biodegradable bristles",
+      "Alpaca wool sweaters with traditional Peruvian patterns",
+      "Organic cotton t-shirts in heavyweight fabric for durability",
+      "Raw denim jeans with selvedge details from Japanese mills",
+      "Merino wool socks that wick moisture and prevent blisters",
+      "Linen shirts in relaxed fit for hot summer weather",
+      "Cashmere sweaters in classic styles that last for years",
+      "Waxed canvas jackets with warm flannel lining",
+      "Wool peacoats in navy blue from military surplus",
+      "Handmade wooden toys for children without plastic parts",
+      "Educational building blocks made from sustainable hardwoods",
+      "Organic cotton stuffed animals with natural wool filling",
+      "Wooden puzzles with unique shapes for cognitive development",
+      "Montessori learning materials including geometric solids",
+      "Natural rubber balls and outdoor toys free from toxins",
+      "Cloth dolls with hand-embroidered faces and removable clothing",
+      "Board games designed for family play with high replay value",
+      "Hand forged chef knives from high carbon steel",
+      "Damascus steel pocket knives with unique pattern welding",
+      "Sharpening stones including water stones and oil stones",
+      "Knife rolls and storage solutions for protecting edges",
+      "Kitchen shears with separated blades for easy cleaning",
+      "Butcher blocks made from thick maple for heavy use",
+      "Carbon steel woks pre-seasoned for high heat cooking",
+      "Dutch ovens in enameled cast iron for braising and stews",
+      "Whole bean single origin cacao for making chocolate from scratch",
+      "Natural sweeteners including raw cane sugar and maple syrup",
+      "Ancient grains like farro, freekeh, and kamut for cooking",
+      "Heirloom beans in varieties like cranberry and flageolet",
+      "Stone ground whole wheat flour milled fresh to order",
+      "Nutritional yeast with B12 for vegan cooking and cheese alternatives",
+      "Coconut products including oil, milk, and dried unsweetened flakes",
+      "Nuts and seeds in bulk including almonds, cashews, and pumpkin seeds",
+      "Handwoven baskets from natural materials like sweetgrass and willow",
+      "Ceramic planters with drainage holes in modern geometric shapes",
+      "Garden tools with hardwood handles and stainless steel heads",
+      "Heirloom vegetable seeds for organic garden cultivation",
+      "Composting bins and supplies for reducing kitchen waste",
+      "Rain barrels for collecting water for garden irrigation",
+      "Cold frame kits for extending the growing season",
+      "Raised bed garden kits made from untreated cedar",
+      "Electric guitars handmade with solid wood construction",
+      "Vacuum tube amplifiers for warm vintage guitar tone",
+      "Guitar strings in different gauges for various playing styles",
+      "Effects pedals including overdrive, delay, and reverb",
+      "Microphones for recording vocals with large diaphragm condensers",
+      "Studio monitors with flat frequency response for mixing",
+      "MIDI controllers with velocity sensitive keys and drum pads",
+      "Audio interfaces with multiple inputs for home recording",
+      "Mechanical keyboards with custom switches and keycaps",
+      "Ergonomic office chairs with lumbar support and adjustable arms",
+      "Standing desks with electric height adjustment",
+      "Monitor arms with gas spring adjustment for multiple screens",
+      "Desk organizers made from sustainable bamboo or cork",
+      "Task lighting with adjustable color temperature and brightness",
+      "Noise canceling headphones for focused work in open offices",
+      "Laptop stands that improve posture and airflow",
+      "Cable management solutions for clean desktop setups",
+      "Resistance bands in various tensions for home workouts",
+      "Yoga mats made from natural rubber with good grip",
+      "Foam rollers for myofascial release and muscle recovery",
+      "Kettlebells in competition grade cast iron construction",
+      "Pull-up bars that mount in doorways without drilling",
+      "Adjustable dumbbells that save space in home gyms",
+      "Jump ropes with weighted handles for cardio training",
+      "Suspension trainers for bodyweight strength exercises",
+      "Bike lights with high lumens for night commuting safety",
+      "Panniers and bike bags for grocery shopping and touring",
+      "Bike locks with high security ratings against cutting",
+      "Cycling shoes compatible with clipless pedal systems",
+      "Bike tools including multi-tools and chain breakers",
+      "Frame pumps that mount to bike frame for convenience",
+      "Cycling jerseys made from moisture wicking technical fabrics",
+      "Bike helmets with MIPS technology for impact protection",
+      "Slow cookers with programmable timers for meal prep",
+      "Instant pots with pressure cooking and multiple functions",
+      "Food processors with large capacity and various attachments",
+      "Immersion blenders for making soups and sauces",
+      "Espresso machines with PID temperature control",
+      "Manual coffee grinders with conical burrs for travel",
+      "Milk frothers for making lattes and cappuccinos at home",
+      "Pour over coffee makers including Chemex and V60",
+      "Recycled cashmere yarn for luxury knitting projects",
+      "Heritage grain flours including spelt and einkorn for baking",
+      "Specialty salts including fleur de sel and pink Himalayan",
+      "Sourdough starter with active wild yeast cultures",
+      "Bread knives with serrated edges that stay sharp",
+      "Ancient grain berries for grinding fresh flour at home",
+      "Semolina flour for dusting and making traditional pasta",
+      "Shaving soaps in traditional scents like sandalwood",
+      "Pre-shave oils to soften beard hair before lathering",
+      "Shaving bowls in ceramic with textured interiors",
+      "Natural loofahs and body brushes for exfoliation",
+      "Bath salts with essential oils and minerals",
+      "Body oils in nourishing blends for massage",
+      "Soap dishes that drain and extend bar life",
+      "Raw shea butter from Ghana for DIY skin care formulations",
+      "Dutch ovens specifically designed for bread baking",
+      "Dough scrapers in stainless steel and flexible plastic",
+      "Bone broth from slow-simmered organic bones",
+      "Damascus chef knives with pakkawood handles",
+      "Heirloom tomato seeds with disease resistance for home gardens",
+      "Microgreens seeds for indoor kitchen gardens",
+      "Activated charcoal for natural teeth whitening and detox",
+      "Wine making supplies including carboys and airlocks",
+      "Writing slopes and lap desks in fine woods",
+      "Kitchen scales with precision to one gram increments",
+      "Heritage breed poultry and eggs from pastured farms",
+      "Grass-fed beef and lamb from regenerative ranches",
+      "Bubble removers and headspace measuring tools",
+      "Turkish towels in lightweight quick-drying cotton",
+      "Neem oil for organic pest control in gardens",
+      "Telescoping camping cookware sets for backpacking meals",
+      "Natural fiber rope including hemp and sisal for macrame",
+      "Aged rum for crafting classic cocktails and tiki drinks",
+      "Cocktail bitters in unique flavors for mixology experiments",
+      "Craft beer brewing kits with specialty malts and hops",
+      "Fermentation weights to keep vegetables submerged",
+      "Wild-caught salmon and seafood with sustainable practices",
+      "Duck fat and schmaltz for cooking with rich flavor",
+      "Recipe books focused on seasonal canning techniques",
+      "Pumice stones for smoothing rough skin on feet",
+      "Bamboo stakes and trellises for supporting plants",
+      "Small batch gin with botanical complexity for martinis",
+      "Bar tools including jiggers, strainers, and muddlers",
+      "Vintage wine from specific regions and exceptional years",
+      "Banneton proofing baskets in various shapes for bread",
+      "Lame blades for scoring artisan bread loaves",
+      "Canning funnels with wide mouths for easy filling",
+      "Straight razors with carbon steel blades that hold edges",
+      "Vintage brass hardware for restoring antique furniture",
+      "Magnetic spice tins for organizing herb and spice collections",
+      "Artisan vinegar mothers for making homemade apple cider vinegar",
+      "Brass compass and navigation tools for wilderness exploration",
+      "Crystal cocktail glasses in vintage art deco styles",
+      "Silicone baking mats as parchment paper alternatives",
+      "Vacuum sealers for preserving food freshness",
+      "Curing salts for making salami and prosciutto at home",
+      "Ghee clarified from grass-fed butter",
+      "Transfer paper for moving designs to fabric",
+      "Shaving mugs with handles and soap recesses",
+      "Shaving brushes in different hair grades and knot sizes",
+      "Razor strops in leather for maintaining blade sharpness",
+      "Natural sea sponges harvested sustainably",
+      "Seed starting trays with humidity domes",
+      "Organic kombucha starter cultures with detailed brewing instructions",
+      "Coconut wax for making clean burning candle blends",
+      "Natural wine from biodynamic vineyards with minimal intervention",
+      "Proofing boxes with temperature and humidity control",
+      "Ravioli cutters and stamps in decorative shapes",
+      "Sausage stuffers in manual and electric models",
+      "Butcher paper for wrapping and storing meat properly",
+      "Embroidery scissors with sharp pointed tips",
+      "Stabilizers for machine embroidery projects",
+      "Alum blocks for sealing small nicks after shaving",
+      "Double edge safety razor blades in bulk quantities",
+      "Grow lights with full spectrum for year-round growing",
+      "Garden markers in slate or weatherproof materials",
+      "Hydroponic nutrients in organic formulations",
+      "Copper Moscow mule mugs with authentic hammered finish",
+      "Artisan pickle and fermentation crocks with water seals",
+      "Natural cork yoga blocks that provide firm support",
+      "Hand-forged blacksmithing tools for beginner metalworkers",
+      "Japanese pull saws with fine teeth for precision woodworking",
+      "Sake from premium rice polished to daiginjo grade",
+      "Pizza stones made from cordierite for high heat",
+      "Pasta machines with multiple thickness settings",
+      "Rolling pins in different materials and lengths",
+      "Chitarra cutters for making square spaghetti strands",
+      "Pastry wheels with fluted edges for decorative cuts",
+      "Dehydrators with multiple trays for making jerky",
+      "Cheese making kits with rennet and cultures",
+      "Cold press juicers that extract maximum nutrients",
+      "Tallow and lard from pastured animals for frying",
+      "Pattern books with traditional and modern motifs",
+      "Mason jars in various sizes with two-piece lids",
+      "Water bath canners for high-acid food preservation",
+      "Canning labels for dating and identifying preserves",
+      "Aftershave splashes with witch hazel and alcohol",
+      "Copper bathtub caddies for reading in the tub",
+      "Garden kneelers with padded surfaces and handles",
+      "Natural indigo dye for creating fade patterns on denim",
+      "Binchotan charcoal for water filtration and odor absorption",
+      "Vintage film cameras in working condition for analog photography",
+      "Developing tanks and chemicals for processing black and white film",
+      "Block printing tools and linoleum blocks for fabric design",
+      "Mezcal from traditional palenques in Oaxaca Mexico",
+      "Artisan vermouth from small producers for sophisticated aperitifs",
+      "Japanese whisky from independent distilleries with limited releases",
+      "Belgian beer including Trappist ales from monastery breweries",
+      "Armagnac aged in oak barrels for minimum twenty years",
+      "Wood burning stoves with soapstone heat retention",
+      "Vintage light fixtures rewired for modern electrical systems",
+      "Reclaimed barn wood beams for rustic interior design",
+      "Cast iron radiators restored and refinished for vintage homes",
+      "Antique doorknobs and escutcheons in brass and porcelain",
+      "Subway tiles in classic white with beveled edges",
+      "Clawfoot bathtubs refinished in original porcelain enamel",
+      "Farmhouse sinks in fireclay with apron fronts",
+      "Period-appropriate molding and trim for historic renovations",
+      "Handmade tiles with Arts and Crafts movement patterns",
+      "Loose leaf pipe tobacco in classic English and Virginia blends",
+      "Briar wood pipes with quality stems for pipe smoking",
+      "Humidors with Spanish cedar lining for cigar storage",
+      "Premium cigars from Cuban seed tobacco grown in Nicaragua",
+      "Pipe cleaners and reaming tools for maintenance",
+      "Tobacco pouches in leather with moisture-retaining linings",
+      "Cigar cutters with sharp guillotine blades",
+      "Torch lighters with adjustable flames for even lighting",
+      "Pipe stands displaying multiple pipes with style",
+      "Aging rooms and cabinets for maturing pipe tobacco",
+      "Handmade leather belts with solid brass buckles",
+      "Suspenders in woven elastic with leather trim details",
+      "Pocket squares in silk with hand-rolled edges",
+      "Tie bars and cufflinks in sterling silver or gold",
+      "Hat brushes and shapers for maintaining fedora crowns",
+      "Shoe trees made from aromatic cedar wood",
+      "Boot jacks for removing tall boots without bending",
+      "Collar stays in metal for crisp shirt presentations",
+      "Vintage typewriter ribbons for specific models",
+      "Tailoring supplies including chalk, shears, and measuring tapes",
+      "Garment bags in canvas for protecting suits during travel",
+      "Wax sealing kits with custom monogram stamps",
+      "Bookbinding tools including bone folders and awls",
+      "Calligraphy nibs in various sizes and flexibility",
+      "Fountain pen ink in archival quality with rich colors",
+      "Handmade paper from cotton rag with deckled edges",
+      "Desk blotters in leather with corner protectors",
+      "Leather book covers with hand-tooled decorative patterns",
+      "Letter openers in damascus steel with elegant handles",
+      "Pasta drying racks that hold multiple portions",
+      "Gnocchi boards with ridged surfaces for shaping",
+      "Meat grinders with various plate sizes for sausage",
+      "Smoking chips in different woods for unique flavors",
+      "Organ meats including liver and heart from quality sources",
+      "Collagen powder from grass-fed sources for health",
+      "Charcuterie from artisan producers with traditional methods",
+      "Basswood blanks for relief and chip carving",
+      "Wood carving tools with razor-sharp edges",
+      "Finishing oils including Danish and tung oil",
+      "Sandpaper in grits from coarse to ultra-fine",
+      "Wood stains in oil and water-based formulas",
+      "Chisels in various widths for mortise and tenon joints",
+      "Hand planes for smoothing and shaping wood surfaces",
+      "Marking gauges for precise measurements and layouts",
+      "Japanese water stones for sharpening edge tools",
+      "Dust collection systems for workshop cleanliness",
+      "Leather working stamps for tooling decorative patterns",
+      "Edge bevelers for finishing leather goods professionally",
+      "Stitching chisels in various prong configurations",
+      "Waxed thread in different weights and colors",
+      "Leather dyes and finishes in authentic tones",
+      "Rivet setters and snaps for functional closures",
+      "Skiving knives for thinning leather edges",
+      "Burnishing tools for polishing cut leather edges",
+      "Leather cement and contact adhesives for bonding",
+      "Belt blanks in various widths and thicknesses",
+      "Embroidery hoops in multiple sizes for hand stitching",
+      "DMC floss in complete color ranges for cross stitch",
+      "Sashiko thread and needles for Japanese mending",
+      "Crewel wool for dimensional embroidery work",
+      "Pressure canners for preserving low-acid foods safely",
+      "Aida cloth and evenweave fabric for counted thread",
+      "Needle threaders for fine embroidery needles",
+      "Pectin for making jams and jellies that set properly",
+      "Jar lifters for safely removing hot jars from water",
+      "Pickle crisp for maintaining vegetable texture",
+      "Hemp shower curtains that resist mildew naturally",
+      "Aquaponics systems combining fish and plant growth",
+      "Wooden bath mats with slats for drainage",
+      "Worm composting bins for kitchen scrap recycling",
+      "Pruning shears with bypass cutting action",
+      "Soil testing kits for pH and nutrient analysis",
+      "Diatomaceous earth for natural insect barriers",
+      "Beneficial nematodes for controlling soil pests",
+      "Companion planting guides for natural pest management",
+      "Cold frames and row covers extending growing seasons",
+      "Rain gauges for monitoring garden irrigation needs",
+      "Soil amendments including compost and worm castings"
+    ];
+
+    class WHOInterface {
+      constructor() {
+        this.searchInput = document.getElementById('searchInput');
+        this.searchButton = document.getElementById('searchButton');
+        this.resultsContainer = document.getElementById('results');
+        this.isSearching = false;
+
+        this.init();
+      }
+
+      init() {
+        // Show sample queries
+        this.showSampleQueries();
+
+        // Event listeners
+        this.searchButton.addEventListener('click', () => this.performSearch());
+        this.searchInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            this.performSearch();
+          }
+        });
+      }
+
+      showSampleQueries() {
+        const sampleContainer = document.getElementById('sampleQueries');
+
+        // Randomly select 25 queries from the full list of 390+
+        const selected = this.shuffleArray([...SAMPLE_QUERIES]).slice(0, 25);
+
+        selected.forEach(query => {
+          const queryDiv = document.createElement('div');
+          queryDiv.className = 'sample-query';
+          queryDiv.textContent = query.charAt(0).toUpperCase() + query.slice(1);
+          queryDiv.addEventListener('click', () => {
+            this.searchInput.value = query;
+            this.performSearch();
+          });
+          sampleContainer.appendChild(queryDiv);
+        });
+      }
+
+      shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+
+      async performSearch() {
+        const query = this.searchInput.value.trim();
+        if (!query || this.isSearching) return;
+
+        this.isSearching = true;
+        this.searchButton.disabled = true;
+        this.searchButton.textContent = 'Searching...';
+
+        // Show loading state
+        this.resultsContainer.innerHTML = `
+          <div class="loading">
+            <div class="spinner"></div>
+            <div class="loading-text">Finding relevant sites for your query...</div>
+          </div>
+        `;
+
+        try {
+          const response = await fetch('/who', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ query })
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          // Parse MCP-style response
+          let results = [];
+          if (data.content && Array.isArray(data.content) && data.content.length > 0) {
+            const content = data.content[0];
+            if (content.type === 'text' && content.text) {
+              try {
+                results = JSON.parse(content.text);
+              } catch (e) {
+                console.error('Failed to parse results:', e);
+                results = [];
+              }
+            }
+          }
+
+          this.displayResults(results, query);
+
+        } catch (error) {
+          console.error('Search error:', error);
+          this.showError(error.message);
+        } finally {
+          this.isSearching = false;
+          this.searchButton.disabled = false;
+          this.searchButton.textContent = 'Search';
+        }
+      }
+
+      displayResults(results, query) {
+        if (!results || results.length === 0) {
+          this.resultsContainer.innerHTML = `
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="m21 21-4.35-4.35"/>
+              </svg>
+              <h3>No results found</h3>
+              <p>No relevant sites were found for "${this.escapeHtml(query)}"</p>
+            </div>
+          `;
+          return;
+        }
+
+        // Sort by score (highest first)
+        results.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+        let html = `
+          <div style="margin-bottom: 20px; color: #666;">
+            Found ${results.length} relevant site${results.length !== 1 ? 's' : ''} for: <strong>"${this.escapeHtml(query)}"</strong>
+          </div>
+        `;
+
+        results.forEach((result, index) => {
+          const rank = index + 1;
+          const isTop3 = rank <= 3;
+
+          html += `
+            <div class="result-item">
+              <div class="result-header">
+                <a href="${this.escapeHtml(result.url)}" target="_blank" class="result-title">
+                  <span class="rank-badge ${isTop3 ? 'top-3' : ''}">${rank}</span>
+                  ${this.escapeHtml(result.name || 'Unknown Site')}
+                </a>
+                <span class="result-score">${result.score || 0}</span>
+              </div>
+              ${result.description ? `
+                <div class="result-description">
+                  ${this.escapeHtml(result.description)}
+                </div>
+              ` : ''}
+              <a href="${this.escapeHtml(result.url)}" target="_blank" class="result-url">
+                ${this.escapeHtml(this.truncateUrl(result.url))}
+              </a>
+            </div>
+          `;
+        });
+
+        this.resultsContainer.innerHTML = html;
+      }
+
+      showError(message) {
+        this.resultsContainer.innerHTML = `
+          <div class="error">
+            <strong>Error:</strong> ${this.escapeHtml(message)}
+          </div>
+        `;
+      }
+
+      truncateUrl(url) {
+        if (url.length > 60) {
+          return url.substring(0, 60) + '...';
+        }
+        return url;
+      }
+
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+    }
+
+    // Initialize when page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      new WHOInterface();
+    });
+  </script>
+</body>
+</html>

@@ -36,14 +36,14 @@ NLWeb is platform-agnostic and supports:
 
 It is designed to be lightweight and scalable — capable of running on everything from data center clusters to laptops and, soon, mobile devices.
 
-## Repository
+## Repository Structure
 
-This repository includes:
+This repository is organized into the following modules:
 
-* Core service code for handling natural language queries
-* Connectors for popular LLMs and vector databases
-* Tools to ingest data (e.g., Schema.org JSONL, RSS) into a vector database
-* A web server front end that includes the service and a sample UI
+* **[AskAgent](AskAgent/)** — The core NLWeb query agent. Handles natural language queries against websites using Schema.org structured data, with connectors for popular LLMs and vector databases, data ingestion tools, and a sample web UI.
+* **[AgentFinder](AgentFinder/)** — Agent discovery service for finding and routing to NLWeb agents across the web.
+* **[DataFinder](DataFinder/)** — Natural language to SQL translator for enterprise data sources (HubSpot, Dynamics 365, Jira) using schema.org-based ontology mappings.
+* **[ModelRouter](ModelRouter/)** — LLM model routing and scoring, selecting cost-effective models that meet quality thresholds.
 
 Most production deployments will:
 

@@ -29,7 +29,7 @@ The `config_retrieval.yaml` file configures the vector database endpoints that N
 
 ## Write Configuration
 
-The retrieval configuration is managed through `code/config/config_retrieval.yaml`:
+The retrieval configuration is managed through `AskAgent/config/config_retrieval.yaml`:
 
 ### `write_endpoint`
 ```yaml
@@ -123,7 +123,7 @@ endpoints:
 
 ### Backend Client Architecture
 
-Each retrieval backend extends the base `VectorDBClient` class: (as defined in code/python/core/retriever.py)
+Each retrieval backend extends the base `VectorDBClient` class: (as defined in AskAgent/python/core/retriever.py)
 
 ```python
 class VectorDBClient:

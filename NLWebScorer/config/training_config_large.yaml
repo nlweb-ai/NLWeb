@@ -1,0 +1,47 @@
+# NLWebScorer Training Configuration — ModernBERT-large on hard queries
+# ModernBERT-large fine-tuning + Neural GAM
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+data:
+  scores_path: "/Users/rvguha/code/satisficer/nlweb_router/data/scores_azure_oai_gpt-4.1.json"
+  retrieval_path: "/Users/rvguha/code/satisficer/nlweb_router/data/retrieval_results.json"
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  prepared_dir: "./data/prepared_hard"
+  max_seq_length: 256
+
+# ── ModernBERT-large Fine-tuning (Phase 1) ───────────────────────────────────
+modernbert:
+  model_name: "answerdotai/ModernBERT-large"
+  output_dir: "./checkpoints/modernbert_large"
+  learning_rate: 1.0e-5       # lower LR for larger model
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  num_epochs: 5
+  per_device_train_batch_size: 8    # smaller batch for MPS memory
+  per_device_eval_batch_size: 16
+  gradient_accumulation_steps: 4    # effective batch = 32
+  fp16: true
+  normalize_scores: true
+  loss: "mse"
+  huber_delta: 5.0
+
+# ── Neural GAM (Phase 2) ─────────────────────────────────────────────────────
+gam:
+  output_dir: "./checkpoints/gam_large"
+  bert_feature_dim: 1024    # ModernBERT-large hidden size
+  handcrafted_features:
+    - query_length
+    - item_name_length
+    - query_item_word_overlap
+    - schema_type
+    - difficulty
+  subnet_hidden_units: [128, 64, 32]
+  subnet_activation: "relu"
+  subnet_dropout: 0.1
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-4
+  num_epochs: 50
+  batch_size: 256
+  patience: 10

@@ -18,7 +18,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy requirements file
-COPY code/python/requirements.txt .
+COPY AskAgent/python/requirements.txt .
 
 # Install Python packages
 RUN pip install --no-cache-dir -r requirements.txt
@@ -43,7 +43,7 @@ RUN groupadd -r nlweb && \
     useradd -r -g nlweb -d /app -s /bin/bash nlweb
 
 # Copy application code
-COPY code/ /app/
+COPY AskAgent/ /app/
 COPY static/ /app/static/
 COPY config/ /app/config/
 

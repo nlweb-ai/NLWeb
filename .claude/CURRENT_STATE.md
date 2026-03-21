@@ -18,12 +18,12 @@
 - NLWebParticipant stores every streaming message with proper metadata
 
 ## Current Files Modified
-- `/code/python/chat/participants.py` - Updated timestamp handling
-- `/code/python/chat/schemas.py` - Changed ParticipantInfo.joined_at to int
-- `/code/python/webserver/routes/chat.py` - Updated to use millisecond timestamps
-- `/code/python/chat/websocket.py` - Updated timestamp format
-- `/code/python/chat/conversation.py` - Updated mode change timestamp
-- `/code/python/core/baseHandler.py` - Added timestamps to all messages
+- `/AskAgent/python/chat/participants.py` - Updated timestamp handling
+- `/AskAgent/python/chat/schemas.py` - Changed ParticipantInfo.joined_at to int
+- `/AskAgent/python/webserver/routes/chat.py` - Updated to use millisecond timestamps
+- `/AskAgent/python/chat/websocket.py` - Updated timestamp format
+- `/AskAgent/python/chat/conversation.py` - Updated mode change timestamp
+- `/AskAgent/python/core/baseHandler.py` - Added timestamps to all messages
 
 ## System Architecture
 - WebSocket connection is general (not tied to specific conversations)

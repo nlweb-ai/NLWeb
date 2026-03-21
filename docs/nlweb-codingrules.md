@@ -6,7 +6,7 @@
 
 #### Directory Organization
 ```
-code/python/
+AskAgent/python/
 ├── core/                  # Core system functionality
 │   ├── query_analysis/    # Query understanding modules
 │   ├── baseHandler.py     # Base handler class

@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: wppass
+    volumes:
+      - db_data:/var/lib/mysql
+
+  wordpress:
+    image: wordpress:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wppass
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      # Mount the plugin directly — edits are live, no rebuild needed.
+      - ./nlweb:/var/www/html/wp-content/plugins/nlweb
+
+  cli:
+    image: wordpress:cli
+    depends_on:
+      - wordpress
+      - db
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wppass
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./nlweb:/var/www/html/wp-content/plugins/nlweb
+    # Keep container around for manual wp-cli commands.
+    entrypoint: ["sh", "-c", "sleep infinity"]
+
+volumes:
+  db_data:
+  wordpress_data:

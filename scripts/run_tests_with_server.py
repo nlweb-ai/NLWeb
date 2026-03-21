@@ -74,7 +74,7 @@ class ServerManager:
         """Run the server process"""
         # Get the project root directory
         project_root = Path(__file__).parent.parent
-        python_dir = project_root / 'code' / 'python'
+        python_dir = project_root / 'AskAgent' / 'python'
         
         env = os.environ.copy()
         env['PYTHONPATH'] = str(python_dir)
@@ -132,7 +132,7 @@ def run_tests(test_path=None, verbose=True):
     
     # Add coverage if running all tests
     if not test_path or test_path == 'tests':
-        cmd.extend(['--cov=code/python', '--cov-report=term-missing:skip-covered'])
+        cmd.extend(['--cov=AskAgent/python', '--cov-report=term-missing:skip-covered'])
     
     print(f"\nRunning: {' '.join(cmd)}\n")
     
