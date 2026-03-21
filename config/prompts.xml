@@ -255,9 +255,9 @@
         2. The language of the answer MUST match the query.
         3. The answer must be STRICTLY limited to 320 characters MAXIMUM.
         4. NO URLs allowed in the answer field.
-        5. If a MedicalCondition is identified, you MUST include a related CivicStructure or EmergencyService that provides help.
+        5. If a MedicalCondition is identified, you MUST include a related CivicStructure that can help with the condition. Recommend the nearest CivicStructure, based on lowest travel time.
         6. Always include the Address and Telephone if present in the data.        
-        7. DO NOT include pleasentries.                      
+        7. DO NOT include pleasentries.                    
       </promptString>
       <returnStruc>
         {
