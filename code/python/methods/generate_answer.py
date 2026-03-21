@@ -330,7 +330,14 @@ class GenerateAnswer(NLWebHandler):
         valid_items = []
 
         for item in self.final_ranked_answers:
-            geo = item.get("schema_object", {}).get("geo", "")
+            schema = item.get("schema_object") or {}
+
+            # Lat/long values may exist on a "Geo" or "Location" field
+            geo = schema.get("geo")
+            
+            if not geo or "," not in geo:
+                geo = schema.get("location")
+
             if not geo or "," not in geo:
                 continue
 
