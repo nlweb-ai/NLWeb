@@ -237,7 +237,8 @@ class AzureOpenAIProvider(LLMProvider):
                     stream=False,
                     presence_penalty=0.0,
                     frequency_penalty=0.0,
-                    model=model_to_use
+                    model=model_to_use,
+                    response_format={"type": "json_object"}
                 ),
                 timeout=timeout
             )
