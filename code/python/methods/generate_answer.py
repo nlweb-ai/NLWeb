@@ -332,13 +332,18 @@ class GenerateAnswer(NLWebHandler):
         for item in self.final_ranked_answers:
             schema = item.get("schema_object") or {}
 
-            # Lat/long values may exist on a "Geo" or "Location" field
-            geo = schema.get("geo")
-            
-            if not geo or "," not in geo:
-                geo = schema.get("location")
+            # Possible lat/long fields to check
+            fields_to_check = ["geo", "location", "announcementLocation"]
 
-            if not geo or "," not in geo:
+            geo = None
+            for field in fields_to_check:
+                value = schema.get(field)
+                # Check if the field exists and contains a comma (as per your original logic)
+                if value and isinstance(value, str) and "," in value:
+                    geo = value
+                    break
+        
+            if not geo:
                 continue
 
             try:

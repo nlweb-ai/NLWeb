@@ -258,7 +258,7 @@
         5. Only if the user query explicitly mentions a MedicalCondition should you include a related CivicStructure that can help with the condition. Recommend the nearest CivicStructure, based on lowest travel time.
         6. Always include the Address and Telephone if present in the data.                                
         7. NO Geographic coordinates (latitude and longitude) should be included in the answer, even if they are present in the data.
-        8. DO NOT include pleasantries.                    
+        8. DO NOT include pleasantries.          
 
       </promptString>
       <returnStruc>
