@@ -292,9 +292,10 @@ class GenerateAnswer(NLWebHandler):
             raise
 
     async def _get_source_coordinates(self, session: aiohttp.ClientSession, location: str, country_region: str) -> Optional[Tuple[float, float]]:
-        """Gets [longitude, latitude] for the given location."""
-        url = f"{self.azure_maps_base_url}/geocode?api-version=2025-01-01&locality={location}&countryRegion={country_region}"
-        
+        # 1. Use 'query' instead of 'locality' to find both Cities and Districts
+        # 2. Added 'entityType=PopulatedPlace' to filter out irrelevant POIs
+        url = f"{self.azure_maps_base_url}/geocode?api-version=2025-01-01&query={location}, {country_region}&entityType=PopulatedPlace"
+                
         async with session.get(url, headers=self._headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
             if response.status != 200:
                 logger.error(f"Geocoding failed for {location}: Status {response.status}")
@@ -305,12 +306,23 @@ class GenerateAnswer(NLWebHandler):
             if not features:
                 return None
 
-            # Logic to find a feature with a Bounding Box , which indicates a City/Town.
-            # If none of the features have a Bounding Box, take the first one but there is a danger that that the
-            # coordinates returned might not be near a road and therefore the Matrix API might not return results.
-            selected_feature = next((f for f in features if "bbox" in f), features[0])
+            # Helper to calculate the area of the bounding box
+            def get_bbox_area(feature):
+                bbox = feature.get("bbox")
+                if not bbox or len(bbox) < 4:
+                    return float('inf')  # Treat features without bbox as least specific
+                # bbox is [minLon, minLat, maxLon, maxLat]
+                width = bbox[2] - bbox[0]
+                height = bbox[3] - bbox[1]
+                return width * height
+
+            # Find the feature with the SMALLEST bounding box.
+            # This identifies the specific town/city rather than the broad administrative district.
+            selected_feature = min(features, key=get_bbox_area)
+            
             coords = selected_feature["geometry"]["coordinates"]
-            return (coords[0], coords[1]) # [lon, lat]
+            # Azure Maps returns [longitude, latitude]
+            return (coords[0], coords[1])
 
     def _extract_destination_coordinates(self) -> Tuple[List[List[float]], List[Dict]]:
         """Parses self.final_ranked_answers for valid geo strings."""
@@ -318,8 +330,20 @@ class GenerateAnswer(NLWebHandler):
         valid_items = []
 
         for item in self.final_ranked_answers:
-            geo = item.get("schema_object", {}).get("geo", "")
-            if not geo or "," not in geo:
+            schema = item.get("schema_object") or {}
+
+            # Possible lat/long fields to check
+            fields_to_check = ["geo", "location", "announcementLocation"]
+
+            geo = None
+            for field in fields_to_check:
+                value = schema.get(field)
+                # Check if the field exists and contains a comma
+                if value and isinstance(value, str) and "," in value:
+                    geo = value
+                    break
+        
+            if not geo:
                 continue
 
             try:
@@ -412,7 +436,8 @@ class GenerateAnswer(NLWebHandler):
             
             json_results = []
             description_tasks = []
-            answer = response["answer"]
+                        
+            answer = response.get("answer", "Something has gone wrong")
             
             # Create initial message with just the answer
             message = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": answer, "items": json_results}

@@ -8,6 +8,15 @@
 		<Item>
 			<Prompt ref="DetectIrrelevantQueryPrompt">
 				<promptString>
+<root
+	xmlns="http://nlweb.ai/base"
+	xmlns:so="http://www.schema.org/"
+	xmlns:rdfs="http://www.w3.org/rdfs">
+	<!-- This file has all the prompts that are used in the process of running a query. -->
+	<Site id="default">
+		<Item>
+			<Prompt ref="DetectIrrelevantQueryPrompt">
+				<promptString>
         The user is querying the site {request.site} which has information about {site.itemType}s.
         Is the site utterly completely irrelevant to the user's query? 
         The question is not whether this is the best site for answering the query, 
@@ -16,11 +25,15 @@
         The user query is: '{request.query}'
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "site_is_irrelevant_to_query": "True or False",
           "explanation_for_irrelevance": "Explanation for why the site is irrelevant"
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="PrevQueryDecontextualizer">
+				<promptString>
 			</Prompt>
 			<Prompt ref="PrevQueryDecontextualizer">
 				<promptString>
@@ -37,6 +50,7 @@
         The user's query is: {request.rawQuery}. 
         Previous queries were: {request.previousQueries}.
        
+					
 					<!-- Previous answers (title + url)provided were: {request.prevAnswers}. -->
 				</promptString>
 				<returnStruc>
@@ -48,6 +62,9 @@
 			</Prompt>
 			<Prompt ref="DecontextualizeContextPrompt">
 				<promptString>
+			</Prompt>
+			<Prompt ref="DecontextualizeContextPrompt">
+				<promptString>
         The user is asking the following question: '{request.rawQuery}' in the context of 
         the an item with the following description: {request.contextDescription}. 
         Previous answers provided were: {request.prevAnswers}.
@@ -55,10 +72,14 @@
         without reference to earlier queries, previous answers, or to the item description.
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "decontextualized_query": "The rewritten query"
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="FullDecontextualizePrompt">
+				<promptString>
 			</Prompt>
 			<Prompt ref="FullDecontextualizePrompt">
 				<promptString>
@@ -70,10 +91,31 @@
         without reference to earlier queries, previous answers, or to the item description.
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "decontextualized_query": "The rewritten query"
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="DetectMemoryRequestPrompt">
+				<promptString>
+        Analyze the following statement from the user. 
+        Is the user asking you to remember, that may be relevant to not just this query, but also future queries? 
+        If so, what is the user asking us to remember?
+        The user should be explicitly asking you to remember something for future queries, 
+        not just expressing a requirement for the current query.
+        Keep the memory_request field short and do not reference the user or site.
+        The user's query is: {request.rawQuery}.
+      </promptString>
+				<returnStruc>
+        {
+          "is_memory_request": "True or False",
+          "memory_request": "The memory request, if any"
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="QueryRewrite">
+				<promptString>
 			</Prompt>
 			<Prompt ref="DetectMemoryRequestPrompt">
 				<promptString>
@@ -112,6 +154,7 @@
         The original query is: {request.query}
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "rewritten_queries": ["query1", "query2", "query3", "query4", "query5"],
           "query_count": "Number of queries generated (1-5)"
@@ -120,37 +163,51 @@
 			</Prompt>
 			<Prompt ref="DetectMultiItemTypeQueryPrompt">
 				<promptString>
+			</Prompt>
+			<Prompt ref="DetectMultiItemTypeQueryPrompt">
+				<promptString>
         Analyze the following query from the user.
+        Is the user asking for only one kind of item or are they asking for multiple kinds of items.
+        If they are asking for multiple kinds of items, construct independent queries for each of the 
+        kinds of items, separated by semicolons. The user's query is: {request.query}.
         Is the user asking for only one kind of item or are they asking for multiple kinds of items.
         If they are asking for multiple kinds of items, construct independent queries for each of the 
         kinds of items, separated by semicolons. The user's query is: {request.query}.
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "single_item_type_query": "True or False",
+          "item_queries": "Separate queries for each of the kinds of items, separated by commas"
           "item_queries": "Separate queries for each of the kinds of items, separated by commas"
         }
       </returnStruc>
 			</Prompt>
 			<Prompt ref="DetectItemTypePrompt">
 				<promptString>
+			</Prompt>
+			<Prompt ref="DetectItemTypePrompt">
+				<promptString>
         What is the kind of item the query is likely seeking with this query: {request.query}
         
         Common item types include:
-        - Recipe (for cooking, food preparation)
-        - Movie (for films, cinema)
-        - Product (for items to purchase)
-        - Restaurant (for dining establishments)
-        - Statistics (for demographic data, population statistics, economic indicators about places like counties, cities, states)
-        - Item (for general items that don't fit other categories)
-        
-        If the query is asking about statistical data like population, median income, demographics, or economic indicators for geographic locations, return "Statistics".
+        - Accommodation (for Emergency Accommodation, Survivor Camp, etc)
+        - CivicStructure (for Hospitals, Clinics, Government Buildings, etc)
+        - ContactPoint (for helplines)
+        - EmergencyService (for Police, Fire, Ambulance, etc)
+        - Event (for important events like aid, food and water distribution, etc)
+        - MedicalCondition (for health-related information)        
+        - Item (for general items that don't fit other categories)                
       </promptString>
+				<returnStruc>
 				<returnStruc>
         {
           "item_type": ""
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="DetectQueryTypePrompt">
+				<promptString>
 			</Prompt>
 			<Prompt ref="DetectQueryTypePrompt">
 				<promptString>
@@ -161,12 +218,16 @@
         details are they asking for? The user's query is: {request.query}.
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "item_details_query": "True or False",
           "item_title": "The title of the item type, if any",
           "details_being_asked": "what details the user is asking for"
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="RankingPromptWithExplanation">
+				<promptString>
 			</Prompt>
 			<Prompt ref="RankingPromptWithExplanation">
 				<promptString>
@@ -179,12 +240,16 @@
         The user's question is: {request.query}. The item's description is {item.description}
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "score": "integer between 0 and 100",
           "description": "short description of the item",
           "explanation": "explanation of the relevance of the item to the user's question"
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="RankingPrompt">
+				<promptString>
 			</Prompt>
 			<Prompt ref="RankingPrompt">
 				<promptString>
@@ -198,13 +263,15 @@
         The user's question is: \"{request.query}\". The item's description in schema.org format is \"{item.description}\".
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "score": "integer between 0 and 100",
           "description": "short description of the item"
         }
       </returnStruc>
 			</Prompt>
-			<Prompt ref="RankingPromptForGenerate">
+
+      	<Prompt ref="RankingPromptForGenerate">
 				<promptString>
         Assign a score between 0 and 100 to the following item
         based on useful it might be to answering the user's question. 
@@ -213,12 +280,13 @@
         short description of the item in the description field.
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "score" : "integer between 0 and 100",
-          "description" : "short description of the item"
+          "description" : "objective summary of the object"
         }
       </returnStruc>
-			</Prompt>
+			</Prompt>		
 			<Prompt ref="DistanceRankingPromptForGenerate">
 				<promptString>
         Assign a score between 0 and 100 to the following item
@@ -244,19 +312,21 @@
           "countryRegion": "Pakistan"          
         }
       </returnStruc>
-			</Prompt>
-		<Prompt ref="SynthesizePromptForGenerate">
-        <promptString>
-        Synthesize an answer for: '{request.query}' using items: {request.answers}.
+			</Prompt>		
+
+        <Prompt ref="SynthesizePromptForGenerate">
+      <promptString>
+        Synthesize a factual, service-oriented answer for: '{request.query}' using only the provided items: {request.answers}.
         MANDATORY REQUIREMENTS:
-        1. Single block of text only.
-        2. Language MUST match the query.
-        3. STRICT MAX 320 characters.
-        4. NO URLs allowed.
-        5. If a MedicalCondition is identified, you MUST include a related CivicStructure or EmergencyService that provides help.
-        6. Always include the Address and Telephone if present in the data.
-        7. For location queries, prioritize and name the closest entity.
-        8. DO NOT include pleasentries.
+        1. The answer field should be a single block of text only.
+        2. The language of the answer MUST match the query.
+        3. The answer must be STRICTLY limited to 320 characters MAXIMUM.
+        4. NO URLs allowed in the answer field.
+        5. Only if the user query explicitly mentions a MedicalCondition should you include a related CivicStructure that can help with the condition. Recommend the nearest CivicStructure, based on lowest travel time.
+        6. Always include the Address and Telephone if present in the data.                                
+        7. NO Geographic coordinates (latitude and longitude) should be included in the answer, even if they are present in the data.
+        8. DO NOT include pleasantries.          
+
       </promptString>
        <returnStruc>
         {
@@ -264,21 +334,20 @@
           "urls" : "urls of the items included in the answer"
         }
       </returnStruc>
-      </Prompt>
-
-      <Prompt ref="SynthesizePromptForGenerateNoLocation">
-        <promptString>
+    </Prompt>    	
+			<Prompt ref="SynthesizePromptForGenerateNoLocation">
+				<promptString>
         Synthesize an answer for this query: '{request.query}'
         MANDATORY REQUIREMENTS:
         1. The answer must be "Where are you now?"
         2. Language MUST match the query.                
       </promptString>
-       <returnStruc>
+				<returnStruc>
         {
           "answer" : "string"        
         }
       </returnStruc>
-      </Prompt>
+			</Prompt>
 			<Prompt ref="SummarizeResultsPrompt">
 				<promptString>
         Given the following items, summarize the results as an answer to the user's question. `
@@ -286,10 +355,14 @@
         The items are: {request.answers}.
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "summary" : "string"
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="DescriptionPromptForGenerate">
+				<promptString>
 			</Prompt>
 			<Prompt ref="DescriptionPromptForGenerate">
 				<promptString>
@@ -301,10 +374,14 @@
         The item is: {item.description}.
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "description" : "string"
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="ItemMatchingPrompt">
+				<promptString>
 			</Prompt>
 			<Prompt ref="ItemMatchingPrompt">
 				<promptString>
@@ -322,11 +399,15 @@
         Item description: {item.description}
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "score": "integer between 0 and 100",
           "item_details": "the specific details requested by the user"
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="ExtractItemDetailsPrompt">
+				<promptString>
 			</Prompt>
 			<Prompt ref="ExtractItemDetailsPrompt">
 				<promptString>
@@ -348,12 +429,16 @@
         Item description: {item.description}
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "item_name": "the name of the item",
           "requested_details": "the specific details requested by the user, formatted clearly",
           "additional_context": "any important context about these details (optional)"
         }
       </returnStruc>
+			</Prompt>
+			<Prompt ref="FindItemPrompt">
+				<promptString>
 			</Prompt>
 			<Prompt ref="FindItemPrompt">
 				<promptString>
@@ -364,8 +449,518 @@
         Item description: {item.description}
       </promptString>
 				<returnStruc>
+				<returnStruc>
         {
           "score": "integer between 0 and 100"
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="CompareItemsPrompt">
+				<promptString>
+      The user is looking for a comparison between two items with the following descriptions:
+      Item 1: {request.item1_description} 
+      vs
+      Item 2: {request.item2_description} 
+      The user is asking for the following details: {request.details_requested}
+      Provide a comparison of the two items, highlighting the differences and similarities.
+      The user's query is: {request.query}.
+      </promptString>
+				<returnStruc>
+        {
+          "comparison": "Comparison of the two items"
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="CompareItemDetailsPrompt">
+				<promptString>
+      The user is looking for a comparison between two items with the following descriptions:
+      Item 1: {request.item1_description} 
+      and
+      Item 2: {request.item2_description} 
+      The user is asking for the following details: {request.details_requested}
+      Provide a comparison of the two items, highlighting the differences and similarities.
+      The user's query is: {request.query}.
+      </promptString>
+				<returnStruc>
+        {
+          "comparison": "Comparison of the two items"
+        }
+      </returnStruc>
+			</Prompt>
+		</Item>
+		<Recipe>
+			<Prompt ref="DetectMemoryRequestPrompt">
+				<promptString>
+        Analyze the following statement from the user. 
+        Is the user asking you to remember a dietary constraint, that may be relevant
+        to not just this query, but also future queries? For example, the user may say
+        that they are vegetarian or observe kosher or halal or specify an allergy such
+        as gluten or lactose intolerance.
+        If so, what is the user asking us to remember?
+        The user should be explicitly asking you to remember something for future queries, 
+        not just expressing a requirement for the current query.
+         Keep the memory_request field short and do not reference the user or site.
+        The user's query is: {request.rawQuery}.
+      </promptString>
+				<returnStruc>
+        {
+          "is_memory_request": "True or False",
+          "memory_request": "The memory request, if any"
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="ItemMatchingPrompt">
+				<promptString>
+        The user is looking for some details about: {request.item_name} and the users query is: {request.query}.
+        Assign a score between 0 and 100 for whether the following item description
+        matches what the user is looking for. A score of 100 means this is exactly
+        the item they want, 0 means it's completely unrelated.
+
+        If the score is above 75, also extract the details that the user is looking for.
+        Include only the details that the user is explicitly asking for.
+        If they asked for ingredients, provide only the ingredients list.
+        If they asked for instructions, provide only the cooking steps.
+        If they asked for nutrition info, provide only nutritional details.
+        
+        Be direct and specific - extract exactly what they asked for from the data.
+        The details requested are: {request.details_requested}. 
+        
+        Item description: {item.description}
+      </promptString>
+				<returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "item_details": "the specific details requested by the user"
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="RankingPrompt">
+				<promptString>
+        Assign a score between 0 and 100 to the following item
+        based on how relevant it is to the user's question. Use your knowledge from other sources, about the item, to make a judgement. 
+        If the score is above 50, provide a short description of the item highlighting the relevance to the user's question, without mentioning the user's question.
+        Provide an explanation of the relevance of the item to the user's question, without mentioning the user's question or the score or explicitly mentioning the term relevance.
+        If the score is below 75, in the description, include the reason why it is still relevant.
+
+        If the item is not a Recipe, it should get a substantially lower score.
+
+        The user's question is: \"{request.query}\". The item's description in schema.org format is \"{item.description}\".
+      </promptString>
+				<returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "description": "short description of the item"
+        }
+      </returnStruc>
+			</Prompt>
+		</Recipe>
+		<RealEstate>
+			<Prompt ref="RequiredInfoPrompt">
+				<promptString>
+        Answering the user's query requires the location and price range.
+        Do you have this information from this
+        query or the previous queries or the context or memory about the user? 
+        The user's query is: {request.query}. The previous queries are: {request.previousQueries}.
+      </promptString>
+				<returnStruc>
+        {
+          "required_info_found": "True or False",
+          "user_question": "Question to ask the user for the required information"
+        }
+      </returnStruc>
+			</Prompt>
+		</RealEstate>
+		<Item>
+			<Prompt ref="EnsembleBasePrompt">
+				<promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results:
+        {ensemble.results}
+
+        Please create a cohesive recommendation that addresses the user's request.
+      </promptString>
+				<returnStruc>
+        {
+          "theme": "Brief description of the overall recommendation theme",
+          "items": [
+            {
+              "category": "Category name (e.g., Appetizer, Museum, Footwear)",
+              "name": "Specific item name", 
+              "description": "Detailed description",
+              "why_recommended": "Why this item fits the request",
+              "details": {}
+            }
+          ],
+          "overall_tips": ["Any general tips or considerations"]
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="EnsembleMealPlanningPrompt">
+				<promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results:
+        {ensemble.results}
+
+        Create a complete meal recommendation with:
+        1. Appetizer/Starter
+        2. Main Course
+        3. Dessert
+
+        For each course, provide:
+        - Name of the dish
+        - Brief description
+        - Why it complements the other courses
+        - Any relevant details (prep time, difficulty, dietary info)
+        - URL of the item
+
+        Include the URL of the item in the 'url' field of the structured output.
+
+        Ensure the courses work well together in terms of flavors, textures, and overall dining experience.
+      </promptString>
+				<returnStruc>
+        {
+          "theme": "Brief description of the meal theme",
+          "items": [
+            {
+              "category": "Course type (Appetizer, Main Course, or Dessert)",
+              "name": "Specific dish name",
+              "description": "Detailed description of the dish",
+              "why_recommended": "Why this dish fits the meal",
+              "url": "URL of the item",
+              "details": {
+                "prep_time": "Preparation time",
+                "difficulty": "Easy/Medium/Hard",
+                "dietary_info": "Any dietary considerations"
+              }
+            }
+          ],
+          "overall_tips": ["Tips for preparing or serving the meal"]
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="EnsembleTravelItineraryPrompt">
+				<promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results:
+        {ensemble.results}
+
+        Create a travel itinerary recommendation with:
+        1. Attractions/Museums to visit
+        2. Nearby restaurants for meals
+        3. Suggested order/timing
+
+        For each recommendation, provide:
+        - Name and location
+        - Why it's worth visiting
+        - Time needed
+        - How it connects to other recommendations
+        - Any practical tips (hours, tickets, reservations)
+        - URL of the item
+
+        Include the URL of the item in the 'url' field of the structured output.
+      </promptString>
+				<returnStruc>
+        {
+          "theme": "Brief description of the itinerary theme",
+          "items": [
+            {
+              "category": "Category (Attraction, Museum, Restaurant, etc.)",
+              "name": "Specific venue name",
+              "description": "Detailed description",
+              "why_recommended": "Why this fits the itinerary",
+              "url": "URL of the item",
+              "details": {
+                "location": "Address or area",
+                "time_needed": "Estimated duration",
+                "best_time": "Recommended time to visit",
+                "tickets": "Ticket information if applicable",
+                "reservations": "Reservation requirements"
+              }
+            }
+          ],
+          "overall_tips": ["General tips for the itinerary"]
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="EnsembleOutfitPrompt">
+				<promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results, each with a URL:
+        {ensemble.results}
+
+        Create a complete outfit recommendation with:
+        1. Essential items (footwear, jacket, base layers)
+        2. Accessories
+        3. Additional considerations
+
+        For each item, provide:
+        - Specific type recommended
+        - Why it's suitable for the conditions
+        - Key features to look for
+        - URL of the item
+        - Any alternatives
+
+        Include the URL of the item in the 'url' field of the structured output.
+
+        Consider weather, activity level, and safety.
+      </promptString>
+				<returnStruc>
+        {
+          "theme": "Brief description of the outfit purpose",
+          "items": [
+            {
+              "category": "Category (Footwear, Jacket, Accessories, etc.)",
+              "name": "Specific item type",
+              "description": "Detailed description",
+              "why_recommended": "Why this item is suitable",
+              "url": "URL of the item",
+              "details": {
+                "key_features": "Important features to look for",
+                "alternatives": "Alternative options",
+                "weather_suitability": "How it handles weather conditions",
+                "activity_level": "Suitable activity level"
+              }
+            }
+          ],
+          "overall_tips": ["General outfit tips and safety considerations"]
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="EnsembleGenericPrompt">
+				<promptString>
+        Based on the user's request: "{request.query}"
+
+        I searched for: {ensemble.queries}
+
+        Here are the search results:
+        {ensemble.results}
+
+        Create a cohesive set of recommendations that work well together.
+        For each item, explain why it's recommended and how it complements the other items.
+        Include the URL of the item in the 'url' field of the structured output.
+      </promptString>
+				<returnStruc>
+        {
+          "theme": "Brief description of the recommendation theme",
+          "items": [
+            {
+              "category": "Item category",
+              "name": "Specific item name",
+              "description": "Detailed description",
+              "why_recommended": "Why this item fits the request",
+              "url": "URL of the item",
+              "details": {}
+            }
+          ],
+          "overall_tips": ["General tips or considerations"]
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="EnsembleItemRankingPrompt">
+				<promptString>
+        Given the user's query: "{request.query}"
+
+        And this item:
+        Name: {item.name}
+        Type: {item.type}
+        Description: {item.description}
+
+        Rate how relevant this item is for answering the user's query on a scale of 0-100.
+        Consider:
+        - Does this item directly address what the user is looking for?
+        - Is it the right type of item (e.g., restaurant vs attraction)?
+        - Does it match any specific criteria mentioned in the query?
+
+        Provide your response as a JSON object with a 'score' field containing the relevance score.
+      </promptString>
+				<returnStruc>
+        {
+          "score": "integer between 0 and 100"
+        }
+      </returnStruc>
+			</Prompt>
+		</Item>
+		<Statistics>
+			<Prompt ref="DetectItemTypePrompt">
+				<promptString>
+        What is the kind of item the query is likely seeking with this query: {request.query}
+        
+        Common item types include:
+        - Recipe (for cooking, food preparation)
+        - Movie (for films, cinema)
+        - Product (for items to purchase)
+        - Restaurant (for dining establishments)
+        - Statistics (for demographic data, population statistics, economic indicators about places like counties, cities, states)
+        - Item (for general items that don't fit other categories)
+        
+        If the query is asking about statistical data like population, median income, demographics, or economic indicators for geographic locations, return "Statistics".
+      </promptString>
+				<returnStruc>
+        {
+          "item_type": ""
+        }
+      </returnStruc>
+			</Prompt>
+			<Prompt ref="RankingPrompt">
+				<promptString>
+        Assign a score between 0 and 100 to the following statistical data point
+        based on how relevant it is to the user's question about demographic or economic indicators.
+        The user's question is: "{request.query}". 
+        The data point is: "{item.description}".
+      </promptString>
+				<returnStruc>
+        {
+          "score": "integer between 0 and 100",
+          "description": "short description of the data point"
+        }
+      </returnStruc>
+			</Prompt>
+		</Statistics>
+	</Site>
+	<!-- Site configuration for 'all' - searching across multiple sites -->
+	<Site id="all">
+		<Item>
+			<Prompt ref="DetectIrrelevantQueryPrompt">
+				<promptString>
+          The user is searching across ALL sites for: '{request.query}'
+          
+          Since we're searching across all sites, very few queries would be truly irrelevant.
+          Only mark as irrelevant if the query is completely nonsensical or impossible to search for.
+        </promptString>
+				<returnStruc>
+          {
+            "site_is_irrelevant_to_query": "True or False",
+            "explanation_for_irrelevance": "Explanation for why the query cannot be searched across sites"
+          }
+        </returnStruc>
+			</Prompt>
+			<Prompt ref="RankingPrompt">
+				<promptString>
+          Assign a score between 0 and 100 to the following item from {item.source_site}
+          based on how relevant it is to the user's question across all sites.
+          
+          Consider that this result is being compared against results from multiple different sites,
+          so factor in the credibility and relevance of the source site as well.
+          
+          The user's question is: "{request.query}". 
+          The item's description is: "{item.description}".
+          Source site: {item.source_site}
+        </promptString>
+				<returnStruc>
+          {
+            "score": "integer between 0 and 100",
+            "description": "short description of the item highlighting cross-site relevance"
+          }
+        </returnStruc>
+			</Prompt>
+			<Prompt ref="SummarizeResultsPrompt">
+				<promptString>
+          Given the following items from multiple sites, summarize the aggregated results to answer the user's question.
+          Highlight consensus across sites where it exists, and note significant differences.
+          
+          The user's question is: {request.query}.
+          The items from various sites are: {request.answers}.
+        </promptString>
+				<returnStruc>
+          {
+            "summary": "comprehensive summary highlighting insights from multiple sources"
+          }
+        </returnStruc>
+			</Prompt>
+			<Prompt ref="EnsembleItemRankingPrompt">
+				<promptString>
+          Given the user's query: "{request.query}"
+
+          And this item:
+          Name: {item.name}
+          Type: {item.type}
+          Description: {item.description}
+
+          Rate how relevant this item is for answering the user's query on a scale of 0-100.
+          Consider:
+          - Does this item directly address what the user is looking for?
+          - Is it the right type of item (e.g., restaurant vs attraction)?
+          - Does it match any specific criteria mentioned in the query?
+
+          Provide your response as a JSON object with a 'score' field containing the relevance score.
+        </promptString>
+				<returnStruc>
+          {
+            "score": "integer between 0 and 100"
+          }
+        </returnStruc>
+			</Prompt>
+			<Prompt ref="EnsembleBasePrompt">
+				<promptString>
+          Based on the user's request: "{request.query}"
+
+          I searched for: {ensemble.queries}
+
+          Here are the search results:
+          {ensemble.results}
+
+          Please create a cohesive recommendation that addresses the user's request.
+        </promptString>
+				<returnStruc>
+          {
+            "theme": "Brief description of the overall recommendation theme",
+            "items": [
+              {
+                "category": "Category name (e.g., Appetizer, Museum, Footwear)",
+                "name": "Specific item name", 
+                "description": "Detailed description",
+                "why_recommended": "Why this item fits the request",
+                "details": {}
+              }
+            ],
+            "overall_tips": ["Any general tips or considerations"]
+          }
+        </returnStruc>
+			</Prompt>
+			<Prompt ref="EnsembleGenericPrompt">
+				<promptString>
+          Based on the user's request: "{request.query}"
+
+          I searched for: {ensemble.queries}
+
+          Here are the search results:
+          {ensemble.results}
+
+          Create a cohesive set of recommendations that work well together.
+          For each item, explain why it's recommended and how it complements the other items.
+          Include the URL of the item in the 'url' field of the structured output.
+        </promptString>
+				<returnStruc>
+          {
+            "theme": "Brief description of the recommendation theme",
+            "items": [
+              {
+                "category": "Item category",
+                "name": "Specific item name",
+                "description": "Detailed description",
+                "why_recommended": "Why this item fits the request",
+                "url": "URL of the item",
+                "details": {}
+              }
+            ],
+            "overall_tips": ["General tips or considerations"]
+          }
+        </returnStruc>
+			</Prompt>
+		</Item>
+	</Site>
         }
       </returnStruc>
 			</Prompt>
