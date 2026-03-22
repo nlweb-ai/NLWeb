@@ -338,7 +338,7 @@ class GenerateAnswer(NLWebHandler):
             geo = None
             for field in fields_to_check:
                 value = schema.get(field)
-                # Check if the field exists and contains a comma (as per your original logic)
+                # Check if the field exists and contains a comma
                 if value and isinstance(value, str) and "," in value:
                     geo = value
                     break
