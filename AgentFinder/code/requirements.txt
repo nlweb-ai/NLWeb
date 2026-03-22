@@ -1,0 +1,15 @@
+# Core dependencies
+aiohttp>=3.9.0
+asyncio>=3.4.3
+
+# Azure Search backend
+azure-search-documents>=11.4.0
+azure-core>=1.29.0
+
+# Azure OpenAI / OpenAI backend
+openai>=1.10.0
+
+# Optional: For other backends (uncomment as needed)
+# elasticsearch>=8.11.0  # For Elasticsearch backend
+# qdrant-client>=1.7.0   # For Qdrant backend
+# anthropic>=0.8.0       # For Anthropic Claude backend

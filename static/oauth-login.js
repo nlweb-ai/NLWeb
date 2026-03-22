@@ -261,18 +261,9 @@ class OAuthManager {
                     user: event.data.authData ? event.data.authData.user_info : null
                 }
             }));
-            
-            // If there's a pending join operation, retry it
-            const pendingJoin = sessionStorage.getItem('pendingJoinConversation');
-            if (pendingJoin) {
-                sessionStorage.removeItem('pendingJoinConversation');
-                
-                // Redirect to join.html to complete the join process
-                window.location.href = `/static/join.html?conv_id=${pendingJoin}`;
-            }
         }
     }
-    
+
     updateUIForLoggedInUser(user) {
         
         // Update UI elements
@@ -387,15 +378,6 @@ class OAuthManager {
                     user: userInfo
                 }
             }));
-            
-            // If there's a pending join operation, retry it
-            const pendingJoin = sessionStorage.getItem('pendingJoinConversation');
-            if (pendingJoin) {
-                sessionStorage.removeItem('pendingJoinConversation');
-                
-                // Redirect to join.html to complete the join process
-                window.location.href = `/static/join.html?conv_id=${pendingJoin}`;
-            }
         } catch (error) {
             alert('Login failed. Please try again.');
         }

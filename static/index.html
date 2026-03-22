@@ -62,48 +62,9 @@
           <span class="chat-site-info" id="chat-site-info">Asking all</span>
         </div>
         <div class="chat-header-right">
-          <!-- Connection Mode Toggle (hidden) -->
-          <div class="connection-toggle" title="Toggle between WebSocket and SSE" style="display: none;">
-            <label class="toggle-switch">
-              <input type="checkbox" id="connectionModeToggle" checked>
-              <span class="toggle-slider">
-                <span class="toggle-label-left">SSE</span>
-                <span class="toggle-label-right">WS</span>
-              </span>
-            </label>
-          </div>
-          <button class="share-button" id="shareBtn" title="Share conversation">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="8.5" cy="7" r="4"></circle>
-              <line x1="20" y1="8" x2="20" y2="14"></line>
-              <line x1="23" y1="11" x2="17" y2="11"></line>
-            </svg>
-          </button>
           <button class="debug-button" id="debugBtn" title="Show raw messages">{}</button>
-          <button class="login-button" id="loginBtn">Login</button>
-          <div class="user-info" id="userInfo" style="display: none;">
-            <span class="provider-icon" id="providerIcon"></span>
-            <span class="user-name" id="userName"></span>
-            <button class="logout-button" id="logoutBtn">Logout</button>
-          </div>
         </div>
       </header>
-
-      <!-- Share Link Container -->
-      <div class="share-link-container" id="shareLinkContainer" style="display: none;">
-        <div class="share-link-content">
-          <span class="share-link-label">Share this conversation:</span>
-          <input type="text" class="share-link-input" id="shareLinkInput" readonly>
-          <button class="btn-copy" id="copyShareLink">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path>
-            </svg>
-            Copy
-          </button>
-        </div>
-      </div>
 
       <div class="chat-messages" id="chat-messages">
         <div class="messages-container" id="messages-container">
@@ -218,28 +179,21 @@
     import { UnifiedChatInterface } from '/static/chat-interface-unified.js';
     import { SITE_SAMPLE_QUERIES } from '/static/site-sample-queries.js';
     
-    // Parse ALL URL parameters
+    // Parse URL parameters to pass to backend
     const urlParams = new URLSearchParams(window.location.search);
-    
-    // Extract connection mode
-    const mode = urlParams.get('mode') || urlParams.get('connection');
-    const connectionType = (mode === 'http' || mode === 'sse') ? 'sse' : 'websocket';
-    
-    // Collect all additional parameters to pass to backend
     const additionalParams = {};
     for (const [key, value] of urlParams.entries()) {
-      // Skip special frontend-only parameters
-      if (!['mode', 'connection', 'join', 'conversation'].includes(key)) {
+      if (!['conversation'].includes(key)) {
         additionalParams[key] = value;
       }
     }
-    
-    // Initialize chat interface with connection type and additional parameters
+
+    // Initialize chat interface with SSE connection
     new UnifiedChatInterface({
-      connectionType: connectionType,
+      connectionType: 'sse',
       additionalParams: additionalParams,
-      preloadStorage: true,  // Enable IndexedDB preloading for full page
-      sampleQueries: SITE_SAMPLE_QUERIES  // Pass sample queries configuration
+      preloadStorage: true,
+      sampleQueries: SITE_SAMPLE_QUERIES
     });
   </script>
   <script src="/static/oauth-login.js"></script>

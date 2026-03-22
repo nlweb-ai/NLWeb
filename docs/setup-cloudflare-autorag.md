@@ -10,7 +10,7 @@ Cloudflare AutoRAG is a service that allows you to build Retrieval-Augmented Gen
 
 ## Use Cloudflare AutoRAG for retrieval
 
-Edit [config_retrieval.yaml](../code/config_retrieval.yaml) and change `write_endpoint` at the top to `write_endpoint: cloudflare_autorag`. Then, in your `.env` file, set the following variables:
+Edit [config_retrieval.yaml](../AskAgent/config_retrieval.yaml) and change `write_endpoint` at the top to `write_endpoint: cloudflare_autorag`. Then, in your `.env` file, set the following variables:
 
 * `CLOUDFLARE_API_TOKEN`: Your Cloudflare Account API key. You can generate this token in the Cloudflare dashboard under "Profile" -> "API Tokens". 
 * `CLOUDFLARE_RAG_ID_ENV`: The ID of your AutoRAG instance. This is the name of the AutoRAG as it appears in the Cloudflare dashboard.
@@ -21,7 +21,7 @@ Edit [config_retrieval.yaml](../code/config_retrieval.yaml) and change `write_en
 Run from 'python' directory:
 
 ```sh
-python code/python/testing/check_connectivity.py
+python AskAgent/python/testing/check_connectivity.py
 ```
 
 You'll see a three line report on configuration whether configuration has been set correctly for your selected Cloudflare AutoRAG instance.

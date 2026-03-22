@@ -63,7 +63,7 @@ The application requires several environment variables to be set. There are two 
 
 1. **Using a `.env` file (recommended for local development):**
 
-   When using `docker-compose.yaml`, the environment variables defined in the `code/.env` file are automatically loaded via the `env_file` directive. Ensure your `.env` file contains the required variables:
+   When using `docker-compose.yaml`, the environment variables defined in the `AskAgent/.env` file are automatically loaded via the `env_file` directive. Ensure your `.env` file contains the required variables:
 
    ```env
    AZURE_VECTOR_SEARCH_ENDPOINT=https://your-search.search.windows.net
@@ -71,14 +71,14 @@ The application requires several environment variables to be set. There are two 
    OPENAI_API_KEY=your-openai-key
 docker run -it -p 8000:8000 \
   -v ./data:/data \
-  -v ./code/config:/app/code/config:ro \
+  -v ./AskAgent/config:/app/AskAgent/config:ro \
   -e AZURE_VECTOR_SEARCH_ENDPOINT=${AZURE_VECTOR_SEARCH_ENDPOINT} \
   -e AZURE_VECTOR_SEARCH_API_KEY=${AZURE_VECTOR_SEARCH_API_KEY} \
   -e OPENAI_API_KEY=${OPENAI_API_KEY} \
   nlweb:latest
 ```
 
-This command exports all non-commented variables from the code/.env file to your current shell session. However, for Docker deployments, it's recommended to pass environment variables directly to the container as shown above.
+This command exports all non-commented variables from the AskAgent/.env file to your current shell session. However, for Docker deployments, it's recommended to pass environment variables directly to the container as shown above.
 
 ### Required Environment Variables
 
@@ -112,9 +112,9 @@ docker-compose down
 
 ### Configuration with Docker Compose
 
-The `docker-compose.yaml` file is configured to automatically use environment variables from the `code/.env` file. This means you don't need to set environment variables in your shell or create a separate `.env` file in the same directory as the `docker-compose.yaml` file.
+The `docker-compose.yaml` file is configured to automatically use environment variables from the `AskAgent/.env` file. This means you don't need to set environment variables in your shell or create a separate `.env` file in the same directory as the `docker-compose.yaml` file.
 
-Simply make sure your `code/.env` file contains the necessary environment variables:
+Simply make sure your `AskAgent/.env` file contains the necessary environment variables:
 
 ```
 AZURE_VECTOR_SEARCH_ENDPOINT=https://your-search.search.windows.net
@@ -124,7 +124,7 @@ AZURE_OPENAI_API_KEY=your-azure-openai-key
 OPENAI_API_KEY=your-openai-key
 ```
 
-Docker Compose will automatically load these variables from the `code/.env` file when you run:
+Docker Compose will automatically load these variables from the `AskAgent/.env` file when you run:
 
 ```bash
 docker-compose up -d

@@ -1,5 +1,5 @@
 /**
- * Unified Chat Interface - Single path for both SSE and WebSocket
+ * Unified Chat Interface - SSE-based query interface
  */
 
 import { ConversationManager } from './conversation-manager.js';
@@ -7,11 +7,10 @@ import { ChatUICommon } from './chat-ui-common.js';
 
 export class UnifiedChatInterface {
   constructor(options = {}) {
-    this.connectionType = options.connectionType || 'sse';
     this.options = options;
     this.additionalParams = options.additionalParams || {};  // Store additional URL params
     this.sampleQueries = options.sampleQueries || {};  // Store sample queries configuration
-    
+
     // Core state
     this.state = {
       conversationId: null,
@@ -19,16 +18,7 @@ export class UnifiedChatInterface {
       currentStreaming: null,
       selectedMode: this.additionalParams.mode || 'list',
       selectedSite: this.additionalParams.site || 'all',
-      sites: [],  // Will be loaded from API
-      messageQueue: []
-    };
-    
-    // Connection state for WebSocket
-    this.ws = {
-      connection: null,
-      reconnectAttempts: 0,
-      maxReconnects: 5,
-      reconnectDelay: 1000
+      sites: []  // Will be loaded from API
     };
     
     // UI delegates
@@ -77,14 +67,7 @@ export class UnifiedChatInterface {
 
       // Listen for auth state changes to update user ID
       window.addEventListener('authStateChanged', () => {
-        const previousUserId = this.state.userId;
         this.state.userId = this.getOrCreateUserId();
-
-        // If WebSocket is connected and user ID changed, might need to reconnect
-        if (this.ws.connection && previousUserId !== this.state.userId) {
-          this.ws.connection.close();
-          this.connectWebSocket();
-        }
       });
 
       // Load sites from API (non-blocking - fire and forget)
@@ -92,18 +75,14 @@ export class UnifiedChatInterface {
       // Commented out to reduce unnecessary sites requests
       // this.loadSitesNonBlocking();
       
-      // Check URL parameters BEFORE initializing connection
+      // Check URL parameters
       const urlParams = new URLSearchParams(window.location.search);
-      const joinId = urlParams.get('join');
-      const convId = urlParams.get('conversation') || joinId;
-      
+      const convId = urlParams.get('conversation');
+
       // Set conversation ID if provided in URL
       if (convId) {
         this.state.conversationId = convId;
       }
-      
-      // Initialize connection (will use the conversation ID if set)
-      await this.initConnection();
       
       // Handle auto-query from URL parameters after DOM is fully loaded
       if (document.readyState === 'loading') {
@@ -124,29 +103,6 @@ export class UnifiedChatInterface {
       }
 
 
-      // Check if we have a pending join that requires authentication
-      const pendingJoin = sessionStorage.getItem('pendingJoinConversation');
-      if (pendingJoin && !localStorage.getItem('authToken')) {
-        // Show login popup for pending join
-        const overlay = document.getElementById('oauthPopupOverlay');
-        if (overlay) {
-          overlay.style.display = 'flex';
-          
-          // Add a message explaining why login is required
-          const popupContent = overlay.querySelector('.oauth-popup-content');
-          if (popupContent && !popupContent.querySelector('.join-login-message')) {
-            const message = document.createElement('div');
-            message.className = 'join-login-message';
-            message.style.padding = '10px';
-            message.style.background = '#f0f0f0';
-            message.style.borderRadius = '4px';
-            message.style.marginBottom = '15px';
-            message.innerHTML = '<strong>Login required to join conversation</strong><br>Please login to participate in this shared conversation.';
-            popupContent.insertBefore(message, popupContent.firstChild);
-          }
-        }
-      }
-      
       // Load conversation from URL or show new
       if (convId) {
         // Load conversation from ConversationManager/IndexedDB
@@ -156,15 +112,6 @@ export class UnifiedChatInterface {
         if (conversation) {
           // Load the conversation using ConversationManager
           await this.conversationManager.loadConversation(convId, this);
-        } else {
-          // No local conversation - this might be a shared conversation
-          // Send join_conversation message to get the messages from server
-          if (this.ws.connection && this.ws.connection.readyState === WebSocket.OPEN) {
-            this.ws.connection.send(JSON.stringify({
-              type: 'join',
-              conversation_id: convId
-            }));
-          }
         }
       }
       // Don't show centered input by default - keep messages area empty
@@ -204,7 +151,7 @@ export class UnifiedChatInterface {
         document.getElementById('mode-dropdown')?.classList.remove('show');
       }
     });
-    
+
     // Sidebar toggle
     const sidebarToggle = document.getElementById('sidebar-toggle');
     const sidebar = document.getElementById('sidebar');
@@ -298,12 +245,6 @@ export class UnifiedChatInterface {
       return;
     }
     
-    // Share button
-    if (target.closest('#shareBtn')) {
-      this.shareConversation();
-      return;
-    }
-    
     // Debug button
     if (target.closest('#debugBtn')) {
       this.toggleDebugInfo();
@@ -341,207 +282,8 @@ export class UnifiedChatInterface {
     }
   }
   
-  // ========== Unified Connection Management ==========
-  
-  async initConnection() {
-    if (this.connectionType === 'websocket') {
-      return this.connectWebSocket();
-    }
-    // SSE doesn't need persistent connection
-    return Promise.resolve();
-  }
-  
-  async getWebSocketConnection(createIfNeeded = true) {
-    // Check if already connected
-    if (this.ws.connection && this.ws.connection.readyState === WebSocket.OPEN) {
-      return this.ws.connection;
-    }
-    
-    // Check if connecting
-    if (this.ws.connection && this.ws.connection.readyState === WebSocket.CONNECTING) {
-      // Wait for connection to complete
-      await new Promise((resolve, reject) => {
-        const checkInterval = setInterval(() => {
-          if (this.ws.connection.readyState === WebSocket.OPEN) {
-            clearInterval(checkInterval);
-            resolve();
-          } else if (this.ws.connection.readyState === WebSocket.CLOSED) {
-            clearInterval(checkInterval);
-            reject(new Error('Connection closed while waiting'));
-          }
-        }, 100);
-      });
-      return this.ws.connection;
-    }
-    
-    // If not connected and should create
-    if (createIfNeeded) {
-      await this.connectWebSocket();
-      return this.ws.connection;
-    }
-    
-    return null;
-  }
-  
-  async connectWebSocket() {
-    // Prevent multiple connection attempts
-    if (this.ws.connectingPromise) {
-      return this.ws.connectingPromise;
-    }
-    
-    // Create a general WebSocket connection (not tied to a specific conversation)
-    let wsUrl = window.location.origin === 'file://' 
-      ? `ws://localhost:8000/chat/ws`
-      : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/chat/ws`;
-    
-    // Add authentication if available
-    const authToken = localStorage.getItem('authToken');
-    const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-    
-    if (authToken && authToken !== 'anonymous') {
-      // Add auth token and user info as query parameters for WebSocket
-      const params = new URLSearchParams();
-      params.append('auth_token', authToken);
-      if (userInfo.id) params.append('user_id', userInfo.id);
-      if (userInfo.name) params.append('user_name', userInfo.name);
-      if (userInfo.provider) params.append('provider', userInfo.provider);
-      wsUrl += '?' + params.toString();
-    }
-    
-    this.ws.connectingPromise = new Promise((resolve, reject) => {
-      try {
-        this.ws.connection = new WebSocket(wsUrl);
-        
-        this.ws.connection.onopen = () => {
-          this.ws.reconnectAttempts = 0;
-          delete this.ws.connectingPromise; // Clear the connecting promise
-          
-          // Request sites when connection opens
-          // Commented out to reduce unnecessary sites requests
-          // this.ws.connection.send(JSON.stringify({
-          //   type: 'sites_request'
-          // }));
-          
-          // Send any queued messages
-          this.flushMessageQueue();
-          
-          resolve();
-        };
-        
-        this.ws.connection.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          
-          // Add basic validation to satisfy security scanners
-          if (data && typeof data === 'object') {
-            // Sanitize any DOM-related content if present
-            this.sanitizeMessageData(data);
-          }
-          
-          // Debug logging for received messages
-          if (data.message_type === 'user' || data.type === 'conversation_history') {
-          }
-          
-          if (data.message_type === 'multi_site_complete') {
-          }
-          this.handleStreamData(data, true);  // true = store messages
-        };
-        
-        this.ws.connection.onerror = (error) => {
-          delete this.ws.connectingPromise; // Clear the connecting promise
-          reject(error);
-        };
-        
-        this.ws.connection.onclose = () => {
-          delete this.ws.connectingPromise; // Clear the connecting promise
-          this.handleDisconnection();
-        };
-        
-      } catch (error) {
-        delete this.ws.connectingPromise; // Clear the connecting promise
-        reject(error);
-      }
-    });
-    
-    return this.ws.connectingPromise;
-  }
-  
-  handleDisconnection() {
-    if (this.ws.reconnectAttempts < this.ws.maxReconnects) {
-      this.ws.reconnectAttempts++;
-      const delay = this.ws.reconnectDelay * Math.pow(2, this.ws.reconnectAttempts - 1);
-      
-      setTimeout(() => {
-        this.connectWebSocket().catch(() => {});
-      }, delay);
-    } else {
-      this.showError('Connection lost. Please refresh the page.');
-    }
-  }
-  
-  showLoginForJoin(conversationId) {
-    // Show the OAuth login popup
-    const overlay = document.getElementById('oauthPopupOverlay');
-    if (overlay) {
-      overlay.style.display = 'flex';
-      
-      // Store the conversation ID to join after login
-      sessionStorage.setItem('pendingJoinConversation', conversationId);
-      
-      // Add a message explaining why login is required
-      const popupContent = overlay.querySelector('.oauth-popup-content');
-      if (popupContent && !popupContent.querySelector('.join-login-message')) {
-        const message = document.createElement('div');
-        message.className = 'join-login-message';
-        message.style.padding = '10px';
-        message.style.background = '#f0f0f0';
-        message.style.borderRadius = '4px';
-        message.style.marginBottom = '15px';
-        message.innerHTML = '<strong>Login required to join conversation</strong><br>Please login to participate in this conversation.';
-        popupContent.insertBefore(message, popupContent.firstChild);
-      }
-    }
-  }
-  
-  async joinServerConversation(conversationId) {
-    
-    // Get or create WebSocket connection
-    const ws = await this.getWebSocketConnection(true);
-    
-    if (!ws) {
-      return;
-    }
-    
-    // Get user details to send with join message
-    const userId = this.getOrCreateUserId();
-    const userName = userId.split('@')[0] || 'User';
-    
-    // Send join message to WebSocket with user details
-    ws.send(JSON.stringify({
-      type: 'join',
-      conversation_id: conversationId,
-      user_id: userId,
-      user_name: userName,
-      user_info: {
-        id: userId,
-        name: userName
-      }
-    }));
-    
-    // Don't create conversation here - wait for conversation_history message
-    // The conversation_history handler will create the conversation with proper metadata
-    
-    // Update the conversations list in the UI
-    this.updateConversationsList();
-    
-    // Remove the join parameter from the URL
-    const url = new URL(window.location);
-    url.searchParams.delete('join');
-    url.searchParams.delete('conversation'); // Also remove conversation param if it was set from join
-    window.history.replaceState({}, '', url.toString());
-    
-    // Clear any pending join from session storage
-    sessionStorage.removeItem('pendingJoinConversation');
-  }
+  // ========== Connection Management ==========
+
   
   // Removed handleConversationHistory - messages now go through normal flow
   
@@ -585,7 +327,7 @@ export class UnifiedChatInterface {
     
     // Create complete message object with structured content
     const message = {
-      message_id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      message_id: `msg_${Date.now()}_${crypto.randomUUID().substring(0, 9)}`,
       conversation_id: this.state.conversationId,
       type: 'message',
       message_type: 'user',
@@ -675,72 +417,119 @@ export class UnifiedChatInterface {
   }
   
   async sendThroughConnection(message) {
-    // Send the message as-is for both WebSocket and SSE
-    
-    if (this.connectionType === 'websocket') {
-      // Get or create WebSocket connection
-      const ws = await this.getWebSocketConnection(true);
-      
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(message));
-      } else {
-        // Queue message for later
-        this.state.messageQueue.push(message);
-      }
-    } else {
-      // For SSE, send the complete message to /chat/sse endpoint
-      this.connectSSE(message);
-    }
+    this.connectSSE(message);
   }
-  
-  connectSSE(message) {
-    // Send complete message to /chat/sse endpoint via GET (same as WebSocket but different transport)
-    const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
-    const urlParams = new URLSearchParams({
-      message: JSON.stringify(message)
-    });
 
-    const url = `${baseUrl}/chat/sse?${urlParams}`;
+  async connectSSE(message) {
+    // Send query to /ask endpoint via POST (v0.55 protocol)
+    const baseUrl = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+    const content = message.content || {};
 
-    // Use native EventSource API directly
-    const eventSource = new EventSource(url);
-
-    eventSource.onopen = () => {};
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        // Route through the same handleStreamData as WebSocket
-        this.handleStreamData(data, true);  // true = store messages
-      } catch (e) {
+    // Build v0.55 structured request body
+    const querySection = { text: content.query || '', site: content.site || 'all' };
+    // Pass through extra params (scorer, db, generate_mode, etc.)
+    for (const [key, value] of Object.entries(content)) {
+      if (!['query', 'site', 'mode', 'prev_queries'].includes(key) && value !== undefined) {
+        querySection[key] = value;
       }
+    }
+
+    const body = {
+      query: querySection,
+      prefer: { streaming: true, mode: content.mode || 'list' },
+      meta: { version: '0.55' }
     };
 
-    eventSource.onerror = (error) => {
-      // SSE connections normally close after completion - this is not an error
-      if (eventSource.readyState !== EventSource.CLOSED) {
+    if (content.prev_queries && content.prev_queries.length > 0) {
+      body.context = { prev: content.prev_queries };
+    }
+    if (message.conversation_id) {
+      if (!body.meta.session_context) body.meta.session_context = {};
+      body.meta.session_context.conversation_id = message.conversation_id;
+    }
+
+    try {
+      const response = await fetch(`${baseUrl}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        this.showError('Failed to get response. Please try again.');
+        this.endStreaming();
+        return;
       }
 
-      // Immediately close to prevent any reconnection attempts
-      eventSource.close();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      // Only show error if we didn't get a proper completion
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events from buffer
+        while (buffer.includes('\n\n')) {
+          const idx = buffer.indexOf('\n\n');
+          const block = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+
+          let eventName = null;
+          for (const line of block.split('\n')) {
+            if (line.startsWith('event: ')) {
+              eventName = line.slice(7).trim();
+            } else if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                this.handleSSEEvent(eventName, data);
+              } catch (e) {}
+              eventName = null;
+            } else if (line.startsWith(':')) {
+              // SSE comment (keepalive), ignore
+            }
+          }
+        }
+      }
+
+      // Stream ended
+      this.endStreaming();
+    } catch (e) {
       if (!this.state.currentStreaming || !this.state.currentStreaming.hasReceivedContent) {
         this.showError('Failed to get response. Please try again.');
         this.endStreaming();
       }
-    };
-
-    // Store reference so we can close it if needed
-    this.currentEventSource = eventSource;
+    }
   }
-  
-  flushMessageQueue() {
-    while (this.state.messageQueue.length > 0) {
-      const msg = this.state.messageQueue.shift();
-      if (this.ws.connection?.readyState === WebSocket.OPEN) {
-        this.ws.connection.send(JSON.stringify(msg));
-      }
+
+  handleSSEEvent(eventName, data) {
+    // Map v0.55 named events to internal message format
+    if (eventName === 'start') {
+      this.handleStreamData({
+        message_type: 'begin-nlweb-response',
+        timestamp: Date.now()
+      }, true);
+    } else if (eventName === 'result') {
+      this.handleStreamData({
+        message_type: 'result',
+        content: [data.item],
+        timestamp: Date.now()
+      }, true);
+    } else if (eventName === 'complete') {
+      this.handleStreamData({
+        message_type: 'end-nlweb-response',
+        timestamp: Date.now()
+      }, true);
+    } else if (eventName === 'error') {
+      this.handleStreamData({
+        message_type: 'error',
+        content: data.message || 'Error',
+        timestamp: Date.now()
+      }, true);
+    } else {
+      // Unnamed events (data-only) — pass through with existing format
+      this.handleStreamData(data, true);
     }
   }
   
@@ -952,71 +741,6 @@ export class UnifiedChatInterface {
       return;
     }
     
-    
-    // Handle participant updates (join/leave notifications) as messages
-    if (data.type === 'participant_update') {
-      const action = data.action; // 'join' or 'leave'
-      const participant = data.participant;
-      
-      // Don't show join/leave messages for the current user
-      if (participant.participantId === this.state.userId) {
-        return;
-      }
-      
-      // Create a system message for join/leave
-      const message = action === 'join' 
-        ? `${participant.displayName} has joined the conversation`
-        : `${participant.displayName} has left the conversation`;
-      
-      // Add message bubble through the standard flow
-      const bubble = this.addMessageBubble(message, 'system');
-      bubble.dataset.timestamp = data.timestamp || Date.now();
-      
-      // Store the participant update message
-      if (shouldStore) {
-        this.storeStreamingMessage({
-          message_type: 'system',
-          content: message,
-          timestamp: data.timestamp || Date.now(),
-          sender_info: {
-            id: 'system',
-            name: 'System'
-          },
-          metadata: {
-            action: action,
-            participant_id: participant.participantId,
-            participant_name: participant.displayName
-          }
-        });
-      }
-      
-      return;
-    }
-    
-    // Ignore other system messages that don't need UI updates
-    if (data.type === 'connected' || 
-        data.type === 'participants' || 
-        data.type === 'participant_list' ||
-        data.type === 'message_ack') {
-      return;
-    }
-    
-    if (data.type === 'message' && data.sender_id !== this.state.userId) {
-      // Determine if sender is human or AI based on sender_info
-      const role = data.sender_info?.type === 'ai' ? 'assistant' : 'user';
-      this.addMessageBubble(data.content, role, data.sender_info);
-      
-      // Messages from other users should be stored using storeStreamingMessage
-      if (shouldStore) {
-        this.storeStreamingMessage(data);
-      }
-      return;
-    }
-    
-    // Skip other non-displayable message types
-    if (data.type === 'mode_change' || data.type === 'participant_joined' || data.type === 'participant_left') {
-      return;
-    }
     
     // If we have a message_type field, it's likely streaming content from NLWeb
     if (!data.message_type) {
@@ -1622,9 +1346,11 @@ export class UnifiedChatInterface {
       });
     }
 
-    // Shuffle the array using Fisher-Yates algorithm
+    // Shuffle the array using Fisher-Yates algorithm with secure randomness
     for (let i = allQueries.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      const j = arr[0] % (i + 1);
       [allQueries[i], allQueries[j]] = [allQueries[j], allQueries[i]];
     }
 
@@ -1750,7 +1476,7 @@ export class UnifiedChatInterface {
     
     // Fetch fresh sites data from server
     try {
-      const baseUrl = window.location.origin === 'file://' ? 'http://localhost:8000' : '';
+      const baseUrl = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
       const response = await fetch(`${baseUrl}/sites?streaming=false`);
       
       if (!response.ok) {
@@ -1834,7 +1560,7 @@ export class UnifiedChatInterface {
     // If not logged in, use or create anonymous user ID
     let userId = localStorage.getItem('userId');
     if (!userId) {
-      userId = 'user_' + Math.random().toString(36).substring(2, 11);
+      userId = 'user_' + crypto.randomUUID().substring(0, 9);
       localStorage.setItem('userId', userId);
     }
     return userId;
@@ -1920,8 +1646,7 @@ export class UnifiedChatInterface {
       }
     }
     
-    // Don't join WebSocket conversation when just viewing past conversations
-    // WebSocket will auto-join when user sends a message in this conversation
+    // Just viewing past conversations, no server interaction needed
   }
   
   updateConversationsList() {
@@ -2017,66 +1742,6 @@ export class UnifiedChatInterface {
     if (activeConv) {
       activeConv.classList.remove('active');
     }
-  }
-  
-  async shareConversation() {
-    
-    if (!this.state.conversationId) {
-      this.showError('No conversation to share');
-      return;
-    }
-    
-    // Get the current conversation to verify it exists
-    const conversation = this.conversationManager.findConversation(this.state.conversationId);
-    
-    if (!conversation) {
-      this.showError('No conversation found');
-      return;
-    }
-    
-    // Don't upload messages to server - conversations are stored locally
-    // The share URL will contain the conversation ID, and when someone joins,
-    // they'll retrieve the conversation from the WebSocket connection
-    
-    // Generate share URL directly to join.html
-    const baseUrl = `${window.location.protocol}//${window.location.host}`;
-    const shareUrl = `${baseUrl}/static/join.html?conv_id=${this.state.conversationId}`;
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      // Show success message
-      const shareBtn = document.getElementById('shareBtn');
-      if (shareBtn) {
-        const originalTitle = shareBtn.title;
-        shareBtn.title = 'Link copied!';
-        shareBtn.style.color = '#27ae60';
-        
-        // Show a temporary success message
-        const successMsg = document.createElement('div');
-        successMsg.style.cssText = `
-          position: fixed;
-          top: 70px;
-          right: 20px;
-          background: #27ae60;
-          color: white;
-          padding: 10px 20px;
-          border-radius: 4px;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-          z-index: 10000;
-          animation: slideIn 0.3s ease;
-        `;
-        successMsg.textContent = 'Share link copied to clipboard!';
-        document.body.appendChild(successMsg);
-        
-        setTimeout(() => {
-          shareBtn.title = originalTitle;
-          shareBtn.style.color = '';
-          successMsg.remove();
-        }, 3000);
-      }
-    }).catch(err => {
-      this.showError('Failed to copy share link');
-    });
   }
   
   async toggleDebugInfo() {

@@ -88,8 +88,8 @@ nlweb app
 
 The CLI manages several YAML configuration files:
 
-- `code/config/config_llm.yaml`: LLM provider configuration
-- `code/config/config_retrieval.yaml`: Retrieval endpoint configuration
+- `AskAgent/config/config_llm.yaml`: LLM provider configuration
+- `AskAgent/config/config_retrieval.yaml`: Retrieval endpoint configuration
 
 These files store settings including:
 

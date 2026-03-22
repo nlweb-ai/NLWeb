@@ -1,0 +1,53 @@
+# NLWebScorer: Site-agnostic training — no site names, URLs, or publisher info
+# Forces model to learn relevance purely from query-content matching
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+data:
+  scores_path: "./data/scores_azure_oai_gpt-4.1.json"
+  retrieval_path: "./data/retrieval_results.json"
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  prepared_dir: "./data/prepared_no_sites"
+  max_seq_length: 1024
+
+# ── ModernBERT-large Fine-tuning (pure text mode) ────────────────────────────
+modernbert:
+  model_name: "answerdotai/ModernBERT-large"
+  output_dir: "./checkpoints/modernbert_no_sites"
+  pure_text: true
+  learning_rate: 1.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  num_epochs: 5
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 32
+  gradient_accumulation_steps: 2
+  fp16: true
+  normalize_scores: true
+  loss: "mse"
+  ranking_alpha: 0.0
+  score_diff_alpha: 1.0
+  lambda_alpha: 0.5
+  mae_lambda: 1.0
+
+# ── Rubric GAM ───────────────────────────────────────────────────────────────
+rubric_gam:
+  output_dir: "./checkpoints/rubric_gam_no_sites"
+  mode: "additive"
+  bert_proj_dim: 64
+  bert_hidden: [128, 64, 32]
+  rubric_hidden: [64, 32]
+  interaction_hidden: [16]
+  activation: "relu"
+  dropout: 0.1
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-4
+  num_epochs: 200
+  batch_size: 256
+  patience: 30
+  lr_scheduler: "cosine"
+  ranking_alpha: 1.0
+  score_diff_alpha: 0.0
+  lambda_alpha: 0.0
+  mae_lambda: 1.0

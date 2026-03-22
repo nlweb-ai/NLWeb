@@ -676,7 +676,11 @@
                 
             } catch (e) {
                 console.error('Error rendering JSON tree:', e);
-                element.innerHTML = `<div style="color: red;">Error rendering JSON: ${e.message}</div>`;
+                element.textContent = '';
+                const errDiv = document.createElement('div');
+                errDiv.style.color = 'red';
+                errDiv.textContent = 'Error rendering JSON: ' + e.message;
+                element.appendChild(errDiv);
             }
         }
         
@@ -839,7 +843,11 @@
                 
             } catch (error) {
                 responseEl.textContent = `Error: ${error.message}`;
-                jsonTreeEl.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                jsonTreeEl.textContent = '';
+                const errorDiv = document.createElement('div');
+                errorDiv.style.color = 'red';
+                errorDiv.textContent = 'Error: ' + error.message;
+                jsonTreeEl.appendChild(errorDiv);
                 statusEl.textContent = `${messageType} failed: ${new Date().toLocaleTimeString()}`;
                 console.error("Error:", error);
             }
@@ -882,7 +890,11 @@
                 
             } catch (error) {
                 responseEl.textContent = `Error: ${error.message}`;
-                jsonTreeEl.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                jsonTreeEl.textContent = '';
+                const errorDiv = document.createElement('div');
+                errorDiv.style.color = 'red';
+                errorDiv.textContent = 'Error: ' + error.message;
+                jsonTreeEl.appendChild(errorDiv);
                 statusEl.textContent = `Failed to get agent info: ${new Date().toLocaleTimeString()}`;
                 console.error("Error:", error);
             }
@@ -936,7 +948,11 @@
                 
             } catch (error) {
                 responseEl.textContent = `Error: ${error.message}`;
-                jsonTreeEl.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                jsonTreeEl.textContent = '';
+                const errorDiv = document.createElement('div');
+                errorDiv.style.color = 'red';
+                errorDiv.textContent = 'Error: ' + error.message;
+                jsonTreeEl.appendChild(errorDiv);
                 statusEl.textContent = `Registration failed: ${new Date().toLocaleTimeString()}`;
                 console.error("Error:", error);
             }
@@ -983,15 +999,22 @@
                 // Update agents list
                 if (data.content && data.content.agents) {
                     const agents = data.content.agents;
+                    agentsList.textContent = '';
                     if (agents.length > 0) {
-                        agentsList.innerHTML = agents.map(agent => 
-                            `<div class="agent-item">
-                                <strong>${agent.agent_id}</strong>: 
-                                ${agent.capabilities ? agent.capabilities.join(', ') : 'No capabilities'}
-                            </div>`
-                        ).join('');
+                        agents.forEach(agent => {
+                            const div = document.createElement('div');
+                            div.className = 'agent-item';
+                            const strong = document.createElement('strong');
+                            strong.textContent = agent.agent_id;
+                            div.appendChild(strong);
+                            div.appendChild(document.createTextNode(': ' + (agent.capabilities ? agent.capabilities.join(', ') : 'No capabilities')));
+                            agentsList.appendChild(div);
+                        });
                     } else {
-                        agentsList.innerHTML = '<div class="agent-item">No agents registered</div>';
+                        const div = document.createElement('div');
+                        div.className = 'agent-item';
+                        div.textContent = 'No agents registered';
+                        agentsList.appendChild(div);
                     }
                 }
                 
@@ -999,7 +1022,11 @@
                 
             } catch (error) {
                 responseEl.textContent = `Error: ${error.message}`;
-                jsonTreeEl.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                jsonTreeEl.textContent = '';
+                const errorDiv = document.createElement('div');
+                errorDiv.style.color = 'red';
+                errorDiv.textContent = 'Error: ' + error.message;
+                jsonTreeEl.appendChild(errorDiv);
                 statusEl.textContent = `Discovery failed: ${new Date().toLocaleTimeString()}`;
                 console.error("Error:", error);
             }

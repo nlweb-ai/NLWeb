@@ -61,6 +61,50 @@
   <body>
     <div id="root" class="muted">Loading visualizations…</div>
     <script>
+      // Allowed origins for postMessage communication
+      const ALLOWED_ORIGINS = [window.location.origin];
+
+      /**
+       * Sanitize a URL to prevent javascript: and other dangerous protocols.
+       */
+      function sanitizeUrl(url) {
+        if (!url || typeof url !== "string") return "#";
+        const trimmed = url.trim();
+        if (/^(javascript|data|vbscript|file):/i.test(trimmed)) return "#";
+        return trimmed;
+      }
+
+      /**
+       * Sanitize HTML string by parsing and only keeping safe elements/attributes.
+       */
+      function sanitizeHtml(html) {
+        if (!html || typeof html !== "string") return "";
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        // Remove all script tags (including </script >) and event handler attributes
+        doc.querySelectorAll("script").forEach(el => el.remove());
+        // Also remove script end tags that may have whitespace
+        const scriptEndTagRegex = /<\/\s*script[\s>]/gi;
+        if (scriptEndTagRegex.test(html)) {
+          console.warn("Blocked script end tag with whitespace");
+          return "";
+        }
+        const allEls = doc.body.querySelectorAll("*");
+        allEls.forEach(el => {
+          for (const attr of [...el.attributes]) {
+            if (attr.name.startsWith("on") || attr.name === "srcdoc") {
+              el.removeAttribute(attr.name);
+            }
+            // Block dangerous href/src protocols
+            if ((attr.name === "href" || attr.name === "src") &&
+                /^(javascript|data|vbscript|file):/i.test(attr.value.trim())) {
+              el.removeAttribute(attr.name);
+            }
+          }
+        });
+        return doc.body.innerHTML;
+      }
+
       function renderWidget(data) {
         const root = document.getElementById("root");
         const results = Array.isArray(data.results) ? data.results : [];
@@ -73,6 +117,7 @@
         root.classList.remove("muted");
         root.textContent = "";
 
+        const ALLOWED_SCRIPT_SRCS = ["datacommons.org"];
         const loadedScripts = new Set();
 
         const embedScript = (rawScript) => {
@@ -80,23 +125,40 @@
             return;
           }
           const srcMatch = rawScript.match(/<script[^>]*src=["']([^"']+)["']/i);
-          const inlineMatch = rawScript.match(/<script[^>]*>([\s\S]*)<\/script>/i);
 
+          // Only allow external scripts from explicitly allowed domains
           if (srcMatch) {
             const src = srcMatch[1];
-
-            if (!loadedScripts.has(src)) {
-              const script = document.createElement("script");
-              script.src = src;
-              script.async = true;
-              document.head.appendChild(script);
-              loadedScripts.add(src);
+            // Sanitize the URL first
+            const sanitizedSrc = sanitizeUrl(src);
+            if (sanitizedSrc === "#") {
+              console.warn("Blocked script with dangerous protocol");
+              return;
             }
-          } else if (inlineMatch) {
-            const inlineScript = document.createElement("script");
-            inlineScript.textContent = inlineMatch[1];
-            document.head.appendChild(inlineScript);
+            try {
+              const srcUrl = new URL(sanitizedSrc, window.location.origin);
+              const isAllowed = ALLOWED_SCRIPT_SRCS.some(
+                (domain) => srcUrl.hostname === domain || srcUrl.hostname.endsWith("." + domain)
+              );
+              if (!isAllowed) {
+                console.warn("Blocked script from non-allowed origin:", sanitizedSrc);
+                return;
+              }
+            } catch {
+              console.warn("Blocked script with invalid URL:", sanitizedSrc);
+              return;
+            }
+
+            if (!loadedScripts.has(sanitizedSrc)) {
+              const script = document.createElement("script");
+              script.src = sanitizedSrc;
+              script.async = true;
+              script.referrerPolicy = "strict-origin-when-cross-origin";
+              document.head.appendChild(script);
+              loadedScripts.add(sanitizedSrc);
+            }
           }
+          // Inline scripts are no longer executed to prevent code injection
         };
 
         results.forEach((res, index) => {
@@ -128,7 +190,7 @@
             const nameLink = document.createElement("a");
             nameLink.className = "block-name";
             nameLink.textContent = res.name || res.url;
-            nameLink.href = res.url || "#";
+            nameLink.href = sanitizeUrl(res.url);
             if (res.url) {
               nameLink.target = "_blank";
               nameLink.rel = "noopener noreferrer";
@@ -154,7 +216,7 @@
           }
 
           const container = document.createElement("div");
-          container.innerHTML = res.html || "";
+          container.innerHTML = sanitizeHtml(res.html || "");
           block.appendChild(container);
 
           if (res.script) {
@@ -195,10 +257,15 @@
           root.appendChild(block);
         });
 
-        window.parent?.postMessage({ type: "widgetRendered" }, "*");
+        window.parent?.postMessage({ type: "widgetRendered" }, window.location.origin);
       }
 
       window.addEventListener("message", (event) => {
+        // Validate message origin - must be from allowed origins only
+        if (!ALLOWED_ORIGINS.includes(event.origin)) {
+          console.warn("Blocked postMessage from disallowed origin:", event.origin);
+          return;
+        }
         if (event.data?.type === "setStructuredContent") {
           renderWidget(event.data.payload || {});
         }
@@ -207,7 +274,7 @@
       if (window.structuredContent) {
         renderWidget(window.structuredContent);
       } else {
-        window.parent?.postMessage({ type: "widgetReady" }, "*");
+        window.parent?.postMessage({ type: "widgetReady" }, window.location.origin);
       }
     </script>
   </body>

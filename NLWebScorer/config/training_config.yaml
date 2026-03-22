@@ -1,0 +1,64 @@
+# NLWebScorer Training Configuration
+# ModernBERT fine-tuning + Neural GAM
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+data:
+  # Path to ModelRouter scoring data (GPT-4.1 ground truth)
+  scores_path: "/Users/rvguha/code/satisficer/nlweb_router/data/scores_azure_oai_gpt-4.1.json"
+  retrieval_path: "/Users/rvguha/code/satisficer/nlweb_router/data/retrieval_results.json"
+  # Train/val/test split ratios
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  # Prepared dataset output
+  prepared_dir: "./data/prepared"
+  max_seq_length: 512
+
+# ── ModernBERT Fine-tuning (Phase 1) ─────────────────────────────────────────
+modernbert:
+  model_name: "answerdotai/ModernBERT-base"
+  output_dir: "./checkpoints/modernbert"
+  # Training hyperparameters
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  num_epochs: 5
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 64
+  gradient_accumulation_steps: 1
+  fp16: true
+  # Score normalization: map 0-100 to 0-1
+  normalize_scores: true
+  # Loss function
+  loss: "mse"  # mse or huber
+  huber_delta: 5.0
+
+# ── Neural GAM (Phase 2) ─────────────────────────────────────────────────────
+gam:
+  output_dir: "./checkpoints/gam"
+  # Features extracted from ModernBERT
+  bert_feature_dim: 768  # ModernBERT-base hidden size
+  # Additional handcrafted features
+  handcrafted_features:
+    - query_length
+    - item_name_length
+    - query_item_word_overlap
+    - schema_type
+    - difficulty
+  # Per-feature subnet architecture
+  subnet_hidden_units: [128, 64, 32]
+  subnet_activation: "relu"
+  subnet_dropout: 0.1
+  # Training
+  learning_rate: 1.0e-3
+  weight_decay: 1.0e-4
+  num_epochs: 50
+  batch_size: 256
+  patience: 10  # early stopping patience
+
+# ── RunPod ────────────────────────────────────────────────────────────────────
+runpod:
+  gpu_type: "NVIDIA A40"  # or A100, L40S
+  gpu_count: 1
+  disk_size_gb: 50
+  volume_mount: "/workspace"

@@ -70,6 +70,15 @@ chatbot_instructions:
 #  data_retention: "Data provided may be retained for up to 1 day."
 #  ui_component: "This field may be used to provide a link to the web components that can be used to display the results."
 
+# Scoring configuration - alternative scorers for ranking
+# Use ?scorer=nlwebscorer in query params to select
+scoring:
+  nlwebscorer:
+    enabled: false
+    bert_checkpoint: "NLWebScorer/checkpoints/runpod_a100/best_model_ep2.pt"
+    gam_checkpoint: "NLWebScorer/checkpoints/rubric_gam/additive/best_rubric_gam.pt"
+    max_length: 1024
+
 # Chat configuration
 chat:
   storage:

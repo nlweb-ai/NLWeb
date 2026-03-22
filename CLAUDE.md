@@ -15,15 +15,15 @@ NLWeb is a conversational interface platform that enables natural language inter
 # Start aiohttp server (recommended)
 ./startup_aiohttp.sh
 
-# Or directly from code/python
-cd code/python
+# Or directly from AskAgent/python
+cd AskAgent/python
 python -m webserver.aiohttp_server
 ```
 
 ### Running Tests
 ```bash
-# Quick test suite (from code directory)
-cd code
+# Quick test suite (from AskAgent directory)
+cd AskAgent
 ./python/testing/run_all_tests.sh
 
 # Comprehensive test runner with options
@@ -31,7 +31,7 @@ cd code
 ./python/testing/run_tests_comprehensive.sh --quick        # Quick smoke tests
 
 # Run specific Python tests
-cd code/python
+cd AskAgent/python
 python -m pytest testing/ -v
 
 # Single test execution
@@ -46,7 +46,7 @@ python -m testing.run_tests --single --type end_to_end --query "test query"
 
 ## Architecture Overview
 
-### Backend Architecture (code/python/)
+### Backend Architecture (AskAgent/python/)
 
 **Core Flow**: Query → Pre-retrieval Analysis → Tool Selection → Retrieval → Ranking → Response Generation
 
@@ -112,7 +112,7 @@ python -m testing.run_tests --single --type end_to_end --query "test query"
 
 ## Testing Strategy
 
-The testing framework (`code/python/testing/`) supports three test types:
+The testing framework (`AskAgent/python/testing/`) supports three test types:
 - **end_to_end**: Full pipeline testing
 - **site_retrieval**: Site discovery testing
 - **query_retrieval**: Vector search testing

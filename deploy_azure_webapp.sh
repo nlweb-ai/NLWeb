@@ -67,7 +67,7 @@ zip -r $ZIP_FILE . \
   -x "*.zip" \
   -x "node_modules/*" \
   -x "docs/*" \
-  -x "code/logs/*" \
+  -x "AskAgent/logs/*" \
   -x "*__pycache__/*" \
   -x "*.DS_Store*" \
   -x "*json_with_embeddings/*" \

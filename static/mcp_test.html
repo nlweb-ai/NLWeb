@@ -614,7 +614,11 @@
                 
             } catch (e) {
                 console.error('Error rendering JSON tree:', e);
-                element.innerHTML = `<div style="color: red;">Error rendering JSON: ${e.message}</div>`;
+                element.textContent = '';
+                const errDiv = document.createElement('div');
+                errDiv.style.color = 'red';
+                errDiv.textContent = 'Error rendering JSON: ' + e.message;
+                element.appendChild(errDiv);
             }
         }
         
@@ -1049,7 +1053,11 @@
                 }
             } catch (error) {
                 responseEl.textContent += `\n\nError: ${error.message}`;
-                jsonTreeEl.innerHTML = `<div style="color: red;">Error: ${error.message}</div>`;
+                jsonTreeEl.textContent = '';
+                const errorDiv = document.createElement('div');
+                errorDiv.style.color = 'red';
+                errorDiv.textContent = 'Error: ' + error.message;
+                jsonTreeEl.appendChild(errorDiv);
                 statusEl.textContent = `Stream failed: ${new Date().toLocaleTimeString()}`;
                 console.error("Streaming error:", error);
             }

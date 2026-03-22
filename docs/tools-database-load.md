@@ -2,7 +2,7 @@
 
 ## Getting Started
 
-In the 'code/python/data_loading' folder, you will find 'db_load.py' tool. This tool allows you to:
+In the 'AskAgent/python/data_loading' folder, you will find 'db_load.py' tool. This tool allows you to:
 
 - Compute embeddings and load the data into a vector database
 - Remove files from an existing database

@@ -1,0 +1,426 @@
+# === Enterprise Semantic Layer Ontology ===
+# Extends Schema.org with enterprise-specific types and properties.
+# Namespace: ent: = https://contoso.com/enterprise/
+
+# --- SalesOpportunity ---
+
+Node: ent:SalesOpportunity
+typeOf: schema:Class
+subClassOf: schema:Intangible
+name: "SalesOpportunity"
+description: "A potential sale to a customer being tracked through a sales pipeline."
+
+Node: ent:opportunityName
+typeOf: schema:Property
+name: "opportunityName"
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: schema:Text
+
+Node: ent:estimatedValue
+typeOf: schema:Property
+name: "estimatedValue"
+description: "The estimated monetary value of this opportunity."
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: schema:MonetaryAmount
+
+Node: ent:actualValue
+typeOf: schema:Property
+name: "actualValue"
+description: "The actual monetary value when the opportunity closes."
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: schema:MonetaryAmount
+
+Node: ent:estimatedCloseDate
+typeOf: schema:Property
+name: "estimatedCloseDate"
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: schema:Date
+
+Node: ent:actualCloseDate
+typeOf: schema:Property
+name: "actualCloseDate"
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: schema:Date
+
+Node: ent:pipelineStage
+typeOf: schema:Property
+name: "pipelineStage"
+description: "Current stage in the sales pipeline."
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: ent:PipelineStageEnum
+
+Node: ent:opportunityStatus
+typeOf: schema:Property
+name: "opportunityStatus"
+description: "Whether the opportunity is open, won, or lost."
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: ent:OpportunityStatusEnum
+
+Node: ent:closeProbability
+typeOf: schema:Property
+name: "closeProbability"
+description: "Estimated probability of winning, as a percentage 0-100."
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: schema:Number
+
+Node: ent:customer
+typeOf: schema:Property
+name: "customer"
+description: "The customer organization for this opportunity."
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: schema:Organization
+
+Node: ent:primaryContact
+typeOf: schema:Property
+name: "primaryContact"
+domainIncludes: ent:SalesOpportunity
+rangeIncludes: schema:Person
+
+Node: ent:owner
+typeOf: schema:Property
+name: "owner"
+description: "The employee who owns/is responsible for this entity."
+domainIncludes: ent:SalesOpportunity, ent:SupportTicket
+rangeIncludes: schema:Person
+
+# Pipeline Stage Enumeration
+Node: ent:PipelineStageEnum
+typeOf: schema:Class
+subClassOf: schema:Enumeration
+
+Node: ent:PipelineStage_Qualify
+typeOf: ent:PipelineStageEnum
+name: "Qualify"
+
+Node: ent:PipelineStage_Develop
+typeOf: ent:PipelineStageEnum
+name: "Develop"
+
+Node: ent:PipelineStage_Propose
+typeOf: ent:PipelineStageEnum
+name: "Propose"
+
+Node: ent:PipelineStage_Close
+typeOf: ent:PipelineStageEnum
+name: "Close"
+
+# Opportunity Status Enumeration
+Node: ent:OpportunityStatusEnum
+typeOf: schema:Class
+subClassOf: schema:Enumeration
+
+Node: ent:OpportunityStatus_Open
+typeOf: ent:OpportunityStatusEnum
+name: "Open"
+
+Node: ent:OpportunityStatus_Won
+typeOf: ent:OpportunityStatusEnum
+name: "Won"
+
+Node: ent:OpportunityStatus_Lost
+typeOf: ent:OpportunityStatusEnum
+name: "Lost"
+
+
+# --- SupportTicket ---
+
+Node: ent:SupportTicket
+typeOf: schema:Class
+subClassOf: schema:Intangible
+name: "SupportTicket"
+description: "A customer support issue, incident, or service request."
+
+Node: ent:ticketId
+typeOf: schema:Property
+name: "ticketId"
+domainIncludes: ent:SupportTicket
+rangeIncludes: schema:Text
+
+Node: ent:ticketSummary
+typeOf: schema:Property
+name: "ticketSummary"
+domainIncludes: ent:SupportTicket
+rangeIncludes: schema:Text
+
+Node: ent:ticketDescription
+typeOf: schema:Property
+name: "ticketDescription"
+domainIncludes: ent:SupportTicket
+rangeIncludes: schema:Text
+
+Node: ent:ticketStatus
+typeOf: schema:Property
+name: "ticketStatus"
+domainIncludes: ent:SupportTicket
+rangeIncludes: ent:TicketStatusEnum
+
+Node: ent:ticketPriority
+typeOf: schema:Property
+name: "ticketPriority"
+domainIncludes: ent:SupportTicket
+rangeIncludes: ent:PriorityEnum
+
+Node: ent:ticketType
+typeOf: schema:Property
+name: "ticketType"
+description: "Whether this is a service request, incident, bug report, etc."
+domainIncludes: ent:SupportTicket
+rangeIncludes: schema:Text
+
+Node: ent:affectedCustomer
+typeOf: schema:Property
+name: "affectedCustomer"
+description: "The customer organization affected by this ticket."
+domainIncludes: ent:SupportTicket
+rangeIncludes: schema:Organization
+
+Node: ent:reportedBy
+typeOf: schema:Property
+name: "reportedBy"
+domainIncludes: ent:SupportTicket
+rangeIncludes: schema:Person
+
+Node: ent:assignee
+typeOf: schema:Property
+name: "assignee"
+domainIncludes: ent:SupportTicket, ent:EngineeringIssue
+rangeIncludes: schema:Person
+
+Node: ent:dateCreated
+typeOf: schema:Property
+name: "dateCreated"
+domainIncludes: ent:SupportTicket, ent:EngineeringIssue, ent:SalesOpportunity
+rangeIncludes: schema:DateTime
+
+Node: ent:dateResolved
+typeOf: schema:Property
+name: "dateResolved"
+domainIncludes: ent:SupportTicket, ent:EngineeringIssue
+rangeIncludes: schema:DateTime
+
+Node: ent:resolution
+typeOf: schema:Property
+name: "resolution"
+domainIncludes: ent:SupportTicket, ent:EngineeringIssue
+rangeIncludes: schema:Text
+
+# Ticket Status Enumeration
+Node: ent:TicketStatusEnum
+typeOf: schema:Class
+subClassOf: schema:Enumeration
+
+Node: ent:TicketStatus_Open
+typeOf: ent:TicketStatusEnum
+name: "Open"
+
+Node: ent:TicketStatus_InProgress
+typeOf: ent:TicketStatusEnum
+name: "InProgress"
+
+Node: ent:TicketStatus_WaitingOnCustomer
+typeOf: ent:TicketStatusEnum
+name: "WaitingOnCustomer"
+
+Node: ent:TicketStatus_Escalated
+typeOf: ent:TicketStatusEnum
+name: "Escalated"
+
+Node: ent:TicketStatus_Resolved
+typeOf: ent:TicketStatusEnum
+name: "Resolved"
+
+Node: ent:TicketStatus_Closed
+typeOf: ent:TicketStatusEnum
+name: "Closed"
+
+# Priority Enumeration (shared across types)
+Node: ent:PriorityEnum
+typeOf: schema:Class
+subClassOf: schema:Enumeration
+
+Node: ent:Priority_Highest
+typeOf: ent:PriorityEnum
+name: "Highest"
+
+Node: ent:Priority_High
+typeOf: ent:PriorityEnum
+name: "High"
+
+Node: ent:Priority_Medium
+typeOf: ent:PriorityEnum
+name: "Medium"
+
+Node: ent:Priority_Low
+typeOf: ent:PriorityEnum
+name: "Low"
+
+
+# --- EngineeringIssue ---
+
+Node: ent:EngineeringIssue
+typeOf: schema:Class
+subClassOf: schema:Intangible
+name: "EngineeringIssue"
+description: "A software development work item such as a bug, feature request, or task."
+
+Node: ent:issueKey
+typeOf: schema:Property
+name: "issueKey"
+domainIncludes: ent:EngineeringIssue
+rangeIncludes: schema:Text
+
+Node: ent:issueSummary
+typeOf: schema:Property
+name: "issueSummary"
+domainIncludes: ent:EngineeringIssue
+rangeIncludes: schema:Text
+
+Node: ent:issueType
+typeOf: schema:Property
+name: "issueType"
+description: "Bug, Story, Task, Epic, etc."
+domainIncludes: ent:EngineeringIssue
+rangeIncludes: schema:Text
+
+Node: ent:issueStatus
+typeOf: schema:Property
+name: "issueStatus"
+domainIncludes: ent:EngineeringIssue
+rangeIncludes: schema:Text
+
+Node: ent:issuePriority
+typeOf: schema:Property
+name: "issuePriority"
+domainIncludes: ent:EngineeringIssue
+rangeIncludes: ent:PriorityEnum
+
+Node: ent:storyPoints
+typeOf: schema:Property
+name: "storyPoints"
+domainIncludes: ent:EngineeringIssue
+rangeIncludes: schema:Number
+
+Node: ent:project
+typeOf: schema:Property
+name: "project"
+domainIncludes: ent:EngineeringIssue, ent:SupportTicket
+rangeIncludes: ent:Project
+
+
+# --- Project ---
+
+Node: ent:Project
+typeOf: schema:Class
+subClassOf: schema:Intangible
+name: "Project"
+description: "A project grouping related work items."
+
+Node: ent:projectKey
+typeOf: schema:Property
+name: "projectKey"
+domainIncludes: ent:Project
+rangeIncludes: schema:Text
+
+Node: ent:projectName
+typeOf: schema:Property
+name: "projectName"
+domainIncludes: ent:Project
+rangeIncludes: schema:Text
+
+
+# --- Additional Organization properties ---
+
+Node: ent:annualRevenue
+typeOf: schema:Property
+name: "annualRevenue"
+description: "Annual revenue of the organization."
+domainIncludes: schema:Organization
+rangeIncludes: schema:MonetaryAmount
+
+Node: ent:industry
+typeOf: schema:Property
+name: "industry"
+description: "Industry classification."
+domainIncludes: schema:Organization
+rangeIncludes: schema:Text
+
+Node: ent:lifecycleStage
+typeOf: schema:Property
+name: "lifecycleStage"
+description: "CRM lifecycle stage (lead, customer, etc.)."
+domainIncludes: schema:Organization, schema:Person
+rangeIncludes: schema:Text
+
+Node: ent:customerType
+typeOf: schema:Property
+name: "customerType"
+description: "Classification as prospect, customer, competitor, etc."
+domainIncludes: schema:Organization
+rangeIncludes: schema:Text
+
+
+# --- MarketingCampaign ---
+
+Node: ent:MarketingCampaign
+typeOf: schema:Class
+subClassOf: schema:Intangible
+name: "MarketingCampaign"
+description: "A marketing campaign targeting contacts."
+
+Node: ent:campaignName
+typeOf: schema:Property
+name: "campaignName"
+domainIncludes: ent:MarketingCampaign
+rangeIncludes: schema:Text
+
+Node: ent:campaignType
+typeOf: schema:Property
+name: "campaignType"
+domainIncludes: ent:MarketingCampaign
+rangeIncludes: schema:Text
+
+Node: ent:startDate
+typeOf: schema:Property
+name: "startDate"
+domainIncludes: ent:MarketingCampaign
+rangeIncludes: schema:Date
+
+Node: ent:endDate
+typeOf: schema:Property
+name: "endDate"
+domainIncludes: ent:MarketingCampaign
+rangeIncludes: schema:Date
+
+
+# --- MarketingEngagement ---
+
+Node: ent:MarketingEngagement
+typeOf: schema:Class
+subClassOf: schema:Intangible
+name: "MarketingEngagement"
+description: "A marketing interaction event (email open, click, etc.)."
+
+Node: ent:engagementType
+typeOf: schema:Property
+name: "engagementType"
+description: "Type of engagement: SENT, DELIVERED, OPEN, CLICK, BOUNCE, UNSUBSCRIBE"
+domainIncludes: ent:MarketingEngagement
+rangeIncludes: schema:Text
+
+Node: ent:engagementDate
+typeOf: schema:Property
+name: "engagementDate"
+domainIncludes: ent:MarketingEngagement
+rangeIncludes: schema:DateTime
+
+Node: ent:engagementContact
+typeOf: schema:Property
+name: "engagementContact"
+domainIncludes: ent:MarketingEngagement
+rangeIncludes: schema:Person
+
+Node: ent:engagementCampaign
+typeOf: schema:Property
+name: "engagementCampaign"
+domainIncludes: ent:MarketingEngagement
+rangeIncludes: ent:MarketingCampaign

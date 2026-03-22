@@ -205,7 +205,7 @@ Before setting up OAuth, ensure you have:
 1. **Start NLWeb Server**
 
    ```bash
-   cd code/python
+   cd AskAgent/python
    python app-file.py
    ```
 

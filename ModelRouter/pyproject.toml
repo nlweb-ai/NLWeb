@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nlweb-router"
+version = "0.1.0"
+description = "Model routing layer for NLWeb — picks the cheapest adequate LLM per task"
+requires-python = ">=3.11"
+dependencies = [
+    "openai>=1.0",
+    "pyyaml>=6.0",
+    "matplotlib>=3.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"nlweb_router" = ["config/*.yaml"]

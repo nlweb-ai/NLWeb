@@ -39,10 +39,9 @@ export class ConversationRenderer {
       
       // Title (user prompt)
       const titleLink = document.createElement('a');
-      // Convert conversation:// URL to join link
       if (item.url && item.url.startsWith('conversation://')) {
         const conversationId = item.url.replace('conversation://', '');
-        titleLink.href = `/static/join.html?conv_id=${conversationId}`;
+        titleLink.href = `/static/index.html?conversation=${conversationId}`;
         titleLink.target = '_blank';
       } else {
         titleLink.href = item.url || '#';
