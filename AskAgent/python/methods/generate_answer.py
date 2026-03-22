@@ -30,11 +30,12 @@ import os
 
 logger = get_configured_logger("generate_answer")
 
+
 class GenerateAnswer(NLWebHandler):
 
     GATHER_ITEMS_THRESHOLD = 55
     DISTANCE_RANKING_THRESHOLD = 100
-     
+
     RANKING_PROMPT_NAME = "RankingPromptForGenerate"
     DISTANCE_RANKING_PROMPT_NAME = "DistanceRankingPromptForGenerate"
 
@@ -49,9 +50,9 @@ class GenerateAnswer(NLWebHandler):
         logger.info(f"GenerateAnswer initialized with query_params: {query_params}")
         log(f"GenerateAnswer query_params: {query_params}")
 
-        self.azure_maps_api_key = os.environ["AZURE_MAPS_API_KEY"] 
-        self.azure_maps_client_id = os.environ["AZURE_MAPS_CLIENT_ID"] 
-        self.azure_maps_base_url = os.environ["AZURE_MAPS_ENDPOINT"] 
+        self.azure_maps_api_key = os.environ["AZURE_MAPS_API_KEY"]
+        self.azure_maps_client_id = os.environ["AZURE_MAPS_CLIENT_ID"]
+        self.azure_maps_base_url = os.environ["AZURE_MAPS_ENDPOINT"]
 
     @property
     def _headers(self) -> Dict[str, str]:
@@ -67,26 +68,26 @@ class GenerateAnswer(NLWebHandler):
             if (self.query_done):
                 logger.info("Query done prematurely")
                 return
-            await self.get_ranked_answers()            
+            await self.get_ranked_answers()
             logger.info(f"Query execution completed for conversation_id: {self.conversation_id}")
-            return 
+            return
         except Exception as e:
             logger.exception(f"Error in runQuery: {e}")
             traceback.print_exc()
             raise
-    
+
     async def prepare(self):
         # runs the tasks that need to be done before retrieval, ranking, etc.
         logger.info("Starting preparation phase")
         tasks = []
-        
+
         # Adding all necessary preparation tasks
         tasks.append(asyncio.create_task(analyze_query.DetectItemType(self).do()))
         tasks.append(asyncio.create_task(self.decontextualizeQuery().do()))
         tasks.append(asyncio.create_task(relevance_detection.RelevanceDetection(self).do()))
         tasks.append(asyncio.create_task(memory.Memory(self).do()))
         tasks.append(asyncio.create_task(required_info.RequiredInfo(self).do()))
-         
+
         try:
             logger.debug(f"Running {len(tasks)} preparation tasks concurrently")
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -95,14 +96,14 @@ class GenerateAnswer(NLWebHandler):
         finally:
             self.pre_checks_done_event.set()  # Signal completion regardless of errors
             self.state.set_pre_checks_done()
-            
+
         logger.info("Preparation phase completed")
-   
+
     async def rankItem(self, url, json_str, name, site):
         if not self.connection_alive_event.is_set():
             logger.warning("Connection lost, skipping item ranking")
             return
-            
+
         try:
             logger.debug(f"Ranking item: {name} from {site}")
             prompt_str, ans_struc = find_prompt(site, self.item_type, self.RANKING_PROMPT_NAME)
@@ -119,12 +120,12 @@ class GenerateAnswer(NLWebHandler):
                 'schema_object': json.loads(json_str),
                 'sent': False,
             }
-            
+
             if (ranking["score"] > self.GATHER_ITEMS_THRESHOLD):
                 logger.info(f"High score item: {name} (score: {ranking['score']})")
                 async with self._results_lock:  # Thread-safe append
                     self.final_ranked_answers.append(ansr)
-                    
+
         except Exception as e:
             logger.error(f"Error in rankItem: {e}")
             logger.debug("Full error trace: ", exc_info=True)
@@ -135,135 +136,56 @@ class GenerateAnswer(NLWebHandler):
             # Wait for retrieval to be done if not already
             logger.info("Retrieving items for query")
             top_embeddings = await search(
-                self.decontextualized_query, 
-                self.site,
-                query_params=self.query_params
-            )
-            self.items = top_embeddings  # Store all retrieved items
-            logger.debug(f"Retrieved {len(top_embeddings)} items from database")
-            # Rank each item
-            tasks = []
-            for url, json_str, name, site in top_embeddings:
-                tasks.append(asyncio.create_task(self.rankItem(url, json_str, name, site)))
-                        
-            logger.debug(f"Running {len(tasks)} ranking tasks concurrently")
-            await asyncio.gather(*tasks, return_exceptions=True)
-
-            synthesizePrompt = self.SYNTHESIZE_PROMPT_NAME
-            allowEmptyAnswers = False
-
-            distanceRankingResponse = await PromptRunner(self).run_prompt(self.DISTANCE_RANKING_PROMPT_NAME) 
-
-            if (distanceRankingResponse):
-                
-                score = int(distanceRankingResponse.get("score", 0)) 
-                logger.debug(f"Distance ranking score: {score}")
-
-                if score >= self.DISTANCE_RANKING_THRESHOLD:
-
-                    location = distanceRankingResponse.get("location")      
-
-                    if not location:
-                        self.final_ranked_answers = []  # Clear ranked answers if we can't do distance ranking
-                        synthesizePrompt = self.SYNTHESIZE_PROMPT_NAME_NO_LOCATION                     
-                        allowEmptyAnswers = True  # Allow empty answers if we can't do distance ranking
-                        return
-                                                   
-                    countryRegion = distanceRankingResponse.get("countryRegion")
-    
-                    if location and countryRegion:
-                        await self.doDistanceRanking(location, countryRegion)
-
-                           
-            # Synthesize the answer from ranked items
-            logger.info("Ranking completed, synthesizing answer")
-            await self.synthesizeAnswer(allowEmptyAnswers, synthesizePrompt)
-            
-        except Exception as e:
-            logger.exception(f"Error in get_ranked_answers: {e}")
-            raise
-
-    async def get_ranked_answers(self):
-
-        logger.info("Starting retrieval and ranking process")
-
-        try:
-
-            # Wait for retrieval to be done if not already
-
-            logger.info("Retrieving items for query")
-
-            top_embeddings = await search(
-
                 self.decontextualized_query,
-
                 self.site,
-
                 query_params=self.query_params
-
             )
-
             self.items = top_embeddings  # Store all retrieved items
-
             logger.debug(f"Retrieved {len(top_embeddings)} items from database")
 
             # Rank each item
-
             tasks = []
-
             for url, json_str, name, site in top_embeddings:
                 tasks.append(asyncio.create_task(self.rankItem(url, json_str, name, site)))
 
             logger.debug(f"Running {len(tasks)} ranking tasks concurrently")
-
             await asyncio.gather(*tasks, return_exceptions=True)
 
             # Once first-pass ranking is done, check if we should do distance-based ranking
-
             allowEmptyAnswers = False
             promptName = self.SYNTHESIZE_PROMPT_NAME
-            
+
             distanceRankingResponse = await PromptRunner(self).run_prompt(self.DISTANCE_RANKING_PROMPT_NAME)
- 
+
             if (distanceRankingResponse):
-
                 score = int(distanceRankingResponse.get("score", 0))
-
                 logger.debug(f"Distance Ranking Prompt score: {score}")
 
                 if score >= self.DISTANCE_RANKING_THRESHOLD:
-
                     location = distanceRankingResponse.get("location")
 
                     if not location:
-                        self.final_ranked_answers = []  # Clear ranked answers if we can't do distance ranking    
+                        self.final_ranked_answers = []  # Clear ranked answers if we can't do distance ranking
                         promptName = self.SYNTHESIZE_PROMPT_NAME_NO_LOCATION  # Use no-location prompt for synthesis
-                        allowEmptyAnswers = True  # Allow empty answers if we can't do distance ranking   
-                        
-                    else:                        
+                        allowEmptyAnswers = True  # Allow empty answers if we can't do distance ranking
+                    else:
                         countryRegion = distanceRankingResponse.get("countryRegion")
 
                         if location and countryRegion:
                             await self.do_distance_ranking(location, countryRegion)
-                        else:                        
+                        else:
                             logger.error("Distance Ranking Prompt did not return valid location and/or countryRegion")
-
             else:
                 logger.error("No Distance Ranking response received")
 
-
             # Synthesize the answer from ranked items
-
-            logger.info("Ranking completed, synthesizing answer")            
-            await self.synthesizeAnswer(allowEmptyAnswers, promptName)  
-
+            logger.info("Ranking completed, synthesizing answer")
+            await self.synthesizeAnswer(allowEmptyAnswers, promptName)
 
         except Exception as e:
-
             logger.exception(f"Error in get_ranked_answers: {e}")
             raise
 
- 
     async def do_distance_ranking(self, location: str, country_region: str):
         """Main entry point to rank results by travel time."""
         logger.debug(f"Starting distance ranking for: {location}, {country_region}")
@@ -282,7 +204,7 @@ class GenerateAnswer(NLWebHandler):
 
                 # 3. Get Matrix Data
                 matrix_results = await self._get_route_matrix(session, source_coords, destinations)
-                
+
                 # 4. Process and Sort
                 if matrix_results:
                     self._rank_and_update_results(matrix_results, valid_items)
@@ -294,12 +216,12 @@ class GenerateAnswer(NLWebHandler):
     async def _get_source_coordinates(self, session: aiohttp.ClientSession, location: str, country_region: str) -> Optional[Tuple[float, float]]:
         """Gets [longitude, latitude] for the given location."""
         url = f"{self.azure_maps_base_url}/geocode?api-version=2025-01-01&locality={location}&countryRegion={country_region}"
-        
+
         async with session.get(url, headers=self._headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
             if response.status != 200:
                 logger.error(f"Geocoding failed for {location}: Status {response.status}")
                 return None
-            
+
             data = await response.json()
             features = data.get("features", [])
             if not features:
@@ -345,7 +267,7 @@ class GenerateAnswer(NLWebHandler):
             if response.status == 200:
                 data = await response.json()
                 return data.get("matrix", [[]])[0] # Return the first origin row
-            
+
             logger.error(f"Matrix API failed: Status {response.status}")
             return None
 
@@ -386,39 +308,81 @@ class GenerateAnswer(NLWebHandler):
             logger.error(f"Error getting description for {name}: {str(e)}")
             logger.debug("Full error trace: ", exc_info=True)
             raise
-    
-    async def synthesizeAnswer(self, allowEmptyAnswers=False, promptName=SYNTHESIZE_PROMPT_NAME): 
+
+    async def synthesizeAnswer(self, allowEmptyAnswers=False, promptName=SYNTHESIZE_PROMPT_NAME):
         if not self.connection_alive_event.is_set():
             logger.warning("Connection lost, skipping answer synthesis")
             return
-            
+
         try:
             logger.info("Starting answer synthesis")
-            
+
             # Check if we have any ranked answers to work with
             if not self.final_ranked_answers and not allowEmptyAnswers:
                 logger.warning("No ranked answers found, sending empty response")
                 message = {
                     "message_type": "nlws",
                     "@type": "GeneratedAnswer",
-                    "answer": "I couldn't find relevant information to answer your question.", 
+                    "answer": "I couldn't find relevant information to answer your question.",
                     "items": []
                 }
                 await self.send_message(message)
                 return
-                
+
             response = await PromptRunner(self).run_prompt(promptName, timeout=100, verbose=True)
             logger.debug(f"Synthesis response received")
-            
+
             json_results = []
             description_tasks = []
             answer = response["answer"]
-            
+
             # Create initial message with just the answer
             message = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": answer, "items": json_results}
             logger.info("Sending initial answer")
             await self.send_message(message)
-                                       
+
+            # Process each URL mentioned in the response
+            if "urls" in response and response["urls"]:
+                for url in response["urls"]:
+                    # Find the matching item in our items list
+                    matching_items = [item for item in self.items if item[0] == url]
+                    if not matching_items:
+                        logger.warning(f"URL {url} referenced in response not found in items")
+                        continue
+
+                    item = matching_items[0]
+                    (url, json_str, name, site) = item
+                    logger.debug(f"Creating description task for item: {name}")
+                    t = asyncio.create_task(self.getDescription(url, json_str, self.decontextualized_query, answer, name, site))
+                    description_tasks.append(t)
+
+                if description_tasks:
+                    logger.info(f"Waiting for {len(description_tasks)} description tasks to complete")
+                    desc_answers = await asyncio.gather(*description_tasks, return_exceptions=True)
+
+                    for result in desc_answers:
+                        if isinstance(result, Exception):
+                            logger.error(f"Error getting description: {result}")
+                            continue
+
+                        url, name, site, description, json_str = result
+                        logger.debug(f"Adding result for {name} to final message")
+                        json_results.append({
+                            "@type": "Item",
+                            "url": url,
+                            "name": name,
+                            "description": description,
+                            "site": site,
+                            "schema_object": json.loads(json_str),
+                        })
+
+                    # Update message with descriptions
+                    message = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": answer, "items": json_results}
+                    logger.info(f"Sending final answer with {len(json_results)} item descriptions")
+                    await self.send_message(message)
+            else:
+                logger.warning("No URLs found in synthesis response")
+
         except Exception as e:
             logger.exception(f"Error in synthesizeAnswer: {e}")
             if self.connection_alive_event.is_set():
