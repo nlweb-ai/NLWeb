@@ -232,17 +232,16 @@
 
         Examples:
         User Query: "I am in Hyderabad. Where is the closest hospital?"
-        Output: { "score": 100, "location": "Hyderabad", "countryRegion": "Pakistan"}
+        Output: { "score": 100, "location": "Hyderabad"}
 
         User Query: "Where is the nearest clinic?"
-        Output: { "score": 100, "location": "", "countryRegion": "Pakistan"}
+        Output: { "score": 100, "location": ""}
 
       </promptString>
 				<returnStruc>
         {
           "score" : "integer between 0 and 100",
-          "location": "the extracted location from the user's query, if present",
-          "countryRegion": "Pakistan"          
+          "location": "the extracted location from the user's query, if present"          
         }
       </returnStruc>
 			</Prompt>		

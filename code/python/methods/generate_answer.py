@@ -128,61 +128,7 @@ class GenerateAnswer(NLWebHandler):
         except Exception as e:
             logger.error(f"Error in rankItem: {e}")
             logger.debug("Full error trace: ", exc_info=True)
-
-    async def get_ranked_answers(self):
-        logger.info("Starting retrieval and ranking process")
-        try:
-            # Wait for retrieval to be done if not already
-            logger.info("Retrieving items for query")
-            top_embeddings = await search(
-                self.decontextualized_query, 
-                self.site,
-                query_params=self.query_params
-            )
-            self.items = top_embeddings  # Store all retrieved items
-            logger.debug(f"Retrieved {len(top_embeddings)} items from database")
-            # Rank each item
-            tasks = []
-            for url, json_str, name, site in top_embeddings:
-                tasks.append(asyncio.create_task(self.rankItem(url, json_str, name, site)))
-                        
-            logger.debug(f"Running {len(tasks)} ranking tasks concurrently")
-            await asyncio.gather(*tasks, return_exceptions=True)
-
-            synthesizePrompt = self.SYNTHESIZE_PROMPT_NAME
-            allowEmptyAnswers = False
-
-            distanceRankingResponse = await PromptRunner(self).run_prompt(self.DISTANCE_RANKING_PROMPT_NAME) 
-
-            if (distanceRankingResponse):
-                
-                score = int(distanceRankingResponse.get("score", 0)) 
-                logger.debug(f"Distance ranking score: {score}")
-
-                if score >= self.DISTANCE_RANKING_THRESHOLD:
-
-                    location = distanceRankingResponse.get("location")      
-
-                    if not location:
-                        self.final_ranked_answers = []  # Clear ranked answers if we can't do distance ranking
-                        synthesizePrompt = self.SYNTHESIZE_PROMPT_NAME_NO_LOCATION                     
-                        allowEmptyAnswers = True  # Allow empty answers if we can't do distance ranking
-                        return
-                                                   
-                    countryRegion = distanceRankingResponse.get("countryRegion")
     
-                    if location and countryRegion:
-                        await self.doDistanceRanking(location, countryRegion)
-
-                           
-            # Synthesize the answer from ranked items
-            logger.info("Ranking completed, synthesizing answer")
-            await self.synthesizeAnswer(allowEmptyAnswers, synthesizePrompt)
-            
-        except Exception as e:
-            logger.exception(f"Error in get_ranked_answers: {e}")
-            raise
-
     async def get_ranked_answers(self):
 
         logger.info("Starting retrieval and ranking process")
@@ -190,17 +136,12 @@ class GenerateAnswer(NLWebHandler):
         try:
 
             # Wait for retrieval to be done if not already
-
             logger.info("Retrieving items for query")
 
             top_embeddings = await search(
-
                 self.decontextualized_query,
-
                 self.site,
-
                 query_params=self.query_params
-
             )
 
             self.items = top_embeddings  # Store all retrieved items
@@ -208,7 +149,6 @@ class GenerateAnswer(NLWebHandler):
             logger.debug(f"Retrieved {len(top_embeddings)} items from database")
 
             # Rank each item
-
             tasks = []
 
             for url, json_str, name, site in top_embeddings:
@@ -236,12 +176,18 @@ class GenerateAnswer(NLWebHandler):
                     location = distanceRankingResponse.get("location")
 
                     if not location:
-                        self.final_ranked_answers = []  # Clear ranked answers if we can't do distance ranking    
-                        promptName = self.SYNTHESIZE_PROMPT_NAME_NO_LOCATION  # Use no-location prompt for synthesis
+                         # If the user's location cannot be determined, we cannot perform distance-based ranking.
+                         # In this case, the user is prompted to give their location.
+                        self.final_ranked_answers = []  
+                        promptName = self.SYNTHESIZE_PROMPT_NAME_NO_LOCATION  
                         allowEmptyAnswers = True  # Allow empty answers if we can't do distance ranking   
                         
                     else:                        
-                        countryRegion = distanceRankingResponse.get("countryRegion")
+                        # Read the Country of interested from an environment variable.
+                        # This is needed for geocoding the user's location. 
+                        # The code will throw an exception if the environment variable is not set, which is the intended behavior
+                        # since we can't do distance ranking without it. 
+                        countryRegion = os.environ["COUNTRY_REGION"]
 
                         if location and countryRegion:
                             await self.do_distance_ranking(location, countryRegion)
@@ -251,21 +197,17 @@ class GenerateAnswer(NLWebHandler):
             else:
                 logger.error("No Distance Ranking response received")
 
-
             # Synthesize the answer from ranked items
-
             logger.info("Ranking completed, synthesizing answer")            
             await self.synthesizeAnswer(allowEmptyAnswers, promptName)  
 
-
         except Exception as e:
-
             logger.exception(f"Error in get_ranked_answers: {e}")
             raise
 
  
     async def do_distance_ranking(self, location: str, country_region: str):
-        """Main entry point to rank results by travel time."""
+        # Main entry point to rank results by travel time
         logger.debug(f"Starting distance ranking for: {location}, {country_region}")
 
         try:
@@ -325,7 +267,7 @@ class GenerateAnswer(NLWebHandler):
             return (coords[0], coords[1])
 
     def _extract_destination_coordinates(self) -> Tuple[List[List[float]], List[Dict]]:
-        """Parses self.final_ranked_answers for valid geo strings."""
+        # Parses self.final_ranked_answers for valid geo strings.
         dest_list = []
         valid_items = []
 
@@ -357,24 +299,55 @@ class GenerateAnswer(NLWebHandler):
 
         return dest_list, valid_items
 
+    async def _snap_to_road(self, session: aiohttp.ClientSession, lon_lat: List[float]) -> List[float]:        
+        # Takes a [lon, lat] and returns the nearest coordinate snapped to a road.
+        
+        # Note: Search API uses lat,lon string format for the query
+        query = f"{lon_lat[1]},{lon_lat[0]}"
+        snap_url = f"{self.azure_maps_base_url}/search/address/reverse/json?api-version=1.0&query={query}"
+        
+        try:
+            async with session.get(snap_url, headers=self._headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    addresses = data.get("addresses", [])
+                    if addresses:
+                        # 'position' in the result is usually the road-snapped coordinate
+                        pos = addresses[0].get("position").split(',')
+                        return [float(pos[1]), float(pos[0])] # Return as [lon, lat]
+        except Exception as e:
+            logger.error(f"Snapping failed for {lon_lat}: {e}")
+        
+        return lon_lat # Fallback to original if snapping fails
+
     async def _get_route_matrix(self, session: aiohttp.ClientSession, origin: Tuple[float, float], destinations: List[List[float]]) -> Optional[List[Dict]]:
-        """Calls the Azure Maps Synchronous Route Matrix API."""
+        # Calls the Azure Maps Synchronous Route Matrix API with snapped coordinates.
+        
+        # 1. Snap destinations to the nearest road
+        # This is important because the Matrix API expects points that are on or near roads for accurate travel time calculations.
+        # Azure Maps does not have very good road coverage in some developing countries.
+        snapped_destinations = await asyncio.gather(
+            *[self._snap_to_road(session, d) for d in destinations]
+        )
+
+        # 2. Proceed with the Matrix API call using snapped points
         matrix_url = f"{self.azure_maps_base_url}/route/matrix/sync/json?api-version=1.0&routeType=shortest"
         matrix_body = {
             "origins": {"type": "MultiPoint", "coordinates": [origin]},
-            "destinations": {"type": "MultiPoint", "coordinates": destinations}
+            "destinations": {"type": "MultiPoint", "coordinates": list(snapped_destinations)}
         }
 
         async with session.post(matrix_url, json=matrix_body, headers=self._headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
             if response.status == 200:
                 data = await response.json()
-                return data.get("matrix", [[]])[0] # Return the first origin row
+                # The response structure is matrix[origin_index][destination_index]
+                return data.get("matrix", [[]])[0] 
             
             logger.error(f"Matrix API failed: Status {response.status}")
             return None
-
+            
     def _rank_and_update_results(self, matrix_results: List[Dict], valid_items: List[Dict]):
-        """Combines matrix results with original data and sorts them."""
+        # Combines matrix results with original data and sorts them.
         ranked_results = []
 
         for i, route in enumerate(matrix_results):
