@@ -269,32 +269,6 @@
       </returnStruc>
     </Prompt>    
 
-
-<!-- 
-    <Prompt ref="SynthesizePromptForGenerate">
-      <promptString>
-        Synthesize a factual, service-oriented answer for: '{request.query}' using only the provided items: {request.answers}.
-        MANDATORY REQUIREMENTS:
-        1. The value return field should be a single block of text only.
-        2. The language of the answer MUST match the query.
-        3. The answer must be STRICTLY limited to 320 characters MAXIMUM.
-        4. NO URLs allowed in the answer field.
-        5. Only if the user query explicitly mentions a MedicalCondition should you include a related CivicStructure that can help with the condition.
-            - ONLY if the user provides their location, recommend the nearest CivicStructure, based on lowest travel time.
-            - NEVER recommend a CivicStructure if the user does not provide their location.
-        6. Always include the Address and Telephone if present in the data.                                
-        7. NO Geographic coordinates (latitude and longitude) should be included in the answer, even if they are present in the data.
-        8. DO NOT include pleasantries.                    
-      </promptString>
-      <returnStruc>
-        {
-          "answer" : "string",          
-        }
-      </returnStruc>
-    </Prompt>    -->
-
-
-
 			<Prompt ref="SynthesizePromptForGenerateNoLocation">
 				<promptString>
         Synthesize an answer for this query: '{request.query}'
