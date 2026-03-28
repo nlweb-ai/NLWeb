@@ -137,14 +137,13 @@
         What is the kind of item the query is likely seeking with this query: {request.query}
         
         Common item types include:
-        - Recipe (for cooking, food preparation)
-        - Movie (for films, cinema)
-        - Product (for items to purchase)
-        - Restaurant (for dining establishments)
-        - Statistics (for demographic data, population statistics, economic indicators about places like counties, cities, states)
-        - Item (for general items that don't fit other categories)
-        
-        If the query is asking about statistical data like population, median income, demographics, or economic indicators for geographic locations, return "Statistics".
+        - Accommodation (for Emergency Accommodation, Survivor Camp, etc)
+        - CivicStructure (for Hospitals, Clinics, Government Buildings, etc)
+        - ContactPoint (for helplines)
+        - EmergencyService (for Police, Fire, Ambulance, etc)
+        - Event (for important events like aid, food and water distribution, etc)
+        - MedicalCondition (for health-related information)        
+        - Item (for general items that don't fit other categories)                
       </promptString>
 				<returnStruc>
         {
@@ -215,10 +214,10 @@
 				<returnStruc>
         {
           "score" : "integer between 0 and 100",
-          "description" : "short description of the item"
+          "description" : "objective summary of the object"
         }
       </returnStruc>
-			</Prompt>
+			</Prompt>		
 			<Prompt ref="DistanceRankingPromptForGenerate">
 				<promptString>
         Assign a score between 0 and 100 to the following item
@@ -231,54 +230,58 @@
 
         Examples:
         User Query: "I am in Hyderabad. Where is the closest hospital?"
-        Output: { "score": 100, "location": "Hyderabad", "countryRegion": "Pakistan"}
+        Output: { "score": 100, "location": "Hyderabad"}
 
         User Query: "Where is the nearest clinic?"
-        Output: { "score": 100, "location": "", "countryRegion": "Pakistan"}
+        Output: { "score": 100, "location": ""}
 
       </promptString>
 				<returnStruc>
         {
           "score" : "integer between 0 and 100",
-          "location": "the extracted location from the user's query, if present",
-          "countryRegion": "Pakistan"          
+          "location": "the extracted location from the user's query, if present"          
         }
       </returnStruc>
-			</Prompt>
-		<Prompt ref="SynthesizePromptForGenerate">
-        <promptString>
-        Synthesize an answer for: '{request.query}' using items: {request.answers}.
+			</Prompt>		
+
+    <Prompt ref="SynthesizePromptForGenerate">
+      <promptString>
+        Synthesize a factual, service-oriented answer for: '{request.query}' using only the provided items: {request.answers}.
         MANDATORY REQUIREMENTS:
-        1. Single block of text only.
-        2. Language MUST match the query.
-        3. STRICT MAX 320 characters.
-        4. NO URLs allowed.
-        5. If a MedicalCondition is identified, you MUST include a related CivicStructure or EmergencyService that provides help.
-        6. Always include the Address and Telephone if present in the data.
-        7. For location queries, prioritize and name the closest entity.
-        8. DO NOT include pleasentries.
+        1. The value in the answer field should be a single block of text only.
+        2. The language of the answer MUST match the query.
+        3. The answer must be STRICTLY limited to 320 characters MAXIMUM.
+        4. NO URLs allowed in the answer field.
+        5. Only if the user query explicitly mentions a MedicalCondition should you include a related CivicStructure that can help with the condition.
+            - ONLY if the user provides their location, recommend the nearest CivicStructure, based on lowest travel time.
+            - NEVER recommend a CivicStructure if the user does not provide their location.
+        6. Always include the Address and Telephone if present in the data.                                
+        7. NO Geographic coordinates (latitude and longitude) should be included in the answer, even if they are present in the data.
+        8. DO NOT include pleasantries.    
+        9. Never attempt to synthesize information that is not present in the data.
+        10.Never attempt medical diagnosis.
       </promptString>
        <returnStruc>
         {
           "answer" : "string",
-          "urls" : "urls of the items included in the answer"
+          "urls" : "urls of the items included in the answer"               
         }
       </returnStruc>
-      </Prompt>
+    </Prompt>    
 
-      <Prompt ref="SynthesizePromptForGenerateNoLocation">
-        <promptString>
+			<Prompt ref="SynthesizePromptForGenerateNoLocation">
+				<promptString>
         Synthesize an answer for this query: '{request.query}'
         MANDATORY REQUIREMENTS:
         1. The answer must be "Where are you now?"
         2. Language MUST match the query.                
       </promptString>
-       <returnStruc>
+				<returnStruc>
         {
           "answer" : "string"        
         }
       </returnStruc>
-      </Prompt>
+			</Prompt>
 			<Prompt ref="SummarizeResultsPrompt">
 				<promptString>
         Given the following items, summarize the results as an answer to the user's question. `

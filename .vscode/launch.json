@@ -6,7 +6,7 @@
             "type": "debugpy",
             "request": "launch",
             "python": "${workspaceFolder}/myenv/bin/python", 
-            "program": "${workspaceFolder}/code/python/app-aiohttp.py",
+            "program": "${workspaceFolder}/AskAgent/python/app-aiohttp.py",
             "cwd": "${workspaceFolder}",
             "envFile": "${workspaceFolder}/.env",
             "console": "integratedTerminal",
