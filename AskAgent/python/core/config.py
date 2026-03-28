@@ -58,6 +58,7 @@ class RetrievalProviderConfig:
     use_knn: Optional[bool] = None
     enabled: bool = False
     vector_type: Optional[Dict[str, Any]] = None
+    auth_method: Optional[str] = None
 @dataclass
 class SSLConfig:
     enabled: bool = False
@@ -221,6 +222,27 @@ class AppConfig:
             # Otherwise use the config directory
             return os.path.abspath(os.path.join(self.config_directory, path))
 
+    @staticmethod
+    def _parse_aspire_connection_string(value: str) -> str:
+        """
+        Parse an Aspire-style connection string and extract the Endpoint URL.
+        Aspire connection strings look like:
+          "Endpoint=https://host.azure.com/;EndpointAIInference=https://host.services.ai.azure.com/models"
+        Returns just the Endpoint URL, or the original value if it's already a plain URL.
+        """
+        if not value or not isinstance(value, str):
+            return value
+        # If it contains key=value pairs separated by semicolons, extract Endpoint
+        if '=' in value and ';' in value:
+            for part in value.split(';'):
+                part = part.strip()
+                if part.startswith('Endpoint='):
+                    return part[len('Endpoint='):]
+        # Handle simple "Endpoint=<url>" without semicolons
+        if value.startswith('Endpoint='):
+            return value[len('Endpoint='):]
+        return value
+
     def _get_config_value(self, value: Any, default: Any = None) -> Any:
         """
         Get configuration value. If value is a string, return it directly.
@@ -229,7 +251,7 @@ class AppConfig:
         """
         if value is None:
             return default
-            
+
         if isinstance(value, str):
             # If it's clearly an environment variable name (e.g., "OPENAI_API_KEY_ENV")
             if value.endswith('_ENV') or value.isupper():
@@ -237,7 +259,7 @@ class AppConfig:
             # Otherwise, treat it as a literal string value
             else:
                 return value
-        
+
         # For non-string values, return as-is
         return value
 
@@ -260,7 +282,8 @@ class AppConfig:
                 
                 # Extract configuration values from the YAML with the new method
                 api_key = self._get_config_value(cfg.get("api_key_env"))
-                api_endpoint = self._get_config_value(cfg.get("api_endpoint_env"))
+                api_endpoint = self._parse_aspire_connection_string(
+                    self._get_config_value(cfg.get("api_endpoint_env")))
                 api_version = self._get_config_value(cfg.get("api_version_env"))
                 llm_type = self._get_config_value(cfg.get("llm_type"))
                 auth_method = self._get_config_value(cfg.get("auth_method"), "api_key")
@@ -297,7 +320,8 @@ class AppConfig:
         for name, cfg in data.get("providers", {}).items():
             # Extract configuration values from the YAML
             api_key = self._get_config_value(cfg.get("api_key_env"))
-            api_endpoint = self._get_config_value(cfg.get("api_endpoint_env"))
+            api_endpoint = self._parse_aspire_connection_string(
+                self._get_config_value(cfg.get("api_endpoint_env")))
             api_version = self._get_config_value(cfg.get("api_version_env"))
             model = self._get_config_value(cfg.get("model"))
             config = self._get_config_value(cfg.get("config"))
@@ -340,12 +364,14 @@ class AppConfig:
             self.retrieval_endpoints[name] = RetrievalProviderConfig(
                 api_key=self._get_config_value(cfg.get("api_key_env")),
                 api_key_env=cfg.get("api_key_env"),  # Store the env var name
-                api_endpoint=self._get_config_value(cfg.get("api_endpoint_env")),
+                api_endpoint=self._parse_aspire_connection_string(
+                    self._get_config_value(cfg.get("api_endpoint_env"))),
                 api_endpoint_env=cfg.get("api_endpoint_env"),  # Store the env var name
                 database_path=self._get_config_value(cfg.get("database_path")),
                 index_name=self._get_config_value(cfg.get("index_name")),
                 db_type=self._get_config_value(cfg.get("db_type")),  # Add db_type
                 enabled=cfg.get("enabled", False),  # Add enabled field
+                auth_method=self._get_config_value(cfg.get("auth_method"), "api_key"),
                 use_knn=cfg.get("use_knn"),
                 vector_type=cfg.get("vector_type")
             )
