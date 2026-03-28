@@ -17,13 +17,13 @@ mkdir -p "$PIP_CACHE_DIR"
 cd /home/site/wwwroot
 
 # Load environment variables from set_keys.sh if it exists
-if [ -f "code/set_keys.sh" ]; then
+if [ -f "AskAgent/set_keys.sh" ]; then
     echo "Loading environment variables..."
-    source code/set_keys.sh
+    source AskAgent/set_keys.sh
 fi
 
 # Navigate to Python directory
-cd code/python || exit 1
+cd AskAgent/python || exit 1
 
 # Check Python version once
 PYTHON_VERSION=$(python --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')

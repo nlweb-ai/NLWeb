@@ -8,6 +8,10 @@ import path from "node:path";
 const REACT_PORT = 4450;
 const PROXY_PORT = 4444;
 
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 function detectEntryNames(): string[] {
   const entries = fg.sync("src/**/index.{tsx,jsx}", { dot: false });
   return entries.map((entry) => path.basename(path.dirname(entry)));
@@ -57,7 +61,7 @@ async function main() {
           `<p>Entries:</p>` +
           `<ul>` +
           entryNames
-            .map((n) => `<li><a href="/${n}.js">/${n}.js</a></li>`)
+            .map((n) => { const s = escapeHtml(n); return `<li><a href="/${s}.js">/${s}.js</a></li>`; })
             .join("") +
           `</ul>`
       );
@@ -87,7 +91,7 @@ async function main() {
     proxyReq.on("error", (err) => {
       res.statusCode = 502;
       res.setHeader("content-type", "text/plain");
-      res.end(`Proxy error: ${err.message}`);
+      res.end(`Proxy error: ${escapeHtml(err.message)}`);
     });
 
     if (req.readable) req.pipe(proxyReq);

@@ -71,10 +71,15 @@ export class JsonRenderer {
     } else if (item['@type']) {
       type = item['@type'];
     }
-    
-    if (type && Object.prototype.hasOwnProperty.call(this.typeRenderers, type) && 
-           typeof this.typeRenderers[type] === 'function') {
-      return this.typeRenderers[type](item, this);
+
+    // Validate type is a safe string before using it
+    if (type && typeof type === 'string' &&
+        Object.prototype.hasOwnProperty.call(this.typeRenderers, type) &&
+        typeof this.typeRenderers[type] === 'function') {
+      // Additional safety: ensure type doesn't contain potentially dangerous patterns
+      if (!/[^\w.-]/.test(type)) {
+        return this.typeRenderers[type](item, this);
+      }
     }
     
     return this.createDefaultItemHtml(item);
@@ -191,6 +196,8 @@ export class JsonRenderer {
     // Safe text insertion
     titleLink.textContent = itemName;
     titleLink.className = 'item-title-link';
+    titleLink.rel = 'noopener noreferrer';
+    titleLink.target = '_blank';
     titleRow.appendChild(titleLink);
 
     // Add score badge if available and showScores is enabled
@@ -594,17 +601,29 @@ export class JsonRenderer {
    */
   sanitizeUrl(url) {
     if (!url || typeof url !== 'string') return '#';
-    
+
     // Remove leading and trailing whitespace
     const trimmedUrl = url.trim();
-    
+
     // Check for javascript: protocol or other dangerous protocols
     const protocolPattern = /^(javascript|data|vbscript|file):/i;
     if (protocolPattern.test(trimmedUrl)) {
       return '#';
     }
-    
-    return trimmedUrl;
+
+    // Use URL constructor for additional validation - CodeQL recognizes this as sanitization
+    try {
+      // For relative URLs, construct against current origin
+      const urlObj = new URL(trimmedUrl, window.location.href);
+      // Only allow http, https, and relative URLs
+      if (urlObj.protocol === 'http:' || urlObj.protocol === 'https:' || urlObj.protocol === window.location.protocol) {
+        return urlObj.href;
+      }
+      return '#';
+    } catch (e) {
+      // Invalid URL
+      return '#';
+    }
   }
   
   /**

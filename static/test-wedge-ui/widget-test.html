@@ -107,7 +107,7 @@
             type: "setStructuredContent",
             payload: normalized,
           },
-          "*",
+          window.location.origin,
         );
       };
 
@@ -163,6 +163,11 @@
       });
 
       window.addEventListener("message", (event) => {
+        // Validate message origin - must match window location origin
+        if (event.origin !== window.location.origin) {
+          console.warn("Blocked postMessage from disallowed origin:", event.origin);
+          return;
+        }
         if (event.data?.type === "widgetReady") {
           widgetHasSignaledReady = true;
           if (pendingStructured) {

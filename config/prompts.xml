@@ -37,7 +37,6 @@
         The user's query is: {request.rawQuery}. 
         Previous queries were: {request.previousQueries}.
        
-					
 					<!-- Previous answers (title + url)provided were: {request.prevAnswers}. -->
 				</promptString>
 				<returnStruc>
@@ -204,8 +203,7 @@
         }
       </returnStruc>
 			</Prompt>
-
-      	<Prompt ref="RankingPromptForGenerate">
+			<Prompt ref="RankingPromptForGenerate">
 				<promptString>
         Assign a score between 0 and 100 to the following item
         based on useful it might be to answering the user's question. 
@@ -263,7 +261,7 @@
         9. Never attempt to synthesize information that is not present in the data.
         10.Never attempt medical diagnosis.
       </promptString>
-      <returnStruc>
+       <returnStruc>
         {
           "answer" : "string",
           "urls" : "urls of the items included in the answer"               

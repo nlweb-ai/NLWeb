@@ -1,0 +1,12 @@
+name: "CodeQL Config"
+
+# Paths to exclude from CodeQL analysis
+paths-ignore:
+  - '**/test/**'
+  - '**/tests/**'
+  - '**/*test.html'
+  - 'static/ta/**'  # Third-party analytics code
+
+# All security issues are fixed in code - no suppressions needed
+# JavaScript XSS: Using DOMPurify for sanitization (recognized by CodeQL)
+# Python issues: Fixed through proper sanitization and error handling

@@ -1,0 +1,32 @@
+# NLWebScorer: Bad-heavy fine-tuning pass
+# Resumes from balanced checkpoint, focuses on low-score items
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+data:
+  scores_path: "./data/scores_azure_oai_gpt-4.1.json"
+  retrieval_path: "./data/retrieval_results.json"
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  prepared_dir: "./data/prepared_bad_heavy"
+  max_seq_length: 1024
+
+# ── ModernBERT-large Fine-tuning (resume from balanced checkpoint) ──────────
+modernbert:
+  model_name: "answerdotai/ModernBERT-large"
+  output_dir: "./checkpoints/modernbert_large_bad_heavy"
+  pure_text: true
+  learning_rate: 3.0e-6          # 3x lower than initial training
+  weight_decay: 0.01
+  warmup_ratio: 0.05             # shorter warmup since already trained
+  num_epochs: 2
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 32
+  gradient_accumulation_steps: 2
+  fp16: true
+  normalize_scores: true
+  loss: "mse"
+  ranking_alpha: 0.0
+  score_diff_alpha: 1.0
+  lambda_alpha: 0.5
+  mae_lambda: 1.0

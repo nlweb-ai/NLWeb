@@ -30,7 +30,7 @@ This document provides a high-level overview of the integration stack that conne
 │                   NLWeb AppSDK Adapter                          │
 │              (Python aiohttp Server)                            │
                    │
-│   Location: code/python/webserver/appsdk_adapter_server.py     │
+│   Location: AskAgent/python/webserver/appsdk_adapter_server.py     │
 └────────────────────┬────────────────────────────────────────────┘
                      │ Proxies to NLWeb Core
                      │ Transforms response format
@@ -38,7 +38,7 @@ This document provides a high-level overview of the integration stack that conne
 ┌─────────────────────────────────────────────────────────────────┐
 │                    NLWeb Core Server                            │
 │              (Python aiohttp Server)                            │
-│          Location: code/python/webserver/                       │
+│          Location: AskAgent/python/webserver/                       │
 └────────────────────┬────────────────────────────────────────────┘
                      │ Queries and processes
                      ▼
@@ -67,7 +67,7 @@ This document provides a high-level overview of the integration stack that conne
 See [NLWeb Server README](../openai-apps-sdk-integration/nlweb_server_node/README.md) for details.
 
 ### 3. NLWeb AppSDK Adapter
-- **Location**: `code/python/webserver/appsdk_adapter_server.py`
+- **Location**: `AskAgent/python/webserver/appsdk_adapter_server.py`
 - **Responsibilities**:
   - Proxies requests to NLWeb core `/ask` endpoint
   - Transforms NLWeb response to AppSDK format

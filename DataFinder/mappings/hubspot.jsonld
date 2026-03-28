@@ -1,0 +1,123 @@
+{
+  "@context": {
+    "schema": "https://schema.org/",
+    "ent": "https://contoso.com/enterprise/"
+  },
+  "sourceDatabase": "hubspot.db",
+  "mappings": [
+    {
+      "sourceTable": "hs_companies",
+      "ontologyType": "schema:Organization",
+      "identifier": "contoso_id",
+      "columnMappings": {
+        "schema:name": "name",
+        "schema:url": "domain",
+        "ent:industry": "industry",
+        "ent:annualRevenue": "annual_revenue",
+        "schema:numberOfEmployees": "num_employees",
+        "schema:address": "city",
+        "ent:lifecycleStage": "lifecycle_stage",
+        "ent:customerType": "lifecycle_stage"
+      }
+    },
+    {
+      "sourceTable": "hs_contacts",
+      "ontologyType": "schema:Person",
+      "identifier": "contoso_id",
+      "columnMappings": {
+        "schema:givenName": "firstname",
+        "schema:familyName": "lastname",
+        "schema:email": "email",
+        "schema:telephone": "phone",
+        "schema:jobTitle": "jobtitle",
+        "schema:worksFor": {
+          "column": "company_id",
+          "references": {
+            "table": "hs_companies",
+            "column": "company_id",
+            "identifierColumn": "contoso_id"
+          }
+        },
+        "ent:lifecycleStage": "lifecyclestage"
+      }
+    },
+    {
+      "sourceTable": "hs_deals",
+      "ontologyType": "ent:SalesOpportunity",
+      "identifier": "contoso_id",
+      "columnMappings": {
+        "ent:opportunityName": "dealname",
+        "ent:estimatedValue": "amount",
+        "ent:pipelineStage": "dealstage",
+        "ent:opportunityStatus": "dealstage",
+        "ent:estimatedCloseDate": "closedate",
+        "ent:customer": {
+          "column": "company_id",
+          "references": {
+            "table": "hs_companies",
+            "column": "company_id",
+            "identifierColumn": "contoso_id"
+          }
+        },
+        "ent:dateCreated": "createdate",
+        "ent:owner": {
+          "column": "hubspot_owner_id",
+          "references": {
+            "table": "hs_owners",
+            "column": "owner_id",
+            "identifierColumn": "email"
+          }
+        }
+      },
+      "enumMappings": {
+        "ent:pipelineStage": {
+          "appointmentscheduled": "Qualify",
+          "qualifiedtobuy": "Qualify",
+          "presentationscheduled": "Develop",
+          "decisionmakerboughtin": "Develop",
+          "contractsent": "Propose",
+          "closedwon": "Close",
+          "closedlost": "Close"
+        },
+        "ent:opportunityStatus": {
+          "closedwon": "Won",
+          "closedlost": "Lost",
+          "_default": "Open"
+        }
+      }
+    },
+    {
+      "sourceTable": "hs_campaigns",
+      "ontologyType": "ent:MarketingCampaign",
+      "columnMappings": {
+        "ent:campaignName": "name",
+        "ent:campaignType": "type",
+        "ent:startDate": "start_date",
+        "ent:endDate": "end_date"
+      }
+    },
+    {
+      "sourceTable": "hs_marketing_emails",
+      "ontologyType": "ent:MarketingEngagement",
+      "columnMappings": {
+        "ent:engagementType": "event_type",
+        "ent:engagementDate": "event_timestamp",
+        "ent:engagementContact": {
+          "column": "contact_id",
+          "references": {
+            "table": "hs_contacts",
+            "column": "contact_id",
+            "identifierColumn": "contoso_id"
+          }
+        },
+        "ent:engagementCampaign": {
+          "column": "email_campaign_id",
+          "references": {
+            "table": "hs_campaigns",
+            "column": "campaign_id"
+          }
+        }
+      }
+    }
+  ]
+}

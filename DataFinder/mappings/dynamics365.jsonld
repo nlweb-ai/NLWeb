@@ -1,0 +1,144 @@
+{
+  "@context": {
+    "schema": "https://schema.org/",
+    "ent": "https://contoso.com/enterprise/"
+  },
+  "sourceDatabase": "dynamics365.db",
+  "mappings": [
+    {
+      "sourceTable": "d365_accounts",
+      "ontologyType": "schema:Organization",
+      "identifier": "contoso_id",
+      "columnMappings": {
+        "schema:name": "name",
+        "schema:telephone": "telephone1",
+        "schema:url": "websiteurl",
+        "schema:numberOfEmployees": "numberofemployees",
+        "ent:annualRevenue": "revenue",
+        "schema:address": "address1_city",
+        "ent:industry": "industrycode",
+        "ent:customerType": "customertypecode"
+      },
+      "enumMappings": {
+        "ent:customerType": {
+          "1": "Competitor",
+          "3": "Customer",
+          "11": "Prospect"
+        }
+      }
+    },
+    {
+      "sourceTable": "d365_contacts",
+      "ontologyType": "schema:Person",
+      "identifier": "contoso_id",
+      "columnMappings": {
+        "schema:givenName": "firstname",
+        "schema:familyName": "lastname",
+        "schema:email": "emailaddress1",
+        "schema:telephone": "telephone1",
+        "schema:jobTitle": "jobtitle",
+        "schema:worksFor": {
+          "column": "parentcustomerid",
+          "references": {
+            "table": "d365_accounts",
+            "column": "accountid",
+            "identifierColumn": "contoso_id"
+          }
+        }
+      }
+    },
+    {
+      "sourceTable": "d365_opportunities",
+      "ontologyType": "ent:SalesOpportunity",
+      "identifier": "contoso_id",
+      "columnMappings": {
+        "ent:opportunityName": "name",
+        "ent:estimatedValue": "estimatedvalue",
+        "ent:actualValue": "actualvalue",
+        "ent:estimatedCloseDate": "estimatedclosedate",
+        "ent:actualCloseDate": "actualclosedate",
+        "ent:pipelineStage": "stepname",
+        "ent:opportunityStatus": "statecode",
+        "ent:closeProbability": "closeprobability",
+        "ent:customer": {
+          "column": "parentaccountid",
+          "references": {
+            "table": "d365_accounts",
+            "column": "accountid",
+            "identifierColumn": "contoso_id"
+          }
+        },
+        "ent:primaryContact": {
+          "column": "parentcontactid",
+          "references": {
+            "table": "d365_contacts",
+            "column": "contactid",
+            "identifierColumn": "contoso_id"
+          }
+        },
+        "ent:owner": {
+          "column": "ownerid",
+          "references": {
+            "table": "d365_systemusers",
+            "column": "systemuserid"
+          }
+        },
+        "ent:dateCreated": "createdon"
+      },
+      "enumMappings": {
+        "ent:pipelineStage": {
+          "Qualify": "Qualify",
+          "Develop": "Develop",
+          "Propose": "Propose",
+          "Close": "Close"
+        },
+        "ent:opportunityStatus": {
+          "0": "Open",
+          "1": "Won",
+          "2": "Lost"
+        }
+      }
+    },
+    {
+      "sourceTable": "d365_products",
+      "ontologyType": "schema:Product",
+      "columnMappings": {
+        "schema:productID": "productnumber",
+        "schema:name": "name",
+        "schema:description": "description"
+      }
+    },
+    {
+      "sourceTable": "d365_orders",
+      "ontologyType": "schema:Order",
+      "columnMappings": {
+        "schema:orderNumber": "ordernumber",
+        "schema:orderDate": "createdon",
+        "schema:customer": {
+          "column": "customerid",
+          "references": {
+            "table": "d365_accounts",
+            "column": "accountid",
+            "identifierColumn": "contoso_id"
+          }
+        },
+        "schema:orderStatus": "statecode"
+      }
+    },
+    {
+      "sourceTable": "d365_opportunityproducts",
+      "ontologyType": "schema:OrderItem",
+      "columnMappings": {
+        "schema:orderedItem": {
+          "column": "productid",
+          "references": {
+            "table": "d365_products",
+            "column": "productid"
+          }
+        },
+        "schema:orderQuantity": "quantity",
+        "schema:price": "priceperunit"
+      }
+    }
+  ]
+}

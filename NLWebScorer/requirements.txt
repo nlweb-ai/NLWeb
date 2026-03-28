@@ -1,0 +1,16 @@
+# NLWebScorer dependencies
+# Core
+torch>=2.2.0
+transformers>=4.40.0
+tokenizers>=0.19.0
+
+# Training
+scipy>=1.12.0
+pyyaml>=6.0
+tqdm>=4.66.0
+
+# Data
+numpy>=1.26.0
+
+# Evaluation
+scikit-learn>=1.4.0

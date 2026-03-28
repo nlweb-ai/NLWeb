@@ -1,0 +1,113 @@
+{
+  "@context": {
+    "schema": "https://schema.org/",
+    "ent": "https://contoso.com/enterprise/"
+  },
+  "sourceDatabase": "jira.db",
+  "mappings": [
+    {
+      "sourceTable": "jira_projects",
+      "ontologyType": "ent:Project",
+      "columnMappings": {
+        "ent:projectKey": "project_key",
+        "ent:projectName": "name"
+      }
+    },
+    {
+      "sourceTable": "jira_issues",
+      "ontologyType": "ent:SupportTicket",
+      "filter": [
+        {
+          "column": "project_id",
+          "operator": "in_subquery",
+          "lookup": {
+            "table": "jira_projects",
+            "matchColumn": "project_id",
+            "where": { "project_key": ["SUP"] }
+          }
+        }
+      ],
+      "columnMappings": {
+        "ent:ticketId": "issue_key",
+        "ent:ticketSummary": "summary",
+        "ent:ticketDescription": "description",
+        "ent:ticketStatus": "status",
+        "ent:ticketPriority": "priority",
+        "ent:ticketType": "issue_type",
+        "ent:assignee": "assignee_account_id",
+        "ent:reportedBy": "reporter_account_id",
+        "ent:dateCreated": "created",
+        "ent:dateResolved": "resolved",
+        "ent:resolution": "resolution",
+        "ent:affectedCustomer": {
+          "join": {
+            "table": "jira_issue_customer_link",
+            "on": { "issue_id": "issue_id" },
+            "column": "contoso_customer_id"
+          }
+        }
+      },
+      "enumMappings": {
+        "ent:ticketStatus": {
+          "To Do": "Open",
+          "In Progress": "InProgress",
+          "In Review": "InProgress",
+          "Waiting for Customer": "WaitingOnCustomer",
+          "Escalated": "Escalated",
+          "Done": "Resolved",
+          "Closed": "Closed"
+        },
+        "ent:ticketPriority": {
+          "Highest": "Highest",
+          "High": "High",
+          "Medium": "Medium",
+          "Low": "Low",
+          "Lowest": "Low"
+        }
+      }
+    },
+    {
+      "sourceTable": "jira_issues",
+      "ontologyType": "ent:EngineeringIssue",
+      "filter": [
+        {
+          "column": "project_id",
+          "operator": "in_subquery",
+          "lookup": {
+            "table": "jira_projects",
+            "matchColumn": "project_id",
+            "where": { "project_key": ["ENG", "PLATFORM", "DOCS"] }
+          }
+        }
+      ],
+      "columnMappings": {
+        "ent:issueKey": "issue_key",
+        "ent:issueSummary": "summary",
+        "ent:issueType": "issue_type",
+        "ent:issueStatus": "status",
+        "ent:issuePriority": "priority",
+        "ent:assignee": "assignee_account_id",
+        "ent:dateCreated": "created",
+        "ent:dateResolved": "resolved",
+        "ent:resolution": "resolution",
+        "ent:storyPoints": "story_points",
+        "ent:project": {
+          "column": "project_id",
+          "references": {
+            "table": "jira_projects",
+            "column": "project_id"
+          }
+        }
+      },
+      "enumMappings": {
+        "ent:issuePriority": {
+          "Highest": "Highest",
+          "High": "High",
+          "Medium": "Medium",
+          "Low": "Low",
+          "Lowest": "Low"
+        }
+      }
+    }
+  ]
+}

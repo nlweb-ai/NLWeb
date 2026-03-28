@@ -13,6 +13,13 @@ myenv
 venv
 .env
 data/
+!NLWebScorer/data/
+NLWebScorer/data/*.json
+NLWebScorer/data/*.jsonl
+NLWebScorer/data/**/*.json
+NLWebScorer/data/**/*.jsonl
+NLWebScorer/data/prepared*/
+NLWebScorer/data/holdout*/
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
@@ -459,3 +466,8 @@ nlwm_deploy_*.zip
 agentfinder_deploy_*.zip
 
 openai-apps-sdk-examples/
+
+# NLWebScorer - exclude checkpoints and training logs
+NLWebScorer/checkpoints/
+NLWebScorer/*.log
+AskAgent/set_keys.sh

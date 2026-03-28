@@ -26,10 +26,10 @@ These instructions assume that you have Python 3.10+ installed locally.
     source myenv/bin/activate    # Or on Windows: myenv\Scripts\activate
     ```
 
-3. Go to the 'code/python' folder in NLWeb to install the dependencies. Note that this will also install the local vector database requirements used later in this example so you don't need to install them separately.
+3. Go to the 'AskAgent/python' folder in NLWeb to install the dependencies. Note that this will also install the local vector database requirements used later in this example so you don't need to install them separately.
 
     ```sh
-    cd code/python
+    cd AskAgent/python
     pip install -r requirements.txt
     ```
 
@@ -49,7 +49,7 @@ These instructions assume that you have Python 3.10+ installed locally.
 6. You can verify that your configuration is set properly and you remembered to set all needed API keys by running the check-connectivity script from the python directory.  There is more information [here](nlweb-check-connectivity.md).
 
     ```sh
-    cd code/python
+    cd AskAgent/python
     python testing/check_connectivity.py
     ```
 
@@ -58,7 +58,7 @@ These instructions assume that you have Python 3.10+ installed locally.
     The format of the command is as follows (make sure you are still in the 'python' folder when you run this):
 
     ```sh
-    # Run from code/python folder
+    # Run from AskAgent/python folder
     python -m data_loading.db_load <RSS URL> <site-name>
     ```
 
@@ -76,10 +76,10 @@ These instructions assume that you have Python 3.10+ installed locally.
 
     You can find even more data, including other formats other than RSS, in this [OneDrive folder](https://1drv.ms/f/c/6c6197aa87f7f4c4/EsT094eql2EggGxlBAAAAAABajQiZ5unf_Ri_OWksR8eNg?e=I4z5vw). (Note:  If it asks you to login, try the URL a 2nd time. It should be open permissions.)
 
-8. Start your NLWeb server (again from the 'code/python' folder):
+8. Start your NLWeb server (again from the 'AskAgent/python' folder):
 
     ```sh
-    # Run from code/python folder
+    # Run from AskAgent/python folder
     python app-aiohttp.py
     ```
 

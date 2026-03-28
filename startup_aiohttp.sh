@@ -6,9 +6,9 @@
 BASE_DIR="$(dirname "$0")"
 
 # Load environment variables from set_keys.sh if it exists
-if [ -f "$BASE_DIR/code/set_keys.sh" ]; then
+if [ -f "$BASE_DIR/AskAgent/set_keys.sh" ]; then
     echo "Loading environment variables from set_keys.sh..."
-    source "$BASE_DIR/code/set_keys.sh"
+    source "$BASE_DIR/AskAgent/set_keys.sh"
 elif [ -f "$BASE_DIR/set_keys.sh" ]; then
     echo "Loading environment variables from set_keys.sh..."
     source "$BASE_DIR/set_keys.sh"
@@ -17,7 +17,7 @@ else
 fi
 
 # Change to the application directory
-cd "$BASE_DIR/code/python" || exit 1
+cd "$BASE_DIR/AskAgent/python" || exit 1
 
 echo "Python version:"
 python --version
@@ -28,7 +28,7 @@ if [ -f "requirements.txt" ]; then
     pip install -r requirements.txt
 else
     echo "ERROR: requirements.txt not found!"
-    echo "Please ensure requirements.txt exists in code/python/"
+    echo "Please ensure requirements.txt exists in AskAgent/python/"
     exit 1
 fi
 
