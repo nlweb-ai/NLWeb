@@ -241,9 +241,8 @@
         2. The language of the answer MUST match the query.
         3. The answer must be STRICTLY limited to 320 characters MAXIMUM.
         4. NO URLs allowed in the answer field.
-        5. Only if the user query explicitly mentions a MedicalCondition should you include a related CivicStructure that can help with the condition.
-            - ONLY if the user provides their location, recommend the nearest CivicStructure, based on lowest travel time.
-            - NEVER recommend a CivicStructure if the user does not provide their location.
+        5. If the user query explicitly mentions a MedicalCondition AND the user has provided their location, include a related CivicStructure that can help with the condition. 
+        - IMPERATIVE: If the user HAS NOT provided their location, DO NOT recommend a CivicStructure.
         6. Always include the Address and Telephone if present in the data.                                
         7. NO Geographic coordinates (latitude and longitude) should be included in the answer, even if they are present in the data.
         8. DO NOT include pleasantries.    
