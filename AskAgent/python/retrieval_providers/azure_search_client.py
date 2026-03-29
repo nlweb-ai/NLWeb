@@ -13,6 +13,7 @@ import asyncio
 from typing import List, Dict, Union, Optional, Any, Tuple
 
 from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
@@ -61,12 +62,19 @@ class AzureSearchClient(RetrievalClientBase):
         # Safely handle None values
         if self.endpoint_config.api_endpoint is None:
             raise ValueError(f"api_endpoint is not configured for endpoint {self.endpoint_name}")
-        if self.endpoint_config.api_key is None:
-            raise ValueError(f"api_key is not configured for endpoint {self.endpoint_name}")
-            
+
         self.api_endpoint = self.endpoint_config.api_endpoint.strip('"')
-        self.api_key = self.endpoint_config.api_key.strip('"')
         self.default_index_name = self.endpoint_config.index_name or "embeddings1536"
+
+        # Determine auth method: azure_ad uses managed identity, otherwise API key
+        self.auth_method = getattr(self.endpoint_config, 'auth_method', 'api_key') or 'api_key'
+        if self.auth_method == "azure_ad":
+            self.credential = DefaultAzureCredential()
+            logger.info(f"Using Azure AD authentication for endpoint: {self.endpoint_name}")
+        else:
+            if self.endpoint_config.api_key is None:
+                raise ValueError(f"api_key is not configured for endpoint {self.endpoint_name}")
+            self.credential = AzureKeyCredential(self.endpoint_config.api_key.strip('"'))
 
         logger.info(f"Initialized AzureSearchClient for endpoint: {self.endpoint_name}")
     
@@ -92,10 +100,9 @@ class AzureSearchClient(RetrievalClientBase):
         with self._client_lock:
             if "index" not in self._index_clients:
                 logger.debug(f"Creating index client for {self.endpoint_name}")
-                credential = AzureKeyCredential(self.api_key)
                 self._index_clients["index"] = SearchIndexClient(
                     endpoint=self.api_endpoint,
-                    credential=credential
+                    credential=self.credential
                 )
         
         return self._index_clients["index"]
@@ -115,11 +122,10 @@ class AzureSearchClient(RetrievalClientBase):
         with self._client_lock:
             if index_name not in self._search_clients:
                 logger.debug(f"Creating search client for index: {index_name}")
-                credential = AzureKeyCredential(self.api_key)
                 self._search_clients[index_name] = SearchClient(
                     endpoint=self.api_endpoint,
                     index_name=index_name,
-                    credential=credential
+                    credential=self.credential
                 )
         
         return self._search_clients[index_name]
