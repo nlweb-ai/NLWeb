@@ -405,7 +405,7 @@ class GenerateAnswer(NLWebHandler):
                 await self.send_message(message)
                 return
                 
-            response = await PromptRunner(self).run_prompt(promptName, timeout=100, verbose=True)
+            response = await PromptRunner(self).run_prompt(promptName, timeout=100, verbose=True, level="high")
             logger.debug(f"Synthesis response received")
 
             json_results = []
