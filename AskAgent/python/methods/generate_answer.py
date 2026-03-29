@@ -110,7 +110,7 @@ class GenerateAnswer(NLWebHandler):
             description = trim_json_hard(json_str)
             prompt = fill_prompt(prompt_str, self, {"item.description": description})
             logger.debug(f"Sending ranking request to LLM for item: {name}")
-            ranking = await ask_llm(prompt, ans_struc, level="low", query_params=self.query_params)
+            ranking = await ask_llm(prompt, ans_struc, level="low", query_params=self.query_params, timeout=60)
             logger.debug(f"Received ranking score: {ranking.get('score', 'N/A')} for item: {name}")
             ansr = {
                 'url': url,
@@ -121,7 +121,7 @@ class GenerateAnswer(NLWebHandler):
                 'sent': False,
             }
 
-            if (ranking["score"] > self.GATHER_ITEMS_THRESHOLD):
+            if ranking.get("score", 0) > self.GATHER_ITEMS_THRESHOLD:
                 logger.info(f"High score item: {name} (score: {ranking['score']})")
                 async with self._results_lock:  # Thread-safe append
                     self.final_ranked_answers.append(ansr)
