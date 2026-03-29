@@ -13,6 +13,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from azure.core.credentials import AzureKeyCredential
+from azure.identity import DefaultAzureCredential
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
@@ -54,16 +55,22 @@ class AzureSearchStorageProvider(StorageProvider):
         
         # Azure Search connection settings
         self.endpoint = config.endpoint or config.url
-        self.api_key = config.api_key
-        
-        if not self.endpoint or not self.api_key:
-            raise ValueError("Azure Search endpoint and API key are required")
-            
+
+        if not self.endpoint:
+            raise ValueError("Azure Search endpoint is required")
+
         # Strip quotes if present
         self.endpoint = self.endpoint.strip('"')
-        self.api_key = self.api_key.strip('"')
-        
-        self.credential = AzureKeyCredential(self.api_key)
+
+        # Determine auth method: azure_ad uses managed identity, otherwise API key
+        auth_method = getattr(config, 'auth_method', 'api_key') or 'api_key'
+        if auth_method == "azure_ad":
+            self.credential = DefaultAzureCredential()
+            logger.info("Using Azure AD authentication for Azure Search storage")
+        else:
+            if not config.api_key:
+                raise ValueError("Azure Search API key is required for api_key authentication")
+            self.credential = AzureKeyCredential(config.api_key.strip('"'))
         self.index_client = None
         self.search_client = None
         

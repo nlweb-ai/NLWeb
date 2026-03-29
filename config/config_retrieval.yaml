@@ -5,8 +5,9 @@ endpoints:
 #Azure endpoints
   azure_ai_search:
     enabled: true
-    api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     api_endpoint_env: AZURE_VECTOR_SEARCH_ENDPOINT
+    auth_method: AZURE_SEARCH_AUTH_METHOD
+    api_key_env: AZURE_VECTOR_SEARCH_API_KEY
     index_name: sos-sms-index
     db_type: azure_ai_search
 
