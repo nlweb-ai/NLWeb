@@ -219,12 +219,13 @@
       </returnStruc>
 			</Prompt>		
 			<Prompt ref="DistanceRankingPromptForGenerate">
-				<promptString>        
-        The user's question is: \"{request.query}\".        
-        If the query is related to where to find an Item, the score must be 100.
-        If the query is related to where to find an Item, and the query specifies the user's location, extract the 'location' (town, city or region) from the user's query.
-        If the query is related to where to find an Item, and the query DOES NOT specify the user's location, do not extract a location.
-      </promptString>
+		<promptString>        
+  The user's question is: "{request.query}".        
+  If the query is related to finding a physical object, a facility (e.g., shelter, hotel), or a specific service, the score must be 100.
+  
+  If the score is 100 and the query specifies a town, city, or region, extract it into the 'location' field.
+  Otherwise, 'location' should be null.
+</promptString>
 				<returnStruc>
         {
           "score" : "integer between 0 and 100",
