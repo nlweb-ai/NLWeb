@@ -36,8 +36,7 @@
 
         The user's query is: {request.rawQuery}. 
         Previous queries were: {request.previousQueries}.
-       
-					<!-- Previous answers (title + url)provided were: {request.prevAnswers}. -->
+				Previous answers (title + url)provided were: {request.prevAnswers}.
 				</promptString>
 				<returnStruc>
         {
@@ -236,6 +235,7 @@
     <Prompt ref="SynthesizePromptForGenerate">
       <promptString>
         Synthesize a factual, service-oriented answer for: '{request.query}' using only the provided items: {request.answers}.
+        If relevant, you may also reference previously provided answers: {request.prevAnswers}.
         MANDATORY REQUIREMENTS:
         1. The value in the answer field should be a single block of text only.
         2. The language of the answer MUST match the query.
@@ -273,8 +273,9 @@
 			<Prompt ref="SummarizeResultsPrompt">
 				<promptString>
         Given the following items, summarize the results as an answer to the user's question. `
-        The user's question is: {request.query}. 
+        The user's question is: {request.query}.
         The items are: {request.answers}.
+        Previously provided answers for context: {request.prevAnswers}.
       </promptString>
 				<returnStruc>
         {
