@@ -8,7 +8,7 @@ endpoints:
     auth_method: AZURE_OPENAI_AUTH_METHOD
     llm_type: azure_openai
     models:
-      high: gpt-4-1
+      high: gpt-4.1
       low: gpt-4o-mini
 
   
