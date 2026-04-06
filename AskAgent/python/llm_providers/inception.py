@@ -8,14 +8,12 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-import os
-import requests
 import json
+import os
 import re
+from typing import Any
+
 import aiohttp
-import asyncio
-import threading
-from typing import Dict, Any, Optional
 
 from llm_providers.llm_provider import LLMProvider
 
@@ -32,7 +30,7 @@ class InceptionProvider(LLMProvider):
         Perform a single-shot (non-streaming) chat completion asynchronously.
     Returns the full assistant response as a string, or as structured JSON if schema is provided.
 """
-    
+
     API_URL = "https://api.inceptionlabs.ai/v1/chat/completions"  # Mercury chat endpoint
 
     @classmethod
@@ -52,7 +50,7 @@ class InceptionProvider(LLMProvider):
         return None
 
     @classmethod
-    def clean_response(cls, content: str) -> Dict[str, Any]:
+    def clean_response(cls, content: str) -> dict[str, Any]:
         """
         Strip markdown fences and extract the first JSON object.
         """
@@ -65,7 +63,7 @@ class InceptionProvider(LLMProvider):
     async def get_completion(
         self,
         prompt: str,
-        schema: Optional[Dict[str, Any]] = None,
+        schema: dict[str, Any] | None = None,
         model: str = "mercury-small",
         temperature: float = 0,
         max_tokens: int = 512,
@@ -76,7 +74,7 @@ class InceptionProvider(LLMProvider):
         """
         Perform a single-shot (non-streaming) chat completion asynchronously.
         Returns the full assistant response as a string, or as structured JSON if schema is provided.
-        
+
 
         Args:
             prompt: The user prompt to send to the model
@@ -87,24 +85,24 @@ class InceptionProvider(LLMProvider):
             timeout: Request timeout in seconds
             diffusing: Whether to use diffusion mode
             **kwargs: Additional provider-specific arguments
-            
+
         Returns:
             String response or parsed JSON object if schema is provided
         """
         HEADERS = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.get_api_key()}",
-        }   
+        }
         messages = []
-        
+
         if schema:
             # Add system message to enforce JSON schema
             system_prompt = f"Provide a response that matches this JSON schema: {json.dumps(schema)}"
             messages.append({"role": "system", "content": system_prompt})
-        
+
         # Add user message
         messages.append({"role": "user", "content": prompt})
-        
+
         payload = {
             "model": model,
             "messages": messages,
@@ -115,21 +113,20 @@ class InceptionProvider(LLMProvider):
             payload["diffusing"] = True
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    self.API_URL, 
-                    headers=HEADERS, 
-                    json=payload, 
-                    timeout=timeout
-                ) as resp:
-                    resp.raise_for_status()
-                    data = await resp.json()
-                    content = data["choices"][0]["message"]["content"]
-                    
-                    # If schema was provided, parse the response as JSON
-                    if schema:
-                        return self.clean_response(content)
-                    return content
+            async with aiohttp.ClientSession() as session, session.post(
+                self.API_URL,
+                headers=HEADERS,
+                json=payload,
+                timeout=timeout
+            ) as resp:
+                resp.raise_for_status()
+                data = await resp.json()
+                content = data["choices"][0]["message"]["content"]
+
+                # If schema was provided, parse the response as JSON
+                if schema:
+                    return self.clean_response(content)
+                return content
         except Exception as e:
             # Log the error and return empty response
             import logging

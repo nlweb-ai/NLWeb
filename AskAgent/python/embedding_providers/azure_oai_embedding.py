@@ -8,15 +8,14 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-import json
-import asyncio
 import threading
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-from typing import List, Optional
-from openai import AsyncAzureOpenAI
-from core.config import CONFIG
 
-from misc.logger.logging_config_helper import get_configured_logger, LogLevel
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from openai import AsyncAzureOpenAI
+
+from core.config import CONFIG
+from misc.logger.logging_config_helper import LogLevel, get_configured_logger
+
 logger = get_configured_logger("azure_oai_embedding")
 
 # Global client with thread-safe initialization
@@ -112,28 +111,28 @@ def get_azure_openai_client():
                 logger.error(f"Failed to initialize Azure OpenAI embedding client: {e}")
                 raise
 
-            logger.debug(f"Azure OpenAI embedding client initialized successfully.")
+            logger.debug("Azure OpenAI embedding client initialized successfully.")
 
     return azure_openai_client
 
 async def get_azure_embedding(
-    text: str, 
-    model: Optional[str] = None,
+    text: str,
+    model: str | None = None,
     timeout: float = 30.0
-) -> List[float]:
+) -> list[float]:
     """
     Generate embeddings using Azure OpenAI.
-    
+
     Args:
         text: The text to embed
         model: The model deployment name to use (optional)
         timeout: Maximum time to wait for the embedding response in seconds
-        
+
     Returns:
         List of floats representing the embedding vector
     """
     client = get_azure_openai_client()
-    
+
     # If model is not provided, get from config
     if model is None:
         provider_config = CONFIG.get_embedding_provider("azure_openai")
@@ -142,19 +141,19 @@ async def get_azure_embedding(
         else:
             # Default to a common embedding model name
             model = "text-embedding-3-small"
-    
+
     logger.debug(f"Generating Azure OpenAI embedding with model: {model}")
     logger.debug(f"Text length: {len(text)} chars")
 
     if (len(text) > 20000):
         text = text[:20000]
-    
+
     try:
         response = await client.embeddings.create(
             input=text,
             model=model
         )
-        
+
         embedding = response.data[0].embedding
         logger.debug(f"Azure OpenAI embedding generated, dimension: {len(embedding)}")
         return embedding
@@ -173,23 +172,23 @@ async def get_azure_embedding(
         raise
 
 async def get_azure_batch_embeddings(
-    texts: List[str],
-    model: Optional[str] = None,
+    texts: list[str],
+    model: str | None = None,
     timeout: float = 60.0
-) -> List[List[float]]:
+) -> list[list[float]]:
     """
     Generate embeddings for multiple texts using Azure OpenAI.
-    
+
     Args:
         texts: List of texts to embed
         model: The model deployment name to use (optional)
         timeout: Maximum time to wait for the batch embedding response in seconds
-        
+
     Returns:
         List of embedding vectors, each a list of floats
     """
     client = get_azure_openai_client()
-    
+
     # If model is not provided, get from config
     if model is None:
         provider_config = CONFIG.get_embedding_provider("azure_openai")
@@ -198,7 +197,7 @@ async def get_azure_batch_embeddings(
         else:
             # Default to a common embedding model name
             model = "text-embedding-3-small"
-    
+
     logger.debug(f"Generating Azure OpenAI batch embeddings with model: {model}")
     logger.debug(f"Batch size: {len(texts)} texts")
 
@@ -208,13 +207,13 @@ async def get_azure_batch_embeddings(
             trimmed_texts.append(elt[:12000])
         else:
             trimmed_texts.append(elt)
-    
+
     try:
         response = await client.embeddings.create(
             input=trimmed_texts,
             model=model
         )
-        
+
         # Extract embeddings in the same order as input texts
         embeddings = [data.embedding for data in response.data]
         logger.debug(f"Azure OpenAI batch embeddings generated, count: {len(embeddings)}")

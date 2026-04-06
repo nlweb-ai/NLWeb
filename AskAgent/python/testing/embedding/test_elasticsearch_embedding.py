@@ -1,5 +1,6 @@
-import pytest
 import os
+
+import pytest
 
 from core.config import CONFIG
 from embedding_providers.elasticsearch_embedding import ElasticsearchEmbedding

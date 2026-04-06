@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
 import csv
-import os
-import sys
-import time
 import json
-import urllib.request
+import os
+import time
 import urllib.error
+import urllib.request
+
 from data_loading.rss2schema import feed_to_schema as feed_to_schema_compact
+
 
 def fetch_rss_to_file(rss_url, temp_file):
     """Fetch RSS feed and save to temporary file"""
@@ -30,7 +31,7 @@ def clean_org_name(org_name):
     # Remove 'From ' prefix
     if org_name.startswith('From '):
         org_name = org_name[5:]
-    
+
     # Replace problematic characters
     org_name = org_name.replace('/', '_')
     org_name = org_name.replace('\\', '_')
@@ -42,7 +43,7 @@ def clean_org_name(org_name):
     org_name = org_name.replace('>', '_')
     org_name = org_name.replace('|', '_')
     org_name = org_name.strip()
-    
+
     return org_name
 
 def clean_json_string(obj):
@@ -61,7 +62,7 @@ def transform_episode(item, podcast_info):
         "@context": "https://schema.org",
         "@type": "PodcastEpisode"
     }
-    
+
     # Copy basic fields
     if "name" in item:
         transformed["name"] = item["name"]
@@ -79,44 +80,43 @@ def transform_episode(item, podcast_info):
         transformed["description"] = desc
     if "datePublished" in item:
         transformed["datePublished"] = item["datePublished"]
-    
+
     # Use the episode URL from the item
     if "url" in item:
         transformed["url"] = item["url"]
     else:
         # Fallback to podcast URL if no episode URL
         transformed["url"] = podcast_info["podcast_url"]
-    
+
     # Add partOfSeries with full description like in reference
     transformed["partOfSeries"] = {
         "@type": "PodcastSeries",
         "name": podcast_info["podcast_name"]
     }
-    
+
     # Add series description if available
     if "partOf" in item and isinstance(item["partOf"], dict) and "description" in item["partOf"]:
         transformed["partOfSeries"]["description"] = item["partOf"]["description"]
-    
+
     # Extract image URL and put it at top level
     image_url = None
-    if "partOf" in item and isinstance(item["partOf"], dict):
-        if "image" in item["partOf"]:
-            if isinstance(item["partOf"]["image"], dict) and "url" in item["partOf"]["image"]:
-                image_url = item["partOf"]["image"]["url"]
-            elif isinstance(item["partOf"]["image"], str):
-                image_url = item["partOf"]["image"]
-    
+    if "partOf" in item and isinstance(item["partOf"], dict) and "image" in item["partOf"]:
+        if isinstance(item["partOf"]["image"], dict) and "url" in item["partOf"]["image"]:
+            image_url = item["partOf"]["image"]["url"]
+        elif isinstance(item["partOf"]["image"], str):
+            image_url = item["partOf"]["image"]
+
     if image_url:
         transformed["image"] = image_url
-    
+
     return transformed
 
 def process_npr_podcasts_by_org(tsv_file, output_dir, limit=None):
     """Process NPR podcasts TSV file and write episodes to files by organization"""
-    
+
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
-    
+
     # Track statistics
     stats = {
         'total_podcasts': 0,
@@ -127,82 +127,83 @@ def process_npr_podcasts_by_org(tsv_file, output_dir, limit=None):
         'total_episodes': 0,
         'orgs_processed': {}  # Track episodes per org
     }
-    
-    # Track open file handles
+
+    # Track org file paths
     org_files = {}
-    
+
     # Temporary file for RSS downloads
     temp_rss_file = os.path.join(output_dir, '.temp_rss.xml')
-    
+
     try:
-        with open(tsv_file, 'r', encoding='utf-8') as f_in:
+        with open(tsv_file, encoding='utf-8') as f_in:
             reader = csv.reader(f_in, delimiter='\t')
-            
+
             # Skip header
             header = next(reader)
             print(f"Processing podcasts from {tsv_file}")
             print(f"Output directory: {output_dir}")
             print(f"Columns: {header}")
-            
+
             for row_num, row in enumerate(reader, start=2):
                 if limit and stats['total_podcasts'] >= limit:
                     print(f"\nReached limit of {limit} podcasts")
                     break
-                    
+
                 if len(row) < 5:
                     print(f"Row {row_num}: Skipping - insufficient columns")
                     continue
-                
+
                 podcast_url = row[0]
                 rss_feed = row[1]
                 org_url = row[2]
                 podcast_name = row[3]
                 org_name = row[4]
-                
+
                 stats['total_podcasts'] += 1
-                
+
                 # Skip if no RSS feed
                 if not rss_feed or rss_feed == '':
                     print(f"Row {row_num}: No RSS feed for {podcast_name}")
                     stats['no_rss'] += 1
                     continue
-                
+
                 # Clean organization name
                 clean_org = clean_org_name(org_name)
                 if not clean_org:
                     clean_org = 'Unknown_Organization'
-                
+
                 print(f"\nRow {row_num}: Processing {podcast_name}")
                 print(f"  RSS: {rss_feed}")
                 print(f"  Organization: {org_name} -> {clean_org}")
-                
+
                 # Fetch RSS feed
                 if not fetch_rss_to_file(rss_feed, temp_rss_file):
                     stats['failed_rss'] += 1
                     continue
-                
+
                 # Convert to schema.org
                 try:
                     schema_items = feed_to_schema_compact(temp_rss_file)
-                    
+
                     if not schema_items:
-                        print(f"  No items converted from RSS feed")
+                        print("  No items converted from RSS feed")
                         stats['failed_conversion'] += 1
                         continue
-                    
+
                     print(f"  Converted {len(schema_items)} items to schema.org")
-                    
+
                     # Get or create file handle for this organization
                     org_file_path = os.path.join(output_dir, f"{clean_org}.txt")
-                    
-                    if clean_org not in org_files:
-                        # Open new file
-                        org_files[clean_org] = open(org_file_path, 'w', encoding='utf-8')
+
+                    is_new_file = clean_org not in org_files
+                    if is_new_file:
+                        # Track the org file path for writing
+                        org_files[clean_org] = org_file_path
                         stats['orgs_processed'][clean_org] = 0
                         print(f"  Created new file: {org_file_path}")
                     else:
                         print(f"  Appending to existing file: {org_file_path}")
-                    
+
                     # Transform and write each episode as a separate line
                     podcast_info = {
                         "podcast_url": podcast_url,
@@ -210,47 +211,51 @@ def process_npr_podcasts_by_org(tsv_file, output_dir, limit=None):
                         "org_name": clean_org,
                         "org_url": org_url
                     }
-                    
+
                     episodes_written = 0
+                    lines_to_write = []
                     for item in schema_items:
                         transformed = transform_episode(item, podcast_info)
-                        
+
                         # Write as single line: Episode URL<tab>[JSON object in array]
                         episode_url = transformed.get("url", podcast_url)
                         episode_array = [transformed]
                         line = f"{episode_url}\t{clean_json_string(episode_array)}\n"
-                        org_files[clean_org].write(line)
+                        lines_to_write.append(line)
                         episodes_written += 1
                         stats['total_episodes'] += 1
-                    
+
+                    write_mode = 'w' if is_new_file else 'a'
+                    with open(org_files[clean_org], write_mode, encoding='utf-8') as org_fh:
+                        org_fh.writelines(lines_to_write)
+
                     stats['orgs_processed'][clean_org] += episodes_written
                     print(f"  Wrote {episodes_written} episodes to {clean_org}.txt")
                     stats['successful'] += 1
-                    
+
                 except Exception as e:
                     print(f"  Error converting RSS to schema: {e}")
                     stats['failed_conversion'] += 1
-                
+
                 # Be respectful with requests
                 time.sleep(2)
-                
+
                 # Clean up temp file
                 if os.path.exists(temp_rss_file):
                     os.remove(temp_rss_file)
-    
+
     except Exception as e:
         print(f"Error processing TSV file: {e}")
-    
+
     finally:
-        # Close all open files
-        for org, file_handle in org_files.items():
-            file_handle.close()
-            print(f"Closed file for {org}")
-            
+        # File handles are already closed (used context managers)
+        for org in org_files:
+            print(f"Finished writing file for {org}")
+
         # Clean up temp file
         if os.path.exists(temp_rss_file):
             os.remove(temp_rss_file)
-    
+
     # Print summary
     print("\n" + "="*50)
     print("Processing Summary:")
@@ -260,23 +265,23 @@ def process_npr_podcasts_by_org(tsv_file, output_dir, limit=None):
     print(f"No RSS feed: {stats['no_rss']}")
     print(f"Failed to fetch RSS: {stats['failed_rss']}")
     print(f"Failed to convert: {stats['failed_conversion']}")
-    print(f"\nEpisodes per organization:")
+    print("\nEpisodes per organization:")
     for org, count in sorted(stats['orgs_processed'].items()):
         print(f"  {org}: {count} episodes")
     print("="*50)
 
 def main():
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Process NPR podcasts by organization")
     parser.add_argument("--tsv", default="/Users/rvguha/v2/NLWeb/data/npr_podcasts_complete.tsv",
                        help="Path to TSV file")
     parser.add_argument("--output", default="/Users/rvguha/v2/NLWeb/data/podcasts",
                        help="Output directory")
     parser.add_argument("--limit", type=int, help="Limit number of podcasts to process")
-    
+
     args = parser.parse_args()
-    
+
     process_npr_podcasts_by_org(args.tsv, args.output, args.limit)
 
 if __name__ == "__main__":

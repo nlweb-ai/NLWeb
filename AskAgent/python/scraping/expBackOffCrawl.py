@@ -1,13 +1,13 @@
-import sys
-import os
-import requests
-from urllib.parse import urlparse
-import time
-from typing import List, Optional
-from dataclasses import dataclass, field
-from collections import Counter
 import logging
+import os
 import random
+import sys
+import time
+from collections import Counter
+from dataclasses import dataclass, field
+from urllib.parse import urlparse
+
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,11 +26,11 @@ USER_AGENTS = [
 class ResponseInfo:
     """Store information about problematic responses for analysis"""
     url: str
-    status: Optional[int] = None
-    content_length: Optional[int] = None
-    content_sample: Optional[str] = None
-    error_type: Optional[str] = None
-    
+    status: int | None = None
+    content_length: int | None = None
+    content_sample: str | None = None
+    error_type: str | None = None
+
     def __str__(self):
         parts = [f"URL: {self.url}"]
         if self.status:
@@ -57,25 +57,25 @@ class CrawlStats:
     retries: int = 0
     failure_reasons: Counter = field(default_factory=Counter)
     retry_reasons: Counter = field(default_factory=Counter)
-    small_responses: List[ResponseInfo] = field(default_factory=list)
-    
+    small_responses: list[ResponseInfo] = field(default_factory=list)
+
     def add_small_response(self, response_info: ResponseInfo):
         """Add a small response to the tracking list, maintaining a reasonable size"""
         self.small_responses.append(response_info)
         # Keep the list at a reasonable size to avoid memory issues
         if len(self.small_responses) > 100:  # Keep the most recent 100
             self.small_responses = self.small_responses[-100:]
-    
+
     def print_status(self):
         """Print the current status"""
-        print(f"\rProgress: {self.success} successful | {self.failures} failed | " 
+        print(f"\rProgress: {self.success} successful | {self.failures} failed | "
               f"Retries: {self.retries} | Total: {self.total}", end="", flush=True)
-    
+
     def print_failure_summary(self):
         """Print a summary of failures at the end of the crawl"""
         print("\n\nFailure Analysis:")
         print("-" * 60)
-        
+
         # Print permanent failures
         if self.failure_reasons:
             print("Permanent Failures:")
@@ -84,7 +84,7 @@ class CrawlStats:
                 print(f"  {reason}: {count} ({percentage:.1f}%)")
         else:
             print("No permanent failures recorded")
-            
+
         # Print retry statistics
         if self.retry_reasons:
             print("\nRetried Errors:")
@@ -94,7 +94,7 @@ class CrawlStats:
                 print(f"  {reason}: {count} ({percentage:.1f}%)")
         else:
             print("\nNo retries recorded")
-            
+
         # Display small responses
         if self.small_responses:
             print("\nSamples of Small Responses:")
@@ -102,7 +102,7 @@ class CrawlStats:
             # Show up to 10 samples
             for i, response in enumerate(self.small_responses[-10:]):
                 print(f"{i+1}. {response}")
-                
+
         print("-" * 60)
 
 class SimpleCrawler:
@@ -110,14 +110,14 @@ class SimpleCrawler:
         self.target_dir = target_dir
         self.max_retries = max_retries
         self.stats = CrawlStats()
-        
+
         # Create target directory if it doesn't exist
         os.makedirs(target_dir, exist_ok=True)
 
-    def categorize_error(self, error, status: int = None, content_length: int = None) -> str:
+    def categorize_error(self, error, status: int | None = None, content_length: int | None = None) -> str:
         """Categorize the type of error encountered"""
         error_str = str(error).lower()
-        
+
         if content_length is not None and content_length < 1024:
             return "Content too small (<1KB)"
         elif status is not None:
@@ -131,7 +131,7 @@ class SimpleCrawler:
                 return "Server error (500)"
             elif status >= 400:
                 return f"HTTP error {status}"
-        
+
         if "timeout" in error_str:
             return "Request timeout"
         elif "connection" in error_str:
@@ -144,22 +144,22 @@ class SimpleCrawler:
             return "Invalid URL"
         return f"Other error: {error_str[:100]}"
 
-    def get_retry_delay(self, attempt: int, error_type: str = None) -> float:
+    def get_retry_delay(self, attempt: int, error_type: str | None = None) -> float:
         """
         Calculate delay using exponential backoff algorithm.
         Base delay is 2 seconds, doubled for each attempt with some jitter.
         """
         # Longer base delay for rate limiting errors
         base_delay = 5.0 if error_type and "429" in error_type else 2.0
-        
+
         # Calculate exponential backoff with jitter
         # 2^attempt gives us: 2, 4, 8, 16, 32, etc.
         delay = base_delay * (2 ** attempt)
-        
+
         # Add jitter (±25%)
         jitter = delay * 0.25
         delay = delay + random.uniform(-jitter, jitter)
-        
+
         # Cap maximum delay at 5 minutes
         return min(delay, 300)
 
@@ -168,17 +168,17 @@ class SimpleCrawler:
         # Don't retry if we've hit the maximum attempts
         if attempt >= self.max_retries:
             return False
-            
+
         # Never retry for these error types
         if error_type and any(x in error_type for x in ["404", "403", "Invalid URL", "<1KB"]):
             return False
-            
+
         # Always retry for these error types
         if error_type and any(x in error_type for x in [
             "429", "500", "timeout", "connection", "dns", "ssl"
         ]):
             return True
-            
+
         # For other errors, retry if we haven't hit the max retries
         return attempt < self.max_retries
 
@@ -188,7 +188,7 @@ class SimpleCrawler:
         # Skip empty URLs
         if not url.strip():
             return
-            
+
         # Parse URL to create filename
         parsed_url = urlparse(url)
         filename = parsed_url.netloc + parsed_url.path
@@ -203,7 +203,7 @@ class SimpleCrawler:
         try:
             content = None
             status = None
-            
+
             logger.info(f"Fetching {url} directly")
             headers = {
                 'User-Agent': random.choice(USER_AGENTS),
@@ -214,13 +214,13 @@ class SimpleCrawler:
                 'Connection': 'keep-alive',
                 'Upgrade-Insecure-Requests': '1',
             }
-            
+
             response = requests.get(url, headers=headers, allow_redirects=True, timeout=30)
             status = response.status_code
             content = response.text
-            
+
             content_length = len(content.encode('utf-8')) if content else 0
-            
+
             # Check content length (1KB = 1024 bytes)
             if content_length < 1024:
                 # Print the small content directly
@@ -229,7 +229,7 @@ class SimpleCrawler:
                 print(f"{'=' * 80}")
                 print(content[:1000] if len(content) > 1000 else content)  # Limit to first 1000 chars
                 print(f"{'=' * 80}\n")
-                
+
                 # Create a response info object for small responses
                 response_info = ResponseInfo(
                     url=url,
@@ -239,25 +239,25 @@ class SimpleCrawler:
                     error_type="Content too small (<1KB)"
                 )
                 self.stats.add_small_response(response_info)
-                
+
                 raise Exception("Response too small")
-            
+
             if status != 200:
                 raise Exception(f"HTTP {status}")
-            
+
             # Write response to file
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-            
+
             self.stats.success += 1
-            
+
         except Exception as e:
             error_str = str(e)
             content_sample = locals().get('content', '')[:200] if locals().get('content') else None
             if content_sample is None:
                 content_sample = ""
             error_type = self.categorize_error(e, status, len(content_sample))
-            
+
             # Create response info for tracking errors with content
             if content_sample and "too small" not in error_str.lower():
                 response_info = ResponseInfo(
@@ -268,22 +268,22 @@ class SimpleCrawler:
                     error_type=error_type
                 )
                 self.stats.add_small_response(response_info)
-            
+
             # Check if we should retry
             if self.should_retry(error_type, attempt):
                 # Calculate delay with exponential backoff
                 delay = self.get_retry_delay(attempt, error_type)
-                
+
                 # Update stats
                 self.stats.retries += 1
                 self.stats.retry_reasons[error_type] += 1
-                
+
                 # Log the retry attempt
                 logger.info(f"Retry {attempt+1}/{self.max_retries} for {url} after {delay:.2f}s due to {error_type}")
-                
+
                 # Wait for the backoff delay
                 time.sleep(delay)
-                
+
                 # Retry the request
                 self.crawl_url(url, attempt + 1)
             else:
@@ -292,18 +292,18 @@ class SimpleCrawler:
                 self.stats.failure_reasons[error_type] += 1
                 logger.error(f"Failed to fetch {url}: {error_type}")
 
-    def crawl_urls(self, urls: List[str]):
+    def crawl_urls(self, urls: list[str]):
         """Crawl multiple URLs one at a time"""
         # Filter out empty URLs and count total
         valid_urls = [url.strip() for url in urls if url.strip()]
         self.stats.total = len(valid_urls)
-        
+
         # Process each URL sequentially
         for i, url in enumerate(valid_urls):
             # Update status before each request
             print(f"\r[{i+1}/{self.stats.total}] ", end="")
             self.stats.print_status()
-            
+
             # Check if file already exists before processing
             parsed_url = urlparse(url)
             filename = parsed_url.netloc + parsed_url.path
@@ -311,22 +311,22 @@ class SimpleCrawler:
                 filename = filename[:-1]
             filename = filename.replace('/', '_') + '.html'
             output_path = os.path.join(self.target_dir, filename)
-            
+
             # Skip without delay if file exists
             if os.path.exists(output_path):
                 logger.info(f"File already exists for {url}, skipping")
                 continue
-            
+
             # Process the URL
             self.crawl_url(url)
-            
+
             # Random delay between requests (2 to 5 seconds)
             # Only delay if we're not at the last URL
             if i < len(valid_urls) - 1:
                 delay = random.uniform(2, 5)
                 logger.info(f"Pausing for {delay:.2f} seconds before next request")
                 time.sleep(delay)
-        
+
         # Print final status and summary
         self.stats.print_status()
         print("\n")  # Add some space
@@ -339,27 +339,27 @@ def main():
 
     input_file = sys.argv[1]
     target_dir = sys.argv[2]
-    
+
     # Parse additional arguments
     max_retries = 3  # Default
-    
+
     # Check for max_retries
     if len(sys.argv) > 3:
         max_retries = int(sys.argv[3])
 
     # Read URLs
-    with open(input_file, 'r') as f:
+    with open(input_file) as f:
         urls = f.readlines()
 
     # Create and run crawler
     crawler = SimpleCrawler(
-        target_dir=target_dir, 
+        target_dir=target_dir,
         max_retries=max_retries
     )
-    
-    print(f"Starting crawler with sequential processing")
+
+    print("Starting crawler with sequential processing")
     print(f"Max retries: {max_retries}")
-    
+
     crawler.crawl_urls(urls)
 
 if __name__ == "__main__":

@@ -9,9 +9,10 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from core.prompts import PromptRunner
 import asyncio
+
 from core.config import CONFIG
+from core.prompts import PromptRunner
 from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("memory")
@@ -21,7 +22,7 @@ class Memory(PromptRunner):
 
     MEMORY_PROMPT_NAME = "DetectMemoryRequestPrompt"
     STEP_NAME = "Memory"
-    
+
     def __init__(self, handler):
         super().__init__(handler)
         self.handler.state.start_precheck_step(self.STEP_NAME)

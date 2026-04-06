@@ -8,55 +8,48 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from core.retriever import search
 import asyncio
 import importlib
 import time
+import traceback
 import uuid
-from typing import List
-from core.schemas import Message
+
+import core.fastTrack as fastTrack
+import core.post_ranking as post_ranking
 import core.query_analysis.decontextualize as decontextualize
-import core.query_analysis.analyze_query as analyze_query
-import core.query_analysis.memory as memory   
 import core.query_analysis.query_rewrite as query_rewrite
 import core.ranking as ranking
-import core.query_analysis.required_info as required_info
-import traceback
-import core.query_analysis.relevance_detection as relevance_detection
-import core.fastTrack as fastTrack
-from core.fastTrack import site_supports_standard_retrieval
-import core.post_ranking as post_ranking
 import core.router as router
-import methods.accompaniment as accompaniment
-import methods.recipe_substitution as substitution
-from core.state import NLWebHandlerState
-from core.utils.utils import get_param, siteToItemType, log
-from core.utils.message_senders import MessageSender
-from misc.logger.logger import get_logger, LogLevel
-from misc.logger.logging_config_helper import get_configured_logger
 from core.config import CONFIG
-import time
+from core.fastTrack import site_supports_standard_retrieval
+from core.retriever import search
+from core.schemas import Message
+from core.state import NLWebHandlerState
+from core.utils.message_senders import MessageSender
+from core.utils.utils import get_param, siteToItemType
+from misc.logger.logging_config_helper import get_configured_logger
+
 logger = get_configured_logger("nlweb_handler")
 
 API_VERSION = "0.1"
 
 class NLWebHandler:
 
-    def __init__(self, query_params, http_handler): 
-      
-        print(f"\n=== NLWebHandler INIT ===")
+    def __init__(self, query_params, http_handler):
+
+        print("\n=== NLWebHandler INIT ===")
         print(f"Query params: {query_params}")
-        print(f"=========================\n")
+        print("=========================\n")
         self.http_handler = http_handler
         self.query_params = query_params
-        
+
         # Track initialization time for time-to-first-result
         self.init_time = time.time()
         self.first_result_sent = False
 
         # the site that is being queried
         self.site = get_param(query_params, "site", str, "all")
-        
+
         # Parse comma-separated sites
         if self.site and isinstance(self.site, str) and "," in self.site:
             self.site = [s.strip() for s in self.site.split(",") if s.strip()]
@@ -75,11 +68,11 @@ class NLWebHandler:
         # the model that is being used
         self.model = get_param(query_params, "model", str, "gpt-4.1-mini")
 
-        # the request may provide a fully decontextualized query, in which case 
+        # the request may provide a fully decontextualized query, in which case
         # we don't need to decontextualize the latest query.
         self.decontextualized_query = get_param(query_params, "decontextualized_query", str, "")
 
-        # the url of the page on which the query was entered, in case that needs to be 
+        # the url of the page on which the query was entered, in case that needs to be
         # used to decontextualize the query. Typically left empty
         self.context_url = get_param(query_params, "context_url", str, "")
 
@@ -91,13 +84,13 @@ class NLWebHandler:
 
         # OAuth user ID for conversation storage
         self.oauth_id = get_param(query_params, "oauth_id", str, "")
-        
+
         # Thread ID for conversation grouping
         self.thread_id = get_param(query_params, "thread_id", str, "")
 
         streaming = get_param(query_params, "streaming", str, "True")
         self.streaming = streaming not in ["False", "false", "0"]
-        
+
         # Debug mode for verbose messages
         debug = get_param(query_params, "debug", str, "False")
         self.debug_mode = debug not in ["False", "false", "0", None]
@@ -161,7 +154,7 @@ class NLWebHandler:
         self.abort_fast_track_event = asyncio.Event()
         self._state_lock = asyncio.Lock()
         self._send_lock = asyncio.Lock()
-        
+
         self.fastTrackRanker = None
         self.headersSent = False  # Track if headers have been sent
         self.fastTrackWorked = False
@@ -173,37 +166,37 @@ class NLWebHandler:
         self.versionNumberSent = False
         self.headersSent = False
         # Replace raw_messages with proper Message objects
-        self.messages: List['Message'] = []  # List of Message objects
-        
+        self.messages: list[Message] = []  # List of Message objects
+
         # Generate a base message_id and counter for unique message IDs
         self.handler_message_id = f"msg_{int(time.time() * 1000)}_{uuid.uuid4().hex[:9]}"
         self.message_counter = 0  # Counter for unique message IDs
-        
+
         # Create MessageSender helper (after handler_message_id is set)
         self.message_sender = MessageSender(self)
-        
+
         # Add the initial user query message to messages list
         initial_user_message = self.message_sender.create_initial_user_message()
         self.messages.append(initial_user_message)
-    
+
     @classmethod
     def from_message(cls, message, http_handler):
         """
         Create NLWebHandler from a Message object.
         Extracts all necessary parameters from the message structure.
-        
+
         Args:
             message: Message object with UserQuery content
             http_handler: HTTP handler for streaming responses
-        
+
         Returns:
             NLWebHandler instance configured from the message
         """
         import json
-        
+
         # Initialize query_params dict
         query_params = {}
-        
+
         # Extract from message content (UserQuery object or dict)
         content = message.content
         if hasattr(content, 'query'):
@@ -228,28 +221,26 @@ class NLWebHandler:
             query_params["query"] = [str(content)]
             query_params["site"] = ["all"]
             query_params["generate_mode"] = ["list"]
-        
+
         # Extract from message metadata
         if message.sender_info:
             query_params["user_id"] = [message.sender_info.get('id', '')]
             query_params["oauth_id"] = [message.sender_info.get('id', '')]
-        
+
         # Add conversation tracking
         if message.conversation_id:
             query_params["conversation_id"] = [message.conversation_id]
-        
+
         # Add streaming flag (always true for WebSocket/chat)
         query_params["streaming"] = ["true"]
-        
+
         # Extract any additional parameters from message metadata
-        if hasattr(message, 'metadata') and message.metadata:
-            # Pass through search_all_users if present
-            if 'search_all_users' in message.metadata:
-                query_params["search_all_users"] = [str(message.metadata['search_all_users']).lower()]
-        
+        if hasattr(message, 'metadata') and message.metadata and 'search_all_users' in message.metadata:
+            query_params["search_all_users"] = [str(message.metadata['search_all_users']).lower()]
+
         # Create and return NLWebHandler instance
         return cls(query_params, http_handler)
-    
+
     def _extract_query_texts(self, raw_prev_queries):
         """
         Extract just the query text from previous queries.
@@ -257,9 +248,9 @@ class NLWebHandler:
         """
         if not raw_prev_queries:
             return []
-        
+
         query_texts = []
-        
+
         for item in raw_prev_queries:
             if isinstance(item, str):
                 # Try to parse as JSON if it looks like JSON
@@ -286,13 +277,13 @@ class NLWebHandler:
                 # Recursively extract from list
                 extracted = self._extract_from_parsed(item)
                 query_texts.extend(extracted)
-        
+
         return query_texts
-    
+
     def _extract_from_parsed(self, parsed):
         """Helper to extract query texts from parsed JSON structures."""
         query_texts = []
-        
+
         if isinstance(parsed, list):
             for item in parsed:
                 if isinstance(item, dict):
@@ -303,19 +294,18 @@ class NLWebHandler:
                             query_texts.append(item['query'])
                 elif isinstance(item, str):
                     query_texts.append(item)
-        elif isinstance(parsed, dict):
-            if 'query' in parsed:
-                if isinstance(parsed['query'], dict) and 'query' in parsed['query']:
-                    query_texts.append(parsed['query']['query'])
-                elif isinstance(parsed['query'], str):
-                    query_texts.append(parsed['query'])
-        
+        elif isinstance(parsed, dict) and 'query' in parsed:
+            if isinstance(parsed['query'], dict) and 'query' in parsed['query']:
+                query_texts.append(parsed['query']['query'])
+            elif isinstance(parsed['query'], str):
+                query_texts.append(parsed['query'])
+
         return query_texts
-        
-    @property 
+
+    @property
     def is_connection_alive(self):
         return self.connection_alive_event.is_set()
-        
+
     @is_connection_alive.setter
     def is_connection_alive(self, value):
         if value:
@@ -333,13 +323,13 @@ class NLWebHandler:
         try:
             # Send begin-nlweb-response message at the start
             await self.message_sender.send_begin_response()
-            
+
             await self.prepare()
             if (self.query_done):
                 return [msg.to_dict() for msg in self.messages]
             if (not self.fastTrackWorked):
                 await self.route_query_based_on_tools()
-            
+
             # Check if query is done regardless of whether FastTrack worked
             if (self.query_done):
                 return [msg.to_dict() for msg in self.messages]
@@ -351,21 +341,21 @@ class NLWebHandler:
 
             # Return only messages (no more legacy return_value)
             return [msg.to_dict() for msg in self.messages]
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
-            
+
             # Send end-nlweb-response even on error
             await self.message_sender.send_end_response(error=True)
-            
+
             raise
-    
+
     async def prepare(self):
         tasks = []
 
         tasks.append(asyncio.create_task(self.decontextualizeQuery().do()))
         tasks.append(asyncio.create_task(fastTrack.FastTrack(self).do()))
         tasks.append(asyncio.create_task(query_rewrite.QueryRewrite(self).do()))
-        
+
         # Check if a specific tool is requested via the 'tool' parameter
         requested_tool = get_param(self.query_params, "tool", str, None)
         if requested_tool:
@@ -386,7 +376,7 @@ class NLWebHandler:
      #   tasks.append(asyncio.create_task(relevance_detection.RelevanceDetection(self).do()))
      #   tasks.append(asyncio.create_task(memory.Memory(self).do()))
      #   tasks.append(asyncio.create_task(required_info.RequiredInfo(self).do()))
-        
+
         try:
             if CONFIG.should_raise_exceptions():
                 # In testing/development mode, raise exceptions to fail tests properly
@@ -394,13 +384,13 @@ class NLWebHandler:
             else:
                 # In production mode, catch exceptions to avoid crashing
                 await asyncio.gather(*tasks, return_exceptions=True)
-        except Exception as e:
+        except Exception:
             if CONFIG.should_raise_exceptions():
                 raise  # Re-raise in testing/development mode
         finally:
             self.pre_checks_done_event.set()  # Signal completion regardless of errors
             self.state.set_pre_checks_done()
-         
+
         # Wait for retrieval to be done
         if not self.retrieval_done_event.is_set():
             # Skip retrieval for sites without embeddings
@@ -409,7 +399,7 @@ class NLWebHandler:
                 self.retrieval_done_event.set()
             else:
                 items = await search(
-                    self.decontextualized_query, 
+                    self.decontextualized_query,
                     self.site,
                     query_params=self.query_params,
                     handler=self
@@ -431,12 +421,12 @@ class NLWebHandler:
             return decontextualize.ContextUrlDecontextualizer(self)
         else:
             return decontextualize.FullDecontextualizer(self)
-    
+
     async def get_ranked_answers(self):
         try:
             await ranking.Ranking(self, self.final_retrieved_items, ranking.Ranking.REGULAR_TRACK).do()
             return [msg.to_dict() for msg in self.messages]
-        except Exception as e:
+        except Exception:
             traceback.print_exc()
             raise
 
@@ -449,38 +439,38 @@ class NLWebHandler:
             await self.get_ranked_answers()
             return
 
-        top_tool = self.tool_routing_results[0] 
+        top_tool = self.tool_routing_results[0]
         tool = top_tool['tool']
         tool_name = tool.name
         params = top_tool['result']
-        
+
         # Selected tool: {tool_name} with score: {top_tool.get('score', 0)}
         # Tool handler class: {tool.handler_class}
-        
+
         # Check if tool has a handler class defined
         if tool.handler_class:
-            try:                
+            try:
                 # For non-search tools, clear any items that FastTrack might have populated
                 if tool_name != "search":
                     # Clearing items for non-search tool
                     self.final_retrieved_items = []
                     self.retrieved_items = []
-                
+
                 # Dynamic import of handler module and class
                 module_path, class_name = tool.handler_class.rsplit('.', 1)
                 # Importing handler class
                 module = importlib.import_module(module_path)
                 handler_class = getattr(module, class_name)
-                
+
                 # Instantiate and execute handler
                 # Creating handler instance
                 handler_instance = handler_class(params, self)
-                
+
                 # Standard handler pattern with do() method
                 # Executing handler's do() method
                 await handler_instance.do()
                 # Handler completed
-                    
+
             except Exception as e:
                 logger.error(f"ERROR executing {tool_name}: {e}")
                 import traceback

@@ -8,20 +8,20 @@ WARNING: This code is under development and may undergo changes in future
 releases. Backwards compatibility is not guaranteed at this time.
 """
 
-import os
 import asyncio
-import threading
-from typing import List, Optional
-import time
 import logging
+import os
+import threading
+import time
 
 # Suppress gRPC ALTS credentials warning (not running on GCP)
 logging.getLogger("grpc").setLevel(logging.ERROR)
 
 import google.generativeai as genai
-from core.config import CONFIG
 
-from misc.logger.logging_config_helper import get_configured_logger, LogLevel
+from core.config import CONFIG
+from misc.logger.logging_config_helper import LogLevel, get_configured_logger
+
 logger = get_configured_logger("gemini_embedding")
 
 # Add lock for thread-safe client initialization
@@ -38,7 +38,7 @@ def configure_gemini():
                 error_msg = "Gemini API key not found in configuration"
                 logger.error(error_msg)
                 raise RuntimeError(error_msg)
-            
+
             genai.configure(api_key=api_key)
             _initialized = True
             logger.debug("GenAI configured successfully")
@@ -50,30 +50,30 @@ def get_api_key() -> str:
     """
     # Get the API key from the embedding provider config
     provider_config = CONFIG.get_embedding_provider("gemini")
-    
+
     if provider_config and provider_config.api_key:
         api_key = provider_config.api_key
         if api_key:
             return api_key.strip('"')  # Remove quotes if present
-    
+
     # Fallback to environment variables
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         error_msg = "Gemini API key not found in configuration or environment"
         logger.error(error_msg)
         raise ValueError(error_msg)
-    
+
     return api_key
 
 async def get_gemini_embeddings(
     text: str,
-    model: Optional[str] = None,
+    model: str | None = None,
     timeout: float = 30.0,
     task_type: str = "SEMANTIC_SIMILARITY"
-) -> List[float]:
+) -> list[float]:
     """
     Generate an embedding for a single text using Google GenAI.
-    
+
     Args:
         text: The text to embed
         model: Optional model ID to use, defaults to provider's configured
@@ -81,7 +81,7 @@ async def get_gemini_embeddings(
         timeout: Maximum time to wait for the embedding response in seconds
         task_type: The task type for the embedding (e.g.,
                   "SEMANTIC_SIMILARITY", "RETRIEVAL_QUERY", etc.)
-        
+
     Returns:
         List of floats representing the embedding vector
     """
@@ -93,13 +93,13 @@ async def get_gemini_embeddings(
         else:
             # Default to a common Gemini embedding model
             model = "gemini-embedding-exp-03-07"
-    
+
     logger.debug(f"Generating Gemini embedding with model: {model}")
     logger.debug(f"Text length: {len(text)} chars")
-    
+
     # Get Gemini to ensure configured
     configure_gemini()
-    
+
     while True:
         try:
             # Use asyncio.to_thread to make the synchronous GenAI call
@@ -114,7 +114,7 @@ async def get_gemini_embeddings(
                 ),
                 timeout=timeout
             )
-            
+
             # Extract the embedding values from the response
             embedding = result['embedding']
             logger.debug(
@@ -142,17 +142,17 @@ async def get_gemini_embeddings(
 
 
 async def get_gemini_batch_embeddings(
-    texts: List[str],
-    model: Optional[str] = None,
+    texts: list[str],
+    model: str | None = None,
     timeout: float = 60.0,
     task_type: str = "SEMANTIC_SIMILARITY"
-) -> List[List[float]]:
+) -> list[list[float]]:
     """
     Generate embeddings for multiple texts using Google GenAI.
-    
+
     Note: Gemini API processes embeddings one at a time, so this function
     makes multiple sequential calls for batch processing.
-    
+
     Args:
         texts: List of texts to embed
         model: Optional model ID to use, defaults to provider's configured
@@ -160,7 +160,7 @@ async def get_gemini_batch_embeddings(
         timeout: Maximum time to wait for each embedding response in seconds
         task_type: The task type for the embedding (e.g.,
                   "SEMANTIC_SIMILARITY", "RETRIEVAL_QUERY", etc.)
-        
+
     Returns:
         List of embedding vectors, each a list of floats
     """
@@ -172,18 +172,18 @@ async def get_gemini_batch_embeddings(
         else:
             # Default to a common Gemini embedding model
             model = "gemini-embedding-exp-03-07"
-    
+
     logger.debug(f"Generating Gemini batch embeddings with model: {model}")
     logger.debug(f"Batch size: {len(texts)} texts")
-    
+
     # Call Gemini to ensure configured
     configure_gemini()
     embeddings = []
-    
+
     # Process each text individually
     for i, text in enumerate(texts):
         logger.debug(f"Processing text {i+1}/{len(texts)}")
-        
+
         # Use asyncio.to_thread to make the synchronous GenAI call
         # non-blocking
         while True:
@@ -222,7 +222,7 @@ async def get_gemini_batch_embeddings(
                         }
                     )
                     raise
-        
+
     logger.debug(
         f"Gemini batch embeddings generated, count: {len(embeddings)}"
     )

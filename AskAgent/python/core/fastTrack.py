@@ -11,11 +11,11 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from core.retriever import search
+
 import core.ranking as ranking
-from misc.logger.logging_config_helper import get_configured_logger
 from core.config import CONFIG
-import asyncio
+from core.retriever import search
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("fast_track")
 
@@ -24,12 +24,12 @@ NO_STANDARD_RETRIEVAL_SITES = ["datacommons", "all", "conv_history", "CricketLen
 
 def site_supports_standard_retrieval(site):
     """Check if a site supports standard vector database retrieval"""
-    
+
     # If site is "all" and aggregation is disabled, treat it as supporting standard retrieval
     if site == "all" and not CONFIG.is_aggregation_enabled():
         logger.debug("Site is 'all' with aggregation disabled - treating as standard retrieval")
         return True
-    
+
     return site not in NO_STANDARD_RETRIEVAL_SITES
 
 class FastTrack:
@@ -50,32 +50,32 @@ class FastTrack:
             return False
         logger.info("Query is eligible for fast track")
         return True
-        
+
     async def do(self):
         """Execute fast track processing"""
         if (not self.is_fastTrack_eligible()):
             logger.info("Fast track processing skipped - not eligible")
             return
-        
+
         logger.info("Starting fast track processing")
-        
+
         self.handler.retrieval_done_event.set()  # Use event instead of flag
-        
+
         try:
-           
+
             items = await search(
-                self.handler.query, 
+                self.handler.query,
                 self.handler.site,
                 query_params=self.handler.query_params,
                 handler=self.handler
             )
             self.handler.final_retrieved_items = items
-          
+
             if (not self.handler.query_done and not self.handler.abort_fast_track_event.is_set()):
                 self.handler.fastTrackRanker = ranking.Ranking(self.handler, items, ranking.Ranking.FAST_TRACK)
                 await self.handler.fastTrackRanker.do()
                 return
-                
+
         except Exception as e:
-            logger.error(f"Error during fast track processing: {str(e)}")
+            logger.error(f"Error during fast track processing: {e!s}")
             raise

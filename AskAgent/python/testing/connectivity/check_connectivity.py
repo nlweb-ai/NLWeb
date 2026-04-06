@@ -4,22 +4,28 @@ Run this script to validate environment variables and API access.
 """
 
 # Error handling for imports
+import argparse
+import asyncio
 import os
 import sys
-import asyncio
 import time
-import argparse
 
 # Add parent directory to path to allow imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 try:
-    from core.config import CONFIG
-    from core.llm import ask_llm
-    from core.embedding import get_embedding
-    from core.retriever import search, get_vector_db_client
-    from testing.connectivity.azure_connectivity import check_azure_search_api, check_azure_openai_api, check_openai_api, check_azure_embedding_api
-    from testing.connectivity.snowflake_connectivity import check_embedding, check_complete, check_search
+    from testing.connectivity.azure_connectivity import (
+        check_azure_embedding_api,
+        check_azure_openai_api,
+        check_azure_search_api,
+        check_openai_api,
+    )
     from testing.connectivity.inception_connectivity import check_inception_api
+    from testing.connectivity.snowflake_connectivity import check_complete, check_embedding, check_search
+
+    from core.config import CONFIG
+    from core.embedding import get_embedding
+    from core.llm import ask_llm
+    from core.retriever import get_vector_db_client, search
 
 except ImportError as e:
     print(f"Error importing required libraries: {e}")
@@ -65,12 +71,12 @@ async def check_llm_api(llm_name) -> bool:
             print(f"✅ LLM API connectivity check successful for {llm_name}. Output contains expected answer.")
             return True
         else:
-            print(f"❌ LLM API connectivity check failed for {llm_name}: Output does not contain expected answer 'Paris'.  Please verify manually: {str(output)}")
+            print(f"❌ LLM API connectivity check failed for {llm_name}: Output does not contain expected answer 'Paris'.  Please verify manually: {output!s}")
             return False
     except Exception as e:
-        print(f"❌ LLM API connectivity check failed for {llm_name}: {type(e).__name__}: {str(e)}")
+        print(f"❌ LLM API connectivity check failed for {llm_name}: {type(e).__name__}: {e!s}")
         return False
-    
+
 
 # Function to check embedding API connectivity
 async def check_embedding_api(embedding_name) -> bool:
@@ -99,12 +105,12 @@ async def check_embedding_api(embedding_name) -> bool:
             print(f"✅ Embedding API connectivity check successful for {embedding_name}. Output is list of floats.")
             return True
         else:
-            print(f"❌ Embedding API connectivity check failed for {embedding_name}: Output is not a list of floats.  Please verify manually: {str(output)}")
+            print(f"❌ Embedding API connectivity check failed for {embedding_name}: Output is not a list of floats.  Please verify manually: {output!s}")
             return False
     except Exception as e:
-        print(f"❌ Embedding API connectivity check failed for {embedding_name}: {type(e).__name__}: {str(e)}")
+        print(f"❌ Embedding API connectivity check failed for {embedding_name}: {type(e).__name__}: {e!s}")
         return False
-    
+
 
 # Function to check retriever connectivity
 async def check_retriever(retrieval_name) -> bool:
@@ -121,11 +127,11 @@ async def check_retriever(retrieval_name) -> bool:
 
     # Default retriever check using get_vector_db_client
     try:
-        # We need to use this specific vector db client to test its connectivity.  The general search will try all and hide errors.  
+        # We need to use this specific vector db client to test its connectivity.  The general search will try all and hide errors.
         client = get_vector_db_client(retrieval_name)
         resp = await client.search("e", site="all", num_results=1)
         #print(f"Output from {retrieval_name}: {str(resp)}")
-        
+
         # Check if the response is a valid list (even if empty)
         if isinstance(resp, list):
             if len(resp) > 0:
@@ -144,7 +150,7 @@ async def check_retriever(retrieval_name) -> bool:
             print(f"❌ Retriever API connectivity check failed for {retrieval_name}: Expected list response, got {type(resp).__name__}")
             return False
     except Exception as e:
-        print(f"❌ Retriever API connectivity check failed for {retrieval_name}: {type(e).__name__}: {str(e)}")
+        print(f"❌ Retriever API connectivity check failed for {retrieval_name}: {type(e).__name__}: {e!s}")
         return False
 
 
@@ -157,7 +163,7 @@ async def main():
     parser.add_argument("--all", action='store_true', default=False,
                         help="Run all connectivity checks for every known provider",)
     args = parser.parse_args()
-    
+
     start_time = time.time()
 
     if args.all:
@@ -176,39 +182,38 @@ async def main():
     else:
         """Run connectivity checks for preferred providers only"""
         print("Checking NLWeb configuration and connectivity...")
-    
+
         # Retrieve preferred provider from config
         model_config = CONFIG.preferred_llm_endpoint
         print(f"Using configuration from preferred LLM provider: {model_config}")
         tasks.append(check_llm_api(model_config))
-        
+
         embedding_config = CONFIG.preferred_embedding_provider
         print(f"Using configuration from preferred embedding provider: {embedding_config}")
         tasks.append(check_embedding_api(embedding_config))
-        
-        retrieval_config = CONFIG.write_endpoint
-        # NOTE: I can't use a retrieval client.enabled_endpoints here, because it does validation and will just remove any invalid endpoints. 
-        # The purpose of this method is to surface these invalid endpoints to the user.   
+
+        # NOTE: I can't use a retrieval client.enabled_endpoints here, because it does validation and will just remove any invalid endpoints.
+        # The purpose of this method is to surface these invalid endpoints to the user.
         for retrieval_endpoint in CONFIG.retrieval_endpoints:
-            if CONFIG.retrieval_endpoints[retrieval_endpoint].enabled:  
-                print(f"Using configuration from enabled retrieval endpoint: {retrieval_endpoint}")  
+            if CONFIG.retrieval_endpoints[retrieval_endpoint].enabled:
+                print(f"Using configuration from enabled retrieval endpoint: {retrieval_endpoint}")
                 tasks.append(check_retriever(retrieval_endpoint))
-    
+
     # Run all tasks concurrently
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    
+
     # Count successful connections
     successful = sum(1 for r in results if r is True)
     total = len(tasks)
-    
-    print(f"\n====== SUMMARY ======")
+
+    print("\n====== SUMMARY ======")
     print(f"✅ {successful}/{total} connections successful")
-    
+
     if successful < total:
         print("❌ Some connections failed. Please check error messages above.")
     else:
         print("✅ All connections successful! Your environment is configured correctly.")
-    
+
     elapsed_time = time.time() - start_time
     print(f"Time taken: {elapsed_time:.2f} seconds")
 

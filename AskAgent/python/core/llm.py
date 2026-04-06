@@ -2,22 +2,21 @@
 # Licensed under the MIT License
 
 """
-Very simple wrapper around the various LLM providers.  
+Very simple wrapper around the various LLM providers.
 
 WARNING: This code is under development and may undergo changes in future releases.
 Backwards compatibility is not guaranteed at this time.
 
 """
 
-from typing import Optional, Dict, Any
-from core.config import CONFIG
 import asyncio
-import threading
 import subprocess
 import sys
+from typing import Any
 
+from core.config import CONFIG
+from misc.logger.logging_config_helper import LogLevel, get_configured_logger
 
-from misc.logger.logging_config_helper import get_configured_logger, LogLevel
 logger = get_configured_logger("llm_wrapper")
 
 # Cache for loaded providers
@@ -56,21 +55,21 @@ _installed_packages = set()
 def _ensure_package_installed(llm_type: str):
     """
     Ensure the required packages for an LLM type are installed.
-    
+
     Args:
         llm_type: The type of LLM provider
     """
     if llm_type not in _llm_type_packages:
         return
-    
+
     packages = _llm_type_packages[llm_type]
     for package in packages:
         # Extract package name without version for caching
         package_name = package.split(">=")[0].split("==")[0]
-        
+
         if package_name in _installed_packages:
             continue
-            
+
         try:
             # Try to import the package first
             if package_name == "google-cloud-aiplatform":
@@ -92,28 +91,28 @@ def _ensure_package_installed(llm_type: str):
                 logger.info(f"Successfully installed {package}")
             except subprocess.CalledProcessError as e:
                 logger.error(f"Failed to install {package}: {e}")
-                raise ValueError(f"Failed to install required package {package} for {llm_type}")
+                raise ValueError(f"Failed to install required package {package} for {llm_type}") from e
 
 def _get_provider(llm_type: str):
     """
     Lazily load and return the provider for the given LLM type.
-    
+
     Args:
         llm_type: The type of LLM provider to load
-        
+
     Returns:
         The provider instance
-        
+
     Raises:
         ValueError: If the LLM type is unknown
     """
     # Return cached provider if already loaded
     if llm_type in _loaded_providers:
         return _loaded_providers[llm_type]
-    
+
     # Ensure required packages are installed
     _ensure_package_installed(llm_type)
-    
+
     # Import the appropriate provider module if not already loaded
     try:
         if llm_type == "openai":
@@ -148,24 +147,24 @@ def _get_provider(llm_type: str):
             _loaded_providers[llm_type] = ollama_provider
         else:
             raise ValueError(f"Unknown LLM type: {llm_type}")
-            
+
         return _loaded_providers[llm_type]
     except ImportError as e:
         logger.error(f"Failed to import provider for {llm_type}: {e}")
-        raise ValueError(f"Failed to load provider for {llm_type}: {e}")
+        raise ValueError(f"Failed to load provider for {llm_type}: {e}") from e
 
 async def ask_llm(
     prompt: str,
-    schema: Dict[str, Any],
-    provider: Optional[str] = None,
+    schema: dict[str, Any],
+    provider: str | None = None,
     level: str = "low",
     timeout: int = 8,
-    query_params: Optional[Dict[str, Any]] = None,
+    query_params: dict[str, Any] | None = None,
     max_length: int = 512
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Route an LLM request to the specified endpoint, with dispatch based on llm_type.
-    
+
     Args:
         prompt: The text prompt to send to the LLM
         schema: JSON schema that the response should conform to
@@ -174,17 +173,17 @@ async def ask_llm(
         timeout: Request timeout in seconds
         query_params: Optional query parameters for development mode provider override
         max_length: Maximum length of the response in tokens (default: 512)
-        
+
     Returns:
         Parsed JSON response from the LLM
-        
+
     Raises:
         ValueError: If the endpoint is unknown or response cannot be parsed
         TimeoutError: If the request times out
     """
     # Determine provider, with development mode override support
     provider_name = provider or CONFIG.preferred_llm_endpoint
-    
+
     # In development mode, allow query param override
     if CONFIG.is_development_mode() and query_params:
         from core.utils.utils import get_param
@@ -192,7 +191,7 @@ async def ask_llm(
         if override_provider:
             provider_name = override_provider
             logger.debug(f"Development mode: LLM provider overridden to {provider_name}")
-        
+
         # Also allow level override in development mode
         override_level = get_param(query_params, "llm_level", str, None)
         if override_level:
@@ -201,7 +200,7 @@ async def ask_llm(
     logger.debug(f"Initiating LLM request with provider: {provider_name}, level: {level}")
     logger.debug(f"Prompt preview: {prompt[:100]}...")
     logger.debug(f"Schema: {schema}")
-    
+
     if provider_name not in CONFIG.llm_endpoints:
         error_msg = f"Unknown provider '{provider_name}'"
         logger.error(error_msg)
@@ -220,7 +219,7 @@ async def ask_llm(
 
     model_id = getattr(provider_config.models, level)
     logger.debug(f"Using model: {model_id}")
-    
+
     # Initialize variables for exception handling
     llm_type_for_error = llm_type
 
@@ -233,7 +232,7 @@ async def ask_llm(
             error_msg = str(e)
             logger.error(error_msg)
             return {}
-        
+
         # Simply call the provider's get_completion method without locking
         # Each provider should handle thread-safety internally
         logger.debug(f"Calling {llm_type} provider completion for endpoint {provider_name} with max_tokens={max_length}")
@@ -243,12 +242,12 @@ async def ask_llm(
         )
         logger.debug(f"{provider_name} response received, size: {len(str(result))} chars")
         return result
-        
+
     except asyncio.TimeoutError:
         logger.error(f"LLM call timed out after {timeout}s with provider {provider_name}")
         return {}
     except Exception as e:
-        error_msg = f"LLM call failed: {type(e).__name__}: {str(e)}"
+        error_msg = f"LLM call failed: {type(e).__name__}: {e!s}"
         logger.error(f"Error with provider {provider_name}: {error_msg}")
 
         logger.log_with_context(
@@ -270,19 +269,19 @@ async def ask_llm(
 def get_available_providers() -> list:
     """
     Get a list of LLM providers that have their required API keys available.
-    
+
     Returns:
         List of provider names that are available for use.
     """
     available_providers = []
-    
+
     for provider_name, provider_config in CONFIG.llm_endpoints.items():
         # Check if provider config exists and has required fields
-        if (provider_config and 
-            hasattr(provider_config, 'api_key') and provider_config.api_key and 
+        if (provider_config and
+            hasattr(provider_config, 'api_key') and provider_config.api_key and
             provider_config.api_key.strip() != "" and
             hasattr(provider_config, 'models') and provider_config.models and
             provider_config.models.high and provider_config.models.low):
             available_providers.append(provider_name)
-    
+
     return available_providers

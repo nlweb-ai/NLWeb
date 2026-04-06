@@ -1,9 +1,10 @@
 """Static file serving routes for aiohttp server"""
 
-from aiohttp import web
 import logging
-import os
 from pathlib import Path
+
+from aiohttp import web
+
 from core.config import CONFIG
 
 logger = logging.getLogger(__name__)
@@ -11,14 +12,14 @@ logger = logging.getLogger(__name__)
 
 def setup_static_routes(app: web.Application):
     """Setup static file serving routes"""
-    
+
     config = app.get('config', {})
     static_dir = config.get('static_directory', '../static')
-    
+
     # Convert to absolute path
     base_path = Path(__file__).parent.parent.parent.parent.parent
-    static_path = base_path / static_dir.lstrip('../')
-    
+    static_path = base_path / static_dir.removeprefix('../')
+
     if not static_path.exists():
         logger.warning(f"Static directory not found at {static_path}")
         # Try alternate path
@@ -26,32 +27,32 @@ def setup_static_routes(app: web.Application):
         if not static_path.exists():
             logger.error("Could not find static directory")
             return
-    
+
     logger.info(f"Serving static files from: {static_path}")
-    
+
     # Serve index.html for root path
     app.router.add_get('/', index_handler)
-    
+
     # Serve static files
     app.router.add_static(
-        '/static/', 
+        '/static/',
         path=static_path,
         name='static',
         show_index=False,
         follow_symlinks=False
     )
-    
+
     # Serve HTML files
     html_path = static_path / 'html'
     if html_path.exists():
         app.router.add_static(
-            '/html/', 
+            '/html/',
             path=html_path,
             name='html',
             show_index=False,
             follow_symlinks=False
         )
-    
+
     # Store static path in app for use in handlers
     app['static_path'] = static_path
 

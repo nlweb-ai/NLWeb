@@ -10,21 +10,20 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 import asyncio
-from core.baseHandler import NLWebHandler
-from core.llm import ask_llm
-from core.prompts import PromptRunner
-from core.retriever import search
-from core.prompts import find_prompt, fill_prompt
-from core.utils.json_utils import trim_json, trim_json_hard
-from misc.logger.logging_config_helper import get_configured_logger
-from core.utils.utils import log
-import core.query_analysis.analyze_query as analyze_query
-import core.query_analysis.relevance_detection as relevance_detection
-import core.query_analysis.memory as memory
-import core.query_analysis.required_info as required_info
 import json
 import traceback
 
+import core.query_analysis.analyze_query as analyze_query
+import core.query_analysis.memory as memory
+import core.query_analysis.relevance_detection as relevance_detection
+import core.query_analysis.required_info as required_info
+from core.baseHandler import NLWebHandler
+from core.llm import ask_llm
+from core.prompts import PromptRunner, fill_prompt, find_prompt
+from core.retriever import search
+from core.utils.json_utils import trim_json_hard
+from core.utils.utils import log
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("generate_answer")
 
@@ -59,19 +58,19 @@ class GenerateAnswer(NLWebHandler):
             logger.exception(f"Error in runQuery: {e}")
             traceback.print_exc()
             raise
-    
+
     async def prepare(self):
         # runs the tasks that need to be done before retrieval, ranking, etc.
         logger.info("Starting preparation phase")
         tasks = []
-        
+
         # Adding all necessary preparation tasks
         tasks.append(asyncio.create_task(analyze_query.DetectItemType(self).do()))
         tasks.append(asyncio.create_task(self.decontextualizeQuery().do()))
         tasks.append(asyncio.create_task(relevance_detection.RelevanceDetection(self).do()))
         tasks.append(asyncio.create_task(memory.Memory(self).do()))
         tasks.append(asyncio.create_task(required_info.RequiredInfo(self).do()))
-         
+
         try:
             logger.debug(f"Running {len(tasks)} preparation tasks concurrently")
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -80,14 +79,14 @@ class GenerateAnswer(NLWebHandler):
         finally:
             self.pre_checks_done_event.set()  # Signal completion regardless of errors
             self.state.set_pre_checks_done()
-            
+
         logger.info("Preparation phase completed")
-   
+
     async def rankItem(self, url, json_str, name, site):
         if not self.connection_alive_event.is_set():
             logger.warning("Connection lost, skipping item ranking")
             return
-            
+
         try:
             logger.debug(f"Ranking item: {name} from {site}")
             prompt_str, ans_struc = find_prompt(site, self.item_type, self.RANKING_PROMPT_NAME)
@@ -104,12 +103,12 @@ class GenerateAnswer(NLWebHandler):
                 'schema_object': json.loads(json_str),
                 'sent': False,
             }
-            
+
             if (ranking["score"] > self.GATHER_ITEMS_THRESHOLD):
                 logger.info(f"High score item: {name} (score: {ranking['score']})")
                 async with self._results_lock:  # Thread-safe append
                     self.final_ranked_answers.append(ansr)
-                    
+
         except Exception as e:
             logger.error(f"Error in rankItem: {e}")
             logger.debug("Full error trace: ", exc_info=True)
@@ -120,7 +119,7 @@ class GenerateAnswer(NLWebHandler):
             # Wait for retrieval to be done if not already
             logger.info("Retrieving items for query")
             top_embeddings = await search(
-                self.decontextualized_query, 
+                self.decontextualized_query,
                 self.site,
                 query_params=self.query_params
             )
@@ -130,15 +129,15 @@ class GenerateAnswer(NLWebHandler):
             tasks = []
             for url, json_str, name, site in top_embeddings:
                 tasks.append(asyncio.create_task(self.rankItem(url, json_str, name, site)))
-            
-            
+
+
             logger.debug(f"Running {len(tasks)} ranking tasks concurrently")
             await asyncio.gather(*tasks, return_exceptions=True)
-            
+
             # Synthesize the answer from ranked items
             logger.info("Ranking completed, synthesizing answer")
             await self.synthesizeAnswer()
-            
+
         except Exception as e:
             logger.exception(f"Error in get_ranked_answers: {e}")
             raise
@@ -150,66 +149,66 @@ class GenerateAnswer(NLWebHandler):
             logger.debug(f"Got description for item: {name}")
             return (url, name, site, description["description"], json_str)
         except Exception as e:
-            logger.error(f"Error getting description for {name}: {str(e)}")
+            logger.error(f"Error getting description for {name}: {e!s}")
             logger.debug("Full error trace: ", exc_info=True)
             raise
 
-    async def synthesizeAnswer(self): 
+    async def synthesizeAnswer(self):
         if not self.connection_alive_event.is_set():
             logger.warning("Connection lost, skipping answer synthesis")
             return
-            
+
         try:
             logger.info("Starting answer synthesis")
-            
+
             # Check if we have any ranked answers to work with
             if not self.final_ranked_answers:
                 logger.warning("No ranked answers found, sending empty response")
                 message = {
                     "message_type": "nlws",
                     "@type": "GeneratedAnswer",
-                    "answer": "I couldn't find relevant information to answer your question.", 
+                    "answer": "I couldn't find relevant information to answer your question.",
                     "items": []
                 }
                 await self.send_message(message)
                 return
-                
+
             response = await PromptRunner(self).run_prompt(self.SYNTHESIZE_PROMPT_NAME, timeout=100, verbose=True)
-            logger.debug(f"Synthesis response received")
-            
+            logger.debug("Synthesis response received")
+
             json_results = []
             description_tasks = []
             answer = response["answer"]
-            
+
             # Create initial message with just the answer
             message = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": answer, "items": json_results}
             logger.info("Sending initial answer")
             await self.send_message(message)
-            
+
             # Process each URL mentioned in the response
-            if "urls" in response and response["urls"]:
+            if response.get("urls"):
                 for url in response["urls"]:
                     # Find the matching item in our items list
                     matching_items = [item for item in self.items if item[0] == url]
                     if not matching_items:
                         logger.warning(f"URL {url} referenced in response not found in items")
                         continue
-                        
+
                     item = matching_items[0]
                     (url, json_str, name, site) = item
                     logger.debug(f"Creating description task for item: {name}")
                     t = asyncio.create_task(self.getDescription(url, json_str, self.decontextualized_query, answer, name, site))
                     description_tasks.append(t)
-                    
+
                 if description_tasks:
                     logger.info(f"Waiting for {len(description_tasks)} description tasks to complete")
                     desc_answers = await asyncio.gather(*description_tasks, return_exceptions=True)
-                    
+
                     for result in desc_answers:
                         if isinstance(result, Exception):
                             logger.error(f"Error getting description: {result}")
                             continue
-                            
+
                         url, name, site, description, json_str = result
                         logger.debug(f"Adding result for {name} to final message")
                         json_results.append({
@@ -220,20 +219,20 @@ class GenerateAnswer(NLWebHandler):
                             "site": site,
                             "schema_object": json.loads(json_str),
                         })
-                        
+
                     # Update message with descriptions
                     message = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": answer, "items": json_results}
                     logger.info(f"Sending final answer with {len(json_results)} item descriptions")
                     await self.send_message(message)
             else:
                 logger.warning("No URLs found in synthesis response")
-                
+
         except Exception as e:
             logger.exception(f"Error in synthesizeAnswer: {e}")
             if self.connection_alive_event.is_set():
                 try:
                     error_msg = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": "I encountered an error while generating your answer. Please try again.", "items": []}
                     await self.send_message(error_msg)
-                except:
+                except Exception:
                     pass
             raise

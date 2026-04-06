@@ -12,14 +12,13 @@ import asyncio
 import json
 import re
 import threading
-from typing import Any, Dict, List, Optional
-
-from core.config import CONFIG
-from misc.logger.logging_config_helper import get_configured_logger
+from typing import Any
 
 from huggingface_hub import AsyncInferenceClient
-from llm_providers.llm_provider import LLMProvider
 
+from core.config import CONFIG
+from llm_providers.llm_provider import LLMProvider
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("llm")
 
@@ -60,7 +59,7 @@ class HuggingFaceProvider(LLMProvider):
         return cls._client
 
     @classmethod
-    def _build_messages(cls, prompt: str, schema: Dict[str, Any]) -> List[Dict[str, str]]:
+    def _build_messages(cls, prompt: str, schema: dict[str, Any]) -> list[dict[str, str]]:
         """
         Construct the system and user message sequence enforcing a JSON schema.
         """
@@ -73,7 +72,7 @@ class HuggingFaceProvider(LLMProvider):
         ]
 
     @classmethod
-    def clean_response(cls, content: str) -> Dict[str, Any]:
+    def clean_response(cls, content: str) -> dict[str, Any]:
         """
         Strip markdown fences and extract the first JSON object.
         """
@@ -87,13 +86,13 @@ class HuggingFaceProvider(LLMProvider):
     async def get_completion(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        model: Optional[str] = None,
+        schema: dict[str, Any],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
         timeout: float = 30.0,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send an async chat completion request and return parsed JSON output.
         """

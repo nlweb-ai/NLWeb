@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 # simulate the behavior of the frontend code as closely as possible.
 
 # Get the content of the fp-chat-interface.js file
-with open('../../static/fp-chat-interface.js', 'r') as f:
+with open('../../static/fp-chat-interface.js') as f:
     js_code = f.read()
 
 def test_toggle_debug_info():
@@ -40,7 +40,7 @@ def test_toggle_debug_info():
                 message_text.replace_with(new_content)
         else:
             message_text['data-original-content'] = str(message_text)
-            message_text['class'] = message_text.get('class', []) + ['showing-debug']
+            message_text['class'] = [*message_text.get('class', []), 'showing-debug']
             message_text.string = 'Debug Info'
 
     # 1. First click (show debug info)

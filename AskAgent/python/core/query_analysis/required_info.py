@@ -8,10 +8,11 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from misc.logger.logging_config_helper import get_configured_logger
 import asyncio
-from core.prompts import PromptRunner
+
 from core.config import CONFIG
+from core.prompts import PromptRunner
+from misc.logger.logging_config_helper import get_configured_logger
 
 # Create a logger for this module
 logger = get_configured_logger("required_info")
@@ -22,7 +23,7 @@ class RequiredInfo(PromptRunner):
 
     REQUIRED_INFO_PROMPT_NAME = "RequiredInfoPrompt"
     STEP_NAME = "RequiredInfo"
-    
+
     def __init__(self, handler):
         logger.debug(f"Initializing RequiredInfo for handler: {handler.__class__.__name__}")
         super().__init__(handler)
@@ -37,23 +38,23 @@ class RequiredInfo(PromptRunner):
             self.handler.user_question = ""
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return
-        
+
         logger.info(f"Running required info check with prompt: {self.REQUIRED_INFO_PROMPT_NAME}")
         response = await self.run_prompt(self.REQUIRED_INFO_PROMPT_NAME, level="high")
-        
+
         if response:
             logger.debug(f"Required info prompt response received: {response}")
             self.handler.required_info_found = response["required_info_found"] == "True"
-            
+
             if not self.handler.required_info_found:
                 logger.info("Required information not found, will ask user for more details")
                 self.handler.query_done = True
                 # Centralized abort checking will handle setting the event
                 self.handler.state.abort_fast_track_if_needed()
-                
+
                 logger.debug(f"Sending ask_user message: {response['user_question']}")
                 asyncio.create_task(self.handler.send_message({"message_type": "ask_user", "message": response["user_question"]}))
-                
+
                 logger.info(f"Precheck step complete: {self.STEP_NAME} (missing required info)")
                 await self.handler.state.precheck_step_done(self.STEP_NAME)
                 return
@@ -63,6 +64,6 @@ class RequiredInfo(PromptRunner):
             logger.warning("No response from required info prompt, assuming info is present")
             self.handler.required_info_found = True
             self.handler.user_question = ""
-        
+
         logger.info(f"Precheck step complete: {self.STEP_NAME} (required info available)")
         await self.handler.state.precheck_step_done(self.STEP_NAME)

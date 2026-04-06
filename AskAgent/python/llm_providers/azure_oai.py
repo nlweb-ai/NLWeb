@@ -8,21 +8,24 @@ Backwards compatibility is not guaranteed at this time.
 Code for calling Azure Open AI endpoints for LLM functionality.
 """
 
+import asyncio
 import json
+import threading
+from typing import Any
+
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AsyncAzureOpenAI
+
 from core.config import CONFIG
-import asyncio
-import threading
-from typing import Dict, Any, Optional
 from llm_providers.llm_provider import LLMProvider
-from misc.logger.logging_config_helper import get_configured_logger, LogLevel
+from misc.logger.logging_config_helper import get_configured_logger
+
 logger = get_configured_logger("azure_oai")
 
 
 class AzureOpenAIProvider(LLMProvider):
     """Implementation of LLMProvider for Azure OpenAI."""
-    
+
     # Global client with thread-safe initialization
     _client_lock = threading.Lock()
     _client = None
@@ -138,16 +141,16 @@ class AzureOpenAIProvider(LLMProvider):
         return cls._client
 
     @classmethod
-    def clean_response(cls, content: str) -> Dict[str, Any]:
+    def clean_response(cls, content: str) -> dict[str, Any]:
         """
         Clean and extract JSON content from OpenAI response.
-        
+
         Args:
             content: The content to clean. May be None.
-            
+
         Returns:
             Parsed JSON object or empty dict if content is None or invalid
-            
+
         Raises:
             ValueError: If the content doesn't contain a valid JSON object
         """
@@ -155,28 +158,28 @@ class AzureOpenAIProvider(LLMProvider):
         if content is None:
             logger.warning("Received None content from Azure OpenAI")
             return {}
-            
+
         # Handle empty string case
         response_text = content.strip()
         if not response_text:
             logger.warning("Received empty content from Azure OpenAI")
             return {}
-            
+
         # Remove markdown code block indicators if present
         response_text = response_text.replace('```json', '').replace('```', '').strip()
-                
+
         # Find the JSON object within the response
         start_idx = response_text.find('{')
         end_idx = response_text.rfind('}') + 1
-        
+
         if start_idx == -1 or end_idx == 0:
             error_msg = "No valid JSON object found in response"
             logger.error(f"{error_msg}, content: {response_text}")
             return {}
-            
+
 
         json_str = response_text[start_idx:end_idx]
-                
+
         try:
             result = json.loads(json_str)
             return result
@@ -188,17 +191,17 @@ class AzureOpenAIProvider(LLMProvider):
     async def get_completion(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        model: Optional[str] = None,
+        schema: dict[str, Any],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
         timeout: float = 8.0,
         high_tier: bool = False,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get completion from Azure OpenAI.
-        
+
         Args:
             prompt: The prompt to send to the model
             schema: JSON schema for the expected response
@@ -208,22 +211,22 @@ class AzureOpenAIProvider(LLMProvider):
             timeout: Request timeout in seconds
             high_tier: Whether to use the high-tier model from config
             **kwargs: Additional provider-specific arguments
-            
+
         Returns:
             Parsed JSON response
-            
+
         Raises:
             ValueError: If the response cannot be parsed as valid JSON
             TimeoutError: If the request times out
         """
         # Use specified model or get from config based on tier
         model_to_use = model if model else self.get_model_from_config(high_tier)
-        
+
         client = self.get_client()
         system_prompt = f"""Provide a response that matches this JSON schema: {json.dumps(schema)}"""
-        
+
         logger.debug(f"Sending completion request to Azure OpenAI with model: {model_to_use}")
-        
+
         try:
             response = await asyncio.wait_for(
                 client.chat.completions.create(
@@ -241,26 +244,26 @@ class AzureOpenAIProvider(LLMProvider):
                 ),
                 timeout=timeout
             )
-            
+
             # Safely extract content from response, handling potential None
             if not response or not hasattr(response, 'choices') or not response.choices:
                 logger.error("Invalid or empty response from Azure OpenAI")
                 return {}
-                
+
             # Check if message and content exist
             if not hasattr(response.choices[0], 'message') or not hasattr(response.choices[0].message, 'content'):
                 logger.error("Response does not contain expected 'message.content' structure")
                 return {}
-                
+
             ansr_str = response.choices[0].message.content
             ansr = self.clean_response(ansr_str)
             return ansr
-            
+
         except asyncio.TimeoutError:
             logger.error(f"Azure OpenAI request timed out after {timeout} seconds")
             return {}
         except Exception as e:
-            logger.error(f"Azure OpenAI completion failed: {type(e).__name__}: {str(e)}")
+            logger.error(f"Azure OpenAI completion failed: {type(e).__name__}: {e!s}")
             raise
 
 

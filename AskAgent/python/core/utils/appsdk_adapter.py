@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 import json
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from collections.abc import Iterable
+from copy import deepcopy
+from typing import Any
 
 
-def _ensure_list(value: Any) -> List[Any]:
+def _ensure_list(value: Any) -> list[Any]:
     """Return value as list, filtering out falsy entries."""
     if value is None:
         return []
@@ -16,7 +17,7 @@ def _ensure_list(value: Any) -> List[Any]:
     return [value]
 
 
-def _extract_answer_payload(message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _extract_answer_payload(message: dict[str, Any]) -> dict[str, Any] | None:
     """Return the answer payload (if any) from a message."""
     if not isinstance(message, dict):
         return None
@@ -33,10 +34,10 @@ def _extract_answer_payload(message: Dict[str, Any]) -> Optional[Dict[str, Any]]
     return None
 
 
-def _collect_results(messages: Iterable[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[str]]:
+def _collect_results(messages: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[str]]:
     """Collect result items and the message ids they originated from."""
-    aggregated: List[Dict[str, Any]] = []
-    origins: List[str] = []
+    aggregated: list[dict[str, Any]] = []
+    origins: list[str] = []
 
     for message in messages:
         if not isinstance(message, dict):
@@ -57,12 +58,12 @@ def _collect_results(messages: Iterable[Dict[str, Any]]) -> Tuple[List[Dict[str,
     return aggregated, origins
 
 
-def _extract_legacy_results(legacy_payload: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _extract_legacy_results(legacy_payload: dict[str, Any] | None) -> list[dict[str, Any]]:
     """Pull result items from legacy payload structures."""
     if not isinstance(legacy_payload, dict):
         return []
 
-    candidates: List[List[Dict[str, Any]]] = []
+    candidates: list[list[dict[str, Any]]] = []
 
     # Direct results list
     top_results = legacy_payload.get("results")
@@ -76,7 +77,7 @@ def _extract_legacy_results(legacy_payload: Optional[Dict[str, Any]]) -> List[Di
         if isinstance(sc_results, list):
             candidates.append(sc_results)
 
-    merged: List[Dict[str, Any]] = []
+    merged: list[dict[str, Any]] = []
     seen = set()
     for bucket in candidates:
         for item in bucket:
@@ -89,11 +90,11 @@ def _extract_legacy_results(legacy_payload: Optional[Dict[str, Any]]) -> List[Di
 
 
 def convert_messages_to_appsdk_response(
-    messages: List[Dict[str, Any]],
-    query: Optional[str] = None,
-    partial_warning: Optional[str] = None,
-    legacy_payload: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    messages: list[dict[str, Any]],
+    query: str | None = None,
+    partial_warning: str | None = None,
+    legacy_payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Convert NLWeb message list into an AppSDK-compatible payload.
 
@@ -137,8 +138,8 @@ def convert_messages_to_appsdk_response(
         else:
             aggregated_results = legacy_results
 
-    generated_answers: List[Dict[str, Any]] = []
-    content_segments: List[Dict[str, Any]] = []
+    generated_answers: list[dict[str, Any]] = []
+    content_segments: list[dict[str, Any]] = []
 
     for message in structured_messages:
         if not isinstance(message, dict):
@@ -179,7 +180,7 @@ def convert_messages_to_appsdk_response(
     if partial_warning:
         content_segments.append({"type": "text", "text": partial_warning})
 
-    structured_content: Dict[str, Any] = {
+    structured_content: dict[str, Any] = {
         "messages": structured_messages,
         "results": aggregated_results,
         "metadata": {
@@ -203,9 +204,9 @@ def convert_messages_to_appsdk_response(
     }
 
 
-def build_appsdk_error_response(error_text: str, status: Optional[int] = None) -> Dict[str, Any]:
+def build_appsdk_error_response(error_text: str, status: int | None = None) -> dict[str, Any]:
     """Create an AppSDK-compatible error payload."""
-    structured_content: Dict[str, Any] = {
+    structured_content: dict[str, Any] = {
         "error": {
             "message": error_text,
         }

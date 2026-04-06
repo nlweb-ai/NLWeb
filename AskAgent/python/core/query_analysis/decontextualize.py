@@ -2,31 +2,32 @@
 # Licensed under the MIT License
 
 """
-This file contains the classes for the different levels of decontextualization. 
+This file contains the classes for the different levels of decontextualization.
 
 WARNING: This code is under development and may undergo changes in future releases.
 Backwards compatibility is not guaranteed at this time.
 """
 
-import core.retriever as retriever
 import asyncio
-from core.utils.trim import trim_json
 import json
-from core.prompts import PromptRunner
-from misc.logger.logging_config_helper import get_configured_logger
+
+import core.retriever as retriever
 from core.config import CONFIG
+from core.prompts import PromptRunner
+from core.utils.trim import trim_json
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("decontextualizer")
 
 class NoOpDecontextualizer(PromptRunner):
-  
+
     DECONTEXTUALIZE_QUERY_PROMPT_NAME = "NoOpDecontextualizer"
     STEP_NAME = "Decon"
 
     def __init__(self, handler):
         super().__init__(handler)
         self.handler.state.start_precheck_step(self.STEP_NAME)
-    
+
     async def do(self):
         # Check if decontextualization is enabled in config
         if not CONFIG.is_decontextualize_enabled():
@@ -35,17 +36,17 @@ class NoOpDecontextualizer(PromptRunner):
             self.handler.requires_decontextualization = False
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return
-        
+
         self.handler.decontextualized_query = self.handler.query
         self.handler.requires_decontextualization = False
         await self.handler.state.precheck_step_done(self.STEP_NAME)
         logger.info("Decontextualization not required")
         return
-    
+
 class PrevQueryDecontextualizer(NoOpDecontextualizer):
 
     DECONTEXTUALIZE_QUERY_PROMPT_NAME = "PrevQueryDecontextualizer"
-  
+
     def __init__(self, handler):
         super().__init__(handler)
 
@@ -57,8 +58,8 @@ class PrevQueryDecontextualizer(NoOpDecontextualizer):
             self.handler.requires_decontextualization = False
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return
-        
-        response = await self.run_prompt(self.DECONTEXTUALIZE_QUERY_PROMPT_NAME, 
+
+        response = await self.run_prompt(self.DECONTEXTUALIZE_QUERY_PROMPT_NAME,
                                          level="high", verbose=True)
         logger.info(f"response: {response}")
         if response is None:
@@ -103,16 +104,16 @@ class PrevQueryDecontextualizer(NoOpDecontextualizer):
         return
 
 class ContextUrlDecontextualizer(PrevQueryDecontextualizer):
-    
+
     DECONTEXTUALIZE_QUERY_PROMPT_NAME = "DecontextualizeContextPrompt"
-     
-    def __init__(self, handler):    
+
+    def __init__(self, handler):
         super().__init__(handler)
         self.context_url = handler.context_url
         self.retriever = self.retriever()
 
     def retriever(self):
-        return retriever.DBItemRetriever(self.handler)  
+        return retriever.DBItemRetriever(self.handler)
 
     async def do(self):
         # Check if decontextualization is enabled in config
@@ -122,7 +123,7 @@ class ContextUrlDecontextualizer(PrevQueryDecontextualizer):
             self.handler.requires_decontextualization = False
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return
-        
+
         response = await self.run_prompt(self.DECONTEXTUALIZE_QUERY_PROMPT_NAME, level="high", verbose=False)
         if response is None:
             self.handler.requires_decontextualization = False
@@ -135,7 +136,7 @@ class ContextUrlDecontextualizer(PrevQueryDecontextualizer):
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return
         else:
-            (url, schema_json, name, site) = item
+            (_url, schema_json, _name, _site) = item
             self.context_description = json.dumps(trim_json(schema_json))
             self.handler.context_description = self.context_description
             response = await self.run_prompt(self.DECONTEXTUALIZE_QUERY_PROMPT_NAME, verbose=True)
@@ -143,7 +144,7 @@ class ContextUrlDecontextualizer(PrevQueryDecontextualizer):
             self.handler.abort_fast_track_event.set()  # Use event instead of flag
             self.handler.decontextualized_query = response["decontextualized_query"]
             await self.handler.state.precheck_step_done(self.STEP_NAME)
-            
+
             # Send decontextualized query message if it's different from the original
             if self.handler.decontextualized_query != self.handler.query:
                 message = {
@@ -156,7 +157,7 @@ class ContextUrlDecontextualizer(PrevQueryDecontextualizer):
             return
 
 class FullDecontextualizer(ContextUrlDecontextualizer):
-    
+
     DECONTEXTUALIZE_QUERY_PROMPT_NAME = "FullDecontextualizePrompt"
 
     def __init__(self, handler):

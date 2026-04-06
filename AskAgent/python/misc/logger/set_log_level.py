@@ -11,7 +11,7 @@ Usage:
 """
 
 import sys
-import os
+
 from logging_config_helper import get_logging_config
 
 
@@ -28,28 +28,28 @@ def set_all_loggers(level: str):
     try:
         config = get_logging_config()
         config.set_all_loggers_level(level)
-        
+
         # Get all environment variables
         env_vars = config.get_all_env_vars()
-        
+
         print(f"\n✓ Successfully updated configuration to set all loggers to {level}")
         print("\nTo apply these changes, you have two options:")
         print("\n1. Set environment variables individually:")
         for env_var, _ in env_vars.items():
             print(f"   export {env_var}={level}")
-        
+
         print("\n2. Or use this single command to set all at once:")
-        all_exports = " && ".join([f"export {env_var}={level}" for env_var in env_vars.keys()])
+        all_exports = " && ".join([f"export {env_var}={level}" for env_var in env_vars])
         print(f"   {all_exports}")
-        
+
         print("\n3. For Windows PowerShell, use:")
-        for env_var in env_vars.keys():
+        for env_var in env_vars:
             print(f'   $env:{env_var}="{level}"')
-        
+
         print("\n4. For Windows Command Prompt, use:")
-        for env_var in env_vars.keys():
+        for env_var in env_vars:
             print(f'   set {env_var}={level}')
-        
+
     except ValueError as e:
         print(f"Error: {e}")
         print("\nValid log levels are: DEBUG, INFO, WARNING, ERROR, CRITICAL")
@@ -64,15 +64,15 @@ def main():
     if len(sys.argv) != 2:
         print_usage()
         sys.exit(1)
-    
+
     log_level = sys.argv[1].upper()
     valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-    
+
     if log_level not in valid_levels:
         print(f"Error: Invalid log level '{log_level}'")
         print(f"Valid levels are: {', '.join(valid_levels)}")
         sys.exit(1)
-    
+
     set_all_loggers(log_level)
 
 

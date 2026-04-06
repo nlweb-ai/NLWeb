@@ -1,6 +1,7 @@
 """Functions for extracting Snowflake connection parameters from configuration."""
 
-from core.config import CONFIG, LLMProviderConfig, EmbeddingProviderConfig, RetrievalProviderConfig
+from core.config import EmbeddingProviderConfig, LLMProviderConfig, RetrievalProviderConfig
+
 
 class ConfigurationError(RuntimeError):
     """Raised when configuration is missing or invalid"""
@@ -12,7 +13,7 @@ def get_pat(cfg: LLMProviderConfig|EmbeddingProviderConfig|RetrievalProviderConf
     """
     pat = cfg.api_key.strip('"') if cfg and cfg.api_key else None
     if not pat:
-        raise ConfigurationError(f"Unable to determine Snowflake Programmatic Access Token to use (PAT), is SNOWFLAKE_PAT set?")
+        raise ConfigurationError("Unable to determine Snowflake Programmatic Access Token to use (PAT), is SNOWFLAKE_PAT set?")
     return pat
 
 
@@ -25,5 +26,5 @@ def get_account_url(cfg: LLMProviderConfig|EmbeddingProviderConfig|RetrievalProv
     endpoint = cfg.api_endpoint if isinstance(cfg, RetrievalProviderConfig) else cfg.endpoint
     account_url = endpoint.strip('"')
     if not account_url:
-        raise ConfigurationError(f"Unable to determine Snowflake Account URL, is SNOWFLAKE_ACCOUNT_URL set?")
+        raise ConfigurationError("Unable to determine Snowflake Account URL, is SNOWFLAKE_ACCOUNT_URL set?")
     return account_url

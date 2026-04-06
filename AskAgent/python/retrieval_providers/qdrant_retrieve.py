@@ -6,21 +6,21 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from typing import Dict
+import threading
+import time
+
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.http import models
-import json
-import time
-import threading
-from core.embedding import get_embedding
+
 from core.config import CONFIG
-from misc.logger.logging_config_helper import get_configured_logger
+from core.embedding import get_embedding
 from misc.logger.logger import LogLevel
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("qdrant_retrieve")
 
 _client_lock = threading.Lock()
-qdrant_clients: Dict[str, AsyncQdrantClient] = {}
+qdrant_clients: dict[str, AsyncQdrantClient] = {}
 
 
 def _create_client_params(endpoint_config):
@@ -64,7 +64,7 @@ async def initialize_client(endpoint_name=None):
                 await qdrant_clients[endpoint_name].get_collections()
                 logger.debug("Qdrant connection test successful")
             except Exception as e:
-                logger.exception(f"Failed to initialize Qdrant client: {str(e)}")
+                logger.exception(f"Failed to initialize Qdrant client: {e!s}")
                 raise
 
 
@@ -161,7 +161,7 @@ async def search_db(query, site, num_results=50, endpoint_name=None, query_param
         return results
 
     except Exception as e:
-        logger.exception(f"Error in Qdrant search_db: {str(e)}")
+        logger.exception(f"Error in Qdrant search_db: {e!s}")
         logger.log_with_context(
             LogLevel.ERROR,
             "Qdrant search failed",
@@ -212,7 +212,7 @@ async def retrieve_item_with_url(url, endpoint_name=None):
         return formatted_result
 
     except Exception as e:
-        logger.exception(f"Error retrieving item with URL: {str(e)}")
+        logger.exception(f"Error retrieving item with URL: {e!s}")
         logger.log_with_context(
             LogLevel.ERROR,
             "Qdrant item retrieval failed",

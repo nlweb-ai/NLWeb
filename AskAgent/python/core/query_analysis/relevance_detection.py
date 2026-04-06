@@ -8,11 +8,11 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from core.prompts import PromptRunner
 import asyncio
 
+from core.prompts import PromptRunner
 
-# NOTE : RelevanceDetection is turned off as a default, for now. 
+# NOTE : RelevanceDetection is turned off as a default, for now.
 # Turn it on by changing the value of the following variable.
 
 RELEVANCE_DETECTION_ENABLED = False
@@ -21,7 +21,7 @@ class RelevanceDetection(PromptRunner):
 
     RELEVANCE_PROMPT_NAME = "DetectIrrelevantQueryPrompt"
     STEP_NAME = "Relevance"
-    
+
     def __init__(self, handler):
         super().__init__(handler)
         self.handler.state.start_precheck_step(self.STEP_NAME)

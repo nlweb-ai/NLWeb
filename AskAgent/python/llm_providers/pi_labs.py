@@ -1,10 +1,9 @@
 import asyncio
 import json
-
-import time
-import withpi 
 import os
+import time
 
+import withpi
 
 pi_client = None
 
@@ -32,7 +31,7 @@ async def pi_scoring_comparison(file):
     base_name = file.rsplit('.', 1)[0] if '.' in file else file
     output_file = f"{base_name}_pi_eval.csv"
 
-    with open(file, 'r') as f:
+    with open(file) as f:
         lines = f.readlines()
         data = []
         for line in lines:
@@ -54,17 +53,17 @@ async def pi_scoring_comparison(file):
             }
             desc = json.dumps(item_fields["schema_object"])
             pi_score, time_taken = await pi_score_item(item['query'], desc)
-            
+
             item['ranking']['score'] = pi_score
             csv_line = f"O={item_fields['score']},P={pi_score},T={time_taken},Q={item_fields['query']},N={item_fields['name']}" #,D={item_fields['description']}"
             if (item_fields['score'] > 64 or pi_score > 30):
-              print(csv_line) 
+              print(csv_line)
             with open(output_file, 'a') as f:
                 f.write(csv_line + '\n')
-            
-       
 
-     
+
+
+
 
 if __name__ == "__main__":
     import sys

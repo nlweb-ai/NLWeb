@@ -3,8 +3,9 @@
 Check current configuration to debug test issues
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from core.config import CONFIG
@@ -34,7 +35,7 @@ for name, config in CONFIG.embedding_providers.items():
 print("\n📋 Environment Variables Check:")
 env_vars = [
     "AZURE_VECTOR_SEARCH_API_KEY",
-    "AZURE_VECTOR_SEARCH_ENDPOINT", 
+    "AZURE_VECTOR_SEARCH_ENDPOINT",
     "NLWEB_WEST_API_KEY",
     "NLWEB_WEST_ENDPOINT",
     "AZURE_OPENAI_API_KEY",

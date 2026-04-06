@@ -13,13 +13,14 @@ Backwards compatibility is not guaranteed at this time.
 
 import asyncio
 import time
-from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
-from testing.base_test_runner import BaseTestRunner, TestType, TestCase, TestResult
+from testing.base_test_runner import BaseTestRunner, TestCase, TestResult, TestType
+
+from core.config import CONFIG
 from core.retriever import VectorDBClient
 from misc.logger.logging_config_helper import get_configured_logger
-from core.config import CONFIG
 
 logger = get_configured_logger("nlweb_query_retrieval_test")
 
@@ -31,20 +32,20 @@ class QueryRetrievalTestCase(TestCase):
     retrieval_backend: str
     site: str = "all"
     num_results: int = 10
-    expected_min_results: Optional[int] = None
-    expected_max_results: Optional[int] = None
-    expected_urls: Optional[List[str]] = None
-    contains_urls: Optional[List[str]] = None
-    excludes_urls: Optional[List[str]] = None
-    min_score: Optional[float] = None
+    expected_min_results: int | None = None
+    expected_max_results: int | None = None
+    expected_urls: list[str] | None = None
+    contains_urls: list[str] | None = None
+    excludes_urls: list[str] | None = None
+    min_score: float | None = None
 
 
 @dataclass
 class QueryRetrievalTestResult(TestResult):
     """Test result for query retrieval tests."""
-    results: List[Dict[str, Any]] = None
+    results: list[dict[str, Any]] = None
     result_count: int = 0
-    
+
     def __post_init__(self):
         if self.results is None:
             self.results = []
@@ -52,40 +53,37 @@ class QueryRetrievalTestResult(TestResult):
 
 class QueryRetrievalTestRunner(BaseTestRunner):
     """Test runner for query retrieval tests."""
-    
+
     def __init__(self):
         """Initialize query retrieval test runner."""
         super().__init__(TestType.QUERY_RETRIEVAL)
-        
-    def validate_test_case(self, test_case: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+
+    def validate_test_case(self, test_case: dict[str, Any]) -> tuple[bool, str | None]:
         """Validate query retrieval test case has required fields."""
         required_fields = ['query', 'retrieval_backend']
         missing_fields = [field for field in required_fields if field not in test_case or not test_case[field]]
-        
+
         if missing_fields:
             return False, f"Missing required fields: {missing_fields}"
-            
+
         # Validate expected_urls format if present
-        if 'expected_urls' in test_case and test_case['expected_urls']:
-            if not isinstance(test_case['expected_urls'], list):
-                return False, "expected_urls must be a list"
-                
+        if test_case.get('expected_urls') and not isinstance(test_case['expected_urls'], list):
+            return False, "expected_urls must be a list"
+
         # Validate contains_urls format if present
-        if 'contains_urls' in test_case and test_case['contains_urls']:
-            if not isinstance(test_case['contains_urls'], list):
-                return False, "contains_urls must be a list"
-                
+        if test_case.get('contains_urls') and not isinstance(test_case['contains_urls'], list):
+            return False, "contains_urls must be a list"
+
         # Validate excludes_urls format if present
-        if 'excludes_urls' in test_case and test_case['excludes_urls']:
-            if not isinstance(test_case['excludes_urls'], list):
-                return False, "excludes_urls must be a list"
-                
+        if test_case.get('excludes_urls') and not isinstance(test_case['excludes_urls'], list):
+            return False, "excludes_urls must be a list"
+
         return True, None
-    
-    async def run_single_test(self, test_case: Dict[str, Any]) -> QueryRetrievalTestResult:
+
+    async def run_single_test(self, test_case: dict[str, Any]) -> QueryRetrievalTestResult:
         """Run a single query retrieval test."""
         start_time = time.time()
-        
+
         # Create test case object
         query_case = QueryRetrievalTestCase(
             test_type=self.test_type,
@@ -103,24 +101,24 @@ class QueryRetrievalTestRunner(BaseTestRunner):
             min_score=test_case.get('min_score'),
             description=test_case.get('description', f"Query: {test_case['query'][:50]}...")
         )
-        
+
         try:
             logger.info(f"Starting query retrieval test for: '{query_case.query}'")
             logger.debug(f"Parameters: backend={query_case.retrieval_backend}, site={query_case.site}, num_results={query_case.num_results}")
-            
+
             # Create VectorDBClient instance
             client = VectorDBClient(endpoint_name=query_case.retrieval_backend)
-            
+
             # Perform search
             results = await client.search(
                 query=query_case.query,
                 site=query_case.site,
                 num_results=query_case.num_results
             )
-            
+
             result_count = len(results)
             logger.info(f"Retrieved {result_count} results for query '{query_case.query}'")
-            
+
             # Extract URLs from results for validation
             result_urls = []
             for result in results:
@@ -132,41 +130,40 @@ class QueryRetrievalTestRunner(BaseTestRunner):
                     url = ''
                 if url:
                     result_urls.append(url)
-            
+
             # Validate results
             error = None
             success = True
-            
+
             # Check minimum result count
             if query_case.expected_min_results is not None and result_count < query_case.expected_min_results:
                 error = f"Expected at least {query_case.expected_min_results} results, got {result_count}"
                 success = False
-                
+
             # Check maximum result count
             if query_case.expected_max_results is not None and result_count > query_case.expected_max_results:
                 error = f"Expected at most {query_case.expected_max_results} results, got {result_count}"
                 success = False
-                
+
             # Check exact URLs if provided
-            if query_case.expected_urls is not None:
-                if set(result_urls) != set(query_case.expected_urls):
-                    error = f"URL mismatch. Expected: {query_case.expected_urls}, Got: {result_urls}"
-                    success = False
-                    
+            if query_case.expected_urls is not None and set(result_urls) != set(query_case.expected_urls):
+                error = f"URL mismatch. Expected: {query_case.expected_urls}, Got: {result_urls}"
+                success = False
+
             # Check contains_urls
             if query_case.contains_urls:
                 missing_urls = [u for u in query_case.contains_urls if u not in result_urls]
                 if missing_urls:
                     error = f"Missing expected URLs: {missing_urls}"
                     success = False
-                    
+
             # Check excludes_urls
             if query_case.excludes_urls:
                 unexpected_urls = [u for u in query_case.excludes_urls if u in result_urls]
                 if unexpected_urls:
                     error = f"Found unexpected URLs: {unexpected_urls}"
                     success = False
-                    
+
             # Check minimum score if specified
             if query_case.min_score is not None:
                 low_score_results = []
@@ -176,14 +173,14 @@ class QueryRetrievalTestRunner(BaseTestRunner):
                         score = result.get('score', result.get('relevance_score'))
                     elif isinstance(result, list) and len(result) >= 4:
                         score = result[3]  # Assuming [name, description, url, score, ...]
-                    
+
                     if score is not None and score < query_case.min_score:
                         low_score_results.append(f"Result {i+1}: score={score}")
-                        
+
                 if low_score_results:
                     error = f"Results below minimum score {query_case.min_score}: {', '.join(low_score_results)}"
                     success = False
-                    
+
             return QueryRetrievalTestResult(
                 test_case=query_case,
                 success=success,
@@ -192,7 +189,7 @@ class QueryRetrievalTestRunner(BaseTestRunner):
                 result_count=result_count,
                 execution_time=time.time() - start_time
             )
-            
+
         except Exception as e:
             logger.exception(f"Error during query retrieval test: {e}")
             return QueryRetrievalTestResult(
@@ -203,15 +200,15 @@ class QueryRetrievalTestRunner(BaseTestRunner):
                 result_count=0,
                 execution_time=time.time() - start_time
             )
-    
-    def print_summary(self, summary: Dict[str, Any]) -> None:
+
+    def print_summary(self, summary: dict[str, Any]) -> None:
         """Print test summary with retrieval-specific details."""
         super().print_summary(summary)
-        
+
         # Print successful tests with result details
         successful_results = [r for r in summary['results'] if r['success']]
         if successful_results:
-            print(f"\nSUCCESSFUL TESTS:")
+            print("\nSUCCESSFUL TESTS:")
             print("-" * 40)
             for result in successful_results:
                 print(f"Test {result['test_id']}: {result.get('description', 'No description')}")
@@ -219,20 +216,20 @@ class QueryRetrievalTestRunner(BaseTestRunner):
                     print(f"  Results retrieved: {result['result_count']}")
                 if 'execution_time' in result:
                     print(f"  Execution time: {result['execution_time']:.2f}s")
-    
-    def print_detailed_results(self, results: List[Dict[str, Any]]) -> None:
+
+    def print_detailed_results(self, results: list[dict[str, Any]]) -> None:
         """Print detailed retrieval results."""
         if not results:
             print("No results found.")
             return
-        
+
         print(f"\nDetailed Retrieval Results ({len(results)} items):")
         print("=" * 80)
-        
+
         for i, result in enumerate(results, 1):
             print(f"\nResult {i}:")
             print("-" * 40)
-            
+
             # Extract fields based on result format
             if isinstance(result, dict):
                 name = result.get('name', result.get('title', 'N/A'))
@@ -253,7 +250,7 @@ class QueryRetrievalTestRunner(BaseTestRunner):
                 url = 'N/A'
                 score = 'N/A'
                 site = 'N/A'
-            
+
             print(f"Name: {name}")
             print(f"Description: {description[:200]}{'...' if len(str(description)) > 200 else ''}")
             print(f"URL: {url}")
@@ -264,7 +261,7 @@ class QueryRetrievalTestRunner(BaseTestRunner):
 async def main():
     """Main function for standalone execution."""
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="Query retrieval test runner for NLWeb")
     parser.add_argument('--file', '-f', type=str, help='JSON file with test cases')
     parser.add_argument('--query', '-q', type=str, help='Query to test')
@@ -275,14 +272,14 @@ async def main():
     parser.add_argument('--max_results', type=int, help='Maximum expected results')
     parser.add_argument('--min_score', type=float, help='Minimum score for results')
     parser.add_argument('--show_results', action='store_true', help='Show detailed results')
-    
+
     args = parser.parse_args()
-    
+
     # Set testing mode
     CONFIG.set_mode('testing')
-    
+
     runner = QueryRetrievalTestRunner()
-    
+
     if args.file:
         # Run tests from file
         test_cases = runner.load_test_file(args.file)
@@ -296,16 +293,16 @@ async def main():
             'site': args.site,
             'top_k': args.top_k
         }
-        
+
         if args.min_results is not None:
             test_case['expected_min_results'] = args.min_results
         if args.max_results is not None:
             test_case['expected_max_results'] = args.max_results
         if args.min_score is not None:
             test_case['min_score'] = args.min_score
-            
+
         result = await runner.run_single_test(test_case)
-        
+
         print(f"\nTest Result: {'PASSED' if result.success else 'FAILED'}")
         print(f"Results retrieved: {result.result_count}")
         print(f"Execution time: {result.execution_time:.2f}s")

@@ -26,15 +26,19 @@ select = [
 
 ignore = [
     "E501",    # line too long — handled by formatter
+    "E402",    # module-level import not at top — deferred imports are intentional
     "B008",    # function call in default arg — common in aiohttp patterns
     "SIM108",  # ternary operator — can reduce readability
+    "RUF006",  # asyncio dangling task — fire-and-forget is intentional pattern
     "RUF012",  # mutable class variable — too many false positives in config classes
     "UP007",   # Use X | Y for unions — keep Optional for 3.10 compat
+    "UP035",   # deprecated-import — typing.List etc still needed for 3.9 compat
 ]
 
 [lint.per-file-ignores]
 "AskAgent/python/tests/**/*.py" = ["F401", "F811"]
 "AskAgent/python/testing/**/*.py" = ["F401", "F811"]
+"*.ipynb" = ["E722"]
 
 [lint.isort]
 known-first-party = [

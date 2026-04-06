@@ -1,12 +1,13 @@
-import pytest
-import os
 import json
+import os
 import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
+import pytest
+from elasticsearch import AsyncElasticsearch
 
 from core.config import CONFIG
-from elasticsearch import AsyncElasticsearch
 from storage_providers.elasticsearch_storage import ElasticsearchStorageProvider
 
 # Skip all tests in this module if ELASTICSEARCH_URL is not set
@@ -38,12 +39,12 @@ async def run_after_tests():
     es_client = ElasticsearchStorageProvider(CONFIG.conversation_storage)
     await delete_index(await es_client._get_es_client())
     await es_client.close()
-    
 
-def get_conversations()->List[Dict[str, Any]]:
+
+def get_conversations()->list[dict[str, Any]]:
     documents=[]
     file= Path(current_dir + "/conversations.ndjson")
-    
+
     if not file.exists():
         return documents
 
@@ -58,7 +59,7 @@ def get_conversations()->List[Dict[str, Any]]:
 async def refresh_es_indices(es: AsyncElasticsearch):
     """Refresh the Elasticsearch indices to ensure all changes are visible."""
     await es.indices.refresh(index=CONFIG.conversation_storage.collection_name)
-  
+
 async def delete_index(es: AsyncElasticsearch):
     """Delete the Elasticsearch index if it exists."""
     try:
@@ -81,7 +82,7 @@ async def test_add_conversations(elasticsearch_storage: ElasticsearchStorageProv
         thread_id = conversation.get("thread_id", None)
         user_prompt = conversation.get("user_prompt", "")
         response = conversation.get("response", "")
-        
+
         result = await elasticsearch_storage.add_conversation(
             user_id=user_id,
             site=site,

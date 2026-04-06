@@ -1,28 +1,23 @@
-from core.config import CONFIG
-from typing import Any, Dict, List, Optional, Union
-
-import threading
-
-import os
 import json
+import os
+import re
+import threading
+from typing import Any, Union
 
 import httpx
-
-from misc.logger.logging_config_helper import get_configured_logger
-from misc.logger.logger import LogLevel
-
-from cloudflare import AsyncCloudflare
-
 import zon as z
-
 from bs4 import BeautifulSoup
+from cloudflare import AsyncCloudflare
 from markdown import markdown
-import re
+
+from core.config import CONFIG
+from misc.logger.logging_config_helper import get_configured_logger
+
 
 def markdown_to_text(markdown_string):
-    """ 
-    Converts a markdown string to plaintext 
-    
+    """
+    Converts a markdown string to plaintext
+
     Taken from https://gist.github.com/lorey/eb15a7f3338f959a78cc3661fbc255fe
     """
 
@@ -44,12 +39,12 @@ logger = get_configured_logger("cloudflare_autorag_client")
 searchFiltersComparisonFilter = z.record({
     "key": z.string(),
     "type": z.enum(["eq", "ne", "gt", "gte", "lt", "lte"]),
-	"value": z.string().or_else([z.number()]).or_else([z.boolean()]),
+    "value": z.string().or_else([z.number()]).or_else([z.boolean()]),
 })
 
 searchFiltersCompoundFilter = z.record({
-	"type": z.enum(["and"]), # TODO: add 'or' when vectorize supports it
-	"filters": searchFiltersComparisonFilter.list(),
+    "type": z.enum(["and"]), # TODO: add 'or' when vectorize supports it
+    "filters": searchFiltersComparisonFilter.list(),
 })
 
 
@@ -59,7 +54,7 @@ class CloudflareAutoRAGClient:
 
     _cfg = None
 
-    def __init__(self, endpoint_name: Optional[str] = None):
+    def __init__(self, endpoint_name: str | None = None):
 
         self.endpoint_name = endpoint_name or CONFIG.write_endpoint
         logger.info(f"Initialized CloudflareAutoRAGClient for endpoint: {self.endpoint_name}")
@@ -81,44 +76,44 @@ class CloudflareAutoRAGClient:
     def _get_endpoint_config(self):
         """Get the Cloudflare SDK endpoint configuration from CONFIG"""
         endpoint_config = CONFIG.retrieval_endpoints.get(self.endpoint_name)
-        
+
         if not endpoint_config:
             error_msg = f"No configuration found for endpoint {self.endpoint_name}"
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         # Verify this is a Cloudflare SDK endpoint
         if endpoint_config.db_type != "cloudflare_autorag":
             error_msg = f"Endpoint {self.endpoint_name} is not a Cloudflare SDK endpoint (type: {endpoint_config.db_type})"
             logger.error(error_msg)
             raise ValueError(error_msg)
-            
+
         return endpoint_config
-    
+
     def _get_cf_sdk_client(self) -> AsyncCloudflare:
         """
         Get or create a Cloudflare SDK client.
-                    
+
         Returns:
             Cloudflare instance
         """
         client_key = f"{self.endpoint_name}"
-        
+
         with self._client_lock:
             if client_key not in self._cf_sdk_clients:
                 logger.debug(f"Creating Cloudflare SDK client for {client_key}")
-                
+
                 # Initialize the client
                 self._cf_sdk_clients[client_key] = AsyncCloudflare(api_token=self.token)
                 logger.info(f"Created Cloudflare SDK client for {client_key} at {self.uri}")
-                
+
                 # Test client connection with a simple search
                 try:
                     logger.debug("Testing connection to Cloudflare SDK")
                    # self._cf_sdk_clients[client_key].list_collections()
                     logger.info(f"Connection verified for {client_key}")
                 except Exception as e:
-                    logger.error(f"Failed to connect to Cloudflare SDK at {self.uri}: {str(e)}")
+                    logger.error(f"Failed to connect to Cloudflare SDK at {self.uri}: {e!s}")
                     raise
 
         return self._cf_sdk_clients[client_key]
@@ -137,21 +132,21 @@ class CloudflareAutoRAGClient:
     async def deleted_documents_by_site(self, site: str, **kwargs) -> int:
         raise NotImplementedError("Not implemented yet")
 
-    async def upload_documents(self, documents: List[Dict[str, Any]], **kwargs) -> int:
+    async def upload_documents(self, documents: list[dict[str, Any]], **kwargs) -> int:
         raise NotImplementedError("Not implemented yet")
 
     async def search(
         self,
         query: str,
-        site: Union[str, List[str]],
+        site: Union[str, list[str]],
         num_results: int = 50,
-        query_params: Optional[Dict[str, Any]] = None,
+        query_params: dict[str, Any] | None = None,
         **kwargs
-    ) -> List[List[str]]:
+    ) -> list[list[str]]:
 
         ranking_options = kwargs.get('ranking_options', {})
-        system_prompt = kwargs.get('system_prompt', None)
-        filters = kwargs.get('filters', None)
+        system_prompt = kwargs.get('system_prompt')
+        filters = kwargs.get('filters')
 
         body = {
             'query': query,
@@ -162,7 +157,7 @@ class CloudflareAutoRAGClient:
 
         if ranking_options is not None:
             body['ranking_options'] = ranking_options
-        
+
         if system_prompt is not None:
             body['system_prompt'] = system_prompt
 
@@ -197,7 +192,7 @@ class CloudflareAutoRAGClient:
                     "@type": "Brand",
                     name: "Cloudflare",
                 },
-                "description": file_attributes.get('description', description), 
+                "description": file_attributes.get('description', description),
                 "image": file_attributes.get('image', ''),
             })
 
@@ -209,15 +204,15 @@ class CloudflareAutoRAGClient:
 
         return list(map(_parse_data_item, data))
 
-    async def search_by_url(self, url: str, **kwargs) -> Optional[List[str]]:
+    async def search_by_url(self, url: str, **kwargs) -> list[str] | None:
         raise NotImplementedError("Not implemented yet")
 
     async def search_all_sites(
         self, query: str, num_results: int = 50, **kwargs
-    ) -> List[List[str]]:
+    ) -> list[list[str]]:
         return await self.search(query, site=[], num_results=num_results, **kwargs)
 
-    async def get_sites(self, **kwargs) -> List[str]:
+    async def get_sites(self, **kwargs) -> list[str]:
         """
         Get a list of unique site names.
 
