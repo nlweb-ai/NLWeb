@@ -5,7 +5,7 @@ This project has been adapted to run on Azure Web App. This README provides guid
 ## Project Structure
 
 ```
-code/
+AskAgents/python/
 ├── app-file.py                   # Entry point for Azure Web App
 ├── azure_connectivity.py         # Connectivity check utility (no longer just Azure)
 ├── .env.template                 # Template for environment variables
@@ -27,7 +27,7 @@ code/
 |   ├── ranking.py                # Result ranking
 |   ├── state.py                  # State management
 |   └── whoHandler.py             #
-├── embedding/
+├── embedding_providers/
 |   ├── anthropic_embedding.py    #
 |   ├── aws_bedrock_embedding.py  #
 |   ├── azure_oai_embedding.py    #
@@ -36,7 +36,7 @@ code/
 |   ├── ollama_embedding.py       #
 |   ├── openai_embedding.py       #
 |   ├── snowflake_embedding.py    #
-├── llm/
+├── llm_providers/
 |   ├── anthropic.py              #
 |   ├── aws_bedrock.py            #
 |   ├── azure_deepseek.py         #

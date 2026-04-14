@@ -38,9 +38,6 @@ PyJWT>=2.8.0
 # For Hugging Face:
 # huggingface_hub>=0.31.0
 
-# For AWS Bedrock Foundation Models:
-# boto3>=1.38.15
-
 # For Azure AI Inference:
 # azure-ai-inference>=1.0.0b9
 # azure-core>=1.30.0
