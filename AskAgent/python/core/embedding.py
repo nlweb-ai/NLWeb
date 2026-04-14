@@ -10,8 +10,6 @@ Backwards compatibility is not guaranteed at this time.
 
 import asyncio
 import threading
-import sys
-import subprocess
 
 from core.config import CONFIG
 from misc.logger.logging_config_helper import LogLevel, get_configured_logger
@@ -27,60 +25,6 @@ _provider_locks = {
     "elasticsearch": threading.Lock(),
     "aws_bedrock": threading.Lock()
 }
-
-# Mapping of embedding provider types to their required pip packages
-_embedding_provider_packages = {
-    "openai": ["openai>=1.12.0"],
-    "gemini": ["google-cloud-aiplatform>=1.38.0"],
-    "azure_openai": ["openai>=1.12.0"],
-    "snowflake": ["httpx>=0.28.1"],
-    "aws_bedrock": ["boto3>=1.38.15"],
-}
-
-# Cache for installed packages - shared with LLM to avoid duplicate installs
-try:
-    from core.llm import _installed_packages
-except ImportError:
-    _installed_packages = set()
-
-def _ensure_package_installed(provider: str):
-    """
-    Ensure the required packages for an embedding provider are installed.
-    
-    Args:
-        provider: The name of the embedding provider
-    """
-    if provider not in _embedding_provider_packages:
-        return
-    
-    packages = _embedding_provider_packages[provider]
-    for package in packages:
-        # Extract package name without version for caching
-        package_name = package.split(">=")[0].split("==")[0]
-        
-        if package_name in _installed_packages:
-            continue
-            
-        try:
-            # Try to import the package first
-            if package_name == "google-cloud-aiplatform":
-                __import__("vertexai")
-            else:
-                __import__(package_name)
-            _installed_packages.add(package_name)
-            logger.debug(f"Package {package_name} is already installed")
-        except ImportError:
-            # Package not installed, install it
-            logger.info(f"Installing {package} for {provider} provider...")
-            try:
-                subprocess.check_call([
-                    sys.executable, "-m", "pip", "install", package, "--quiet"
-                ])
-                _installed_packages.add(package_name)
-                logger.info(f"Successfully installed {package}")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"Failed to install {package}: {e}")
-                raise ValueError(f"Failed to install required package {package} for {provider}")
 
 async def get_embedding(
     text: str,
@@ -141,9 +85,6 @@ async def get_embedding(
     logger.debug(f"Using embedding model: {model_id}")
 
     try:
-        # Ensure required packages are installed before importing provider modules
-        _ensure_package_installed(provider)
-
         # Use a timeout wrapper for all embedding calls
         if provider == "openai":
             logger.debug("Getting OpenAI embeddings")
@@ -223,8 +164,11 @@ async def get_embedding(
         if provider == "aws_bedrock":
             logger.debug("Getting AWS Bedrock embeddings")
             # Import here to avoid potential circular imports
-            from embedding.aws_bedrock_embedding import get_aws_bedrock_embeddings
-            result = get_aws_bedrock_embeddings(text, model=model_id, timeout=timeout)
+            from embedding_providers.aws_bedrock_embedding import get_aws_bedrock_embeddings
+            result = await asyncio.wait_for(
+                get_aws_bedrock_embeddings(text, model=model_id, timeout=timeout),
+                timeout=timeout
+            )
             logger.debug(f"AWS Bedrock embeddings received, dimension: {len(result)}")
             return result
 
@@ -375,14 +319,14 @@ async def batch_get_embeddings(
     
         if provider == "aws_bedrock":
             logger.debug("Getting AWS Bedrock batch embeddings")
-            from embedding_providers.aws_bedrock_embedding import get_aws_bedrock_embeddings
-            results = []
-            for text in texts:
-                result = get_aws_bedrock_embeddings(text, model=model_id, timeout=timeout)
-                results.append(result)
-            logger.debug(f"AWS Bedrock batch embeddings received, count: {len(results)}")
-            return results
-    
+            from embedding_providers.aws_bedrock_embedding import get_aws_bedrock_batch_embeddings
+            result = await asyncio.wait_for(
+                get_aws_bedrock_batch_embeddings(texts, model=model_id, timeout=timeout),
+                timeout=timeout
+            )
+            logger.debug(f"AWS Bedrock batch embeddings received, count: {len(result)}")
+            return result
+
         # Default implementation if provider doesn't match any above
         logger.debug(f"No specific batch implementation for {provider}, processing sequentially")
         results = []

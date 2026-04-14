@@ -39,6 +39,4 @@ providers:
     model: snowflake-arctic-embed-m-v1.5
 
   aws_bedrock:
-    api_key_env: AWS_BEDROCK_API_KEY
-    api_version_env: AWS_BEDROCK_REGION
     model: amazon.titan-embed-text-v2:0

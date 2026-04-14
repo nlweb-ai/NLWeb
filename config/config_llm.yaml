@@ -76,8 +76,6 @@ endpoints:
       low: llama3.1-8b
 
   aws_bedrock:
-    api_key_env: AWS_BEDROCK_API_KEY
-    api_version_env: AWS_BEDROCK_REGION
     llm_type: aws_bedrock
     models:
       high: amazon.nova-pro-v1:0

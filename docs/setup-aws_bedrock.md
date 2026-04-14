@@ -80,8 +80,9 @@ To use AWS Bedrock with boto3, you need API credentials:
 7. You'll see your Access Key ID and Secret Access Key. **Important**: This is the only time you'll see the Secret Access Key, so make sure to save it securely
 8. Download the .csv file or copy both keys to a secure location
 9. In order to support the LLMProvider interface, you will need to add the Access Key ID and Secret Access Key and Region to your environment variables:
-    9.1. Concatenate the Access Key ID and Secret Access Key with a colon (:) and add it to the environment variable AWS_BEDROCK_API_KEY
-    9.2. Add the region to the environment variable AWS_BEDROCK_REGION
+    9.1. Add the Access Key ID to the environment variable AWS_ACCESS_KEY_ID from your AWS Account with access to Bedrock.
+    9.2. Add the respective Secret Key to the environment variable AWS_SECRET_ACCESS_KEY.
+    9.3. Add the region to the environment variable AWS_BEDROCK_REGION
 
 ## Supported Foundation Models
 
@@ -96,8 +97,21 @@ AWS Bedrock provides access to various foundation models, currently supported mo
 
 For embedding models, currently supported models are:
 
-- **Amazon**: amazon.titan-embed...
-- **Cohere**: cohere.embed-...
+| Model family | Example model ID | Native batch via `invoke_model` | Max texts/call |
+|---|---|---|---|
+| Amazon Titan Text Embed | `amazon.titan-embed-text-v2:0` | No | 1 |
+| Amazon Titan Multimodal Embed | `amazon.titan-embed-image-v1` | No | 1 |
+| Amazon Nova Multimodal Embed | `amazon.nova-2-multimodal-embeddings-v1:0` | No | 1 |
+| Cohere Embed v3 | `cohere.embed-multilingual-v3` | **Yes** | **96** |
+| Cohere Embed v4 | `cohere.embed-multilingual-v4` | **Yes** | **96** |
+| Twelve Labs Marengo Embed | `twelvelabs.marengo-embed-2-7-v1:0` | No | 1 |
+
+> **Batch embedding behavior**: Cohere Embed v3/v4 are the only models that accept multiple
+> texts in a single `invoke_model` call (up to 96 texts). For all other models, the
+> implementation runs concurrent single-text calls (`asyncio.gather`) since AWS Bedrock
+> does not expose a real-time batch endpoint for them. AWS Batch Inference
+> (`CreateModelInvocationJob`) exists but is file/S3-based and intended for offline workloads.
+> See [Bedrock batch inference docs](https://docs.aws.amazon.com/bedrock/latest/userguide/batch-inference.html).
 
 Each model has different capabilities, pricing, and parameter options. Refer to the [AWS Bedrock documentation](https://docs.aws.amazon.com/bedrock/) for detailed information about each model.
 

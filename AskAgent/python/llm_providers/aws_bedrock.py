@@ -10,14 +10,13 @@ Backwards compatibility is not guaranteed at this time.
 
 import json
 import re
+import asyncio
 from typing import Dict, Any, Optional
 
 from botocore.exceptions import ReadTimeoutError, ConnectTimeoutError
-from botocore.config import Config
 
-import boto3
 from core.config import CONFIG
-import threading
+from retrieval_providers.aws_bedrock_client import get_bedrock_runtime_client
 
 from llm_providers.llm_provider import LLMProvider
 
@@ -37,62 +36,10 @@ class ConfigurationError(RuntimeError):
 class AWSBedrockProvider(LLMProvider):
     """Implementation of LLMProvider for AWS Bedrock."""
 
-    _client_lock = threading.Lock()
-    _client = None
-
     @classmethod
-    def get_api_key(cls) -> str:
-        """
-        Retrieve the AWS Bedrock API key from environment or raise an error.
-        """
-        # Get the API key from aws bedrock config
-        provider_config = CONFIG.llm_endpoints["aws_bedrock"]
-        api_key = provider_config.api_key.split(":")[0]
-        return api_key
-
-    @classmethod
-    def get_api_secret(cls) -> str:
-        """
-        Retrieve the AWS Bedrock API secret from environment or raise an error.
-        """
-        # Get the API secret from aws bedrock config
-        provider_config = CONFIG.llm_endpoints["aws_bedrock"]
-        api_secret = provider_config.api_key.split(":")[1]
-        return api_secret
-
-    @classmethod
-    def get_api_region(cls) -> str:
-        """
-        Retrieve the AWS Bedrock API region from environment or raise an error.
-        """
-        # Get the API region from aws bedrock config
-        provider_config = CONFIG.llm_endpoints["aws_bedrock"]
-        api_region = provider_config.api_version
-        return api_region
-
-    @classmethod
-    def get_client(cls, timeout: float = 30.0) -> boto3.client:
-        """
-        Configure and return an AWS Bedrock client.
-        """
-        config = Config(
-            connect_timeout=timeout,
-            read_timeout=timeout
-        )
-
-        with cls._client_lock:
-            if cls._client is None:
-                api_key = cls.get_api_key()
-                api_secret = cls.get_api_secret()
-                api_region = cls.get_api_region()
-                cls._client = boto3.client(
-                    service_name="bedrock-runtime",
-                    region_name=api_region,
-                    aws_access_key_id=api_key,
-                    aws_secret_access_key=api_secret,
-                    config=config
-                )
-        return cls._client
+    def get_client(cls, timeout: float = 30.0):
+        """Return the shared AWS Bedrock runtime client."""
+        return get_bedrock_runtime_client(timeout)
 
     @classmethod
     def _build_model_body(
@@ -107,14 +54,15 @@ class AWSBedrockProvider(LLMProvider):
         Construct the system and user message sequence enforcing a JSON schema.
         """
         formatted_prompt = f"Respond ONLY with a valid JSON and no other text that matches this schema: {json.dumps(schema, indent=2)}\n\nInstruction: {prompt}"
+        schema_prompt = (
+            f"Provide a valid JSON response matching this schema: "
+            f"{json.dumps(schema)}"
+        )
         if model.startswith("amazon.nova"):
             return {
                 "system": [
                     {
-                        "text": (
-                            f"Provide a valid JSON response matching this schema: "
-                            f"{json.dumps(schema)}"
-                        )
+                        "text": schema_prompt
                     }
                 ],
                 "messages": [
@@ -142,18 +90,9 @@ class AWSBedrockProvider(LLMProvider):
         elif model.startswith("anthropic"):
             return {
                 "anthropic_version": "bedrock-2023-05-31",
+                "system": schema_prompt,
                 "messages": [
-                    {
-                        "role": "system",
-                        "content": {
-                            "type": "text",
-                            "text": (
-                                f"Provide a valid JSON response matching this schema: "
-                                f"{json.dumps(schema)}"
-                            ),
-                        },
-                    },
-                    {"role": "user", "content": {"type": "text", "text": prompt}},
+                    {"role": "user", "content": [{"type": "text", "text": prompt}]},
                 ],
                 "max_tokens": max_tokens,
                 "temperature": temperature,
@@ -248,7 +187,10 @@ class AWSBedrockProvider(LLMProvider):
 
         try:
             # Run the synchronous boto3 client in a thread pool executor
-            response = client.invoke_model(modelId=model, body=json.dumps(body))
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None, lambda: client.invoke_model(modelId=model, body=json.dumps(body))
+            )
         except ReadTimeoutError:
             logger.error("⏰ Read timeout: the model took too long to respond..")
             return {}
