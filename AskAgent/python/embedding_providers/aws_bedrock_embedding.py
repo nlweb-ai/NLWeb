@@ -13,7 +13,7 @@ import asyncio
 from typing import List, Optional
 
 from core.config import CONFIG
-from retrieval_providers.aws_bedrock_client import get_bedrock_runtime_client
+from llm_providers.aws_bedrock import AWSBedrockProvider
 
 from misc.logger.logging_config_helper import get_configured_logger, LogLevel
 
@@ -133,7 +133,7 @@ async def get_aws_bedrock_embeddings(
     logger.debug(f"Generating AWS Bedrock embedding with model: {model}")
     logger.debug(f"Text length: {len(text)} chars")
 
-    client = get_bedrock_runtime_client(timeout)
+    client = AWSBedrockProvider.get_client(timeout)
 
     try:
         text = text.replace("\n", " ")
@@ -194,7 +194,7 @@ async def get_aws_bedrock_batch_embeddings(
         configured_batch_size = (provider_config.batch_size if provider_config and provider_config.batch_size else _COHERE_BATCH_LIMIT)
         chunk_size = min(configured_batch_size, _COHERE_BATCH_LIMIT)
 
-        client = get_bedrock_runtime_client(timeout)
+        client = AWSBedrockProvider.get_client(timeout)
         loop = asyncio.get_event_loop()
 
         async def _invoke_chunk(chunk: List[str]) -> List[List[float]]:

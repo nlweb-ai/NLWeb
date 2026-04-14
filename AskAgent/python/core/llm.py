@@ -147,7 +147,7 @@ def _get_provider(llm_type: str):
             from llm_providers.ollama import provider as ollama_provider
             _loaded_providers[llm_type] = ollama_provider
         elif llm_type == "aws_bedrock":
-            from llm.aws_bedrock import provider as aws_bedrock_provider
+            from llm_providers.aws_bedrock import provider as aws_bedrock_provider
             _loaded_providers[llm_type] = aws_bedrock_provider
         else:
             raise ValueError(f"Unknown LLM type: {llm_type}")
