@@ -5,7 +5,7 @@ This project has been adapted to run on Azure Web App. This README provides guid
 ## Project Structure
 
 ```
-AskAgents/python/
+AskAgent/python/
 ├── app-file.py                   # Entry point for Azure Web App
 ├── azure_connectivity.py         # Connectivity check utility (no longer just Azure)
 ├── .env.template                 # Template for environment variables

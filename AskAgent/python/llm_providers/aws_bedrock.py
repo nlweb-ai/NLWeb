@@ -9,7 +9,6 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 import json
-import os
 import re
 import asyncio
 import threading
@@ -31,14 +30,6 @@ _client_lock = threading.Lock()
 _client = None
 
 
-class ConfigurationError(RuntimeError):
-    """
-    Raised when configuration is missing or invalid.
-    """
-
-    pass
-
-
 class AWSBedrockProvider(LLMProvider):
     """Implementation of LLMProvider for AWS Bedrock."""
 
@@ -57,15 +48,6 @@ class AWSBedrockProvider(LLMProvider):
         global _client
         with _client_lock:
             if _client is None:
-                aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-                aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-
-                if not aws_access_key_id or not aws_secret_access_key:
-                    raise ConfigurationError(
-                        "AWS credentials not found. Set AWS_ACCESS_KEY_ID and "
-                        "AWS_SECRET_ACCESS_KEY environment variables."
-                    )
-
                 config = Config(
                     connect_timeout=timeout,
                     read_timeout=timeout,
@@ -227,10 +209,10 @@ class AWSBedrockProvider(LLMProvider):
                 None, lambda: client.invoke_model(modelId=model, body=json.dumps(body))
             )
         except ReadTimeoutError:
-            logger.error("⏰ Read timeout: the model took too long to respond..")
+            logger.error("Read timeout: the model took too long to respond..")
             return {}
         except ConnectTimeoutError:
-            logger.error("🚫 Completion request timed out after %s seconds.", timeout)
+            logger.error("Completion request timed out after %s seconds.", timeout)
             return {}
 
         try:

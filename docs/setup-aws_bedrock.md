@@ -82,7 +82,7 @@ To use AWS Bedrock with boto3, you need API credentials:
 9. In order to support the LLMProvider interface, you will need to add the Access Key ID and Secret Access Key and Region to your environment variables:
     9.1. Add the Access Key ID to the environment variable AWS_ACCESS_KEY_ID from your AWS Account with access to Bedrock.
     9.2. Add the respective Secret Key to the environment variable AWS_SECRET_ACCESS_KEY.
-    9.3. Add the region to the environment variable AWS_BEDROCK_REGION
+    9.3. Add the region to the environment variable AWS_DEFAULT_REGION (e.g., us-east-1).
 
 ## Supported Foundation Models
 
