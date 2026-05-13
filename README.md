@@ -14,7 +14,7 @@ Join us in building this connected web of agents.
 
 NLWeb has two primary components:
 
-1. **A simple protocol** to interact with a site using natural language. It returns responses in JSON using Schema.org. See the [NLWeb spec](https://nlweb.ai/spec) for details.
+1. **A simple protocol** to interact with a site using natural language. It returns responses in JSON using Schema.org. See the [NLWeb spec](https://nlweb.ai/docs/specification) for details.
 
 2. **A straightforward implementation** that uses existing markup on sites with structured lists (e.g., products, recipes, attractions, reviews). Combined with UI widgets, this enables conversational interfaces to be added with ease.
 
