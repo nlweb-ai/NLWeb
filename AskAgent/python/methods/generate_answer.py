@@ -13,7 +13,6 @@ import asyncio
 import json
 import os
 import traceback
-from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 from azure.identity import DefaultAzureCredential
@@ -36,7 +35,7 @@ class GenerateAnswer(NLWebHandler):
 
     GATHER_ITEMS_THRESHOLD = 55
     DISTANCE_RANKING_THRESHOLD = 100
-     
+
     RANKING_PROMPT_NAME = "RankingPromptForGenerate"
     DISTANCE_RANKING_PROMPT_NAME = "DistanceRankingPromptForGenerate"
 
@@ -57,7 +56,7 @@ class GenerateAnswer(NLWebHandler):
         self.azure_maps_client_id = os.environ.get("AZURE_MAPS_CLIENT_ID")
         self.azure_maps_base_url = os.environ.get("AZURE_MAPS_ENDPOINT")
         self.azure_maps_api_key = os.environ.get("AZURE_MAPS_API_KEY")
-        self._maps_credential: Optional[DefaultAzureCredential] = None
+        self._maps_credential: DefaultAzureCredential | None = None
 
     def _maps_configured(self) -> bool:
         if not self.azure_maps_base_url or not self.azure_maps_client_id:
@@ -66,7 +65,7 @@ class GenerateAnswer(NLWebHandler):
             return True
         return bool(self.azure_maps_api_key)
 
-    async def _headers(self) -> Dict[str, str]:
+    async def _headers(self) -> dict[str, str]:
         headers = {"x-ms-client-id": self.azure_maps_client_id}
         if self.azure_maps_auth_method == "azure_ad":
             if self._maps_credential is None:
@@ -89,7 +88,7 @@ class GenerateAnswer(NLWebHandler):
                 return
             await self.get_ranked_answers()
             logger.info(f"Query execution completed for conversation_id: {self.conversation_id}")
-            return 
+            return
         except Exception as e:
             logger.exception(f"Error in runQuery: {e}")
             traceback.print_exc()
@@ -148,7 +147,7 @@ class GenerateAnswer(NLWebHandler):
         except Exception as e:
             logger.error(f"Error in rankItem: {e}")
             logger.debug("Full error trace: ", exc_info=True)
-    
+
     async def get_ranked_answers(self):
 
         logger.info("Starting retrieval and ranking process")
@@ -225,7 +224,7 @@ class GenerateAnswer(NLWebHandler):
             logger.exception(f"Error in get_ranked_answers: {e}")
             raise
 
- 
+
     async def do_distance_ranking(self, location: str, country_region: str):
         # Main entry point to rank results by travel time
         logger.debug(f"Starting distance ranking for: {location}, {country_region}")
@@ -251,7 +250,7 @@ class GenerateAnswer(NLWebHandler):
 
                 # 3. Get Matrix Data
                 matrix_results = await self._get_route_matrix(session, source_coords, destinations)
-                
+
                 # 4. Process and Sort
                 if matrix_results:
                     self._rank_and_update_results(matrix_results, valid_items)
@@ -260,16 +259,16 @@ class GenerateAnswer(NLWebHandler):
             logger.exception(f"Critical error in do_distance_ranking: {e}")
             raise
 
-    async def _get_source_coordinates(self, session: aiohttp.ClientSession, location: str, country_region: str) -> Optional[Tuple[float, float]]:
+    async def _get_source_coordinates(self, session: aiohttp.ClientSession, location: str, country_region: str) -> tuple[float, float] | None:
         # 1. Use 'query' instead of 'locality' to find both Cities and Districts
         # 2. Added 'entityType=PopulatedPlace' to filter out irrelevant POIs
         url = f"{self.azure_maps_base_url}/geocode?api-version=2025-01-01&query={location}, {country_region}&entityType=PopulatedPlace"
-                
+
         async with session.get(url, headers=await self._headers(), timeout=aiohttp.ClientTimeout(total=30)) as response:
             if response.status != 200:
                 logger.error(f"Geocoding failed for {location}: Status {response.status}")
                 return None
-            
+
             data = await response.json()
             features = data.get("features", [])
             if not features:
@@ -288,12 +287,12 @@ class GenerateAnswer(NLWebHandler):
             # Find the feature with the SMALLEST bounding box.
             # This identifies the specific town/city rather than the broad administrative district.
             selected_feature = min(features, key=get_bbox_area)
-            
+
             coords = selected_feature["geometry"]["coordinates"]
             # Azure Maps returns [longitude, latitude]
             return (coords[0], coords[1])
 
-    def _extract_destination_coordinates(self) -> Tuple[List[List[float]], List[Dict]]:
+    def _extract_destination_coordinates(self) -> tuple[list[list[float]], list[dict]]:
         # Parses self.final_ranked_answers for valid geo strings.
         dest_list = []
         valid_items = []
@@ -311,7 +310,7 @@ class GenerateAnswer(NLWebHandler):
                 if value and isinstance(value, str) and "," in value:
                     geo = value
                     break
-        
+
             if not geo:
                 continue
 
@@ -326,13 +325,13 @@ class GenerateAnswer(NLWebHandler):
 
         return dest_list, valid_items
 
-    async def _snap_to_road(self, session: aiohttp.ClientSession, lon_lat: List[float]) -> List[float]:        
+    async def _snap_to_road(self, session: aiohttp.ClientSession, lon_lat: list[float]) -> list[float]:
         # Takes a [lon, lat] and returns the nearest coordinate snapped to a road.
-        
+
         # Note: Search API uses lat,lon string format for the query
         query = f"{lon_lat[1]},{lon_lat[0]}"
         snap_url = f"{self.azure_maps_base_url}/search/address/reverse/json?api-version=1.0&query={query}"
-        
+
         try:
             async with session.get(snap_url, headers=await self._headers(), timeout=aiohttp.ClientTimeout(total=30)) as response:
                 if response.status == 200:
@@ -344,12 +343,12 @@ class GenerateAnswer(NLWebHandler):
                         return [float(pos[1]), float(pos[0])] # Return as [lon, lat]
         except Exception as e:
             logger.error(f"Snapping failed for {lon_lat}: {e}")
-        
+
         return lon_lat # Fallback to original if snapping fails
 
-    async def _get_route_matrix(self, session: aiohttp.ClientSession, origin: Tuple[float, float], destinations: List[List[float]]) -> Optional[List[Dict]]:
+    async def _get_route_matrix(self, session: aiohttp.ClientSession, origin: tuple[float, float], destinations: list[list[float]]) -> list[dict] | None:
         # Calls the Azure Maps Synchronous Route Matrix API with snapped coordinates.
-        
+
         # 1. Snap destinations to the nearest road
         # This is important because the Matrix API expects points that are on or near roads for accurate travel time calculations.
         # Azure Maps does not have very good road coverage in some developing countries.
@@ -368,12 +367,12 @@ class GenerateAnswer(NLWebHandler):
             if response.status == 200:
                 data = await response.json()
                 # The response structure is matrix[origin_index][destination_index]
-                return data.get("matrix", [[]])[0] 
-            
+                return data.get("matrix", [[]])[0]
+
             logger.error(f"Matrix API failed: Status {response.status}")
             return None
-            
-    def _rank_and_update_results(self, matrix_results: List[Dict], valid_items: List[Dict]):
+
+    def _rank_and_update_results(self, matrix_results: list[dict], valid_items: list[dict]):
         # Combines matrix results with original data and sorts them.
         ranked_results = []
 
