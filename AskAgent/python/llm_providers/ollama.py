@@ -7,18 +7,16 @@ Backwards compatibility is not guaranteed at this time.
 
 """
 
-import json
-from ollama import AsyncClient
-import os
-from core.config import CONFIG
 import asyncio
+import json
 import threading
-import re
-from typing import Dict, Any, Optional
+from typing import Any
 
+from ollama import AsyncClient
+
+from core.config import CONFIG
 from llm_providers.llm_provider import LLMProvider
-from misc.logger.logging_config_helper import get_configured_logger, LogLevel
-
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("ollama")
 
@@ -67,7 +65,7 @@ class OllamaProvider(LLMProvider):
         return cls._client
 
     @classmethod
-    def clean_response(cls, content: str) -> Dict[str, Any]:
+    def clean_response(cls, content: str) -> dict[str, Any]:
         """Clean and parse Ollama response"""
         logger.debug("Cleaning Ollama response")
         response_text = content.strip()
@@ -93,13 +91,13 @@ class OllamaProvider(LLMProvider):
     async def get_completion(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        model: Optional[str] = None,
+        schema: dict[str, Any],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
         timeout: float = 60.0,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get completion from Ollama"""
         if model is None:
             # Get model from config if not provided
@@ -141,7 +139,7 @@ Only output the JSON object, no additional text or explanation."""
             logger.error(f"Ollama completion timed out after {timeout}s")
             return {}
         except Exception as e:
-            logger.error(f"Ollama completion failed: {type(e).__name__}: {str(e)}")
+            logger.error(f"Ollama completion failed: {type(e).__name__}: {e!s}")
             raise
 
 

@@ -2,7 +2,7 @@
 # Licensed under the MIT License
 
 """
-This file contains the methods for analyzing the query to determine the 
+This file contains the methods for analyzing the query to determine the
 type of item being sought, whether there are multiple types of items being
 sought, etc.
 
@@ -10,11 +10,9 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from core.prompts import PromptRunner
 
-import asyncio
 from core.config import CONFIG
-
+from core.prompts import PromptRunner
 from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("analyze_query")
@@ -38,12 +36,12 @@ class DetectItemType(PromptRunner):
         current_item_type = getattr(self.handler, 'item_type', '')
         if isinstance(current_item_type, str) and '}' in current_item_type:
             current_item_type = current_item_type.split('}')[1]
-            
+
         if current_item_type == "Statistics":
-            logger.info(f"Item type already set to Statistics from site mapping, skipping DetectItemType")
+            logger.info("Item type already set to Statistics from site mapping, skipping DetectItemType")
             await self.handler.state.precheck_step_done(self.STEP_NAME)
             return {"item_type": "Statistics"}
-            
+
         response = await self.run_prompt(self.ITEM_TYPE_PROMPT_NAME, level="low")
         if (response):
             logger.debug(f"DetectItemType response: {response}")

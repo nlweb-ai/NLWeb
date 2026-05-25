@@ -9,12 +9,13 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from xml.etree import ElementTree as ET
-import json 
+import json
 import os  # Add this import
-from misc.logger.logging_config_helper import get_configured_logger
-from core.llm import ask_llm
+from xml.etree import ElementTree as ET
+
 from core.config import CONFIG
+from core.llm import ask_llm
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("prompts")
 prompt_runner_logger = get_configured_logger("prompt_runner")
@@ -27,31 +28,31 @@ PROMPT_STRING_TAG = "{" + BASE_NS + "}promptString"
 RETURN_STRUC_TAG = "{" + BASE_NS + "}returnStruc"
 
 # This file deals with getting the right prompt for a given
-# type, site and prompt-name. 
+# type, site and prompt-name.
 # Also deals with filling in the prompt.
 # #Yet to do the subclass check.
 
 prompt_roots = []
-def init_prompts(files=["prompts.xml"]):
+def init_prompts(files=None):
+    if files is None:
+        files = ["prompts.xml"]
     global prompt_roots
     logger.info(f"Initializing prompts from files: {files}")
-    
+
     for file in files:
         # Create full path by joining the config directory with the filename
         file_path = os.path.join(CONFIG.config_directory, file)
         try:
             prompt_roots.append(ET.parse(file_path).getroot())
         except Exception as e:
-            logger.error(f"Failed to load prompt file '{file}': {str(e)}")
+            logger.error(f"Failed to load prompt file '{file}': {e!s}")
             raise
 
 
 def super_class_of(child_class, parent_class):
     if parent_class == child_class:
         return True
-    if parent_class == "{" + BASE_NS + "}Item" :
-        return True
-    return False
+    return parent_class == "{" + BASE_NS + "}Item"
 
 prompt_var_cache = {}
 def get_prompt_variables_from_prompt(prompt):
@@ -70,22 +71,22 @@ def extract_variables_from_prompt(prompt):
         start = prompt.find('{', start)
         if start == -1:
             break
-            
+
         # Find matching closing brace
         end = prompt.find('}', start)
         if end == -1:
             break
-            
+
         # Extract variable name and add to set
         var = prompt[start+1:end].strip()
         variables.add(var)
-        
+
         # Move start position
         start = end + 1
     return variables
 
 def get_prompt_variable_value(variable, handler):
-    
+
     site = handler.site
     query = handler.query
     prev_queries = handler.prev_queries
@@ -136,10 +137,12 @@ def get_prompt_variable_value(variable, handler):
     else:
         logger.warning(f"Unknown variable: {variable}")
         value = ""
-    
+
     return value
 
-def fill_prompt(prompt_str, handler, pr_dict={}):
+def fill_prompt(prompt_str, handler, pr_dict=None):
+    if pr_dict is None:
+        pr_dict = {}
     try:
         variables = get_prompt_variables_from_prompt(prompt_str)
         for variable in variables:
@@ -150,11 +153,11 @@ def fill_prompt(prompt_str, handler, pr_dict={}):
             # Ensure value is a string
             if not isinstance(value, str):
                 value = str(value)
-                
+
             prompt_str = prompt_str.replace("{" + variable + "}", value)
         return prompt_str
     except Exception as e:
-        logger.error(f"Error filling prompt: {str(e)}")
+        logger.error(f"Error filling prompt: {e!s}")
         logger.debug("Error details:", exc_info=True)
         raise
 
@@ -166,16 +169,16 @@ def get_cached_values(site, item_type, prompt_name):
         return cached_prompts[cache_key]
     return None
 
-def find_prompt(site, item_type, prompt_name):  
+def find_prompt(site, item_type, prompt_name):
     if site and isinstance(site, list):
         site = site[0]
     if (prompt_roots == []):
         init_prompts()
-    
+
     cached_values = get_cached_values(site, item_type, prompt_name)
     if cached_values is not None:
         return cached_values
-    
+
     # First, try to find a Site element matching the site parameter
     site_element = None
     prompt_element = None
@@ -195,20 +198,20 @@ def find_prompt(site, item_type, prompt_name):
 
     if (not site_element and default_site_element):
         site_element = default_site_element
-    
+
     if (not site_element):
         return None, None
 
-  
+
     for child in site_element:
         if child.tag == "{" + BASE_NS + "}Item":
             default_item_type_element.append(child)
         elif child.tag == "{" + BASE_NS + "}item_type":
             item_type_element.append(child)
-            
+
     for elt in default_item_type_element:
         item_type_element.append(elt)
-       
+
     for elt in item_type_element:
         prompts = elt.findall(PROMPT_TAG)
         # Debug: prompts found for site and item_type
@@ -219,15 +222,15 @@ def find_prompt(site, item_type, prompt_name):
                 break
             if (prompt_element):
                 break
-            
-        
+
+
     if (not prompt_element):
         # Debug: prompt not found
         return None, None
     else:
         prompt_text = prompt_element.find(PROMPT_STRING_TAG).text
         return_struc_element = prompt_element.find(RETURN_STRUC_TAG)
-        
+
         if return_struc_element is not None and return_struc_element.text:
             return_struc_text = return_struc_element.text.strip()
             if return_struc_text == "":
@@ -240,10 +243,10 @@ def find_prompt(site, item_type, prompt_name):
                     return_struc = None
         else:
             return_struc = None
-        
+
         cached_prompts[(site, item_type, prompt_name)] = (prompt_text, return_struc)
         return prompt_text, return_struc
-    
+
 
 
 def get_prompt_variables_from_file(xml_file_path):
@@ -252,16 +255,16 @@ def get_prompt_variables_from_file(xml_file_path):
     Returns a set of all variables found.
     """
     logger.info(f"Extracting prompt variables from file: {xml_file_path}")
-    
+
     try:
         # Parse XML file
         tree = ET.parse(xml_file_path)
         root = tree.getroot()
         logger.debug(f"Successfully parsed XML file: {xml_file_path}")
-        
+
         # Find all promptString elements recursively
         all_variables = set()
-        
+
         def process_element(element):
             # Check if current element is a promptString
             if element.tag == PROMPT_STRING_TAG:
@@ -270,26 +273,26 @@ def get_prompt_variables_from_file(xml_file_path):
                     variables = extract_variables_from_prompt(prompt_text)
                     all_variables.update(variables)
                     logger.debug(f"Found {len(variables)} variables in promptString")
-            
+
             # Recursively process all child elements
             for child in element:
                 process_element(child)
-                
+
         # Start recursive processing from root
         process_element(root)
-        
+
         logger.info(f"Extracted {len(all_variables)} unique variables from {xml_file_path}")
         logger.debug(f"Variables found: {all_variables}")
         return all_variables
-        
+
     except ET.ParseError as e:
-        logger.error(f"Error parsing XML file {xml_file_path}: {str(e)}")
+        logger.error(f"Error parsing XML file {xml_file_path}: {e!s}")
         return set()
     except FileNotFoundError:
         logger.error(f"XML file not found: {xml_file_path}")
         return set()
     except Exception as e:
-        logger.error(f"Error processing file {xml_file_path}: {str(e)}")
+        logger.error(f"Error processing file {xml_file_path}: {e!s}")
         logger.debug("Error details:", exc_info=True)
         return set()
 
@@ -302,38 +305,38 @@ class PromptRunner:
     def get_prompt(self, prompt_name):
         item_type = self.handler.item_type
         site = self.handler.site
-        
+
         # Hardcoded PrevQueryDecontextualizer prompt
         if prompt_name == 'PrevQueryDecontextualizer':
             prompt_str = """The user is querying the site {request.site} which has {site.itemType}s.
         Rewrite the query, incorporating the context of the previous queries and answers.
-        Keep the decontextualized query short and do not reference the site. 
+        Keep the decontextualized query short and do not reference the site.
 
-        If the query very clearly does not reference earlier queries, 
-        don't change the query. Err on the side of incorporating the context of the 
-        previous queries. If you are not sure whether this is a brand new query, 
-        or follow up, it is likely a follow up. Try your best to incorporate the 
+        If the query very clearly does not reference earlier queries,
+        don't change the query. Err on the side of incorporating the context of the
+        previous queries. If you are not sure whether this is a brand new query,
+        or follow up, it is likely a follow up. Try your best to incorporate the
         context from the previous queries.
 
-        The user's query is: {request.rawQuery}. 
+        The user's query is: {request.rawQuery}.
         Previous queries were: {request.previousQueries}."""
-            
+
             ans_struc = {
                 "requires_decontextualization": "True or False",
                 "decontextualized_query": "The rewritten query, if decontextualization is required"
             }
             return prompt_str, ans_struc
-        
+
         # For other decontextualization prompts, use 'default' site to find root-level prompts
         if 'Decontextualizer' in prompt_name:
             site = 'default'
-        
+
         prompt_str, ans_struc = find_prompt(site, item_type, prompt_name)
 
         if (prompt_str is None):
             prompt_runner_logger.warning(f"Prompt '{prompt_name}' not found for site='{site}', item_type='{item_type}'")
             return None, None
-        
+
         return prompt_str, ans_struc
 
     def __init__(self, handler):
@@ -341,7 +344,7 @@ class PromptRunner:
 
     async def run_prompt(self, prompt_name, level="low", verbose=False, timeout=8):
         prompt_runner_logger.info(f"Running prompt: {prompt_name} with level={level}, timeout={timeout}s")
-        
+
         try:
             prompt_str, ans_struc = self.get_prompt(prompt_name)
             if (prompt_str is None):
@@ -349,37 +352,37 @@ class PromptRunner:
                     print(f"Prompt {prompt_name} not found")
                 prompt_runner_logger.debug(f"Cannot run prompt '{prompt_name}' - prompt not found")
                 return None
-        
-            prompt_runner_logger.debug(f"Filling prompt template with handler data")
+
+            prompt_runner_logger.debug("Filling prompt template with handler data")
             prompt = fill_prompt(prompt_str, self.handler)
             if (verbose):
                 print(f"Prompt: {prompt}")
             prompt_runner_logger.debug(f"Filled prompt length: {len(prompt)} chars")
-            
+
             prompt_runner_logger.info(f"Calling LLM with level={level}")
             response = await ask_llm(prompt, ans_struc, level=level, timeout=timeout, query_params=self.handler.query_params)
-            
+
             if response is None:
                 prompt_runner_logger.warning(f"LLM returned None for prompt '{prompt_name}'")
             else:
                 prompt_runner_logger.info(f"LLM response received for prompt '{prompt_name}'")
                 prompt_runner_logger.debug(f"Response type: {type(response)}, size: {len(str(response))} chars")
-            
+
             if (verbose):
                 print(f"Response: {response}")
-            
+
             return response
-            
+
         except Exception as e:
             from core.config import CONFIG
-            error_msg = f"Error in run_prompt for '{prompt_name}': {type(e).__name__}: {str(e)}"
+            error_msg = f"Error in run_prompt for '{prompt_name}': {type(e).__name__}: {e!s}"
             prompt_runner_logger.error(error_msg)
             prompt_runner_logger.debug("Full traceback:", exc_info=True)
-            
+
             if CONFIG.should_raise_exceptions():
                 # In testing/development mode, re-raise with enhanced error message
-                raise Exception(f"LLM call failed for prompt '{prompt_name}': {type(e).__name__}: {str(e)}") from e
+                raise Exception(f"LLM call failed for prompt '{prompt_name}': {type(e).__name__}: {e!s}") from e
             else:
                 # In production mode, log and return None
-                logger.error(f"ERROR in run_prompt: {type(e).__name__}: {str(e)}")
+                logger.error(f"ERROR in run_prompt: {type(e).__name__}: {e!s}")
                 return None

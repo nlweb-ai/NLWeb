@@ -2,7 +2,7 @@
 This is a simple tool to ensure that your NLWeb environment is configured properly.  
 
 ## How to run
-By default, this tool checks that only the configured options (set in your config yaml files in the [config directory](../AskAgent/config/)) are set with valid endpoints.  This will ensure that your instance of NLWeb is configured properly.  
+By default, this tool checks that only the configured options (set in your config yaml files in the [config directory](../config/)) are set with valid endpoints.  This will ensure that your instance of NLWeb is configured properly.  
 
 ```bash
 # Run from the AskAgent directory

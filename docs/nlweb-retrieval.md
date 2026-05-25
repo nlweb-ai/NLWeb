@@ -29,7 +29,7 @@ The `config_retrieval.yaml` file configures the vector database endpoints that N
 
 ## Write Configuration
 
-The retrieval configuration is managed through `AskAgent/config/config_retrieval.yaml`:
+The retrieval configuration is managed through `config/config_retrieval.yaml`:
 
 ### `write_endpoint`
 ```yaml

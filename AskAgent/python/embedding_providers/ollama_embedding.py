@@ -8,14 +8,13 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-import json
 import asyncio
 import threading
-from typing import List, Optional
-from ollama import AsyncClient
-from core.config import CONFIG
 
-from misc.logger.logging_config_helper import get_configured_logger, LogLevel
+from ollama import AsyncClient
+
+from core.config import CONFIG
+from misc.logger.logging_config_helper import LogLevel, get_configured_logger
 
 logger = get_configured_logger("ollama_embedding")
 
@@ -32,7 +31,7 @@ def get_ollama_endpoint():
         if endpoint:
             endpoint = endpoint.strip('"')  # Remove quotes if present
             return endpoint
-        
+
     error_msg = "Ollama endpoint not found in config"
     logger.error(error_msg)
     raise ValueError(error_msg)
@@ -53,7 +52,7 @@ def get_ollama_client():
             try:
                 ollama_client = AsyncClient(host=endpoint)
                 logger.debug("Ollama client initialized successfully")
-            except Exception as e:
+            except Exception:
                 logger.exception("Failed to initialize Ollama client")
                 raise
 
@@ -61,8 +60,8 @@ def get_ollama_client():
 
 
 async def get_ollama_embedding(
-    text: str, model: Optional[str] = None, timeout: float = 300.0
-) -> List[float]:
+    text: str, model: str | None = None, timeout: float = 300.0
+) -> list[float]:
     """
     Generate embeddings using Ollama.
 
@@ -113,8 +112,8 @@ async def get_ollama_embedding(
 
 
 async def get_ollama_batch_embeddings(
-    texts: List[str], model: str = None, timeout: float = 300.0
-) -> List[List[float]]:
+    texts: list[str], model: str | None = None, timeout: float = 300.0
+) -> list[list[float]]:
     """
     Generate embeddings for multiple texts using Ollama.
 

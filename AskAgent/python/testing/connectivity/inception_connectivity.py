@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 try:
     from openai import OpenAI
+
     from core.config import CONFIG
 except ImportError as e:
     print(f"Error importing required libraries: {e}")
@@ -30,7 +31,7 @@ async def check_inception_api():
 
     try:
         client = OpenAI(api_key=api_key, base_url="https://api.inceptionlabs.ai/v1")
-        
+
         # Listing available models seems to work without an API key...
         #models = client.models.list()
         #print(f"Available models: {models}")
@@ -43,7 +44,7 @@ async def check_inception_api():
         )
         #print(response.choices[0].message.content)
         if len(response.choices[0].message.content) > 0:
-            print(f"✅ Successfully connected to Inception API")
+            print("✅ Successfully connected to Inception API")
             return True
         else:
             print("❌ Got empty message response from Inception API")

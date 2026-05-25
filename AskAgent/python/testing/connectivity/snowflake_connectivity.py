@@ -3,9 +3,9 @@ Check connectivity to Snowflake services.
 Run this script to validate environment variables and API access.
 """
 
+import asyncio
 import os
 import sys
-import asyncio
 import time
 import traceback
 
@@ -13,9 +13,10 @@ import traceback
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 try:
-    from core.llm import ask_llm
     from core.embedding import get_embedding
-    from core.retriever import search, search_all_sites, get_sites as get_sites_wrapper
+    from core.llm import ask_llm
+    from core.retriever import get_sites as get_sites_wrapper
+    from core.retriever import search, search_all_sites
 except ImportError as e:
     print(f"Error importing required libraries: {e}")
     print("Please ensure you are in the /code/python directory and run: pip install -r requirements.txt")
@@ -70,8 +71,8 @@ async def main():
     results = await asyncio.gather(*tasks, return_exceptions=True)
     successful = sum(1 for r in results if r is True)
     total = len(tasks)
-    
-    print(f"\n====== SUMMARY ======")
+
+    print("\n====== SUMMARY ======")
     print(f"{successful}/{total} connections successful")
     if successful < total:
         print("❌ Some connections failed. Please check error messages above.")

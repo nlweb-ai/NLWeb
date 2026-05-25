@@ -26,7 +26,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from core.utils.appsdk_adapter import (  # noqa: E402
+import contextlib
+
+from core.utils.appsdk_adapter import (
     convert_messages_to_appsdk_response,
 )
 
@@ -48,12 +50,12 @@ def parse_args() -> argparse.Namespace:
 async def fetch_streaming(
     session: aiohttp.ClientSession,
     url: str,
-    params: Dict[str, Any],
-    payload: Optional[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-    messages: List[Dict[str, Any]] = []
+    params: dict[str, Any],
+    payload: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    messages: list[dict[str, Any]] = []
 
-    request_kwargs: Dict[str, Any] = {"params": params}
+    request_kwargs: dict[str, Any] = {"params": params}
     if payload is not None:
         request_kwargs["json"] = payload
 
@@ -79,10 +81,10 @@ async def fetch_streaming(
 async def fetch_non_streaming(
     session: aiohttp.ClientSession,
     url: str,
-    params: Dict[str, Any],
-    payload: Optional[Dict[str, Any]],
+    params: dict[str, Any],
+    payload: dict[str, Any] | None,
 ) -> Any:
-    request_kwargs: Dict[str, Any] = {"params": params}
+    request_kwargs: dict[str, Any] = {"params": params}
     if payload is not None:
         request_kwargs["json"] = payload
 
@@ -92,7 +94,7 @@ async def fetch_non_streaming(
         return await response.json()
 
 
-def extract_messages(payload: Any) -> List[Dict[str, Any]]:
+def extract_messages(payload: Any) -> list[dict[str, Any]]:
     if isinstance(payload, list):
         return payload
 
@@ -105,7 +107,7 @@ def extract_messages(payload: Any) -> List[Dict[str, Any]]:
     return []
 
 
-async def run() -> Dict[str, Any]:
+async def run() -> dict[str, Any]:
     args = parse_args()
 
     if args.streaming and args.non_streaming:
@@ -117,7 +119,7 @@ async def run() -> Dict[str, Any]:
     if args.non_streaming:
         streaming = False
 
-    params: Dict[str, Any] = {"query": args.query}
+    params: dict[str, Any] = {"query": args.query}
     if args.site:
         params["site"] = args.site
     if args.mode:
@@ -126,7 +128,7 @@ async def run() -> Dict[str, Any]:
         params["prev"] = args.prev
     params["streaming"] = "true" if streaming else "false"
 
-    payload: Optional[Dict[str, Any]] = None
+    payload: dict[str, Any] | None = None
     if args.method == "post":
         payload = {
             key: value
@@ -140,7 +142,7 @@ async def run() -> Dict[str, Any]:
         url = args.base_url.rstrip("/") + "/ask"
         if streaming:
             messages = await fetch_streaming(session, url, params, payload)
-            response_payload: Optional[Any] = None
+            response_payload: Any | None = None
         else:
             response_payload = await fetch_non_streaming(session, url, params, payload)
             messages = extract_messages(response_payload)
@@ -163,10 +165,8 @@ async def run() -> Dict[str, Any]:
 
 
 def main() -> None:
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(run())
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":

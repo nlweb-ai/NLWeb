@@ -8,12 +8,11 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from typing import Optional, List
 import asyncio
 import threading
 
 from core.config import CONFIG
-from misc.logger.logging_config_helper import get_configured_logger, LogLevel
+from misc.logger.logging_config_helper import LogLevel, get_configured_logger
 
 logger = get_configured_logger("embedding_wrapper")
 
@@ -28,42 +27,41 @@ _provider_locks = {
 
 async def get_embedding(
     text: str,
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
+    provider: str | None = None,
+    model: str | None = None,
     timeout: int = 30,
-    query_params: Optional[dict] = None
-) -> List[float]:
+    query_params: dict | None = None
+) -> list[float]:
     """
     Get embedding for the provided text using the specified provider and model.
-    
+
     Args:
         text: The text to embed
         provider: Optional provider name, defaults to preferred_embedding_provider
         model: Optional model name, defaults to the provider's configured model
         timeout: Maximum time to wait for embedding response in seconds
         query_params: Optional query parameters from HTTP request
-        
+
     Returns:
         List of floats representing the embedding vector
     """
     # Allow overriding provider in development mode
-    if CONFIG.is_development_mode() and query_params:
-        if 'embedding_provider' in query_params:
-            provider = query_params['embedding_provider']
-            logger.debug(f"Overriding embedding provider to: {provider}")
-    
+    if CONFIG.is_development_mode() and query_params and 'embedding_provider' in query_params:
+        provider = query_params['embedding_provider']
+        logger.debug(f"Overriding embedding provider to: {provider}")
+
     provider = provider or CONFIG.preferred_embedding_provider
-    
+
     # Truncate text to 20k characters to avoid token limit issues
     MAX_CHARS = 20000
     original_length = len(text)
     if original_length > MAX_CHARS:
         text = text[:MAX_CHARS]
         logger.warning(f"Truncated text from {original_length} to {MAX_CHARS} characters for embedding generation")
-    
+
     logger.debug(f"Getting embedding with provider: {provider}")
     logger.debug(f"Text length: {len(text)} chars")
-    
+
     if provider not in CONFIG.embedding_providers:
         error_msg = f"Unknown embedding provider '{provider}'"
         logger.error(error_msg)
@@ -82,7 +80,7 @@ async def get_embedding(
         error_msg = f"No embedding model specified for provider '{provider}'"
         logger.error(error_msg)
         raise ValueError(error_msg)
-    
+
     logger.debug(f"Using embedding model: {model_id}")
 
     try:
@@ -120,7 +118,7 @@ async def get_embedding(
             )
             logger.debug(f"Azure embeddings received, dimension: {len(result)}")
             return result
-        
+
         if provider == "ollama":
             logger.debug("Getting Ollama embeddings")
             # Import here to avoid potential circular imports
@@ -132,7 +130,7 @@ async def get_embedding(
             )
             logger.debug(f"Ollama embeddings received, dimension: {len(result)}")
             return result
-            
+
         if provider == "snowflake":
             logger.debug("Getting Snowflake embeddings")
             # Import here to avoid potential circular imports
@@ -161,11 +159,11 @@ async def get_embedding(
 
             logger.debug(f"Elasticsearch embeddings received, count: {len(result)}")
             return result
-        
+
         error_msg = f"No embedding implementation for provider '{provider}'"
         logger.error(error_msg)
         raise ValueError(error_msg)
-    
+
     except asyncio.TimeoutError:
         logger.error(f"Embedding request timed out after {timeout}s with provider {provider}")
         raise
@@ -185,25 +183,25 @@ async def get_embedding(
         raise
 
 async def batch_get_embeddings(
-    texts: List[str],
-    provider: Optional[str] = None,
-    model: Optional[str] = None,
+    texts: list[str],
+    provider: str | None = None,
+    model: str | None = None,
     timeout: int = 60
-) -> List[List[float]]:
+) -> list[list[float]]:
     """
     Get embeddings for a batch of texts.
-    
+
     Args:
         texts: List of texts to embed
         provider: Optional provider name, defaults to preferred_embedding_provider
         model: Optional model name, defaults to the provider's configured model
         timeout: Maximum time to wait for batch embedding response in seconds
-        
+
     Returns:
         List of embedding vectors, each a list of floats
     """
     provider = provider or CONFIG.preferred_embedding_provider
-    
+
     # Truncate texts to 20k characters to avoid token limit issues
     MAX_CHARS = 20000
     truncated_texts = []
@@ -216,23 +214,23 @@ async def batch_get_embeddings(
         else:
             truncated_texts.append(text)
     texts = truncated_texts
-    
+
     logger.debug(f"Getting batch embeddings with provider: {provider}")
     logger.debug(f"Batch size: {len(texts)} texts")
-    
+
     # Get provider config using the helper method
     provider_config = CONFIG.get_embedding_provider(provider)
     if not provider_config:
         error_msg = f"Missing configuration for embedding provider '{provider}'"
         logger.error(error_msg)
         raise ValueError(error_msg)
-        
+
     model_id = model or provider_config.model
     if not model_id:
         error_msg = f"No embedding model specified for provider '{provider}'"
         logger.error(error_msg)
         raise ValueError(error_msg)
-    
+
     try:
         # Provider-specific batch implementations with timeout handling
         if provider == "openai":
@@ -245,7 +243,7 @@ async def batch_get_embeddings(
             )
             logger.debug(f"OpenAI batch embeddings received, count: {len(result)}")
             return result
-            
+
         if provider == "azure_openai":
             # Use Azure's batch embedding API
             logger.debug("Getting Azure OpenAI batch embeddings")
@@ -256,7 +254,7 @@ async def batch_get_embeddings(
             )
             logger.debug(f"Azure batch embeddings received, count: {len(result)}")
             return result
-            
+
         if provider == "snowflake":
             # Use Snowflake's batch embedding API
             logger.debug("Getting Snowflake batch embeddings")
@@ -267,7 +265,7 @@ async def batch_get_embeddings(
             )
             logger.debug(f"Snowflake batch embeddings received, count: {len(result)}")
             return result
-            
+
         if provider == "gemini":
             # Gemini might not have a native batch API, so process one by one
             logger.debug("Getting Gemini batch embeddings (sequential)")
@@ -279,7 +277,7 @@ async def batch_get_embeddings(
             )
             logger.debug(f"Gemini batch embeddings received, count: {len(result)}")
             return result
-        
+
         if provider == "ollama":
             logger.debug("Getting Ollama batch embeddings")
             from embedding_providers.ollama_embedding import get_ollama_batch_embeddings
@@ -289,12 +287,12 @@ async def batch_get_embeddings(
             )
             logger.debug(f"Ollama batch embeddings received, count: {len(result)}")
             return result
-    
+
         if provider == "elasticsearch":
             # Use Elasticsearch's batch embedding API
             logger.debug("Getting Elasticsearch batch embeddings")
             from embedding_providers.elasticsearch_embedding import ElasticsearchEmbedding
-    
+
             elasticsearch_embedding = ElasticsearchEmbedding()
 
             result = await elasticsearch_embedding.get_batch_embeddings(
@@ -306,16 +304,16 @@ async def batch_get_embeddings(
 
             logger.debug(f"Elasticsearch batch embeddings received, count: {len(result)}")
             return result
-        
+
         # Default implementation if provider doesn't match any above
         logger.debug(f"No specific batch implementation for {provider}, processing sequentially")
         results = []
         for text in texts:
             embedding = await get_embedding(text, provider, model)
             results.append(embedding)
-        
+
         return results
-        
+
     except asyncio.TimeoutError:
         logger.error(f"Batch embedding request timed out after {timeout}s with provider {provider}")
         raise

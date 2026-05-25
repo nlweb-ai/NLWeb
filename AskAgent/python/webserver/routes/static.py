@@ -1,9 +1,10 @@
 """Static file serving routes for aiohttp server"""
 
-from aiohttp import web
 import logging
-import os
 from pathlib import Path
+
+from aiohttp import web
+
 from core.config import CONFIG
 
 logger = logging.getLogger(__name__)
@@ -11,14 +12,22 @@ logger = logging.getLogger(__name__)
 
 def setup_static_routes(app: web.Application):
     """Setup static file serving routes"""
-    
+
     config = app.get('config', {})
     static_dir = config.get('static_directory', '../static')
-    
-    # Convert to absolute path
-    base_path = Path(__file__).parent.parent.parent.parent.parent
-    static_path = base_path / static_dir.lstrip('../')
-    
+
+    # Convert to absolute path within the project root (NLWeb/)
+    # static_dir is typically '../static' relative to config dir, so strip leading ../
+    project_root = Path(__file__).resolve().parent.parent.parent.parent.parent  # NLWeb/
+    clean_dir = Path(static_dir)
+    # Strip leading parent references to get the directory name within the project
+    while clean_dir.parts and clean_dir.parts[0] == '..':
+        clean_dir = Path(*clean_dir.parts[1:]) if len(clean_dir.parts) > 1 else Path('.')
+    static_path = (project_root / clean_dir).resolve()
+    if not static_path.is_relative_to(project_root):
+        logger.error(f"Static directory {static_path} is outside project root {project_root}")
+        return
+
     if not static_path.exists():
         logger.warning(f"Static directory not found at {static_path}")
         # Try alternate path
@@ -26,32 +35,32 @@ def setup_static_routes(app: web.Application):
         if not static_path.exists():
             logger.error("Could not find static directory")
             return
-    
+
     logger.info(f"Serving static files from: {static_path}")
-    
+
     # Serve index.html for root path
     app.router.add_get('/', index_handler)
-    
+
     # Serve static files
     app.router.add_static(
-        '/static/', 
+        '/static/',
         path=static_path,
         name='static',
         show_index=False,
         follow_symlinks=False
     )
-    
+
     # Serve HTML files
     html_path = static_path / 'html'
     if html_path.exists():
         app.router.add_static(
-            '/html/', 
+            '/html/',
             path=html_path,
             name='html',
             show_index=False,
             follow_symlinks=False
         )
-    
+
     # Store static path in app for use in handlers
     app['static_path'] = static_path
 

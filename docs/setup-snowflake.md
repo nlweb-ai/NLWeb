@@ -30,15 +30,15 @@ You'll see a three line report on configuration whether configuration has been s
 
 ## Use LLMs from Snowflake
 
-1. Edit [config_llm.yaml](../AskAgent/config_llm.yaml) and change `preferred_endpoint` at the top to `preferred_endpoint: snowflake`
+1. Edit [config_llm.yaml](../config/config_llm.yaml) and change `preferred_endpoint` at the top to `preferred_endpoint: snowflake`
 2. (Optionally) adjust the models to use by setting `snowflake.models.high` or `snowflake.models.low` in `config_llm.yaml` to any of [the models available to your Snowflake account](https://docs.snowflake.com/en/user-guide/snowflake-cortex/llm-functions#availability)
 
 ## Use Cortex Search for retrieval and write
 
-1. Edit [config_retrieval.yaml](../AskAgent/config_retrieval.yaml) and change `write_endpoint` at the top to `write_endpoint: snowflake_cortex_search_1`
+1. Edit [config_retrieval.yaml](../config/config_retrieval.yaml) and change `write_endpoint` at the top to `write_endpoint: snowflake_cortex_search_1`
 2. (Optionally): To populate a Cortex Search Service with the SciFi Movies dataset included in this repository:
     a. Install the [snowflake cli](https://docs.snowflake.com/en/developer-guide/snowflake-cli/installation/installation) and [configure your connection](https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli). Make sure to set `role`, `database` and `schema` in the `connections.toml` file.
-    b. Run the [snowflake.sql](../AskAgent/utils/snowflake.sql) script to index the scifi movies data (Cortex Search will automatically vectorize and also build a keyword index) using the `snow` command, for example:
+    b. Run the [snowflake.sql](../AskAgent/python/retrieval_providers/utils/snowflake.sql) script to index the scifi movies data (Cortex Search will automatically vectorize and also build a keyword index) using the `snow` command, for example:
 
     ```sh
     snow sql \

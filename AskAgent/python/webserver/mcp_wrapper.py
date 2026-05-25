@@ -8,13 +8,16 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
+import asyncio
 import json
 import traceback
-import asyncio
+
 from core.baseHandler import NLWebHandler
-# from webserver.StreamingWrapper import HandleRequest, SendChunkWrapper  # Removed - using direct handlers
-from misc.logger.logger import get_logger, LogLevel
 from core.config import CONFIG  # Import CONFIG for site validation
+
+# from webserver.StreamingWrapper import HandleRequest, SendChunkWrapper  # Removed - using direct handlers
+from misc.logger.logger import get_logger
+
 # from core.router import ToolSelector  # Not needed for basic MCP
 
 # Assuming logger is available
@@ -25,18 +28,18 @@ MCP_PROTOCOL_VERSION = "2024-11-05"
 
 class MCPHandler:
     """Handler for standard MCP protocol requests"""
-    
+
     def __init__(self):
         self.initialized = False
         self.capabilities = {
             "tools": {}
         }
         self._tools_cache = None
-    
+
     async def handle_request(self, request_data, query_params, send_response, send_chunk):
         """
         Handle a JSON-RPC 2.0 MCP request
-        
+
         Args:
             request_data: Parsed JSON request data
             query_params: URL query parameters
@@ -48,10 +51,10 @@ class MCPHandler:
         method = request_data.get("method")
         params = request_data.get("params", {})
         request_id = request_data.get("id")
-        
+
         # Check if this is a notification (no id field)
         is_notification = request_id is None
-        
+
         logger.info(f"MCP request: method={method}, id={request_id}, is_notification={is_notification}")
         # Commented out verbose logging
         # print(f"=== MCP REQUEST: method={method}, id={request_id}, initialized={self.initialized}, handler_id={id(self)} ===")
@@ -81,13 +84,13 @@ class MCPHandler:
                 # Remove the initialization check - MCP clients might not send initialize first
                 # if not self.initialized:
                 #     raise Exception("Server not initialized")
-                
+
                 # Check if this is a streaming request
                 is_streaming = (
-                    query_params.get('streaming') == ['true'] and 
+                    query_params.get('streaming') == ['true'] and
                     params.get("arguments", {}).get("streaming", False)
                 )
-                
+
                 if is_streaming:
                     # Handle streaming request with SSE
                     await self.handle_streaming_tools_call(params, query_params, send_response, send_chunk)
@@ -103,17 +106,17 @@ class MCPHandler:
             else:
                 # Unknown method
                 raise Exception(f"Method not found: {method}")
-            
+
             # Send successful response
             response = {
                 "jsonrpc": jsonrpc,
                 "id": request_id,
                 "result": result
             }
-            
+
         except Exception as e:
             # Send error response
-            logger.error(f"MCP error handling {method}: {str(e)}")
+            logger.error(f"MCP error handling {method}: {e!s}")
             response = {
                 "jsonrpc": jsonrpc,
                 "id": request_id,
@@ -122,19 +125,17 @@ class MCPHandler:
                     "message": str(e)
                 }
             }
-        
+
         # Send the response
         await send_response(200, {'Content-Type': 'application/json'})
         await send_chunk(json.dumps(response).encode('utf-8'), end_response=True)
-    
+
     async def handle_initialize(self, params):
         """Handle initialize request"""
-        client_version = params.get("protocolVersion", "")
-        client_capabilities = params.get("capabilities", {})
         client_info = params.get("clientInfo", {})
-        
+
         logger.info(f"MCP Initialize request from {client_info.get('name', 'unknown')} v{client_info.get('version', 'unknown')}")
-        
+
         # Return server capabilities
         return {
             "protocolVersion": MCP_PROTOCOL_VERSION,
@@ -145,12 +146,12 @@ class MCPHandler:
             },
             "instructions": "NLWeb MCP Server - Query and analyze information from configured data sources"
         }
-    
+
     async def handle_tools_list(self, params):
         """Handle tools/list request"""
         # Get available tools from the router
         available_tools = []
-        
+
         # Add the main ask/query tool
         available_tools.append({
             "name": "ask",
@@ -177,7 +178,7 @@ class MCPHandler:
                 "required": ["query"]
             }
         })
-        
+
         # Add tool listing capability
         available_tools.append({
             "name": "list_sites",
@@ -187,7 +188,7 @@ class MCPHandler:
                 "properties": {}
             }
         })
-        
+
         # Add who tool if who endpoint is enabled
         if CONFIG.is_who_endpoint_enabled():
             available_tools.append({
@@ -204,18 +205,18 @@ class MCPHandler:
                     "required": ["query"]
                 }
             })
-        
+
         # TODO: Add additional NLWeb tools here when router integration is ready
-        
+
         return {"tools": available_tools}
-    
+
     async def handle_streaming_tools_call(self, params, query_params, send_response, send_chunk):
         """Handle streaming tools/call request with SSE"""
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
-        
+
         logger.info(f"MCP streaming tool call: {tool_name}")
-        
+
         if tool_name == "ask":
             # Set SSE headers
             await send_response(200, {
@@ -223,18 +224,18 @@ class MCPHandler:
                 'Cache-Control': 'no-cache',
                 'Connection': 'keep-alive'
             })
-            
+
             # Handle the main query tool with streaming
             query = arguments.get("query", "")
             sites = arguments.get("site", [])
             generate_mode = arguments.get("generate_mode", "list")
-            
+
             # Update query params
             query_params["query"] = [query] if query else []
             if sites:
                 query_params["site"] = sites if isinstance(sites, list) else [sites]
             query_params["generate_mode"] = [generate_mode] if generate_mode else ["list"]
-            
+
             # Create a streaming wrapper that sends SSE events
             class SSEStreamer:
                 async def write_stream(self, data, end_response=False):
@@ -245,7 +246,7 @@ class MCPHandler:
                         chunk = data.decode('utf-8')
                     else:
                         chunk = str(data)
-                    
+
                     # Send as SSE event
                     event_data = {
                         "type": "function_stream_event",
@@ -253,14 +254,14 @@ class MCPHandler:
                     }
                     sse_data = f"data: {json.dumps(event_data)}\n\n"
                     await send_chunk(sse_data.encode('utf-8'), end_response=False)
-            
+
             stream_chunk = SSEStreamer()
-            
+
             try:
                 # Process the query using NLWebHandler
                 handler = NLWebHandler(query_params, stream_chunk)
                 await handler.runQuery()
-                
+
                 # Send final event
                 final_event = {
                     "type": "function_stream_end",
@@ -268,7 +269,7 @@ class MCPHandler:
                 }
                 sse_data = f"data: {json.dumps(final_event)}\n\n"
                 await send_chunk(sse_data.encode('utf-8'), end_response=False)
-                
+
             except Exception as e:
                 # Send error event
                 error_event = {
@@ -278,7 +279,7 @@ class MCPHandler:
                 }
                 sse_data = f"data: {json.dumps(error_event)}\n\n"
                 await send_chunk(sse_data.encode('utf-8'), end_response=False)
-            
+
             # End the stream
             await send_chunk(b"", end_response=True)
         else:
@@ -291,12 +292,12 @@ class MCPHandler:
         """Handle tools/call request"""
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
-        
+
         logger.info(f"MCP tool call: {tool_name} with args: {arguments}")
         # Commented out verbose logging
         # print(f"=== TOOL CALL: {tool_name} ===")
         # print(f"Arguments: {json.dumps(arguments, indent=2)}")
-        
+
         if tool_name == "ask":
             # Handle the main query tool
             query = arguments.get("query", "")
@@ -304,7 +305,7 @@ class MCPHandler:
             # print(f"Query: {query}")
             sites = arguments.get("site", [])
             generate_mode = arguments.get("generate_mode", "list")
-            
+
             # Update query params with MCP arguments
             # Make sure to format values as lists (like URL parameters)
             query_params["query"] = [query] if query else []
@@ -316,7 +317,7 @@ class MCPHandler:
 
             # Create a response accumulator
             response_content = []
-            
+
             # Create a wrapper class that provides write_stream method
             class ChunkCapture:
                 async def write_stream(self, data, end_response=False):
@@ -328,9 +329,9 @@ class MCPHandler:
                     else:
                         chunk = str(data)
                     response_content.append(chunk)
-            
+
             capture_chunk = ChunkCapture()
-            
+
             # Process the query using NLWebHandler with a timeout
             # print(f"=== CREATING NLWebHandler ===")
             # print(f"Query params: {query_params}")
@@ -351,10 +352,10 @@ class MCPHandler:
                     ],
                     "isError": True
                 }
-            
+
             # Join all chunks
             full_response = ''.join(response_content)
-            
+
             # Return MCP-formatted response
             return {
                 "content": [
@@ -365,18 +366,18 @@ class MCPHandler:
                 ],
                 "isError": False
             }
-        
+
         elif tool_name == "list_sites":
             # Get sites from retriever like WebServer does
             try:
                 from core.retriever import get_vector_db_client
-                
+
                 # Create a retriever client
                 retriever = get_vector_db_client(query_params=query_params)
-                
+
                 # Get the list of sites
                 sites = await retriever.get_sites()
-                
+
                 # Format the response
                 return {
                     "content": [
@@ -388,17 +389,17 @@ class MCPHandler:
                     "isError": False
                 }
             except Exception as e:
-                logger.error(f"Error getting sites: {str(e)}")
+                logger.error(f"Error getting sites: {e!s}")
                 return {
                     "content": [
                         {
                             "type": "text",
-                            "text": f"Error retrieving sites: {str(e)}"
+                            "text": f"Error retrieving sites: {e!s}"
                         }
                     ],
                     "isError": True
                 }
-        
+
         elif tool_name == "who":
             # Handle the who tool if enabled
             if not CONFIG.is_who_endpoint_enabled():
@@ -411,7 +412,7 @@ class MCPHandler:
                     ],
                     "isError": True
                 }
-            
+
             # Get the query from arguments
             query = arguments.get("query", "")
             if not query:
@@ -424,16 +425,16 @@ class MCPHandler:
                     ],
                     "isError": True
                 }
-            
+
             try:
                 from core.whoHandler import WhoHandler
-                
+
                 # Set up query params for who handler
                 who_query_params = {"query": [query]}
-                
+
                 # Create a response accumulator
                 response_content = []
-                
+
                 class ChunkCapture:
                     async def write_stream(self, data, end_response=False):
                         # Convert data to string
@@ -444,9 +445,9 @@ class MCPHandler:
                         else:
                             chunk = str(data)
                         response_content.append(chunk)
-                
+
                 capture_chunk = ChunkCapture()
-                
+
                 # Process the query using WhoHandler with a timeout
                 handler = WhoHandler(who_query_params, capture_chunk)
                 try:
@@ -465,10 +466,10 @@ class MCPHandler:
                         ],
                         "isError": True
                     }
-                
+
                 # Join all chunks
                 full_response = ''.join(response_content)
-                
+
                 # Debug logging
                 logger.info(f"WHO handler captured {len(response_content)} chunks")
                 logger.info(f"Total response length: {len(full_response)} characters")
@@ -488,7 +489,7 @@ class MCPHandler:
                             }
                             results.append(result)
                         full_response = json.dumps({"results": results}, indent=2)
-                
+
                 # Return MCP-formatted response
                 return {
                     "content": [
@@ -500,17 +501,17 @@ class MCPHandler:
                     "isError": False
                 }
             except Exception as e:
-                logger.error(f"Error invoking who handler: {str(e)}")
+                logger.error(f"Error invoking who handler: {e!s}")
                 return {
                     "content": [
                         {
                             "type": "text",
-                            "text": f"Error invoking who handler: {str(e)}"
+                            "text": f"Error invoking who handler: {e!s}"
                         }
                     ],
                     "isError": True
                 }
-        
+
         else:
             raise Exception(f"Unknown tool: {tool_name}")
 
@@ -521,7 +522,7 @@ mcp_handler = MCPHandler()
 async def handle_mcp_request(query_params, body, send_response, send_chunk, streaming=False):
     """
     Handle an MCP request following the standard MCP protocol
-    
+
     Args:
         query_params (dict): URL query parameters
         body (bytes): Request body
@@ -542,10 +543,10 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                 # Validate JSON-RPC format
                 if "jsonrpc" not in request_data:
                     request_data["jsonrpc"] = "2.0"
-                
+
                 # Handle the request
                 await mcp_handler.handle_request(request_data, query_params, send_response, send_chunk)
-                
+
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON in MCP request: {e}")
                 error_response = {
@@ -553,7 +554,7 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
                     "id": None,
                     "error": {
                         "code": -32700,  # Parse error
-                        "message": f"Parse error: {str(e)}"
+                        "message": f"Parse error: {e!s}"
                     }
                 }
                 await send_response(200, {'Content-Type': 'application/json'})
@@ -570,16 +571,16 @@ async def handle_mcp_request(query_params, body, send_response, send_chunk, stre
             }
             await send_response(200, {'Content-Type': 'application/json'})
             await send_chunk(json.dumps(error_response).encode('utf-8'), end_response=True)
-    
+
     except Exception as e:
-        logger.error(f"Error in handle_mcp_request: {str(e)}")
+        logger.error(f"Error in handle_mcp_request: {e!s}")
         logger.error(traceback.format_exc())
         error_response = {
             "jsonrpc": "2.0",
             "id": None,
             "error": {
                 "code": -32603,  # Internal error
-                "message": f"Internal error: {str(e)}"
+                "message": f"Internal error: {e!s}"
             }
         }
         await send_response(200, {'Content-Type': 'application/json'})

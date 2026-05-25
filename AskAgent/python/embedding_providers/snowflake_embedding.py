@@ -14,8 +14,8 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 import logging
+
 import httpx
-from typing import List
 
 from core.config import CONFIG
 from retrieval_providers.utils import snowflake
@@ -23,7 +23,7 @@ from retrieval_providers.utils import snowflake
 logger = logging.getLogger(__name__)
 
 
-async def cortex_embed(text: str, model: str|None = None) -> List[float]:
+async def cortex_embed(text: str, model: str|None = None) -> list[float]:
     """
     Embed text using snowflake.cortex.embed.
 
@@ -34,7 +34,7 @@ async def cortex_embed(text: str, model: str|None = None) -> List[float]:
         response = await client.post(
             snowflake.get_account_url(cfg) + "/api/v2/cortex/inference:embed",
             json={
-                "text": [text], 
+                "text": [text],
                 "model": model or "snowflake-arctic-embed-m-v1.5"
             },
             headers={
@@ -49,14 +49,14 @@ async def cortex_embed(text: str, model: str|None = None) -> List[float]:
         return response.json().get("data")[0].get("embedding")[0]
 
 
-async def get_snowflake_batch_embeddings(texts: List[str], model: str|None = None) -> List[List[float]]:
+async def get_snowflake_batch_embeddings(texts: list[str], model: str|None = None) -> list[list[float]]:
     """
     Embed multiple texts using snowflake.cortex.embed.
-    
+
     Args:
         texts: List of texts to embed
         model: Optional model name, defaults to snowflake-arctic-embed-m-v1.5
-        
+
     Returns:
         List of embedding vectors, each a list of floats
     """
@@ -65,7 +65,7 @@ async def get_snowflake_batch_embeddings(texts: List[str], model: str|None = Non
         response = await client.post(
             snowflake.get_account_url(cfg) + "/api/v2/cortex/inference:embed",
             json={
-                "text": texts, 
+                "text": texts,
                 "model": model or "snowflake-arctic-embed-m-v1.5"
             },
             headers={
@@ -77,11 +77,11 @@ async def get_snowflake_batch_embeddings(texts: List[str], model: str|None = Non
         if response.status_code == 400:
             raise Exception(response.json())
         response.raise_for_status()
-        
+
         # Extract embeddings for all texts
         embeddings = []
         data = response.json().get("data")
         for item in data:
             embeddings.append(item.get("embedding")[0])
-        
+
         return embeddings

@@ -23,7 +23,13 @@ These instructions assume that you have Python 3.10+ installed locally.
 
     ```sh
     python -m venv myenv
-    source myenv/bin/activate    # Or on Windows: myenv\Scripts\activate
+    source myenv/bin/activate
+    ```
+
+    On Windows (cmd.exe or PowerShell):
+
+    ```cmd
+    myenv\Scripts\activate
     ```
 
 3. Go to the 'AskAgent/python' folder in NLWeb to install the dependencies. Note that this will also install the local vector database requirements used later in this example so you don't need to install them separately.
@@ -40,11 +46,17 @@ These instructions assume that you have Python 3.10+ installed locally.
     cp .env.template .env
     ```
 
+    On Windows (cmd.exe):
+
+    ```cmd
+    copy .env.template .env
+    ```
+
 5. Update your config files (located in the config folder) to make sure your preferred providers match your .env file. There are three files that may need changes.
 
-    - config_llm.yaml: Update the first line to the LLM provider you set in the .env file.  By default it is Azure OpenAI.  You can also adjust the models you call here by updating the models noted.  By default, we are assuming 4.1 and 4.1-mini.
-    - config_embedding.yaml: Update the first line to your preferred embedding provider.  By default it is Azure OpenAI, using text-embedding-3-small.
-    - config_retrieval.yaml: We will use qdrant_local for this exercise.  By default, this is set to write to qdrant_local and you can see the qdrant_local retrieval endpoint is enabled to 'true' in the following list of possible endpoints, as is Azure AI Search using the nlweb_west endpoint.  As you can see, you may have more than one retrival backend, but only one 'write' endpoint. You can see with the Azure AI search example how to add several databases of the same type.
+    - config_llm.yaml: Update the `preferred_endpoint` (first line) to the LLM provider you set in the .env file. By default it is `azure_openai`. If you are using OpenAI directly, change it to `openai`. You can also adjust the models listed under each provider. The default OpenAI models are gpt-4.1 and gpt-4.1-mini.
+    - config_embedding.yaml: Update the `preferred_provider` (first line) to your preferred embedding provider. By default it is `azure_openai`. If you are using OpenAI directly, change it to `openai`. The default embedding model is text-embedding-3-small.
+    - config_retrieval.yaml: We will use `qdrant_local` for this exercise. By default, the `write_endpoint` is set to `qdrant_local`. You will see several retrieval endpoints listed — for a simple local setup, make sure `qdrant_local` is set to `enabled: true` and set any other endpoints you don't have credentials for to `enabled: false` (e.g., `nlweb_west`, `shopify`). You can have more than one retrieval backend enabled, but only one `write_endpoint`.
 
 6. You can verify that your configuration is set properly and you remembered to set all needed API keys by running the check-connectivity script from the python directory.  There is more information [here](nlweb-check-connectivity.md).
 
@@ -62,16 +74,26 @@ These instructions assume that you have Python 3.10+ installed locally.
     python -m data_loading.db_load <RSS URL> <site-name>
     ```
 
-    Kevin's 'Behind the Tech' Podcast:
+    Vox's 'Today, Explained' Podcast:
 
     ```sh
-    python -m data_loading.db_load https://feeds.libsyn.com/121695/rss Behind-the-Tech
+    python -m data_loading.db_load https://feeds.megaphone.fm/VMP5705694065 Today-Explained
     ```
 
-    Verge's 'Decoder' Podcast:
+    BBC's 'Test Match Special' Cricket Podcast:
 
     ```sh
-    python -m data_loading.db_load https://feeds.megaphone.fm/recodedecode Decoder
+    python -m data_loading.db_load https://podcasts.files.bbci.co.uk/p02nrsl2.rss TMS-Cricket
+    ```
+
+    More cricket podcasts you can add:
+
+    ```sh
+    # BBC Stumped — weekly global cricket podcast
+    python -m data_loading.db_load https://podcasts.files.bbci.co.uk/p02gsrmh.rss Stumped-Cricket
+
+    # The Final Word — match analysis with Geoff Lemon and Adam Collins
+    python -m data_loading.db_load https://audioboom.com/channels/4936611.rss Final-Word-Cricket
     ```
 
     You can find even more data, including other formats other than RSS, in this [OneDrive folder](https://1drv.ms/f/c/6c6197aa87f7f4c4/EsT094eql2EggGxlBAAAAAABajQiZ5unf_Ri_OWksR8eNg?e=I4z5vw). (Note:  If it asks you to login, try the URL a 2nd time. It should be open permissions.)

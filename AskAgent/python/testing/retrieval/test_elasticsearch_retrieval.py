@@ -1,11 +1,12 @@
-import pytest
-import os
 import json
+import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
-from embedding_providers.elasticsearch_embedding import ElasticsearchEmbedding
+import pytest
+
 from core.config import CONFIG
+from embedding_providers.elasticsearch_embedding import ElasticsearchEmbedding
 from retrieval_providers.elasticsearch_client import ElasticsearchClient
 
 # Skip all tests in this module if ELASTICSEARCH_URL is not set
@@ -29,10 +30,10 @@ async def elasticsearch_retrieval():
     # Ensure proper cleanup after each test
     await es_client.close()
 
-def get_scifi_movies()->List[Dict[str, Any]]:
+def get_scifi_movies()->list[dict[str, Any]]:
     documents=[]
     file= Path(current_dir + "/100_scifi_movies_e5_embeddings.ndjson")
-    
+
     if not file.exists():
         return documents
 

@@ -14,10 +14,11 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 import json
-import re
 import logging
+import re
+from typing import Any
+
 import httpx
-from typing import Dict, Any, List, Optional
 
 from core.config import CONFIG
 from llm_providers.llm_provider import LLMProvider
@@ -35,7 +36,7 @@ class SnowflakeProvider(LLMProvider):
         return None
 
     @classmethod
-    def clean_response(cls, content: str) -> Dict[str, Any]:
+    def clean_response(cls, content: str) -> dict[str, Any]:
         """
         Strip markdown fences and extract the first JSON object.
         """
@@ -49,13 +50,13 @@ class SnowflakeProvider(LLMProvider):
     async def get_completion(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        model: Optional[str] = None,
+        schema: dict[str, Any],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
         timeout: float = 30.0,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send an async chat completion request via snowflake.cortex.complete and return parsed JSON output.
 
@@ -78,9 +79,9 @@ provider = SnowflakeProvider()
 
 async def cortex_complete(
         prompt: str,
-        schema: Dict[str, Any],
-        model: str|None = None, 
-        max_tokens: int = 4096, 
+        schema: dict[str, Any],
+        model: str|None = None,
+        max_tokens: int = 4096,
         temperature: float=0.0,
         timeout: float=60.0) -> str:
     """

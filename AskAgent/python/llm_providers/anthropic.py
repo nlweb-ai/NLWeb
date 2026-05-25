@@ -8,17 +8,16 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-import os
-import json
-import re
-import logging
 import asyncio
-from typing import Dict, Any, List, Optional
+import json
+import logging
+import re
+import threading
+from typing import Any
 
 from anthropic import AsyncAnthropic
-from core.config import CONFIG
-import threading
 
+from core.config import CONFIG
 from llm_providers.llm_provider import LLMProvider
 
 logger = logging.getLogger(__name__)
@@ -31,10 +30,10 @@ class ConfigurationError(RuntimeError):
 
 class AnthropicProvider(LLMProvider):
     """Implementation of LLMProvider for Anthropic API."""
-    
+
     _client_lock = threading.Lock()
     _client = None
-    
+
     @classmethod
     def get_api_key(cls) -> str:
         """Retrieve the Anthropic API key from the environment or raise an error."""
@@ -60,7 +59,7 @@ class AnthropicProvider(LLMProvider):
         return cls._client
 
     @classmethod
-    def _build_messages(cls, prompt: str, schema: Dict[str, Any]) -> List[Dict[str, str]]:
+    def _build_messages(cls, prompt: str, schema: dict[str, Any]) -> list[dict[str, str]]:
         """
         Construct the message sequence for JSON-schema enforcement.
         """
@@ -76,7 +75,7 @@ class AnthropicProvider(LLMProvider):
         ]
 
     @classmethod
-    def clean_response(cls, content: str) -> Dict[str, Any]:
+    def clean_response(cls, content: str) -> dict[str, Any]:
         """
         Strip markdown fences and extract the first JSON object.
         """
@@ -90,13 +89,13 @@ class AnthropicProvider(LLMProvider):
     async def get_completion(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        model: Optional[str] = None,
+        schema: dict[str, Any],
+        model: str | None = None,
         temperature: float = 1.0,
         max_tokens: int = 2048,
         timeout: float = 30.0,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send an async chat completion request to Anthropic and return parsed JSON.
         """
@@ -105,7 +104,7 @@ class AnthropicProvider(LLMProvider):
             provider_config = CONFIG.llm_endpoints["anthropic"]
             # Use the 'high' model for completions by default
             model = provider_config.models.high
-        
+
         client = self.get_client()
         messages = self._build_messages(prompt, schema)
 
@@ -116,7 +115,7 @@ class AnthropicProvider(LLMProvider):
                     messages=messages,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    system=f"You are a helpful assistant that always responds with valid JSON matching the provided schema."
+                    system="You are a helpful assistant that always responds with valid JSON matching the provided schema."
                 ),
                 timeout
             )

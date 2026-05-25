@@ -1,0 +1,59 @@
+target-version = "py310"
+line-length = 120
+
+extend-exclude = [
+    "NLWebScorer",
+    "ModelRouter",
+    "AgentFinder",
+    "DataFinder",
+    "openai-apps-sdk-integration",
+    "data",
+    "static",
+    "demo",
+]
+
+[lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific
+]
+
+ignore = [
+    "E501",    # line too long — handled by formatter
+    "E402",    # module-level import not at top — deferred imports are intentional
+    "B008",    # function call in default arg — common in aiohttp patterns
+    "SIM108",  # ternary operator — can reduce readability
+    "RUF006",  # asyncio dangling task — fire-and-forget is intentional pattern
+    "RUF012",  # mutable class variable — too many false positives in config classes
+    "UP007",   # Use X | Y for unions — keep Optional for 3.10 compat
+    "UP035",   # deprecated-import — typing.List etc still needed for 3.9 compat
+]
+
+[lint.per-file-ignores]
+"AskAgent/python/tests/**/*.py" = ["F401", "F811"]
+"AskAgent/python/testing/**/*.py" = ["F401", "F811"]
+"*.ipynb" = ["E722"]
+
+[lint.isort]
+known-first-party = [
+    "core",
+    "methods",
+    "webserver",
+    "retrieval_providers",
+    "llm_providers",
+    "embedding_providers",
+    "storage_providers",
+    "data_loading",
+    "misc",
+    "tools",
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"

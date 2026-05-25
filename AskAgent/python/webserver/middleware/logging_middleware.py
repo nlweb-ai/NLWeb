@@ -1,7 +1,9 @@
 """Logging middleware for aiohttp server"""
 
-from aiohttp import web
 import time
+
+from aiohttp import web
+
 
 @web.middleware
 async def logging_middleware(request: web.Request, handler):

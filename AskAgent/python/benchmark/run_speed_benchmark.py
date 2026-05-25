@@ -1,12 +1,14 @@
 import asyncio
-import time
-from config.config import CONFIG
-from core.baseHandler import NLWebHandler
-import dotenv
-import statistics
 import json
+import statistics
+import time
+
+import dotenv
 import matplotlib.pyplot as plt
 import pandas as pd
+from config.config import CONFIG
+
+from core.baseHandler import NLWebHandler
 from core.utils.utils import siteToItemType
 
 # Load env variables and config
@@ -15,7 +17,7 @@ dotenv.load_dotenv()
 def load_conversations(path):
     """Load conversations from a JSONL file."""
     conversations = []
-    with open(path, "r") as f:
+    with open(path) as f:
         for line in f:
             obj = json.loads(line)
             conversations.append(obj["conversation"])
@@ -122,7 +124,7 @@ async def run_single_turn_benchmark(generate_mode, streaming, num_runs=1):
         errors = []
         for i in range(num_runs):
             conversation_id = f"benchmark_{query}_{i}"
-            result, elapsed, error = await single_turn(query, generate_mode, streaming, conversation_id)
+            _result, elapsed, error = await single_turn(query, generate_mode, streaming, conversation_id)
             if error is None:
                 print(f"    Run {i+1}: {elapsed:.3f} seconds")
                 times.append(elapsed)
@@ -168,7 +170,7 @@ async def run_multiturn_benchmark(generate_mode, streaming):
                 handler.prev_queries = []
                 handler.prev_answers = []
             try:
-                handler.item_type = siteToItemType(site)    
+                handler.item_type = siteToItemType(site)
                 start = time.time()
                 result = await handler.runQuery()
                 if result.get('summary') is None:

@@ -471,3 +471,8 @@ openai-apps-sdk-examples/
 NLWebScorer/checkpoints/
 NLWebScorer/*.log
 AskAgent/set_keys.sh
+
+# Debug/trace logs
+*.jsonl
+*.csv
+!NLWebScorer/data/**/*.jsonl

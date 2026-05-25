@@ -1,7 +1,8 @@
 
-from core.config import CONFIG
 import json
 from urllib.parse import quote
+
+from core.config import CONFIG
 
 
 def sanitize_log(value):
@@ -13,7 +14,7 @@ def sanitize_log(value):
 recipe_sites = ['seriouseats', 'hebbarskitchen', 'latam_recipes',
                 'woksoflife', 'cheftariq',  'spruce', 'nytimes']
 
-all_sites = recipe_sites + ["imdb", "npr podcasts", "neurips", "backcountry", "tripadvisor", "DataCommons"]
+all_sites = [*recipe_sites, "imdb", "npr podcasts", "neurips", "backcountry", "tripadvisor", "DataCommons"]
 
 def build_nlweb_gateway_url(site_url, query, site_type=None):
     """
@@ -62,20 +63,20 @@ def build_nlweb_gateway_url(site_url, query, site_type=None):
 def siteToItemType(site):
     # Get item type from configuration
     namespace = "http://nlweb.ai/base"
-    
+
     # Try to get from configuration
     try:
         site_config = CONFIG.get_site_config(site.lower())
         if site_config and site_config.item_types:
             # Return the first item type for the site
             return f"{{{namespace}}}{site_config.item_types[0]}"
-    except:
+    except Exception:
         pass
-    
+
     # Default to Item if not found in configuration
     return f"{{{namespace}}}Item"
 
-    
+
 
 def itemTypeToSite(item_type):
     # this is used to route queries that this site cannot answer,
@@ -85,7 +86,7 @@ def itemTypeToSite(item_type):
         if siteToItemType(site) == item_type:
             sites.append(site)
     return sites
-   
+
 def visibleUrlLink(url):
     from urllib.parse import urlparse
     parsed = urlparse(url)
@@ -99,19 +100,19 @@ def visibleUrl(url):
 def get_param(query_params, param_name, param_type=str, default_value=None):
     value = query_params.get(param_name, default_value)
     if (value is not None):
-        if param_type == str:
+        if param_type is str:
             if isinstance(value, list):
                 return value[0] if value else ""
             return value
-        elif param_type == int:
+        elif param_type is int:
             return int(value)
-        elif param_type == float:
-            return float(value) 
-        elif param_type == bool:
+        elif param_type is float:
+            return float(value)
+        elif param_type is bool:
             if isinstance(value, list):
                 return value[0].lower() == "true"
             return value.lower() == "true"
-        elif param_type == list:
+        elif param_type is list:
             if isinstance(value, list):
                 return value
             return [item.strip() for item in value.strip('[]').split(',') if item.strip()]
@@ -130,11 +131,9 @@ def set_recording_llm_calls (file_str):
     recording_llm_calls = file_str
 
 def record_llm_call (ans_str, prompt, query):
-    global llm_recording_file
     if (recording_llm_calls):
-        if (not llm_recording_file):
-            llm_recording_file = open(recording_llm_calls, "w")
         ans_str["prompt"] = prompt
         ans_str["query"] = query
-        llm_recording_file.write(json.dumps(ans_str) + "\n")
-        llm_recording_file.flush()
+        with open(recording_llm_calls, "a") as llm_file:
+            llm_file.write(json.dumps(ans_str) + "\n")
+            llm_file.flush()

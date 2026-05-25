@@ -7,25 +7,24 @@ This client provides vector similarity search functionality using the pgvector e
 Uses psycopg3 for improved async support and performance.
 """
 
+import asyncio
 import json
 import os
-import asyncio
 import time
-from typing import List, Dict, Union, Optional, Any, Tuple, Set
+from typing import Any, Union
+from urllib.parse import parse_qs, urlparse
 
-from urllib.parse import urlparse, parse_qs
+import pgvector.psycopg
 
 # PostgreSQL client library (psycopg3)
 import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
-import pgvector.psycopg
 
 from core.config import CONFIG
-from core.retriever import RetrievalClientBase
 from core.embedding import get_embedding
-from misc.logger.logging_config_helper  import get_configured_logger
-from misc.logger.logger import LogLevel
+from core.retriever import RetrievalClientBase
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("postgres_client")
 
@@ -33,17 +32,17 @@ class PgVectorClient(RetrievalClientBase):
     """
     Client for PostgreSQL vector database operations with pgvector extension.
     Provides a unified interface for indexing, storing, and retrieving vector-based search results.
-    
+
     Requirements:
     - PostgreSQL database with pgvector extension installed
     - A configured table with vector type column for embeddings
     """
-    
-    def __init__(self, endpoint_name: Optional[str] = None):
+
+    def __init__(self, endpoint_name: str | None = None):
         super().__init__()  # Initialize the base class with caching
         """
         Initialize the PostgreSQL vector database client.
-        
+
         Args:
             endpoint_name: Name of the endpoint to use (defaults to preferred endpoint in CONFIG)
         """
@@ -51,9 +50,9 @@ class PgVectorClient(RetrievalClientBase):
         self._conn_lock = asyncio.Lock()
         self._pool = None
         self._pool_init_lock = asyncio.Lock()
-        
+
         logger.info(f"Initializing PgVectorClient for endpoint: {self.endpoint_name}")
-        
+
         # Get endpoint configuration
         self.endpoint_config = self._get_endpoint_config()
         self.api_endpoint = self.endpoint_config.api_endpoint
@@ -62,11 +61,11 @@ class PgVectorClient(RetrievalClientBase):
         self.default_collection_name = self.endpoint_config.index_name or "nlweb_collection"
 
         self.pg_raw_config = self._get_config_from_postgres_connection_string(self.api_endpoint)
-        
+
         self.host = self.pg_raw_config.get("host")
         self.port = self.pg_raw_config.get("port", 5432)  # Default PostgreSQL port
-        self.dbname = self.pg_raw_config.get("database") 
-        self.username = self.pg_raw_config.get("username") 
+        self.dbname = self.pg_raw_config.get("database")
+        self.username = self.pg_raw_config.get("username")
         self.password = self.api_key or self.pg_raw_config.get("password")
         self.table_name = self.default_collection_name or "documents"
 
@@ -80,28 +79,28 @@ class PgVectorClient(RetrievalClientBase):
             error_msg = f"Missing 'database_name' in PostgreSQL configuration for endpoint '{self.endpoint_name}'"
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         logger.info(f"PostgreSQL client configured for table: {self.default_collection_name}")
-    
-    def _get_config_from_postgres_connection_string(self, connection_string: str) -> Dict[str, Any]:
+
+    def _get_config_from_postgres_connection_string(self, connection_string: str) -> dict[str, Any]:
         """
         Parse the PostgreSQL connection string and return a dictionary of configuration parameters.
-        
+
         Args:
             connection_string: PostgreSQL connection string
         Returns:
             Dictionary of configuration parameters
         """
         parsed_url = urlparse(connection_string)
-        
+
         host = parsed_url.hostname
         port = parsed_url.port
         database = parsed_url.path[1:]  # remove leading slash
         query_params = parse_qs(parsed_url.query)
-        
+
         username = query_params.get('user', [None])[0]
         password = query_params.get('password', [None])[0]
-        
+
         return {
             'host': host,
             'port': port,
@@ -113,35 +112,35 @@ class PgVectorClient(RetrievalClientBase):
     def _get_endpoint_config(self):
         """
         Get the PostgreSQL endpoint configuration from CONFIG
-        
+
         Returns:
             Tuple of (RetrievalProviderConfig)
         """
         # Get the endpoint configuration object
         endpoint_config = CONFIG.retrieval_endpoints.get(self.endpoint_name)
-        
+
         if not endpoint_config:
             error_msg = f"No configuration found for endpoint {self.endpoint_name}"
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         # Verify this is a PostgreSQL endpoint
         if endpoint_config.db_type != "postgres":
             error_msg = f"Endpoint {self.endpoint_name} is not a PostgreSQL endpoint (type: {endpoint_config.db_type})"
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         # Get the raw configuration dictionary from the YAML file
         config_dir = os.path.dirname(os.path.abspath(os.path.join(os.path.dirname(__file__), "../config")))
-        config_path = os.path.join(config_dir, "config_retrieval.yaml")
+        os.path.join(config_dir, "config_retrieval.yaml")
 
         return endpoint_config
-    
+
     async def _get_connection_pool(self):
         """
         Get or create the connection pool for PostgreSQL.
         Connection pooling is used for better performance and resource management.
-        
+
         Returns:
             A PostgreSQL connection pool
         """
@@ -149,7 +148,7 @@ class PgVectorClient(RetrievalClientBase):
             async with self._pool_init_lock:
                 if self._pool is None:
                     logger.info("Initializing PostgreSQL connection pool")
-                    
+
                     try:
                         # Make sure we have all required connection parameters
                         if not self.host:
@@ -160,58 +159,58 @@ class PgVectorClient(RetrievalClientBase):
                             raise ValueError("Missing username or username_env in PostgreSQL configuration")
                         if not self.password:
                             raise ValueError("Missing password or password_env in PostgreSQL configuration")
-                            
+
                         logger.info("Connecting to PostgreSQL...")
-                        
+
                         # Set up async connection pool with reasonable defaults
                         conninfo = f"host={self.host} port={self.port} dbname={self.dbname} user={self.username} password={self.password}"
                         self._pool = AsyncConnectionPool(
                             conninfo=conninfo,
                             min_size=1,
-                            max_size=10, 
+                            max_size=10,
                             open=False # Don't open immediately, we will do it explicitly later
                         )
                         # Explicitly open the pool as recommended in newer psycopg versions
                         await self._pool.open()
                         logger.info("PostgreSQL connection pool initialized")
-                        
+
                         # Verify pgvector extension is installed
                         async with self._pool.connection() as conn:
                             # Register vector type
                             await pgvector.psycopg.register_vector_async(conn)
-                            
+
                             async with conn.cursor() as cur:
                                 await cur.execute("SELECT * FROM pg_extension WHERE extname = 'vector'")
                                 row = await cur.fetchone()
                                 if not row:
                                     logger.warning("pgvector extension not found in the database")
-                    
+
                     except Exception as e:
                         logger.error(f"Error creating PostgreSQL connection pool: {type(e).__name__}")
                         raise
-        
+
         return self._pool
 
     async def close(self):
         """Close the connection pool when done"""
         if self._pool:
             await self._pool.close()
-    
+
     async def _execute_with_retry(self, query_func, max_retries=3, initial_backoff=0.1):
         """
         Execute a database query with retry logic for transient failures.
-        
+
         Args:
             query_func: Function that performs the database query
             max_retries: Maximum number of retry attempts
             initial_backoff: Initial backoff time in seconds (doubles with each retry)
-            
+
         Returns:
             Query result
         """
         retry_count = 0
         backoff_time = initial_backoff
-        
+
         while True:
             try:
                 # With psycopg3, we can use async directly
@@ -219,51 +218,51 @@ class PgVectorClient(RetrievalClientBase):
                     # Register vector type
                     await pgvector.psycopg.register_vector_async(conn)
                     return await query_func(conn)
-            
+
             except (psycopg.OperationalError, psycopg.InternalError) as e:
                 # Handle transient errors like connection issues
                 retry_count += 1
-                
+
                 if retry_count > max_retries:
                     logger.error(f"Maximum retries exceeded: {e}")
                     raise
-                
+
                 logger.warning(f"Database error (attempt {retry_count}/{max_retries}): {e}")
                 logger.warning(f"Retrying in {backoff_time:.2f} seconds...")
-                
+
                 await asyncio.sleep(backoff_time)
                 backoff_time *= 2  # Exponential backoff
-            
+
             except Exception as e:
                 # Non-transient errors are raised immediately
                 logger.exception(f"Database error: {e}")
                 raise
-    
+
     async def delete_documents_by_site(self, site: str, **kwargs) -> int:
         """
         Delete all documents matching the specified site.
-        
+
         Args:
             site: Site identifier
             **kwargs: Additional parameters
-            
+
         Returns:
             Number of documents deleted
         """
         logger.info(f"Deleting documents for site: {site}")
-        
+
         async def _delete_docs(conn):
             async with conn.cursor() as cur:
                 await cur.execute(
                     f"DELETE FROM {self.table_name} WHERE site = %s",
                     (site,)
                 )
-                
+
                 # Get count of deleted rows
                 count = cur.rowcount
                 await conn.commit()
                 return count
-        
+
         try:
             count = await self._execute_with_retry(_delete_docs)
             logger.info(f"Successfully deleted {count} documents for site: {site}")
@@ -271,35 +270,35 @@ class PgVectorClient(RetrievalClientBase):
         except Exception as e:
             logger.exception(f"Error deleting documents for site {site}: {e}")
             raise
-    
-    async def upload_documents(self, documents: List[Dict[str, Any]], **kwargs) -> int:
+
+    async def upload_documents(self, documents: list[dict[str, Any]], **kwargs) -> int:
         """
         Upload documents to the database.
         Each document should have: id, name, embedding, url, and optionally schema_json.
-        
+
         Args:
             documents: List of document objects
             **kwargs: Additional parameters
-            
+
         Returns:
             Number of documents uploaded
         """
         logger.info(f"Uploading {len(documents)} documents")
-        
+
         # Handle empty documents list
         if not documents:
             logger.warning("Empty documents list provided")
             return 0
-        
+
         batch_size = kwargs.get("batch_size", 100)  # Default to 100 docs per batch
         inserted_count = 0
-        
+
         # Process documents in batches for better performance
         for i in range(0, len(documents), batch_size):
             batch = documents[i:i + batch_size]
             logger.debug(f"Processing batch {i//batch_size + 1} with {len(batch)} documents")
-            
-            async def _upload_batch(conn):
+
+            async def _upload_batch(conn, batch=batch):
                 async with conn.cursor() as cur:
                     # Prepare the query and values
                     placeholders = []
@@ -318,39 +317,39 @@ class PgVectorClient(RetrievalClientBase):
                             if not isinstance(embedding, list):
                                 logger.warning(f"Skipping document with invalid embedding type: {type(embedding)}")
                                 continue
-                                
+
                             if len(embedding) == 0:
-                                logger.warning(f"Skipping document with empty embedding")
+                                logger.warning("Skipping document with empty embedding")
                                 continue
-                                
+
                             # Check if embedding is properly formatted
                             if not all(isinstance(x, (int, float)) for x in embedding):
-                                logger.warning(f"Skipping document with non-numeric embedding values")
-                                print(f"Invalid embedding example: {str(embedding[:5])}...")
+                                logger.warning("Skipping document with non-numeric embedding values")
+                                print(f"Invalid embedding example: {embedding[:5]!s}...")
                                 continue
-                            
+
                             # Add placeholder for this row
                             placeholders.append("(%s, %s, %s, %s, %s, %s::vector)")
-                            
+
                             # Add values
                             values.extend([
                                 doc["id"],
-                                doc["url"], 
+                                doc["url"],
                                 doc["name"],
                                 doc["schema_json"],
                                 doc["site"],
                                 embedding  # This should be a list of floats
                             ])
-                            
+
                         except Exception as e:
                             logger.warning(f"Error processing document {idx} in batch: {e}")
                             print(f"Document error: {e}, document keys: {list(doc.keys())}")
                             continue
-                    
+
                     if not placeholders:
                         logger.warning("No valid documents to insert in batch")
                         return 0
-                    
+
                     # Build and execute the query
                     query = f"""
                         INSERT INTO {self.table_name} (id, url, name, schema_json, site, embedding)
@@ -362,7 +361,7 @@ class PgVectorClient(RetrievalClientBase):
                             site = EXCLUDED.site,
                             embedding = EXCLUDED.embedding
                     """
-                    
+
                     print(f"Executing query with {len(values) // 6} rows")
                     try:
                         await cur.execute(query, values)
@@ -375,7 +374,7 @@ class PgVectorClient(RetrievalClientBase):
                         logger.error(f"SQL Error: {e}")
                         logger.debug(f"Query start: {query[:200]}...")
                         raise
-            
+
             try:
                 print(f"Attempting to upload batch {i//batch_size + 1}/{(len(documents) + batch_size - 1) // batch_size}")
                 batch_count = await self._execute_with_retry(_upload_batch)
@@ -387,28 +386,28 @@ class PgVectorClient(RetrievalClientBase):
                 logger.exception(f"Error uploading batch {i//batch_size + 1}: {e}")
                 print(f"ERROR in batch {i//batch_size + 1}: {type(e).__name__}: {e}")
                 raise
-        
+
         logger.info(f"Successfully uploaded {inserted_count} documents")
         return inserted_count
-    
-    async def search(self, query: str, site: Union[str, List[str]], 
-                    num_results: int = 50, query_params: Optional[Dict[str, Any]] = None, **kwargs) -> List[List[str]]:
+
+    async def search(self, query: str, site: Union[str, list[str]],
+                    num_results: int = 50, query_params: dict[str, Any] | None = None, **kwargs) -> list[list[str]]:
         """
         Search for documents matching the query and site.
-        
+
         Args:
             query: Search query string
             site: Site identifier or list of sites
             num_results: Maximum number of results to return
             **kwargs: Additional parameters (e.g., similarity_metric)
-            
+
         Returns:
             List of search results, where each result is a list of strings:
             [url, schema_json, name, site]
         """
         start_time = time.time()
         logger.info(f"Searching for '{query[:50]}...' in site: {site}, num_results: {num_results}")
-        
+
         # Get vector embedding for the query
         try:
             query_embedding = await get_embedding(query, query_params=query_params)
@@ -416,39 +415,39 @@ class PgVectorClient(RetrievalClientBase):
         except Exception as e:
             logger.exception(f"Error generating embedding for query: {e}")
             raise
-        
+
         # Process site parameter
         sites = []
         if isinstance(site, list):
             sites = site
         elif isinstance(site, str) and site != "all":
             sites = [site]
-        
+
         similarity_metric = kwargs.get("similarity_metric", "cosine")  # Default to cosine similarity
-        
+
         # Select appropriate similarity function based on metric
         similarity_func = {
             "cosine": "<=>",          # Cosine distance
             "inner_product": "<#>",    # Negative inner product
             "euclidean": "<->",        # Euclidean distance
         }.get(similarity_metric, "<=>")  # Default to cosine
-        
+
         async def _search_docs(conn):
             # Use dict_row to get results as dictionaries
             async with conn.cursor(row_factory=dict_row) as cur:
                 # Build WHERE clause for site filtering if needed
                 where_clause = ""
                 params = [query_embedding]
-                
+
                 if sites:
                     # Create placeholders for site parameters
                     site_placeholders = ", ".join(["%s"] * len(sites))
                     where_clause = f"WHERE site IN ({site_placeholders})"
                     params.extend(sites)
-                
+
                 # Construct and execute query
                 query_sql = f"""
-                    SELECT 
+                    SELECT
                         name,
                         url,
                         embedding {similarity_func} %s::vector AS similarity_score,
@@ -459,11 +458,11 @@ class PgVectorClient(RetrievalClientBase):
                     ORDER BY similarity_score
                     LIMIT %s
                 """
-                
+
                 params.append(num_results)
                 await cur.execute(query_sql, params)
                 rows = await cur.fetchall()
-                
+
                 # Format results
                 results = []
                 for row in rows:
@@ -474,34 +473,34 @@ class PgVectorClient(RetrievalClientBase):
                         row["site"],
                     ]
                     results.append(result)
-                
+
                 return results
-        
+
         try:
             results = await self._execute_with_retry(_search_docs)
-            
+
             end_time = time.time()
             search_duration = end_time - start_time
-            
+
             logger.info(f"Search completed in {search_duration:.2f}s, found {len(results)} results")
             return results
         except Exception as e:
             logger.exception(f"Error in search: {e}")
             raise
-    
-    async def search_by_url(self, url: str, **kwargs) -> Optional[List[str]]:
+
+    async def search_by_url(self, url: str, **kwargs) -> list[str] | None:
         """
         Retrieve a document by its exact URL.
-        
+
         Args:
             url: URL to search for
             **kwargs: Additional parameters
-            
+
         Returns:
             Document data or None if not found
         """
         logger.info(f"Retrieving item with URL: {url}")
-        
+
         async def _search_by_url(conn):
             async with conn.cursor(row_factory=dict_row) as cur:
                 await cur.execute(
@@ -510,51 +509,51 @@ class PgVectorClient(RetrievalClientBase):
                 )
                 print(url)
                 row = await cur.fetchone()
-                
+
                 if row:
                     return [row["url"], json.dumps(row["schema_json"], indent=4), row["name"], row["site"]]
                 return None
-        
+
         try:
             result = await self._execute_with_retry(_search_by_url)
-            
+
             if result:
                 logger.debug(f"Successfully retrieved item for URL: {url}")
             else:
                 logger.warning(f"No item found for URL: {url}")
-            
+
             return result
-        except Exception as e:
+        except Exception:
             logger.exception(f"Error retrieving item with URL: {url}")
             raise
-    
-    async def search_all_sites(self, query: str, num_results: int = 50, **kwargs) -> List[List[str]]:
+
+    async def search_all_sites(self, query: str, num_results: int = 50, **kwargs) -> list[list[str]]:
         """
         Search across all sites.
-        
+
         Args:
             query: Search query string
             num_results: Maximum number of results to return
             **kwargs: Additional parameters
-            
+
         Returns:
             List of search results
         """
         logger.info(f"Searching across all sites for '{query[:50]}...', num_results: {num_results}")
-        
+
         # This just calls search with no site filter
         return await self.search(query, site=[], num_results=num_results, **kwargs)
-        
-    async def test_connection(self) -> Dict[str, Any]:
+
+    async def test_connection(self) -> dict[str, Any]:
         """
         Test the connection to the PostgreSQL database and return diagnostic information.
         This is useful for debugging connection issues.
-        
+
         Returns:
             Dict with connection status and diagnostic information
         """
         logger.info("Testing PostgreSQL connection")
-        
+
         async def _test_connection(conn):
             result = {
                 "success": False,
@@ -563,7 +562,7 @@ class PgVectorClient(RetrievalClientBase):
                 "table_exists": False,
                 "document_count": 0
             }
-            
+
             try:
                 # Test basic connection and get PostgreSQL version
                 async with conn.cursor() as cur:
@@ -572,34 +571,34 @@ class PgVectorClient(RetrievalClientBase):
                     version = row[0]
                     result["database_version"] = version
                     result["success"] = True
-                    
+
                     # Check if pgvector extension is installed
                     await cur.execute("SELECT * FROM pg_extension WHERE extname = 'vector'")
                     row = await cur.fetchone()
                     result["pgvector_installed"] = row is not None
-                    
+
                     # Check if our table exists
                     await cur.execute("""
                         SELECT EXISTS (
-                            SELECT FROM information_schema.tables 
+                            SELECT FROM information_schema.tables
                             WHERE table_name = %s
                         )
                     """, (self.table_name,))
                     row = await cur.fetchone()
                     result["table_exists"] = row[0]
-                    
+
                     # If table exists, get document count
                     if result["table_exists"]:
                         await cur.execute(f"SELECT COUNT(*) FROM {self.table_name}")
                         row = await cur.fetchone()
                         result["document_count"] = row[0]
-                        
+
             except Exception as e:
                 logger.exception("Error testing PostgreSQL connection")
                 result["error"] = str(e)
-                
+
             return result
-        
+
         try:
             return await self._execute_with_retry(_test_connection)
         except Exception as e:
@@ -615,16 +614,16 @@ class PgVectorClient(RetrievalClientBase):
                 }
             }
 
-    async def check_table_schema(self) -> Dict[str, Any]:
+    async def check_table_schema(self) -> dict[str, Any]:
         """
         Check if the database table schema is correctly set up.
         This helps diagnose issues with table schema that could prevent document uploads.
-        
+
         Returns:
             Dict with table schema information
         """
         logger.info(f"Checking table schema for {self.table_name}")
-        
+
         async def _check_schema(conn):
             schema_info = {
                 "table_exists": False,
@@ -634,39 +633,39 @@ class PgVectorClient(RetrievalClientBase):
                 "primary_key": None,
                 "needs_corrections": []
             }
-            
+
             try:
                 async with conn.cursor(row_factory=dict_row) as cur:
                     # Check if table exists
                     await cur.execute("""
                         SELECT EXISTS (
-                            SELECT FROM information_schema.tables 
+                            SELECT FROM information_schema.tables
                             WHERE table_name = %s
                         )
                     """, (self.table_name,))
                     row = await cur.fetchone()
                     schema_info["table_exists"] = row["exists"]
-                    
+
                     if not schema_info["table_exists"]:
                         schema_info["needs_corrections"].append(
                             f"Table '{self.table_name}' does not exist. Create it using the setup SQL script."
                         )
                         return schema_info
-                    
+
                     # Get column information
                     await cur.execute("""
                         SELECT column_name, data_type, is_nullable
                         FROM information_schema.columns
                         WHERE table_name = %s
                     """, (self.table_name,))
-                    
+
                     columns = await cur.fetchall()
                     for col in columns:
                         schema_info["columns"][col["column_name"]] = {
                             "data_type": col["data_type"],
                             "is_nullable": col["is_nullable"]
                         }
-                    
+
                     # Check for required columns
                     required_columns = {
                         "id": "text",
@@ -676,13 +675,13 @@ class PgVectorClient(RetrievalClientBase):
                         "site": "text",
                         "embedding": "vector",  # Adjust dimension to match your model
                         }
-                    
+
                     for col_name, col_type in required_columns.items():
                         if col_name not in schema_info["columns"]:
                             schema_info["needs_corrections"].append(
                                 f"Missing required column '{col_name}' of type '{col_type}'"
                             )
-                    
+
                     # Check for vector column (pgvector special handling)
                     await cur.execute("""
                         SELECT a.attname, format_type(a.atttypid, a.atttypmod) as data_type
@@ -693,19 +692,19 @@ class PgVectorClient(RetrievalClientBase):
                         AND a.attnum > 0
                         AND NOT a.attisdropped
                     """, (self.table_name,))
-                    
+
                     pg_columns = await cur.fetchall()
                     for col in pg_columns:
                         if "vector" in col["data_type"]:
                             schema_info["has_vector_column"] = True
                             schema_info["vector_column"] = col["attname"]
                             schema_info["vector_dimension"] = col["data_type"]
-                    
+
                     if not schema_info["has_vector_column"]:
                         schema_info["needs_corrections"].append(
                             "Missing vector column for embeddings. Add a column of type vector(1536)."
                         )
-                    
+
                     # Check for indexes (including vector indexes)
                     await cur.execute("""
                         SELECT
@@ -728,19 +727,19 @@ class PgVectorClient(RetrievalClientBase):
                             i.relname,
                             ix.indisprimary
                     """, (self.table_name,))
-                    
+
                     indexes = await cur.fetchall()
                     for idx in indexes:
                         if idx["is_primary"]:
                             schema_info["primary_key"] = idx["column_names"]
-                        
+
                         # Vector indexes have special naming patterns
                         if any("embedding" in str(col).lower() for col in idx["column_names"]):
                             schema_info["vector_indexes"].append({
                                 "name": idx["index_name"],
                                 "columns": idx["column_names"]
                             })
-                    
+
                     # Check if primary key exists and is on id column
                     if not schema_info["primary_key"]:
                         schema_info["needs_corrections"].append(
@@ -750,19 +749,19 @@ class PgVectorClient(RetrievalClientBase):
                         schema_info["needs_corrections"].append(
                             f"Primary key is not on 'id' column. Current PK: {schema_info['primary_key']}"
                         )
-                    
+
                     # Check if vector index exists
                     if not schema_info["vector_indexes"]:
                         schema_info["needs_corrections"].append(
                             "No vector index found. Create an index on the embedding column for better performance."
                         )
-                    
+
             except Exception as e:
                 logger.exception(f"Error checking table schema: {e}")
                 schema_info["error"] = str(e)
-            
+
             return schema_info
-        
+
         try:
             return await self._execute_with_retry(_check_schema)
         except Exception as e:

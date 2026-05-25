@@ -5,14 +5,14 @@
 Simplified WHO ranking for site selection.
 """
 
-from core.utils.utils import log, build_nlweb_gateway_url
-from core.llm import ask_llm
 import asyncio
 import json
-from core.utils.json_utils import trim_json
-from misc.logger.logging_config_helper import get_configured_logger
-from core.schemas import create_assistant_result
 
+from core.llm import ask_llm
+from core.schemas import create_assistant_result
+from core.utils.json_utils import trim_json
+from core.utils.utils import build_nlweb_gateway_url
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("who_ranking_engine")
 
@@ -31,18 +31,18 @@ class WhoRanking:
         self.items = items
         self.num_results_sent = 0
         self.rankedAnswers = []
-    
+
 
 
     def get_ranking_prompt(self, query, site_description):
         """Construct the WHO ranking prompt with the given query and site description."""
-        prompt = f"""Assign a score between 0 and 100 to the following site based 
+        prompt = f"""Assign a score between 0 and 100 to the following site based
         the likelihood that the site will contain an answer to the user's question.
-       
-        First think about the kind of thing the user is seeking and then verify that the 
+
+        First think about the kind of thing the user is seeking and then verify that the
         site is primarily focussed on that kind of thing.
 
-        If the user is looking to buy a product, the site should sell the product, not 
+        If the user is looking to buy a product, the site should sell the product, not
         just have useful information.
         If the user is looking for information, the site should focus on that kind of information.
 
@@ -116,8 +116,8 @@ The site's description is: {site_description}
             logger.debug(f"Site {name} added to ranked answers")
 
         except Exception as e:
-            logger.error(f"Error in rankItem for {name}: {str(e)}")
-            logger.debug(f"Full error trace: ", exc_info=True)
+            logger.error(f"Error in rankItem for {name}: {e!s}")
+            logger.debug("Full error trace: ", exc_info=True)
             # Still add the item with a zero score so we don't lose it completely
             try:
                 schema_object = (
@@ -129,14 +129,14 @@ The site's description is: {site_description}
                     "name": name,
                     "ranking": {
                         "score": 0,
-                        "description": f"Error: {str(e)}",
+                        "description": f"Error: {e!s}",
                         "query": self.handler.query,
                     },
                     "schema_object": schema_object,
                     "sent": False,
                 }
                 self.rankedAnswers.append(ansr)
-            except:
+            except Exception:
                 pass  # Skip this item entirely if we can't even create a basic record
 
     async def sendAnswers(self, answers, force=False):
@@ -203,7 +203,7 @@ The site's description is: {site_description}
 
     async def do(self):
         """Main execution method - rank all sites concurrently."""
-        
+
         # Create tasks for all sites
         tasks = []
         for url, json_str, name, site in self.items:
@@ -213,7 +213,7 @@ The site's description is: {site_description}
         try:
             await asyncio.gather(*tasks, return_exceptions=True)
         except Exception as e:
-            logger.error(f"Error during ranking tasks: {str(e)}")
+            logger.error(f"Error during ranking tasks: {e!s}")
 
         # Use min_score from handler if available, otherwise default to 51
         min_score_threshold = getattr(self.handler, 'min_score', 51)

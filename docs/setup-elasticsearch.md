@@ -25,7 +25,7 @@ file, including the API key.
 
 ## Configuring Elasticsearch as vector database
 
-The Elasticsearch configuration is available in the [config/config_retrieval.yaml](../AskAgent/config/config_retrieval.yaml) file.
+The Elasticsearch configuration is available in the [config_retrieval.yaml](../config/config_retrieval.yaml) file.
 
 ```yaml
   elasticsearch:

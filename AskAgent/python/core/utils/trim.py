@@ -1,11 +1,12 @@
 import json
 
+
 def listify (item):
     if not isinstance(item, list):
         return [item]
     else:
         return item
-    
+
 def jsonify(obj):
     if isinstance(obj, str):
         try:
@@ -16,7 +17,7 @@ def jsonify(obj):
 
 def trim_json(obj):
     obj = jsonify(obj)
-    objType = obj["@type"] if "@type" in obj else ["Thing"]
+    objType = obj.get("@type", ["Thing"])
     if not isinstance(objType, list):
         objType = [objType]
     if (objType == ["Thing"]):
@@ -29,7 +30,7 @@ def trim_json(obj):
 
 def trim_json_hard(obj):
     obj = jsonify(obj)
-    objType = obj["@type"] if "@type" in obj else ["Thing"]
+    objType = obj.get("@type", ["Thing"])
     if not isinstance(objType, list):
         objType = [objType]
     if (objType == ["Thing"]):
@@ -39,15 +40,15 @@ def trim_json_hard(obj):
     if ("Movie" in objType or "TVSeries" in objType):
         return trim_movie(obj, hard=True)
     return obj
-   
+
 
 def trim_recipe(obj):
     obj = jsonify(obj)
     items = collateObjAttr(obj)
     js = {}
-    skipAttrs = ["mainEntityOfPage", "publisher", "image", "datePublished", "dateModified", 
+    skipAttrs = ["mainEntityOfPage", "publisher", "image", "datePublished", "dateModified",
                  "author", "copyrightHolder", "copyrightYear", "thumbnail", "transcript", "video"]
-    for attr in items.keys():
+    for attr in items:
         if (attr in skipAttrs):
             continue
         js[attr] = items[attr]
@@ -58,7 +59,7 @@ def trim_recipe_hard(obj):
     js = {}
     skipAttrs = ["mainEntityOfPage", "publisher", "image", "datePublished", "dateModified", "review", "transcript", "video",
                  "author", "recipeYield", "recipeInstructions", "nutrition", "copyrightHolder", "copyrightYear"]
-    for attr in items.keys():
+    for attr in items:
         if (attr in skipAttrs):
             continue
         js[attr] = items[attr]
@@ -72,7 +73,7 @@ def trim_movie(obj, hard=False):
     skipAttrs = ["mainEntityOfPage", "publisher", "image", "datePublished", "dateModified", "author", "trailer"]
     if (hard):
         skipAttrs.extend(["actor", "director", "creator", "review"])
-    for attr in items.keys():
+    for attr in items:
         if (attr in skipAttrs):
             continue
         elif (attr == "actor" or attr == "director" or attr == "creator"):
@@ -83,7 +84,7 @@ def trim_movie(obj, hard=False):
         elif (attr == "review"):
             items['review'] = []
             for review in items['review']:
-                if ("reviewBody" in review):    
+                if ("reviewBody" in review):
                     js[attr].append(review["reviewBody"])
         else:
             js[attr] = items[attr]
@@ -91,7 +92,7 @@ def trim_movie(obj, hard=False):
 
 def collateObjAttr(obj):
     items = {}
-    for attr in obj.keys():
+    for attr in obj:
         if (attr in items):
             items[attr].append(obj[attr])
         else:

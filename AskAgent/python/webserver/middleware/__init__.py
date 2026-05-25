@@ -1,9 +1,9 @@
 """Middleware package for aiohttp server"""
 
+from .auth import auth_middleware
 from .cors import cors_middleware
 from .error_handler import error_middleware
 from .logging_middleware import logging_middleware
-from .auth import auth_middleware
 from .streaming import streaming_middleware
 
 
@@ -19,10 +19,10 @@ def setup_middleware(app):
 
 
 __all__ = [
-    'setup_middleware',
+    'auth_middleware',
     'cors_middleware',
     'error_middleware',
     'logging_middleware',
-    'auth_middleware',
+    'setup_middleware',
     'streaming_middleware'
 ]

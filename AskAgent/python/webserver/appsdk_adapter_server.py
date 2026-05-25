@@ -8,16 +8,18 @@ import json
 import logging
 import os
 import sys
-from typing import Any, Dict, Optional, List
+from typing import Any
 
-from aiohttp import web
 import aiohttp
+from aiohttp import web
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from core.utils.appsdk_adapter import (  # noqa: E402
+import contextlib
+
+from core.utils.appsdk_adapter import (
     build_appsdk_error_response,
     convert_messages_to_appsdk_response,
 )
@@ -25,7 +27,7 @@ from core.utils.appsdk_adapter import (  # noqa: E402
 logger = logging.getLogger(__name__)
 
 
-def _normalize_bool(value: Optional[str], default: bool = False) -> bool:
+def _normalize_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
         return default
     return value.lower() in {"1", "true", "yes", "on"}
@@ -62,8 +64,8 @@ class AppSDKAdapterServer:
     async def handle_ask(self, request: web.Request) -> web.Response:
         params = dict(request.query)
 
-        json_body: Optional[Dict[str, Any]] = None
-        data_body: Optional[Dict[str, Any]] = None
+        json_body: dict[str, Any] | None = None
+        data_body: dict[str, Any] | None = None
 
         if request.method == "POST" and request.can_read_body:
             if request.content_type == "application/json":
@@ -97,7 +99,7 @@ class AppSDKAdapterServer:
                         return await self._consume_stream(upstream_response, query_value)
                     return await self._transform_non_streaming(upstream_response, query_value)
             else:
-                kwargs: Dict[str, Any] = {
+                kwargs: dict[str, Any] = {
                     "params": params,
                     "headers": forward_headers,
                 }
@@ -119,9 +121,9 @@ class AppSDKAdapterServer:
 
     def _resolve_streaming_choice(
         self,
-        params: Dict[str, Any],
-        json_body: Optional[Dict[str, Any]],
-        data_body: Optional[Dict[str, Any]],
+        params: dict[str, Any],
+        json_body: dict[str, Any] | None,
+        data_body: dict[str, Any] | None,
     ) -> bool:
         if "streaming" in params:
             return _normalize_bool(str(params["streaming"]), default=True)
@@ -140,9 +142,9 @@ class AppSDKAdapterServer:
     def _apply_streaming_flag(
         self,
         use_streaming: bool,
-        params: Dict[str, Any],
-        json_body: Optional[Dict[str, Any]],
-        data_body: Optional[Dict[str, Any]],
+        params: dict[str, Any],
+        json_body: dict[str, Any] | None,
+        data_body: dict[str, Any] | None,
     ) -> None:
         params["streaming"] = "true" if use_streaming else "false"
 
@@ -153,10 +155,10 @@ class AppSDKAdapterServer:
 
     @staticmethod
     def _extract_query_value(
-        params: Dict[str, Any],
-        json_body: Optional[Dict[str, Any]],
-        data_body: Optional[Dict[str, Any]],
-    ) -> Optional[str]:
+        params: dict[str, Any],
+        json_body: dict[str, Any] | None,
+        data_body: dict[str, Any] | None,
+    ) -> str | None:
         if json_body and isinstance(json_body.get("query"), str):
             return json_body["query"]
         if data_body and isinstance(data_body.get("query"), str):
@@ -168,7 +170,7 @@ class AppSDKAdapterServer:
     async def _transform_non_streaming(
         self,
         response: aiohttp.ClientResponse,
-        query: Optional[str],
+        query: str | None,
     ) -> web.Response:
         status = response.status
 
@@ -199,7 +201,7 @@ class AppSDKAdapterServer:
     async def _consume_stream(
         self,
         response: aiohttp.ClientResponse,
-        query: Optional[str],
+        query: str | None,
     ) -> web.Response:
         status = response.status
         if status != 200:
@@ -207,9 +209,9 @@ class AppSDKAdapterServer:
             payload = build_appsdk_error_response(error_text or response.reason, status=status)
             return web.json_response(payload, status=status)
 
-        messages: List[Dict[str, Any]] = []
-        partial_warning: Optional[str] = None
-        stream_error: Optional[str] = None
+        messages: list[dict[str, Any]] = []
+        partial_warning: str | None = None
+        stream_error: str | None = None
 
         try:
             async for raw_line in response.content:
@@ -291,7 +293,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(main())
-    except KeyboardInterrupt:
-        pass

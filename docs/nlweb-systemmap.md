@@ -145,7 +145,7 @@ NLWeb is a natural language search system that provides intelligent query proces
 
 ## Logical Flow of Queries to NLWebHandler
 
-### 1. Request Reception (WebServer.py)
+### 1. Request Reception (webserver/aiohttp_server.py)
 ```
 HTTP Request → Route Matching → Handler Selection → Parameter Parsing
 ```
@@ -253,10 +253,17 @@ Collect Results → Format Conversation → Store to Database
 ```
 
 ## Configuration System
-- **config.yaml** - Main configuration
-- **config_retrieval.yaml** - Retrieval endpoints
+All configuration files are in the `config/` directory:
+- **config_nlweb.yaml** - Main NLWeb settings (sites, search behavior)
 - **config_llm.yaml** - LLM provider settings
-- **oauth_config.yaml** - OAuth provider configuration
-- **Site-specific configs** - Per-site customization
+- **config_embedding.yaml** - Embedding model settings
+- **config_retrieval.yaml** - Retrieval endpoints (vector stores)
+- **config_webserver.yaml** - Web server settings (port, SSL, CORS)
+- **config_conv_store.yaml** - Conversation storage settings
+- **config_oauth.yaml** - OAuth provider configuration
+- **config_logging.yaml** - Logging configuration
+- **prompts.xml** - Prompt templates
+- **tools.xml** - Tool definitions
+- **sites.xml** - Site-specific configuration
 
 The system is designed for extensibility, supporting multiple vector databases, LLM providers, and specialized tools while maintaining a consistent API interface.

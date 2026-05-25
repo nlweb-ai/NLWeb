@@ -9,23 +9,24 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-from core.prompts import PromptRunner
-from core.fastTrack import site_supports_standard_retrieval
 import asyncio
+
+from core.fastTrack import site_supports_standard_retrieval
+from core.prompts import PromptRunner
 from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("query_rewrite")
 
 
 class QueryRewrite(PromptRunner):
-    
+
     QUERY_REWRITE_PROMPT_NAME = "QueryRewrite"
     STEP_NAME = "QueryRewrite"
-    
+
     def __init__(self, handler):
         super().__init__(handler)
         self.handler.state.start_precheck_step(self.STEP_NAME)
-        
+
     async def do(self):
         """
         Rewrite the decontextualized query into simpler keyword queries.
@@ -40,21 +41,20 @@ class QueryRewrite(PromptRunner):
         # Wait for decontextualization to complete since we need the decontextualized query
         await self.handler.state._decon_event.wait()
 
-        
+
         try:
             # Run the query rewrite prompt
             response = await self.run_prompt(self.QUERY_REWRITE_PROMPT_NAME, level="high")
-            
+
             if not response:
                 print("No response from QueryRewrite prompt, using original query")
                 self.handler.rewritten_queries = [self.handler.decontextualized_query]
                 await self.handler.state.precheck_step_done(self.STEP_NAME)
                 return
-            
+
             # Extract the rewritten queries from the response
             rewritten_queries = response.get("rewritten_queries", [])
-            query_count = response.get("query_count", 0)
-            
+
             # Validate the response
             if not rewritten_queries or not isinstance(rewritten_queries, list):
                 print("Invalid response from QueryRewrite prompt, using original query")
@@ -62,7 +62,7 @@ class QueryRewrite(PromptRunner):
             else:
                 # Filter out any empty queries and ensure they are strings
                 valid_queries = [q for q in rewritten_queries if q and isinstance(q, str) and q.strip()]
-                
+
                 if not valid_queries:
                     print("No valid rewritten queries, using original query")
                     self.handler.rewritten_queries = [self.handler.decontextualized_query]
@@ -70,7 +70,7 @@ class QueryRewrite(PromptRunner):
                     # Limit to 5 queries maximum
                     self.handler.rewritten_queries = valid_queries[:5]
                     print(f"Generated {len(self.handler.rewritten_queries)} rewritten queries: {self.handler.rewritten_queries}")
-            
+
             # Send a message to the client about the rewritten queries
             if hasattr(self.handler, 'rewritten_queries') and len(self.handler.rewritten_queries) > 1:
                 message = {
@@ -80,12 +80,12 @@ class QueryRewrite(PromptRunner):
                     "query_id": getattr(self.handler, 'query_id', None)
                 }
                 asyncio.create_task(self.handler.send_message(message))
-                
+
         except Exception as e:
             logger.error(f"Error during query rewrite: {e}")
             # On error, fall back to using the original query
             self.handler.rewritten_queries = [self.handler.decontextualized_query]
-            
+
         finally:
             # Always mark the step as done
             await self.handler.state.precheck_step_done(self.STEP_NAME)

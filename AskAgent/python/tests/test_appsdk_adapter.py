@@ -1,13 +1,13 @@
 """Unit tests for AppSDK adapter helpers."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 PYTHON_ROOT = Path(__file__).resolve().parents[1]
 if str(PYTHON_ROOT) not in sys.path:
     sys.path.insert(0, str(PYTHON_ROOT))
 
-from core.utils.appsdk_adapter import (  # noqa: E402
+from core.utils.appsdk_adapter import (
     build_appsdk_error_response,
     convert_messages_to_appsdk_response,
 )

@@ -97,7 +97,7 @@ These instructions assume that you have an [Azure subscription](https://go.micro
     az webapp config set --resource-group yourResourceGroup --name yourWebAppName --startup-file "startup.sh"
     ```
 
-7. Deploy code using ZIP deployment. Do this from within your cloned NLWeb folder, making sure you have set your preferred providers you will use in the 'AskAgent/config' folder before doing this.  If you are not using the 'main' branch, replace this with the branch name to use.  NOTE THAT THIS WILL NOT PICK UP LOCAL CHANGES - any preferred providers must be checked into the specified branch.  
+7. Deploy code using ZIP deployment. Do this from within your cloned NLWeb folder, making sure you have set your preferred providers you will use in the 'config' folder before doing this.  If you are not using the 'main' branch, replace this with the branch name to use.  NOTE THAT THIS WILL NOT PICK UP LOCAL CHANGES - any preferred providers must be checked into the specified branch.  
 
     ```sh
     git archive --format zip --output ./app.zip main
@@ -138,7 +138,7 @@ If you don't have an LLM endpoint already, you can follow these instructions to 
 
 1. Create an Azure OpenAI resource at via the [portal](https://portal.azure.com/#create/Microsoft.CognitiveServicesOpenAI).  Use these [instructions](https://learn.microsoft.com/azure/cognitive-services/openai/how-to/create-resource) as a guide as needed.
     > Notes:
-    > - Make sure you select a region where the models you want to use are available.  Refer to [AOAI Model Summary Table and Region Availability](https://learn.microsoft.com/azure/ai-services/openai/concepts/models?tabs=global-standard%2Cstandard-chat-completions#model-summary-table-and-region-availability) for more info.  To use the Azure OAI defaults of 4.1 and 4.1-mini in the [config_llm.yaml](AskAgent/config/config_llm.yaml), we recommend using `eastus2` or `swedencentral`.
+    > - Make sure you select a region where the models you want to use are available.  Refer to [AOAI Model Summary Table and Region Availability](https://learn.microsoft.com/azure/ai-services/openai/concepts/models?tabs=global-standard%2Cstandard-chat-completions#model-summary-table-and-region-availability) for more info.  To use the Azure OAI defaults of 4.1 and 4.1-mini in the [config_llm.yaml](../config/config_llm.yaml), we recommend using `eastus2` or `swedencentral`.
     > - If you are calling this endpoint locally, make the endpoint accessible from the internet in the network setup step.
 
 2. Once your AOAI resource is created, you'll need to deploy your models within that resource.  This is done from Azure AI Foundry under [Deployments](https://ai.azure.com/resource/deployments). You can see instructions for this at [Azure AI Foundry - Deploy a Model](https://learn.microsoft.com/azure/ai-services/openai/how-to/create-resource?pivots=web-portal#deploy-a-model).

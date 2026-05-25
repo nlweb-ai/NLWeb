@@ -9,25 +9,25 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-import aiohttp
-import aiohttp
 import asyncio
+import json
+import os
+import traceback
+from typing import Any, Dict, List, Optional, Tuple
+
+import aiohttp
+
+import core.query_analysis.analyze_query as analyze_query
+import core.query_analysis.memory as memory
+import core.query_analysis.relevance_detection as relevance_detection
+import core.query_analysis.required_info as required_info
 from core.baseHandler import NLWebHandler
 from core.llm import ask_llm
-from core.prompts import PromptRunner
+from core.prompts import PromptRunner, fill_prompt, find_prompt
 from core.retriever import search
-from core.prompts import find_prompt, fill_prompt
-from core.utils.json_utils import trim_json, trim_json_hard
-from misc.logger.logging_config_helper import get_configured_logger
+from core.utils.json_utils import trim_json_hard
 from core.utils.utils import log
-from typing import Dict, List, Optional, Tuple, Any
-import core.query_analysis.analyze_query as analyze_query
-import core.query_analysis.relevance_detection as relevance_detection
-import core.query_analysis.memory as memory
-import core.query_analysis.required_info as required_info
-import json
-import traceback
-import os
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("generate_answer")
 
@@ -163,9 +163,9 @@ class GenerateAnswer(NLWebHandler):
 
             allowEmptyAnswers = False
             promptName = self.SYNTHESIZE_PROMPT_NAME
-            
+
             distanceRankingResponse = await PromptRunner(self).run_prompt(self.DISTANCE_RANKING_PROMPT_NAME)
- 
+
             if (distanceRankingResponse):
 
                 score = int(distanceRankingResponse.get("score", 0))
@@ -179,28 +179,28 @@ class GenerateAnswer(NLWebHandler):
                     if not location:
                          # If the user's location cannot be determined, we cannot perform distance-based ranking.
                          # In this case, the user is prompted to give their location.
-                        self.final_ranked_answers = []  
-                        promptName = self.SYNTHESIZE_PROMPT_NAME_NO_LOCATION  
-                        allowEmptyAnswers = True  # Allow empty answers if we can't do distance ranking   
-                        
-                    else:                        
+                        self.final_ranked_answers = []
+                        promptName = self.SYNTHESIZE_PROMPT_NAME_NO_LOCATION
+                        allowEmptyAnswers = True  # Allow empty answers if we can't do distance ranking
+
+                    else:
                         # Read the Country of interested from an environment variable.
-                        # This is needed for geocoding the user's location. 
+                        # This is needed for geocoding the user's location.
                         # The code will throw an exception if the environment variable is not set, which is the intended behavior
-                        # since we can't do distance ranking without it. 
+                        # since we can't do distance ranking without it.
                         countryRegion = os.environ["COUNTRY_REGION"]
 
                         if location and countryRegion:
                             await self.do_distance_ranking(location, countryRegion)
-                        else:                        
+                        else:
                             logger.error("Distance Ranking Prompt did not return valid location and/or countryRegion")
 
             else:
                 logger.error("No Distance Ranking response received")
 
             # Synthesize the answer from ranked items
-            logger.info("Ranking completed, synthesizing answer")            
-            await self.synthesizeAnswer(allowEmptyAnswers, promptName)  
+            logger.info("Ranking completed, synthesizing answer")
+            await self.synthesizeAnswer(allowEmptyAnswers, promptName)
 
         except Exception as e:
             logger.exception(f"Error in get_ranked_answers: {e}")
@@ -381,11 +381,11 @@ class GenerateAnswer(NLWebHandler):
             logger.debug(f"Got description for item: {name}")
             return (url, name, site, description["description"], json_str)
         except Exception as e:
-            logger.error(f"Error getting description for {name}: {str(e)}")
+            logger.error(f"Error getting description for {name}: {e!s}")
             logger.debug("Full error trace: ", exc_info=True)
             raise
-    
-    async def synthesizeAnswer(self, allowEmptyAnswers=False, promptName=SYNTHESIZE_PROMPT_NAME): 
+
+    async def synthesizeAnswer(self, allowEmptyAnswers=False, promptName=SYNTHESIZE_PROMPT_NAME):
         if not self.connection_alive_event.is_set():
             logger.warning("Connection lost, skipping answer synthesis")
             return
@@ -404,25 +404,25 @@ class GenerateAnswer(NLWebHandler):
                 }
                 await self.send_message(message)
                 return
-                
+
             response = await PromptRunner(self).run_prompt(promptName, timeout=100, verbose=True)
-            logger.debug(f"Synthesis response received")
+            logger.debug("Synthesis response received")
 
             json_results = []
-            description_tasks = []                        
             answer = response.get("answer", "Something has gone wrong")
-            
-            # Create initial message with just the answer
+
+            # Single message: the synthesized answer already contains all info (address, phone, etc.)
+            # per disaster-relief prompts; we do not attach per-item descriptions.
             message = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": answer, "items": json_results}
-            logger.info("Sending initial answer")
+            logger.info("Sending answer")
             await self.send_message(message)
-                                       
+
         except Exception as e:
             logger.exception(f"Error in synthesizeAnswer: {e}")
             if self.connection_alive_event.is_set():
                 try:
                     error_msg = {"message_type": "nlws", "@type": "GeneratedAnswer", "answer": "I encountered an error while generating your answer. Please try again.", "items": []}
                     await self.send_message(error_msg)
-                except:
+                except Exception:
                     pass
             raise

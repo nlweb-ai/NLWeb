@@ -2,30 +2,30 @@
 # Licensed under the MIT License
 
 """
-Llama on Azure wrapper  
+Llama on Azure wrapper
 
 WARNING: This code is under development and may undergo changes in future releases.
 Backwards compatibility is not guaranteed at this time.
 
 """
 
-import json
-from openai import AsyncAzureOpenAI
-import os
-from core.config import CONFIG
 import asyncio
+import json
 import threading
-import re
-from typing import Dict, Any, Optional
+from typing import Any
 
+from openai import AsyncAzureOpenAI
+
+from core.config import CONFIG
 from llm_providers.llm_provider import LLMProvider
 from misc.logger.logging_config_helper import get_configured_logger
+
 logger = get_configured_logger("llama_azure")
 
 
 class LlamaAzureProvider(LLMProvider):
     """Implementation of LLMProvider for Llama on Azure."""
-    
+
     # Global client with thread-safe initialization
     _client_lock = threading.Lock()
     _client = None
@@ -78,12 +78,12 @@ class LlamaAzureProvider(LLMProvider):
                 endpoint = cls.get_azure_endpoint()
                 api_key = cls.get_api_key()
                 api_version = cls.get_api_version()
-                
+
                 if not all([endpoint, api_key, api_version]):
                     error_msg = "Missing required Llama Azure configuration"
                     logger.error(error_msg)
                     raise ValueError(error_msg)
-                    
+
                 try:
                     cls._client = AsyncAzureOpenAI(
                         azure_endpoint=endpoint,
@@ -92,28 +92,28 @@ class LlamaAzureProvider(LLMProvider):
                         timeout=30.0
                     )
                     logger.info("Llama Azure client initialized successfully")
-                except Exception as e:
+                except Exception:
                     logger.error("Failed to initialize Llama Azure client")
                     return None
-        
+
         return cls._client
 
     @classmethod
-    def clean_response(cls, content: str) -> Dict[str, Any]:
+    def clean_response(cls, content: str) -> dict[str, Any]:
         """Clean and parse Llama response"""
         logger.debug("Cleaning Llama response")
         response_text = content.strip()
         response_text = response_text.replace('```json', '').replace('```', '').strip()
-        
+
         start_idx = response_text.find('{')
         end_idx = response_text.rfind('}') + 1
         if start_idx == -1 or end_idx == 0:
             error_msg = "No valid JSON object found in response"
             logger.error(error_msg)
             return {}
-        
+
         json_str = response_text[start_idx:end_idx]
-        
+
         try:
             result = json.loads(json_str)
             logger.debug("Successfully parsed JSON response")
@@ -125,27 +125,27 @@ class LlamaAzureProvider(LLMProvider):
     async def get_completion(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        model: Optional[str] = None,
+        schema: dict[str, Any],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
         timeout: float = 8.0,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get completion from Llama on Azure"""
         if model is None:
             # Get model from config if not provided
             provider_config = CONFIG.llm_endpoints.get("llama_azure")
             model = provider_config.models.high if provider_config else "llama-2-70b"
-        
+
         logger.info(f"Getting Llama completion with model: {model}")
         logger.debug(f"Temperature: {temperature}, Timeout: {timeout}s")
-        
+
         client = self.get_client()
         system_prompt = f"""You are a helpful assistant that provides responses in JSON format.
 Your response must be valid JSON that matches this schema: {json.dumps(schema)}
 Only output the JSON object, no additional text or explanation."""
-        
+
         try:
             response = await asyncio.wait_for(
                 client.chat.completions.create(
@@ -160,19 +160,19 @@ Only output the JSON object, no additional text or explanation."""
                 ),
                 timeout=timeout
             )
-            
+
             content = response.choices[0].message.content
             logger.debug(f"Raw response length: {len(content)} chars")
-            
+
             result = self.clean_response(content)
             logger.info("Llama completion successful")
             return result
-            
+
         except asyncio.TimeoutError:
             logger.error(f"Llama completion timed out after {timeout}s")
             return {}
         except Exception as e:
-            logger.error(f"Llama completion failed: {type(e).__name__}: {str(e)}")
+            logger.error(f"Llama completion failed: {type(e).__name__}: {e!s}")
             raise
 
 

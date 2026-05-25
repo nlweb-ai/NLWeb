@@ -10,20 +10,21 @@ Backwards compatibility is not guaranteed at this time.
 """
 
 import asyncio
-from misc.logger.logging_config_helper import get_configured_logger
+
+from core.schemas import Message, MessageType, SenderType, create_error_message, create_status_message
 from methods.cricketLens import query_cricket_stats
-from core.schemas import create_status_message, create_error_message, Message, SenderType, MessageType
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("cricket_query")
 
 
-class CricketQueryHandler():
+class CricketQueryHandler:
     """Handler for cricket statistics and match queries."""
-    
+
     def __init__(self, params, handler):
         """
         Initialize the cricket query handler.
-        
+
         Args:
             params: Parameters from tool routing including the cricket query
             handler: The parent handler instance
@@ -31,50 +32,50 @@ class CricketQueryHandler():
         self.handler = handler
         self.params = params
         self.cricket_query = params.get('search_query', '')
-        
+
     async def do(self):
         """Main entry point following NLWeb module pattern."""
         try:
             if not self.cricket_query:
                 await self._send_no_results_message()
                 return
-            
+
             # Send intermediate message
             create_status_message(
                 f"Searching cricket statistics for: {self.cricket_query}",
                 handler=self.handler
             )
-            
+
             # Query the cricket API - returns formatted string
             formatted_response = await query_cricket_stats(self.cricket_query)
-            
+
             if not formatted_response:
                 await self._send_no_results_message()
                 return
-            
+
             # Check for error messages in the response
             if formatted_response.startswith("Error:"):
                 logger.error(f"Cricket API error: {formatted_response}")
                 await self._send_error_message()
                 return
-            
+
             # Send the formatted response as a result
             await self._send_cricket_result(formatted_response)
-            
+
         except Exception as e:
             logger.error(f"Exception during cricket query: {e}")
             await self._send_error_message()
-    
+
     async def _send_cricket_result(self, formatted_response: str):
         """
         Send cricket statistics result to the client.
-        
+
         Args:
             formatted_response: Formatted table string for display
         """
         # Create a simple title based on the query
         title = f"Cricket Statistics: {self.cricket_query}"
-        
+
         # Create a result object in the format expected by frontend
         result_object = {
             "@type": "CricketStatistics",
@@ -89,15 +90,15 @@ class CricketQueryHandler():
                 "has_tables": True
             }
         }
-        
+
         # Send as array of results like other handlers
         result_message = {
             "message_type": "result",
             "content": [result_object]
         }
-        
+
         await self.handler.send_message(result_message)
-        
+
         # Also send a completion message
         completion_msg = Message(
             sender_type=SenderType.SYSTEM,
@@ -106,7 +107,7 @@ class CricketQueryHandler():
             conversation_id=self.handler.conversation_id if hasattr(self.handler, 'conversation_id') else None
         )
         await self.handler.send_message(completion_msg.to_dict())
-    
+
     async def _send_no_results_message(self):
         """Send message when no cricket data is found."""
         # Create no_results message
@@ -117,7 +118,7 @@ class CricketQueryHandler():
             conversation_id=self.handler.conversation_id if hasattr(self.handler, 'conversation_id') else None
         )
         asyncio.create_task(self.handler.send_message(message.to_dict()))
-    
+
     async def _send_error_message(self):
         """Send error message when API call fails."""
         # Create error message and auto-send

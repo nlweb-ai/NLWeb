@@ -5,7 +5,7 @@ This document provides a high-level overview of the integration stack that conne
 **For detailed setup, usage, and deployment instructions, see:**
 - [Main README](../openai-apps-sdk-integration/README.md) - Quick start and development guide
 - [NLWeb Server README](../openai-apps-sdk-integration/nlweb_server_node/README.md) - Server usage and testing
-- [Deployment Guide](../openai-apps-sdk-integration/nlweb_server_node/DEPLOYMENT.md) - Production deployment
+- [Deployment Guide](../openai-apps-sdk-integration/DEPLOYMENT.md) - Production deployment
 
 ## Architecture Overview
 
@@ -237,7 +237,7 @@ Key environment variables:
 
 ## Deployment
 
-**See [DEPLOYMENT.md](../openai-apps-sdk-integration/nlweb_server_node/DEPLOYMENT.md) for complete production deployment guide.**
+**See [DEPLOYMENT.md](../openai-apps-sdk-integration/DEPLOYMENT.md) for complete production deployment guide.**
 
 Production deployment involves:
 1. Upload widget assets to CDN (CloudFlare, AWS S3, Azure Blob)
@@ -264,7 +264,7 @@ curl "https://localhost:8100/ask?query=test&mode=list&streaming=false"
 ### MCP Server
 - [Main README](../openai-apps-sdk-integration/README.md) - Setup and usage
 - [Server README](../openai-apps-sdk-integration/nlweb_server_node/README.md) - Testing and troubleshooting
-- [Deployment Guide](../openai-apps-sdk-integration/nlweb_server_node/DEPLOYMENT.md) - Production deployment
+- [Deployment Guide](../openai-apps-sdk-integration/DEPLOYMENT.md) - Production deployment
 
 ### NLWeb Core
 - [NLWeb REST API](nlweb-rest-api.md)

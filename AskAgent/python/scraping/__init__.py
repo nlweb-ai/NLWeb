@@ -10,21 +10,21 @@ This module provides functionality for:
 Main scripts:
 - markupFromSite.py: Extract markup and optionally generate embeddings
   Usage: python -m code.scraping.markupFromSite <domain>
-  
+
 - crawlAndLoadSite.py: Complete pipeline from crawl to database
   Usage: python -m code.scraping.crawlAndLoadSite <domain>
 """
 
-from .urlsFromSitemap import extract_urls_from_sitemap, process_site_or_sitemap, get_sitemaps_from_robots
 from .expBackOffCrawl import SimpleCrawler
-from .extractMarkup import process_directory, extract_schema_markup, extract_canonical_url
+from .extractMarkup import extract_canonical_url, extract_schema_markup, process_directory
+from .urlsFromSitemap import extract_urls_from_sitemap, get_sitemaps_from_robots, process_site_or_sitemap
 
 __all__ = [
-    'extract_urls_from_sitemap',
-    'process_site_or_sitemap',
-    'get_sitemaps_from_robots',
     'SimpleCrawler',
-    'process_directory',
+    'extract_canonical_url',
     'extract_schema_markup',
-    'extract_canonical_url'
+    'extract_urls_from_sitemap',
+    'get_sitemaps_from_robots',
+    'process_directory',
+    'process_site_or_sitemap'
 ]

@@ -17,10 +17,10 @@ logging:
       default_level: ERROR
       log_file: "llm_wrapper.log"
     
-    azure_openai:
+    azure_oai:
       env_var: "AZURE_OPENAI_LOG_LEVEL"
       default_level: ERROR
-      log_file: "azure_openai.log"
+      log_file: "azure_oai.log"
     
     gemini:
       env_var: "GEMINI_LOG_LEVEL"
@@ -54,7 +54,7 @@ logging:
       default_level: ERROR
       log_file: "prompt_runner.log"
     
-    prompts_manager:
+    prompts:
       env_var: "PROMPTS_LOG_LEVEL"
       default_level: ERROR
       log_file: "prompts.log"
@@ -93,6 +93,27 @@ logging:
       env_var: "WEBSERVER_LOG_LEVEL"
       default_level: ERROR
       log_file: "webserver.log"
+    
+    # Retrieval Provider Modules
+    retriever:
+      env_var: "RETRIEVER_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "retriever.log"
+
+    qdrant_client:
+      env_var: "QDRANT_CLIENT_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "qdrant_client.log"
+
+    qdrant_retrieve:
+      env_var: "QDRANT_RETRIEVE_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "qdrant_retrieve.log"
+
+    qdrant_storage:
+      env_var: "QDRANT_STORAGE_LOG_LEVEL"
+      default_level: ERROR
+      log_file: "qdrant_storage.log"
   
   # Global settings
   global:
@@ -123,6 +144,10 @@ environment_variables:
   FASTTRACK_LOG_LEVEL: "Controls logging for fast track processing"
   PROMPT_RUNNER_LOG_LEVEL: "Controls logging for prompt execution"
   PROMPTS_LOG_LEVEL: "Controls logging for prompt management and parsing"
+  RETRIEVER_LOG_LEVEL: "Controls logging for the retriever module"
+  QDRANT_CLIENT_LOG_LEVEL: "Controls logging for the Qdrant vector client"
+  QDRANT_RETRIEVE_LOG_LEVEL: "Controls logging for Qdrant retrieval operations"
+  QDRANT_STORAGE_LOG_LEVEL: "Controls logging for Qdrant storage operations"
 
 # Production vs Development settings
 profiles:

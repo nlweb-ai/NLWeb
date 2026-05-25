@@ -14,9 +14,9 @@ Join us in building this connected web of agents.
 
 NLWeb has two primary components:
 
-1. **A simple protocol** to interact with a site using natural language. It returns responses in JSON using Schema.org. See [REST API docs](/docs/nlweb-rest-api.md) for details.
+1. **A simple protocol** to interact with a site using natural language. It returns responses in JSON using Schema.org. See the [NLWeb spec](https://nlweb.ai/spec) for details.
 
-2. **A straightforward implementation** that uses existing markup on sites with structured lists (e.g., products, recipes, attractions, reviews). Combined with UI widgets, this enables conversational interfaces to be added with ease. See [Life of a Chat Query](docs/life-of-a-chat-query.md) for more details.
+2. **A straightforward implementation** that uses existing markup on sites with structured lists (e.g., products, recipes, attractions, reviews). Combined with UI widgets, this enables conversational interfaces to be added with ease.
 
 ## NLWeb and MCP/A2A
 
@@ -31,7 +31,7 @@ The response returned uses Schema.org — a widely adopted vocabulary for descri
 NLWeb is platform-agnostic and supports:
 
 * **Operating systems**: Windows, macOS, Linux
-* **Vector stores**: [Qdrant](/docs/setup-qdrant.md), [Snowflake](docs/setup-snowflake.md), [Milvus](/docs/setup-milvus.md), [Azure AI Search](docs/setup-azure.md), [Elasticsearch](docs/setup-elasticsearch.md), [Postgres](docs/setup-postgres.md), [Cloudflare AutoRAG](docs/setup-cloudflare-autorag.md)
+* **Vector stores**: [Qdrant](docs/setup-qdrant.md), [Snowflake](docs/setup-snowflake.md), [Milvus](docs/setup-milvus.md), [Azure AI Search](docs/setup-azure.md), [Elasticsearch](docs/setup-elasticsearch.md), [Postgres](docs/setup-postgres.md), [Cloudflare AutoRAG](docs/setup-cloudflare-autorag.md)
 * **LLMs**: OpenAI, DeepSeek, Gemini, Anthropic, Inception, [HuggingFace](docs/setup-huggingface.md)
 
 It is designed to be lightweight and scalable — capable of running on everything from data center clusters to laptops and, soon, mobile devices.
@@ -44,6 +44,15 @@ This repository is organized into the following modules:
 * **[AgentFinder](AgentFinder/)** — Agent discovery service for finding and routing to NLWeb agents across the web.
 * **[DataFinder](DataFinder/)** — Natural language to SQL translator for enterprise data sources (HubSpot, Dynamics 365, Jira) using schema.org-based ontology mappings.
 * **[ModelRouter](ModelRouter/)** — LLM model routing and scoring, selecting cost-effective models that meet quality thresholds.
+* **[NLWebScorer](NLWebScorer/)** — Neural scorer models for ranking and evaluating search result quality.
+
+Supporting directories:
+
+* **[config](config/)** — YAML configuration files for LLM providers, embedding models, retrieval backends, and web server settings.
+* **[static](static/)** — Frontend web UI assets (HTML, CSS, JavaScript) served by the web server.
+* **[demo](demo/)** — Demo scripts and example data sources for getting started.
+* **[scripts](scripts/)** — CLI utilities and helper scripts.
+* **[docs](docs/)** — Full documentation.
 
 Most production deployments will:
 
@@ -57,13 +66,11 @@ Most production deployments will:
 
 * [Hello world on your laptop](docs/nlweb-hello-world.md)
 * [Running it on Azure](docs/setup-azure.md)
-* [Running with Docker](docs/setup-docker.md)
 * Running on GCP — *coming soon*
 * Running on AWS — *coming soon*
 
 ### NLWeb Details
 
-* [Life of a Chat Query](docs/life-of-a-chat-query.md)
 * [Modifying Prompts](docs/nlweb-prompts.md)
 * [Changing Control Flow](docs/nlweb-control-flow.md)
 * [Modifying the User Interface](docs/nlweb-user-interface.md)

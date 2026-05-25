@@ -8,23 +8,18 @@ WARNING: This code is under development and may undergo changes in future releas
 Backwards compatibility is not guaranteed at this time.
 """
 
-import os
+import asyncio
 import json
 import re
-import logging
-import asyncio
-from typing import Dict, Any, List, Optional
+import threading
+from typing import Any
 
 from openai import AsyncOpenAI
+
 from core.config import CONFIG
-import threading
-from misc.logger.logging_config_helper import get_configured_logger
-from misc.logger.logger import LogLevel
-
-
 from llm_providers.llm_provider import LLMProvider
+from misc.logger.logging_config_helper import get_configured_logger
 
-from misc.logger.logging_config_helper import get_configured_logger, LogLevel
 logger = get_configured_logger("llm")
 
 
@@ -38,7 +33,7 @@ class ConfigurationError(RuntimeError):
 
 class OpenAIProvider(LLMProvider):
     """Implementation of LLMProvider for OpenAI API."""
-    
+
     _client_lock = threading.Lock()
     _client = None
 
@@ -64,7 +59,7 @@ class OpenAIProvider(LLMProvider):
         return cls._client
 
     @classmethod
-    def _build_messages(cls, prompt: str, schema: Dict[str, Any]) -> List[Dict[str, str]]:
+    def _build_messages(cls, prompt: str, schema: dict[str, Any]) -> list[dict[str, str]]:
         """
         Construct the system and user message sequence enforcing a JSON schema.
         """
@@ -80,7 +75,7 @@ class OpenAIProvider(LLMProvider):
         ]
 
     @classmethod
-    def clean_response(cls, content: str) -> Dict[str, Any]:
+    def clean_response(cls, content: str) -> dict[str, Any]:
         """
         Strip markdown fences and extract the first JSON object.
         """
@@ -94,13 +89,13 @@ class OpenAIProvider(LLMProvider):
     async def get_completion(
         self,
         prompt: str,
-        schema: Dict[str, Any],
-        model: Optional[str] = None,
+        schema: dict[str, Any],
+        model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
         timeout: float = 30.0,
         **kwargs
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send an async chat completion request and return parsed JSON output.
         """
@@ -109,7 +104,7 @@ class OpenAIProvider(LLMProvider):
             provider_config = CONFIG.llm_endpoints["openai"]
             # Use the 'high' model for completions by default
             model = provider_config.models.high
-        
+
         client = self.get_client()
         messages = self._build_messages(prompt, schema)
 

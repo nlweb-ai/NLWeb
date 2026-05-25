@@ -6,15 +6,16 @@ Elasticsearch storage provider for conversation history.
 """
 
 import uuid
-from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
+from typing import Any
 
 from elasticsearch import AsyncElasticsearch
-from core.schemas import ConversationEntry
+
 from core.conversation_history import StorageProvider
 from core.embedding import get_embedding
-from misc.logger.logging_config_helper import get_configured_logger
+from core.schemas import ConversationEntry
 from misc.logger.logger import LogLevel
+from misc.logger.logging_config_helper import get_configured_logger
 
 logger = get_configured_logger("elasticsearch_storage")
 
@@ -25,7 +26,7 @@ class ElasticsearchStorageProvider(StorageProvider):
         """Initialize the Elasticsearch storage provider."""
         # Client initialization happens lazily in _get_es_client
         pass
-    
+
     def __init__(self, config):
         """
         Initialize Elasticsearch storage provider.
@@ -35,38 +36,38 @@ class ElasticsearchStorageProvider(StorageProvider):
         """
         self.config = config
         self.index_name = config.collection_name or 'nlweb_conversations'
-        
+
         # Check Elasticsearch settings
         if self.config.type != 'elasticsearch':
             error_msg = f"Invalid storage type: {self.config.type}. Expected 'elasticsearch'."
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         if self.config.url is None:
-            error_msg = f"The ELASTICSEARCH_URL env is empty for Elasticsearch storage"
+            error_msg = "The ELASTICSEARCH_URL env is empty for Elasticsearch storage"
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         if self.config.api_key is None:
-            error_msg = f"The ELASTICSEARCH_API_KEY env is empty for Elasticsearch storage"
+            error_msg = "The ELASTICSEARCH_API_KEY env is empty for Elasticsearch storage"
             logger.error(error_msg)
             raise ValueError(error_msg)
-        
+
         self.es_client = None
 
     async def _get_es_client(self) -> AsyncElasticsearch:
         """
         Get or initialize Elasticsearch client.
-        
+
         Returns:
             AsyncElasticsearch: Elasticsearch async client instance
         """
         if self.es_client:
             return self.es_client
-       
+
         try:
             logger.info(f"Initializing Elasticsearch client for storage provider on index '{self.index_name}'")
-            
+
             # Create client with the determined parameters
             client = AsyncElasticsearch(hosts=self.config.url, api_key=self.config.api_key)
 
@@ -77,16 +78,16 @@ class ElasticsearchStorageProvider(StorageProvider):
             return self.es_client
 
         except Exception as e:
-            logger.exception(f"Failed to initialize Elasticsearch client: {str(e)}")
+            logger.exception(f"Failed to initialize Elasticsearch client: {e!s}")
             raise
 
     async def _create_index_if_not_exists(self, client: AsyncElasticsearch) -> bool:
         """
         Create the Elasticsearch index with proper vector mapping if it doesn't exist.
-        
+
         Args:
             index_name: Optional index name (defaults to configured index name)
-            
+
         Returns:
             bool: True if index was created, False if it already existed
         """
@@ -94,7 +95,7 @@ class ElasticsearchStorageProvider(StorageProvider):
         if await client.indices.exists(index = self.index_name):
             logger.info(f"Index {self.index_name} already exists")
             return False
-        
+
         vector_type = self.config.vector_type or {
             "type": "dense_vector"
         }
@@ -132,14 +133,14 @@ class ElasticsearchStorageProvider(StorageProvider):
                 "type": "text"
             }
         }
-        
+
         try:
-            await client.indices.create(index=self.index_name, mappings={'properties' : properties})           
+            await client.indices.create(index=self.index_name, mappings={'properties' : properties})
             logger.info(f"Successfully created index {self.index_name} with vector mapping")
             return True
-                
+
         except Exception as e:
-            error_details = str(e)           
+            error_details = str(e)
             logger.exception(f"Error creating index {self.index_name}: {error_details}")
             logger.log_with_context(
                 LogLevel.ERROR,
@@ -156,11 +157,11 @@ class ElasticsearchStorageProvider(StorageProvider):
     async def __aenter__(self):
         """Async context manager entry"""
         return self
-        
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit"""
         await self.close()
-    
+
     async def close(self):
         """Close the Elasticsearch client connections"""
         if self.es_client:
@@ -168,17 +169,17 @@ class ElasticsearchStorageProvider(StorageProvider):
                 await self.es_client.close()
                 logger.debug("Elasticsearch client connection closed")
             except Exception as e:
-                logger.warning(f"Error closing Elasticsearch client: {str(e)}")
+                logger.warning(f"Error closing Elasticsearch client: {e!s}")
             finally:
                 self.es_client = None
-    
-    async def add_conversation(self, user_id: str, site: str, thread_id: Optional[str], 
-                             user_prompt: str, response: str, embedding: Optional[List[float]] = None,
-                             summary: Optional[str] = None, main_topics: Optional[List[str]] = None,
-                             participants: Optional[List[Dict[str, Any]]] = None) -> ConversationEntry:
+
+    async def add_conversation(self, user_id: str, site: str, thread_id: str | None,
+                             user_prompt: str, response: str, embedding: list[float] | None = None,
+                             summary: str | None = None, main_topics: list[str] | None = None,
+                             participants: list[dict[str, Any]] | None = None) -> ConversationEntry:
         """
         Add a conversation to storage.
-        
+
         If thread_id is None, creates a new thread_id.
         Creates conversation_id and computes embedding from user_prompt + response if not provided.
 
@@ -203,16 +204,16 @@ class ElasticsearchStorageProvider(StorageProvider):
             if thread_id is None:
                 thread_id = str(uuid.uuid4())
                 logger.info(f"Created new thread_id: {thread_id}")
-            
+
             # Generate conversation_id
             conversation_id = str(uuid.uuid4())
-            
+
             # Generate embedding if not provided
             if embedding is None:
                 # Combine user prompt and response for better context
                 conversation_text = f"User: {user_prompt}\nAssistant: {response}"
                 embedding = await get_embedding(conversation_text)
-            
+
             # Create conversation entry
             entry = ConversationEntry(
                 user_id=user_id,
@@ -227,7 +228,7 @@ class ElasticsearchStorageProvider(StorageProvider):
                 main_topics=main_topics,
                 participants=participants
             )
-            
+
             # Store in Elasticsearch
             document = {
                 "conversation_id": entry.conversation_id,
@@ -239,7 +240,7 @@ class ElasticsearchStorageProvider(StorageProvider):
                 "time_of_creation": entry.time_of_creation.isoformat(),
                 "embedding": entry.embedding
             }
-            
+
             # Add optional fields if provided
             if entry.summary:
                 document["summary"] = entry.summary
@@ -247,20 +248,20 @@ class ElasticsearchStorageProvider(StorageProvider):
                 document["main_topics"] = entry.main_topics
             if entry.participants:
                 document["participants"] = entry.participants
-            
+
             await client.index(
                 index=self.index_name,
                 document=document
             )
-            
+
             logger.debug(f"Stored conversation {entry.conversation_id} in thread {entry.thread_id}")
             return entry
-            
+
         except Exception as e:
             logger.error(f"Failed to add conversation: {e}")
             raise
-    
-    async def get_conversation_thread(self, thread_id: str, user_id: Optional[str] = None) -> List[ConversationEntry]:
+
+    async def get_conversation_thread(self, thread_id: str, user_id: str | None = None) -> list[ConversationEntry]:
         """
         Retrieve all conversations in a thread.
 
@@ -313,66 +314,66 @@ class ElasticsearchStorageProvider(StorageProvider):
                 ))
 
             return conversations
-            
+
         except Exception as e:
             logger.error(f"Failed to get conversation thread: {e}")
             return []
-    
-    async def get_conversation_by_id(self, conversation_id: str, limit: Optional[int] = None) -> Dict[str, Any]:
+
+    async def get_conversation_by_id(self, conversation_id: str, limit: int | None = None) -> dict[str, Any]:
         """
         Retrieve all conversations with the given conversation_id.
-        
+
         Args:
             conversation_id: The conversation ID to retrieve
             limit: Optional limit to return only the N most recent exchanges
-            
+
         Returns:
             Dict containing all conversation exchanges as events
         """
         try:
             client = await self._get_es_client()
-            
+
             # Search for all conversations with this ID
             # Use a high default limit if none specified
             search_limit = limit if limit else 1000
-            
+
             query = {
                 "term": {
                     "conversation_id": conversation_id
                 }
             }
-            
+
             # Sort by time_of_creation ascending
             sort = [{"time_of_creation": {"order": "asc"}}]
-            
+
             response = await client.search(
                 index=self.index_name,
                 query=query,
                 size=search_limit,
                 sort=sort
             )
-            
+
             if response['hits']['total']['value'] == 0:
                 return []
-            
+
             # Extract all events - just pass through the raw data
             events = []
             for hit in response['hits']['hits']:
                 events.append(hit['_source'])
-            
+
             # If limit is specified and we have more events, take only the N most recent
             # Events are already sorted by time ascending, so take the last N
             if limit and len(events) > limit:
                 events = events[-limit:]
-            
+
             # Return just the array of events
             return events
-            
+
         except Exception as e:
             logger.error(f"Failed to get conversation by ID: {e}")
             return []
-    
-    async def get_recent_conversations(self, user_id: str, site: str, limit: int = 50) -> List[Dict[str, Any]]:
+
+    async def get_recent_conversations(self, user_id: str, site: str, limit: int = 50) -> list[dict[str, Any]]:
         """
         Retrieve the N most recent conversations for a user and site, grouped by thread.
         Returns thread objects with conversations sorted by date (oldest first within each thread).
@@ -408,7 +409,7 @@ class ElasticsearchStorageProvider(StorageProvider):
                     ]
                 }
             }
-            
+
             # Only filter by site if it's not 'all'
             if site != 'all':
                 query["bool"]["filter"].append(
@@ -431,7 +432,7 @@ class ElasticsearchStorageProvider(StorageProvider):
             threads = {}
             for conv in conversations:
                 thread_id = conv["_source"]["thread_id"]
-                if not thread_id in threads:
+                if thread_id not in threads:
                     threads[thread_id] = {
                         "id": thread_id,
                         "site": conv["_source"]["site"],
@@ -455,9 +456,9 @@ class ElasticsearchStorageProvider(StorageProvider):
         except Exception as e:
             logger.error(f"Failed to get recent conversations: {e}")
             return []
-    
-    
-    async def delete_conversation(self, conversation_id: str, user_id: Optional[str] = None) -> bool:
+
+
+    async def delete_conversation(self, conversation_id: str, user_id: str | None = None) -> bool:
         """
         Delete a specific conversation entry.
 
@@ -478,7 +479,7 @@ class ElasticsearchStorageProvider(StorageProvider):
                     ]
                 }
             }
-            
+
             if user_id:
                 query["bool"]["must"].append(
                     {"match": {"user_id": user_id}}
@@ -499,9 +500,9 @@ class ElasticsearchStorageProvider(StorageProvider):
         except Exception as e:
             logger.error(f"Failed to delete conversation: {e}")
             return False
-        
-    async def search_conversations(self, query: str, user_id: Optional[str] = None, 
-        site: Optional[str] = None, limit: int = 10) -> List[ConversationEntry]:
+
+    async def search_conversations(self, query: str, user_id: str | None = None,
+        site: str | None = None, limit: int = 10) -> list[ConversationEntry]:
         """
         Search conversations using vector similarity and text search (hybrid search).
         It uses Reciprocal Rank Fusion (RRF) to combine results from both text and vector search.
@@ -543,7 +544,7 @@ class ElasticsearchStorageProvider(StorageProvider):
             }
             if "filter" in standard_query["standard"]:
                 knn_filter = {"filter": standard_query["standard"]["filter"]}
-            else:  
+            else:
                 knn_filter = {}
 
             retriever = {
@@ -595,4 +596,3 @@ class ElasticsearchStorageProvider(StorageProvider):
         except Exception as e:
             logger.error(f"Failed to search conversations: {e}")
             return []
-        
