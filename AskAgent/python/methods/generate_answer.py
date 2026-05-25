@@ -16,6 +16,7 @@ import traceback
 from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
+from azure.identity import DefaultAzureCredential
 
 import core.query_analysis.analyze_query as analyze_query
 import core.query_analysis.memory as memory
@@ -50,16 +51,34 @@ class GenerateAnswer(NLWebHandler):
         logger.info(f"GenerateAnswer initialized with query_params: {query_params}")
         log(f"GenerateAnswer query_params: {query_params}")
 
-        self.azure_maps_api_key = os.environ["AZURE_MAPS_API_KEY"] 
-        self.azure_maps_client_id = os.environ["AZURE_MAPS_CLIENT_ID"] 
-        self.azure_maps_base_url = os.environ["AZURE_MAPS_ENDPOINT"] 
+        # Read maps config defensively: missing vars must not crash init.
+        # do_distance_ranking() guards on _maps_configured() before issuing calls.
+        self.azure_maps_auth_method = os.environ.get("AZURE_MAPS_AUTH_METHOD", "api_key")
+        self.azure_maps_client_id = os.environ.get("AZURE_MAPS_CLIENT_ID")
+        self.azure_maps_base_url = os.environ.get("AZURE_MAPS_ENDPOINT")
+        self.azure_maps_api_key = os.environ.get("AZURE_MAPS_API_KEY")
+        self._maps_credential: Optional[DefaultAzureCredential] = None
 
-    @property
-    def _headers(self) -> Dict[str, str]:
-        return {
-            "x-ms-client-id": self.azure_maps_client_id,
-            "subscription-key": self.azure_maps_api_key
-        }
+    def _maps_configured(self) -> bool:
+        if not self.azure_maps_base_url or not self.azure_maps_client_id:
+            return False
+        if self.azure_maps_auth_method == "azure_ad":
+            return True
+        return bool(self.azure_maps_api_key)
+
+    async def _headers(self) -> Dict[str, str]:
+        headers = {"x-ms-client-id": self.azure_maps_client_id}
+        if self.azure_maps_auth_method == "azure_ad":
+            if self._maps_credential is None:
+                self._maps_credential = DefaultAzureCredential()
+            # get_token is sync; run in executor to avoid blocking the loop.
+            token = await asyncio.get_event_loop().run_in_executor(
+                None, self._maps_credential.get_token, "https://atlas.microsoft.com/.default"
+            )
+            headers["Authorization"] = f"Bearer {token.token}"
+        else:
+            headers["subscription-key"] = self.azure_maps_api_key
+        return headers
 
     async def runQuery(self):
         try:
@@ -211,6 +230,13 @@ class GenerateAnswer(NLWebHandler):
         # Main entry point to rank results by travel time
         logger.debug(f"Starting distance ranking for: {location}, {country_region}")
 
+        if not self._maps_configured():
+            logger.warning(
+                "Azure Maps not configured (endpoint/client_id missing, or auth_method=api_key with no api_key); "
+                "skipping distance ranking"
+            )
+            return
+
         try:
             async with aiohttp.ClientSession() as session:
                 # 1. Geocode the source
@@ -239,7 +265,7 @@ class GenerateAnswer(NLWebHandler):
         # 2. Added 'entityType=PopulatedPlace' to filter out irrelevant POIs
         url = f"{self.azure_maps_base_url}/geocode?api-version=2025-01-01&query={location}, {country_region}&entityType=PopulatedPlace"
                 
-        async with session.get(url, headers=self._headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
+        async with session.get(url, headers=await self._headers(), timeout=aiohttp.ClientTimeout(total=30)) as response:
             if response.status != 200:
                 logger.error(f"Geocoding failed for {location}: Status {response.status}")
                 return None
@@ -308,7 +334,7 @@ class GenerateAnswer(NLWebHandler):
         snap_url = f"{self.azure_maps_base_url}/search/address/reverse/json?api-version=1.0&query={query}"
         
         try:
-            async with session.get(snap_url, headers=self._headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
+            async with session.get(snap_url, headers=await self._headers(), timeout=aiohttp.ClientTimeout(total=30)) as response:
                 if response.status == 200:
                     data = await response.json()
                     addresses = data.get("addresses", [])
@@ -338,7 +364,7 @@ class GenerateAnswer(NLWebHandler):
             "destinations": {"type": "MultiPoint", "coordinates": list(snapped_destinations)}
         }
 
-        async with session.post(matrix_url, json=matrix_body, headers=self._headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
+        async with session.post(matrix_url, json=matrix_body, headers=await self._headers(), timeout=aiohttp.ClientTimeout(total=30)) as response:
             if response.status == 200:
                 data = await response.json()
                 # The response structure is matrix[origin_index][destination_index]
