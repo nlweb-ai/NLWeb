@@ -74,3 +74,9 @@ endpoints:
     models:
       high: claude-3-5-sonnet
       low: llama3.1-8b
+
+  aws_bedrock:
+    llm_type: aws_bedrock
+    models:
+      high: amazon.nova-pro-v1:0
+      low: amazon.nova-micro-v1:0

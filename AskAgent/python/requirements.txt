@@ -83,3 +83,5 @@ qdrant-client>=1.17.1
 # cloudflare>=4.3.1
 # zon>=3.0.0
 
+# For AWS Bedrock Foundation Models:
+# boto3>=1.38.15

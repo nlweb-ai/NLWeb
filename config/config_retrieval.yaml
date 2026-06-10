@@ -2,8 +2,8 @@ write_endpoint: qdrant_local
 
 endpoints:
 
-#Azure endpoints
-  
+  #Azure endpoints
+
   nlweb_west:
     enabled: true
     api_key_env: NLWEB_WEST_API_KEY
@@ -53,7 +53,7 @@ endpoints:
     api_key_env: MILVUS_TOKEN
     index_name: nlweb_collection
     db_type: milvus
-  
+
   opensearch_knn:
     enabled: false
     # OpenSearch with k-NN plugin enabled (faster, native vector search)
@@ -100,7 +100,7 @@ endpoints:
     index_name: nlweb_collection
     # Specify the database type
     db_type: qdrant
-    
+
   # Option 2: Remote Qdrant server
   qdrant_url:
     enabled: false

@@ -22,7 +22,8 @@ _provider_locks = {
     "gemini": threading.Lock(),
     "azure_openai": threading.Lock(),
     "snowflake": threading.Lock(),
-    "elasticsearch": threading.Lock()
+    "elasticsearch": threading.Lock(),
+    "aws_bedrock": threading.Lock()
 }
 
 async def get_embedding(
@@ -158,6 +159,17 @@ async def get_embedding(
             await elasticsearch_embedding.close()  # Ensure cleanup
 
             logger.debug(f"Elasticsearch embeddings received, count: {len(result)}")
+            return result
+
+        if provider == "aws_bedrock":
+            logger.debug("Getting AWS Bedrock embeddings")
+            # Import here to avoid potential circular imports
+            from embedding_providers.aws_bedrock_embedding import get_aws_bedrock_embeddings
+            result = await asyncio.wait_for(
+                get_aws_bedrock_embeddings(text, model=model_id, timeout=timeout),
+                timeout=timeout
+            )
+            logger.debug(f"AWS Bedrock embeddings received, dimension: {len(result)}")
             return result
 
         error_msg = f"No embedding implementation for provider '{provider}'"
@@ -303,6 +315,16 @@ async def batch_get_embeddings(
             await elasticsearch_embedding.close()  # Ensure cleanup
 
             logger.debug(f"Elasticsearch batch embeddings received, count: {len(result)}")
+            return result
+    
+        if provider == "aws_bedrock":
+            logger.debug("Getting AWS Bedrock batch embeddings")
+            from embedding_providers.aws_bedrock_embedding import get_aws_bedrock_batch_embeddings
+            result = await asyncio.wait_for(
+                get_aws_bedrock_batch_embeddings(texts, model=model_id, timeout=timeout),
+                timeout=timeout
+            )
+            logger.debug(f"AWS Bedrock batch embeddings received, count: {len(result)}")
             return result
 
         # Default implementation if provider doesn't match any above
