@@ -6,7 +6,7 @@ jsonschema>=4.26.0
 mcp>=1.27.0
 marshmallow<5.0.0
 packaging>=16.8,<27
-protobuf>=7.34.1,<8
+protobuf>=7.35.1,<8
 matplotlib>=3.10.9
 python-dotenv>=1.0.0
 aiohttp>=3.13.5
