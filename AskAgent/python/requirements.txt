@@ -15,7 +15,7 @@ pyyaml>=6.0.3
 feedparser>=6.0.12
 httpx>=0.28.1
 seaborn>=0.13.2
-openai>=1.12.0
+openai>=2.41.1
 PyJWT>=2.12.1
 
 # Optional LLM provider dependencies
@@ -29,7 +29,7 @@ PyJWT>=2.12.1
 # anthropic>=0.18.1
 
 # For OpenAI (including Azure OpenAI, Llama Azure, DeepSeek Azure):
-# openai>=1.12.0
+# openai>=2.41.1
 
 # For Google Gemini/Vertex AI:
 # google-genai>=0.7.1
