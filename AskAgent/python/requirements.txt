@@ -3,7 +3,7 @@ azure-search-documents>=12.0.0
 azure-identity>=1.25.3
 chardet>=5.2.0
 jsonschema>=4.26.0
-mcp>=1.27.0
+mcp>=1.27.2
 marshmallow<5.0.0
 packaging>=16.8,<27
 protobuf>=7.34.1,<8
