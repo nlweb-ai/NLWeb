@@ -1,20 +1,20 @@
 # Core dependencies - always required
-azure-search-documents>=11.6.0
+azure-search-documents>=12.0.0
 azure-identity>=1.25.3
 chardet>=5.2.0
-jsonschema>=4.19.1
+jsonschema>=4.26.0
 mcp>=1.27.0
 marshmallow<5.0.0
 packaging>=16.8,<27
 protobuf>=7.34.1,<8
-matplotlib>=3.8.0
+matplotlib>=3.10.9
 python-dotenv>=1.0.0
 aiohttp>=3.13.5
 aiofiles>=25.1.0
 pyyaml>=6.0.3
 feedparser>=6.0.12
 httpx>=0.28.1
-seaborn>=0.13.0
+seaborn>=0.13.2
 openai>=1.12.0
 PyJWT>=2.12.1
 
@@ -51,14 +51,14 @@ PyJWT>=2.12.1
 
 # For Azure AI Search:
 # azure-core>=1.30.0
-# azure-search-documents>=11.6.0
+# azure-search-documents>=12.0.0
 
 # For Milvus:
 # pymilvus>=1.1.0
 # numpy
 
 # For Qdrant (enabled by default for qdrant_local):
-qdrant-client>=1.17.0
+qdrant-client>=1.17.1
 
 # For OpenSearch or Snowflake (both use httpx):
 # httpx>=0.28.1
